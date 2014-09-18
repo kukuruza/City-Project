@@ -1,7 +1,8 @@
 # ignore all the videos, etc.
-data
-results
-build
+data/
+results/
+build/
+bin/
 
 # temporary from gedit
 ##################
