@@ -19,9 +19,9 @@ function demo_cascade()
 
 startup;
 
-fprintf('compiling the code...');
-compile;
-fprintf('done.\n\n');
+%fprintf('compiling the code...');
+%compile;
+%fprintf('done.\n\n');
 
 fprintf(['\n\n' ...
          '              ~~~~~~~~~~~ README ~~~~~~~~~~~\n' ...
@@ -69,6 +69,9 @@ csc_model = cascade_model(model, '2007', pca, thresh);
 orig_model.thresh = csc_model.thresh;
 
 fprintf('Building the feature pyramid...');
+
+reduceboxes
+return
 
 th = tic();
 pyra = featpyramid(double(im), csc_model);
