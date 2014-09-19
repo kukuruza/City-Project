@@ -75,17 +75,17 @@ if nargin < 3
   %   (0) is fastest, (2) is slowest 
 
   % 0) multithreaded convolution using SSE
-  eval([mexcmd ' gdetect/fconvsse.cc -o fconv']);
+  eval([mexcmd ' gdetect/fconvsse.cc -output fconv']);
   % 1) multithreaded convolution
-  %eval([mexcmd ' gdetect/fconv_var_dim_MT.cc -o fconv']);
+  %eval([mexcmd ' gdetect/fconv_var_dim_MT.cc -output fconv']);
   % 2) basic convolution, very compatible
-  %eval([mexcmd ' gdetect/fconv_var_dim.cc -o fconv']);
+  %eval([mexcmd ' gdetect/fconv_var_dim.cc -output fconv']);
 
   % Convolution routine that can handle feature dimenions other than 32
   % 0) multithreaded convolution
-  eval([mexcmd ' gdetect/fconv_var_dim_MT.cc -o fconv_var_dim']);
+  eval([mexcmd ' gdetect/fconv_var_dim_MT.cc -output fconv_var_dim']);
   % 1) single-threaded convolution
-  % eval([mexcmd ' gdetect/fconv_var_dim.cc -o fconv_var_dim']);
+  % eval([mexcmd ' gdetect/fconv_var_dim.cc -output fconv_var_dim']);
 else
   eval([mexcmd ' ' mex_file]);
 end
