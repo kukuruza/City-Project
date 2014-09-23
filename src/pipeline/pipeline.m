@@ -13,7 +13,6 @@ backSubtractor = BackgroundSubtractor(im0);
 
 geom = GeometryEstimator(im0);
 
-
 i = 2;
 while 1
     
@@ -25,9 +24,10 @@ while 1
     foregroundMask = backSubtractor.subtract(im);
     
     % morphological operation with foreground mask
+    %ROIs = 
     
     % geometry should process the mask
-    [ROIs, scales, orientation] = geom.guess(foregroundMask);
+    %[scales, orientation] = geom.guess(foregroundMask, ROIs);
     
     assert (isempty(ROIs) || size(ROIs,1) == 4);
     assert (isempty(scale) || isvector(scale));
