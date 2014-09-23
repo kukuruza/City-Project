@@ -48,6 +48,7 @@ set(gcf, 'Color', 'white');
 
 if ~isempty(boxes)
   numfilters = floor(size(boxes, 2)/4);
+  numfilters
   if print
     % if printing, increase the contrast around the boxes
     % by printing a white box under each color box
