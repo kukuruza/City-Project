@@ -70,9 +70,6 @@ orig_model.thresh = csc_model.thresh;
 
 fprintf('Building the feature pyramid...');
 
-reduceboxes
-return
-
 th = tic();
 pyra = featpyramid(double(im), csc_model);
 tF = toc(th);
