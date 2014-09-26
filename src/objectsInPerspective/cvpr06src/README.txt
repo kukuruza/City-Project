@@ -65,7 +65,7 @@ Geometry:
 Classifiers are provided in the APP package.  
 
 The geometry prior P(g) and
-interaction likelihoods P(g|o) must be provided.  We include values for 
+interaction likelih oods P(g|o) must be provided.  We include values for 
 cars and people (along with prior) in pG_car_ppl.mat.  
 
 
