@@ -23,10 +23,7 @@ while 1
     gray = rgb2gray(im);
     
     % subtract backgroubd and return mask
-    foregroundMask = backSubtractor.subtract(gray);
-    
-    % morphological operation with foreground mask
-    %ROIs = 
+    [foregroundMask, ROIs] = backSubtractor.subtract(gray);
     
     % geometry should process the mask
     %[scales, orientation] = geom.guess(foregroundMask, ROIs);

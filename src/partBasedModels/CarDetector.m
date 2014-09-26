@@ -16,6 +16,12 @@ classdef CarDetector < handle
             cd ..
         end
         
+        % car:
+        %      bboxes:    N x {x1 y1 x2 y2}
+        %      score:     the more the more certain
+        %      component: the view of the car
+        %      orig:      for showboxes.m - original format
+        %
         function cars = detect (detector, colorim)
             cd('voc-dpm-voc-release5.02');
 
@@ -25,10 +31,10 @@ classdef CarDetector < handle
             
             % copy to cars structure
             for i = 1 : size(bboxes,1)
-                cars{i}.bboxes = bboxes(i,1:end-2);
+                cars{i}.bboxes = reshape(bboxes(i,1:end-2), [4 length(bboxes(i,1:end-2))/4])';
                 cars{i}.component = bboxes(i,end-1);
                 cars{i}.score = bboxes(i,end);
-                cars{i}.orig = bboxes(i);
+                cars{i}.orig = bboxes(i,:);
             end
             
             cd ..

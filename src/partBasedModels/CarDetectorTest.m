@@ -9,6 +9,7 @@ modelPath = '/Users/evg/projects/City-Project/src/partBasedModels/voc-dpm-voc-re
 
 detector = CarDetector(modelPath);
 
+offset = [190 190];
 ROIs = [190 190 280 280];
 i = 1;
 roi = ROIs (i,:);
@@ -18,7 +19,17 @@ tic;
 cars = detector.detect(patch);
 toc
 
+for i = 1 : length(cars)
+    car = cars{i};
+    orig = reshape(car.orig(1:end-2), [4 length(car.orig(1:end-2))/4])';
+    orig = [orig(:,1) + offset(1), orig(:,2) + offset(2), ...
+            orig(:,3) + offset(1), orig(:,4) + offset(2)];
+    cars{i}.orig(1:40) = reshape(orig', [1 numel(orig)]);
+end
+
+cd voc-dpm-voc-release5.02
 showboxes(im, cars{1}.orig);
+cd ..
 
 return
 
