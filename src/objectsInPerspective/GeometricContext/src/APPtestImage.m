@@ -63,7 +63,11 @@ for m = 1:num_maps
     
     %cluster_image = get_cluster_overlay_s2(rgb2gray(image), currMap, imsegs.segimage);                                
     %imwrite(cluster_image, ['../results/tmp/alley09.c.' num2str(max(currMap)) '.jpg'], 'Quality', 80);    
-    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %Satwik Edit
+    %Printing the current iteration
+    fprintf('Testing iterations : %d / %d \n', m, num_maps);
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     currNSegments = max(currMap(:));
     
     regionFeatures = APPgetRegionFeatures(image, imsegs, currMap, (1:currNSegments), spdata, vpdata);    

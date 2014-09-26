@@ -14,7 +14,21 @@ detector = CarDetector(modelPath, '2010', 5, -0.5);
 
 subtractor = BackgroundSubtractor();
 
-%geom = GeometryEstimator(im0);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Geometry Part
+%Currently, takes the initialization image - predicts ground, vertical
+%surfaces and sky. This can be used to narrow down the search for
+%vehicles
+
+%Constructor
+geom = GeometryEstimator();
+fprintf('Estimating the 3D geometry of the scene...\n');
+[cMaps, cMapNames] = geom.getConfidenceMaps(im0);
+%cMaps{1}(:,:,1) = confidence map for ground
+%cMaps{1}(:,:,2) = confidence map for vertical surfaces
+%cMaps{1}(:,:,3) = confidence map for sky
+fprintf('Estimation done :D \n');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 i = 1;
 while 1
@@ -43,6 +57,7 @@ while 1
     end
     
     % HMM processing
+    
     
     % counting
     
