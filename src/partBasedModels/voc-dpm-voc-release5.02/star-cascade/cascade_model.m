@@ -21,7 +21,6 @@ function model = cascade_model(model, data_year, pca, thresh)
 
 conf = voc_config('pascal.year', data_year);
 cscdir = conf.cascade.data_dir;
-cscdir
 disp('');
 
 %model = project_model_adapt(model, pca);

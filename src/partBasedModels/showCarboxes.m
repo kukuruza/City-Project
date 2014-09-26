@@ -1,4 +1,4 @@
-function showboxes(im, boxes, out)
+function showCarboxes(im, car, out)
 % Draw bounding boxes on top of an image.
 %   showboxes(im, boxes, out)
 %
@@ -32,7 +32,7 @@ if nargin > 2
   im = imresize(im, scale, 'method', 'cubic');
   %f = fspecial('gaussian', [3 3], 0.5);
   %im = imfilter(im, f);
-  boxes = (boxes-1)*scale+1;
+  boxes = (car.boxes-1)*scale+1;
 else
   print = false;
   cwidth = 2;

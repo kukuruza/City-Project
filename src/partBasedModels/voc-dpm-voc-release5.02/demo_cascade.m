@@ -35,12 +35,12 @@ load('VOC2007/car_final');
 test('000034.jpg', model);
 fprintf('\nPress any key to continue with demo'); pause; fprintf('...ok\n\n');
 
-load('INRIA/inriaperson_final');
-test('000061.jpg', model);
-fprintf('\nPress any key to continue with demo'); pause; fprintf('...ok\n\n');
-
-load('VOC2007/bicycle_final');
-test('000084.jpg', model);
+% load('INRIA/inriaperson_final');
+% test('000061.jpg', model);
+% fprintf('\nPress any key to continue with demo'); pause; fprintf('...ok\n\n');
+% 
+% load('VOC2007/bicycle_final');
+% test('000084.jpg', model);
 
 
 function test(impath, model);

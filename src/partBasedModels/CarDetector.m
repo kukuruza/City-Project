@@ -1,18 +1,21 @@
 classdef CarDetector < handle
     properties (Hidden)
         model;
+        csc_model;
     end % properties
     methods
         
-        function detector = CarDetector (modelPath) % constructor
+        function detector = CarDetector (modelPath, modelYear, pca, thresh)
             % load the model
             temp = load(modelPath);
             detector.model = temp.model;
             clear temp
             
             % run startup
-            cd voc-dpm-voc-release5.02
-            startup;
+            cd /Users/evg/projects/City-Project/src/partBasedModels/voc-dpm-voc-release5.02
+            %startup;
+            
+            detector.csc_model = cascade_model(detector.model, modelYear, pca, thresh);
             cd ..
         end
         
@@ -22,12 +25,16 @@ classdef CarDetector < handle
         %      component: the view of the car
         %      orig:      for showboxes.m - original format
         %
-        function cars = detect (detector, colorim)
-            cd('voc-dpm-voc-release5.02');
+        function cars = detect (detector, im)
+            %cd('voc-dpm-voc-release5.02');
 
             % actual detecting
-            [ds, bs] = process(colorim, detector.model);
-            bboxes = getboxes(detector.model, colorim, ds, reduceboxes(detector.model, bs));
+            pyra = featpyramid(double(im), detector.csc_model);
+            [dCSC, bCSC] = cascade_detect(pyra, detector.csc_model, detector.csc_model.thresh);
+            bboxes = getboxes(detector.csc_model, im, dCSC, bCSC);
+
+            %[ds, bs] = process(colorim, detector.model);
+            %bboxes = getboxes(detector.model, colorim, ds, reduceboxes(detector.model, bs));
             
             % copy to cars structure
             for i = 1 : size(bboxes,1)
@@ -37,7 +44,7 @@ classdef CarDetector < handle
                 cars{i}.orig = bboxes(i,:);
             end
             
-            cd ..
+            %cd ..
         end
     end % methods
 end % classdef

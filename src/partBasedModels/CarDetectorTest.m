@@ -5,15 +5,17 @@
 clear all
 
 im = imread('/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber572/image0024.jpg');
-modelPath = '/Users/evg/projects/City-Project/src/partBasedModels/voc-dpm-voc-release5.02/VOC2010/car_final.mat';
+gray = rgb2gray(im);
 
-detector = CarDetector(modelPath);
+modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
+detector = CarDetector(modelPath, '2010', 5, -0.5);
 
 offset = [190 190];
 ROIs = [190 190 280 280];
 i = 1;
 roi = ROIs (i,:);
-patch = im (roi(2) : roi(4), roi(1) : roi(3));
+%patch = im;
+patch = im (roi(2) : roi(4), roi(1) : roi(3), :);
 
 tic;
 cars = detector.detect(patch);
@@ -25,11 +27,10 @@ for i = 1 : length(cars)
     orig = [orig(:,1) + offset(1), orig(:,2) + offset(2), ...
             orig(:,3) + offset(1), orig(:,4) + offset(2)];
     cars{i}.orig(1:40) = reshape(orig', [1 numel(orig)]);
+    
 end
 
-cd voc-dpm-voc-release5.02
-showboxes(im, cars{1}.orig);
-cd ..
+showCarboxes(im, cars{1}.orig);
 
 return
 

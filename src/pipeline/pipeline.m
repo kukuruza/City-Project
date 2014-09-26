@@ -4,18 +4,19 @@
 %   as if they were coming real-time.
 %
 
+clear all
+
 imDir = '/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber360/';
 imNames = dir ([imDir, 'image*.jpg']);
 
-im0 = imread([imDir, imNames(1).name]);
+modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
+detector = CarDetector(modelPath, '2010', 5, -0.5);
 
 subtractor = BackgroundSubtractor();
 
+%geom = GeometryEstimator(im0);
 
-
-geom = GeometryEstimator(im0);
-
-i = 2;
+i = 1;
 while 1
     
     % read image
@@ -23,22 +24,22 @@ while 1
     gray = rgb2gray(im);
     
     % subtract backgroubd and return mask
-    [foregroundMask, ROIs] = backSubtractor.subtract(gray);
+    [foregroundMask, ROIs] = subtractor.subtract(gray);
     
     % geometry should process the mask
     %[scales, orientation] = geom.guess(foregroundMask, ROIs);
     
     assert (isempty(ROIs) || size(ROIs,1) == 4);
-    assert (isempty(scale) || isvector(scale));
-    assert (size(ROIs,2) == length(scales) && size(ROIs,2) == length(orientations));
+    %assert (isempty(scale) || isvector(scale));
+    %assert (size(ROIs,2) == length(scales) && size(ROIs,2) == length(orientations));
     N = size(ROIs,2);
     
     % actually detect cars
     cars = cell(1,N);
     for j = 1 : N
         roi = ROIs(j,:);
-        patch = gray (roi(2) : roi(4), roi(1) : roi(3));
-        cars(j) =  detectCar(patch, scales(j), orientations(j));
+        patch = im (roi(2) : roi(4), roi(1) : roi(3));
+        cars(j) =  detector.detect(patch);%, scales(j), orientations(j));
     end
     
     % HMM processing
