@@ -9,7 +9,9 @@ imNames = dir ([imDir, 'image*.jpg']);
 
 im0 = imread([imDir, imNames(1).name]);
 
-backSubtractor = BackgroundSubtractor(im0);
+subtractor = BackgroundSubtractor();
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Geometry Part
@@ -35,7 +37,7 @@ while 1
     gray = rgb2gray(im);
     
     % subtract backgroubd and return mask
-    foregroundMask = backSubtractor.subtract(im);
+    foregroundMask = backSubtractor.subtract(gray);
     
     % morphological operation with foreground mask
     %ROIs = 
