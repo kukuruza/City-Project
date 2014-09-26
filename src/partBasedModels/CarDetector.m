@@ -28,6 +28,7 @@ classdef CarDetector < handle
                 cars{i}.bboxes = bboxes(i,1:end-2);
                 cars{i}.component = bboxes(i,end-1);
                 cars{i}.score = bboxes(i,end);
+                cars{i}.orig = bboxes(i);
             end
             
             cd ..
