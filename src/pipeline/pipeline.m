@@ -9,9 +9,8 @@ clear all
 % percentage for expandoing boxes
 ExpandBoxesPerc = 0.2;
 
-imDir = '/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber360/';
-imNames = dir ([imDir, 'image*.jpg']);
-im0 = imread([imDir, imNames(1).name]);
+frameReader = FrameReaderImages(); 
+im0 = frameReader.getNewFrame();
 
 modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
 detector = CarDetector(modelPath, '2010', 5, -0.5);
@@ -39,8 +38,8 @@ while 1
     tic
     
     % read image
-    if t > length(imNames), break, end
-    im = imread([imDir, imNames(t).name]);
+    im = frameReader.getNewFrame();
+    if isempty(im), break, end
     gray = rgb2gray(im);
     
     % subtract backgroubd and return mask
