@@ -32,7 +32,7 @@ if nargin > 2
   im = imresize(im, scale, 'method', 'cubic');
   %f = fspecial('gaussian', [3 3], 0.5);
   %im = imfilter(im, f);
-  boxes = (car.boxes-1)*scale+1;
+  boxes = (car.bboxes-1)*scale+1;
 else
   print = false;
   cwidth = 2;

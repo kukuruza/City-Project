@@ -36,6 +36,9 @@ classdef CarDetector < handle
             %[ds, bs] = process(colorim, detector.model);
             %bboxes = getboxes(detector.model, colorim, ds, reduceboxes(detector.model, bs));
             
+            % default empty output
+            cars = {};
+            
             % copy to cars structure
             for i = 1 : size(bboxes,1)
                 cars{i}.bboxes = reshape(bboxes(i,1:end-2), [4 length(bboxes(i,1:end-2))/4])';
