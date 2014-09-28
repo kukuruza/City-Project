@@ -6,6 +6,9 @@
 
 clear all
 
+% percentage for expandoing boxes
+ExpandBoxesPerc = 0.2;
+
 imDir = '/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber360/';
 imNames = dir ([imDir, 'image*.jpg']);
 im0 = imread([imDir, imNames(1).name]);
@@ -36,6 +39,7 @@ while 1
     tic
     
     % read image
+    if t > length(imNames), break, end
     im = imread([imDir, imNames(t).name]);
     gray = rgb2gray(im);
     
@@ -49,6 +53,8 @@ while 1
     assert (isempty(ROIs) || size(ROIs,2) == 4);
     %assert (isempty(scale) || isvector(scale));
     %assert (size(ROIs,2) == length(scales) && size(ROIs,2) == length(orientations));
+    
+    ROIs = expandboxes (ROIs, ExpandBoxesPerc, im);
     N = size(ROIs,1);
     
     % actually detect cars
@@ -67,10 +73,12 @@ while 1
     tCycle = toc;
     fprintf ('frame %d in %f sec \n', t, tCycle);
     frame_out = im;
-    %for j = 1 : length(cars)
-    %    showCarboxes(frame_out, cars{j}, frame_out);
-    %end
+    for j = 1 : length(cars)
+        showCarboxes(frame_out, cars{j}, frame_out);
+    end
     frame_out = subtractor.drawROIs(frame_out, ROIs);
+    imshow(frame_out);
+    pause(0.5);
     
     t = t + 1;
 end
