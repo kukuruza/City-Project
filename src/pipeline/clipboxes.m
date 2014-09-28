@@ -1,4 +1,4 @@
-function clippedROIs = clipboxes(ROIs, im)
+function clippedBBoxes = clipboxes(bboxes, im)
 % Clip detection windows to image the boundary.
 %   ROIs = clipboxes(ROIs, im)
 %
@@ -8,26 +8,27 @@ function clippedROIs = clipboxes(ROIs, im)
 %   im      Image for the boxes. Only its size is used
 
 
-assert (isempty(ROIs) || size(ROIs,2) == 4);
+assert (isempty(bboxes) || size(bboxes,2) == 4);
 
-if isempty(ROIs)
+if isempty(bboxes)
     return
 end
 
-clippedROIs = [];
+clippedBBoxes = [];
 
-for i = 1 : size(ROIs,1)
-    roi = ROIs(i,:);
+for i = 1 : size(bboxes,1)
+    bbox = bboxes(i,:);
     
     % if completely out of borders, skip
-    if roi(3) <= 1 || roi(4) <= 1 || roi(1) > size(im,2) || roi(2) > size(im,1)
+    if bbox(1) + bbox(3) <= 1 || bbox(1) > size(im,2) || ...
+       bbox(2) + bbox(4) <= 1 || bbox(2) > size(im,1)
         continue;
     end
     
-    roi(1) = max(roi(1), 1);
-    roi(2) = max(roi(2), 1);
-    roi(3) = min(roi(3), size(im,2)+1);
-    roi(4) = min(roi(4), size(im,1)+1);
+    bbox(1) = max(bbox(1), 1);
+    bbox(2) = max(bbox(2), 1);
+    bbox(3) = min(bbox(3) + bbox(1), size(im,2) + 1) - bbox(1);
+    bbox(4) = min(bbox(4) + bbox(2), size(im,1) + 1) - bbox(2);
     
-    clippedROIs = [clippedROIs; roi];
+    clippedBBoxes = [clippedBBoxes; bbox];
 end

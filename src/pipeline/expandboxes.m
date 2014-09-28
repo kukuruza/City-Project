@@ -1,4 +1,4 @@
-function expandedROIs = expandboxes(ROIs, perc, im)
+function expandedBBoxes = expandboxes(bboxes, perc, im)
 % Clip detection windows to image the boundary.
 %   ROIs = clipboxes(ROIs, im)
 %
@@ -9,26 +9,24 @@ function expandedROIs = expandboxes(ROIs, perc, im)
 
 
 % parameters validatation
-assert (isempty(ROIs) || size(ROIs,2) == 4);
+assert (isempty(bboxes) || size(bboxes,2) == 4);
 assert (isscalar(perc));
 assert (ndims(im) >= 2);
-assert (isa(ROIs, 'int32'));
+assert (isa(bboxes, 'int32'));
 
-expandedROIs = ROIs;
+expandedBBoxes = bboxes;
 
-if isempty(ROIs)
+if isempty(bboxes)
     return
 end
 
-for i = 1 : size(ROIs,1)
-    roi = ROIs(i,:);
+for i = 1 : size(bboxes,1)
+    bbox = bboxes(i,:);
+    bbox = bbox + int32([ -bbox(3) * perc, -bbox(4) * perc, ...
+                          bbox(3) * perc, bbox(4) * perc]);
     
-    width  = roi(3) - roi(1);
-    height = roi(4) - roi(2);
-    roi = roi + int32([ -width * perc, -height * perc, width * perc, height * perc]);
-    
-    expandedROIs(i,:) = roi;
+    expandedBBoxes(i,:) = bbox;
 end
 
-expandedROIs = clipboxes(expandedROIs, im);
+expandedBBoxes = clipboxes(expandedBBoxes, im);
 

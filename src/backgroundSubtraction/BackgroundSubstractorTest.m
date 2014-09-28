@@ -16,8 +16,8 @@ videoPlayer = vision.VideoPlayer();
 
 while ~isDone(videoSource)
      frame  = step(videoSource);
-     [mask, ROIs] = subtractor.subtract(frame);
-     frame_out    = subtractor.drawROIs(frame, ROIs);
+     [mask, bboxes] = subtractor.subtract(frame);
+     frame_out     = subtractor.drawboxes(frame, bboxes);
      step(videoPlayer, [uint8(mask)*255 frame_out]);
      pause(0.5)
 end

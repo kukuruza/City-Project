@@ -44,24 +44,24 @@ while 1
     gray = rgb2gray(im);
     
     % subtract backgroubd and return mask
-    % ROIs = N x [x1 y1 x2 y2]
-    [foregroundMask, ROIs] = subtractor.subtract(gray);
+    % bboxes = N x [x1 y1 width height]
+    [foregroundMask, bboxes] = subtractor.subtract(gray);
 
     % geometry should process the mask
-    %[scales, orientation] = geom.guess(foregroundMask, ROIs);
+    %[scales, orientation] = geom.guess(foregroundMask, bboxes);
     
-    assert (isempty(ROIs) || size(ROIs,2) == 4);
+    assert (isempty(bboxes) || size(bboxes,2) == 4);
     %assert (isempty(scale) || isvector(scale));
-    %assert (size(ROIs,2) == length(scales) && size(ROIs,2) == length(orientations));
+    %assert (size(bboxes,2) == length(scales) && size(bboxes,2) == length(orientations));
     
-    ROIs = expandboxes (ROIs, ExpandBoxesPerc, im);
-    N = size(ROIs,1);
+    bboxes = expandboxes (bboxes, ExpandBoxesPerc, im);
+    N = size(bboxes,1);
     
     % actually detect cars
     cars = [];
     for j = 1 : N
-        roi = ROIs(j,:);
-        patch = im (roi(2) : roi(4)-1, roi(1) : roi(3)-1, :);
+        bbox = bboxes(j,:);
+        patch = im (bbox(2) : bbox(4)+bbox(2)-1, bbox(1) : bbox(3)+bbox(1)-1, :);
         carsPatch = detector.detect(patch);%, scales(j), orientations(j));
         cars = [cars; carsPatch];
     end
@@ -76,7 +76,7 @@ while 1
     for j = 1 : length(cars)
         showCarboxes(frame_out, cars{j}, frame_out);
     end
-    frame_out = subtractor.drawROIs(frame_out, ROIs);
+    frame_out = subtractor.drawboxes(frame_out, bboxes);
     imshow(frame_out);
     pause(0.5);
     
