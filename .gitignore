@@ -1,5 +1,6 @@
 # ignore all the videos, etc.
-data/
+#Satwik Edit: Commenting out data to make geometric estimator work
+#data/
 results/
 build/
 bin/
