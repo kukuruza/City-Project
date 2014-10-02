@@ -2,21 +2,21 @@
 %
 
 classdef CarAppearance < Car
-    properties
+    properties (Hidden)
         iFrame;
-        feature;
+        feature = [];
     end
     methods
         function C = CarAppearance (car, iFrame)
-            C = C@Car(); % FIXME: superclass from subclass
+            C = C@Car(car.bbox);
             C.iFrame = iFrame;
         end
         function generateFeature (C, image, imagemask)
-            roi = [C.bbox(2) C.bbox(1) C.bbox(4)+C.bbox(2)-1 C.bbox(3)+C.bbox(1)-1];
+            roi = C.getROI();          % a method of Car
             patch  = image(roi);       % color patch from the image the samesize as bbox
-            mask = imagemask (roi);        % bw mask for the car in the patch
+            mask = imagemask (roi);    % bw mask for the car in the patch
             % logic
-            C.feature = [];
+            C.feature = [];  % TODO: implement
         end
     end % methods
 end
