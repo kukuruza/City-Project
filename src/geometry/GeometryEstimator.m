@@ -30,5 +30,19 @@ classdef GeometryEstimator
                         'inputImage.jpg', [], '');
             cd(obj.returnPath);
         end
+        
+        
+        
+        %% interface for initial map. by Evgeny
+        function mask = getCameraRoadmask (obj)%, camDirName? )
+            
+        end
+        
+        %% interface for probability for a car to move. by Evgeny
+        function prob = getMutualProb (obj, car1, car2, frameDiff)
+            assert (isa(car1, 'Car') && isa(car2, 'Car'));
+            assert (isscalar(frameDiff));
+            
+        end
     end
 end

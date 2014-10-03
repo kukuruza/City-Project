@@ -2,8 +2,9 @@
 rootPathsSetup.m
 
 # ignore all the videos, etc.
-#Satwik Edit: Commenting out data to make geometric estimator work
-#data/
+!src/objectsInPerspective/cvpr06src/data/*
+!src/objectsInPerspective/GeometricContext/data/*
+data/
 results/
 build/
 bin/

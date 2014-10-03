@@ -31,7 +31,7 @@ classdef MetricLearner < handle
             end
             
             % construct similarity matrix with seen cars
-            spatialConstraints = GeometryEstimator.mutualProb (carapps, ML.seenCarapps, 1);
+            spatialConstraints = GeometryEstimator.getMutualProb (carapps, ML.seenCarapps, 1);
             for i = 1 : length(carapps)
                 carapp = carapps(i);
                 for j = 1 : length(ML.seenCarapps)
