@@ -8,7 +8,7 @@ resultDir = fullfile(workingDir,'Result');
 videoName = fullfile(resultDir,'shuttle_out.avi');
 
 
-subtractor = BackgroundSubtractor ();
+subtractor = BackgroundSubtractor (5, 30, 50);
 
 
 videoSource = vision.VideoFileReader(videoName,'ImageColorSpace','Intensity','VideoOutputDataType','uint8');
@@ -16,8 +16,10 @@ videoPlayer = vision.VideoPlayer();
 
 while ~isDone(videoSource)
      frame  = step(videoSource);
-     [mask, blobs, frame_out] = subtractor.subtract(frame);
-     step(videoPlayer, mask);
+     [mask, bboxes] = subtractor.subtract(frame);
+     frame_out     = subtractor.drawboxes(frame, bboxes);
+     step(videoPlayer, [uint8(mask)*255 frame_out]);
+     pause(0.5)
 end
 
 release(videoPlayer);

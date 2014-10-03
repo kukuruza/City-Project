@@ -1,3 +1,6 @@
+# the user-specific paths setup file
+rootPathsSetup.m
+
 # ignore all the videos, etc.
 #Satwik Edit: Commenting out data to make geometric estimator work
 #data/

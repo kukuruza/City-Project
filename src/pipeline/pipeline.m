@@ -6,13 +6,19 @@
 
 clear all
 
-imDir = '/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber360/';
-imNames = dir ([imDir, 'image*.jpg']);
+% setup all the paths
+pipelineSetup;
+
+% percentage for expandoing boxes
+ExpandBoxesPerc = 0.2;
+
+frameReader = FrameReaderImages(); 
+im0 = frameReader.getNewFrame();
 
 modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
 detector = CarDetector(modelPath, '2010', 5, -0.5);
 
-subtractor = BackgroundSubtractor();
+subtractor = BackgroundSubtractor(5, 30);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Geometry Part
@@ -21,45 +27,64 @@ subtractor = BackgroundSubtractor();
 %vehicles
 
 %Constructor
-geom = GeometryEstimator();
-fprintf('Estimating the 3D geometry of the scene...\n');
-[cMaps, cMapNames] = geom.getConfidenceMaps(im0);
+% geom = GeometryEstimator();
+% fprintf('Estimating the 3D geometry of the scene...\n');
+% [cMaps, cMapNames] = geom.getConfidenceMaps(im0);
 %cMaps{1}(:,:,1) = confidence map for ground
 %cMaps{1}(:,:,2) = confidence map for vertical surfaces
 %cMaps{1}(:,:,3) = confidence map for sky
-fprintf('Estimation done :D \n');
+% fprintf('Estimation done :D \n');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-i = 1;
+t = 2;
 while 1
+    tic
     
     % read image
-    im = imread([imDir, imNames(i).name]);
+    im = frameReader.getNewFrame();
+    if isempty(im), break, end
     gray = rgb2gray(im);
     
     % subtract backgroubd and return mask
-    [foregroundMask, ROIs] = subtractor.subtract(gray);
-    
+    % bboxes = N x [x1 y1 width height]
+    [foregroundMask, bboxes] = subtractor.subtract(gray);
+
     % geometry should process the mask
-    %[scales, orientation] = geom.guess(foregroundMask, ROIs);
+    %[scales, orientation] = geom.guess(foregroundMask, bboxes);
     
-    assert (isempty(ROIs) || size(ROIs,1) == 4);
+    assert (isempty(bboxes) || size(bboxes,2) == 4);
     %assert (isempty(scale) || isvector(scale));
-    %assert (size(ROIs,2) == length(scales) && size(ROIs,2) == length(orientations));
-    N = size(ROIs,2);
+    %assert (size(bboxes,2) == length(scales) && size(bboxes,2) == length(orientations));
+    
+    bboxes = expandBboxes (bboxes, ExpandBoxesPerc, im);
+    N = size(bboxes,1);
     
     % actually detect cars
-    cars = cell(1,N);
+    cars = [];
     for j = 1 : N
-        roi = ROIs(j,:);
-        patch = im (roi(2) : roi(4), roi(1) : roi(3));
-        cars(j) =  detector.detect(patch);%, scales(j), orientations(j));
+        bbox = bboxes(j,:);
+        patch = im (bbox(2) : bbox(4)+bbox(2)-1, bbox(1) : bbox(3)+bbox(1)-1, :);
+        carsPatch = detector.detect(patch);%, scales(j), orientations(j));
+        % bring the bboxes to the absolute coordinate system
+        for k = 1 : length(carsPatch)
+            carsPatch{k}.bboxes = addOffset2Boxes(int32(carsPatch{k}.bboxes), bbox(1:2));
+        end
+        cars = [cars; carsPatch];
     end
     
     % HMM processing
     
     
-    % counting
+    % output
+    tCycle = toc;
+    frame_out = im;
+    for j = 1 : length(cars)
+        frame_out = showCarboxes(frame_out, cars{j});
+    end
+    frame_out = subtractor.drawboxes(frame_out, bboxes);
+    imshow(frame_out);
     
-    i = i + 1;
+    fprintf ('frame %d in %f sec \n', t, tCycle);
+
+    t = t + 1;
 end

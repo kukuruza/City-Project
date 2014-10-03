@@ -34,13 +34,19 @@ classdef BackgroundSubtractor < handle
              BS.shapeInserter = vision.ShapeInserter('BorderColor','White');
          end
 
-         function [mask, ROIs, frame_out] = subtract (BS, frame)
+         % bbox [x,y,w,h] 
+         function [mask, bboxes] = subtract (BS, frame)
              mask  = step(BS.detector, frame);
              bboxes = step(BS.blob, mask);
-             frame_out = step(BS.shapeInserter, frame, bboxes); % draw bounding boxes around cars
-             
-             % bbox {x,y,w,h} to ROI {x1,y1,x2,y2}
-             ROIs = [bboxes(:,1), bboxes(:,2), bboxes(:,1)+bboxes(:,3), bboxes(:,2)+bboxes(:,4)];
+
+             %ROIs
+             %imshow([frame 255*uint8(mask)]);
+             %waitforbuttonpress
+         end
+         s
+         function im_out = drawboxes (BS, im, bboxes)
+             bboxes = [bboxes(:,1), bboxes(:,2), bboxes(:,3), bboxes(:,4)];
+             im_out = step(BS.shapeInserter, im, bboxes);
          end
      end % methods
 
