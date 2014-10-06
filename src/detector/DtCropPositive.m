@@ -15,7 +15,7 @@ dst_width = 40;
 
 
 % setup data directory
-run '../../rootPathsSetup.m';
+run '../rootPathsSetup.m';
 
 global CITY_DATA_PATH;
 imagesDirIn = [CITY_DATA_PATH, 'violajones/cbcl/cars128x128/'];
@@ -31,25 +31,28 @@ for i = 1 : length(imNames)
     imName = imNames(i);
     
     % read
-    im = imread([imagesDirIn, imName.name]);
+    img = imread([imagesDirIn, imName.name]);
     
     % to grayscale
-    if ndims(im) == 3
-        im = rgb2gray(im);
+    if ndims(img) == 3
+        img = rgb2gray(img);
     end
     
     % crop
-    sz = size(im);
+    sz = size(img);
     height = sz(1);
     width = sz(2);
     assert (height >= crop_height && width >= crop_width);
-    im = im ((height - crop_height)/2 : (height + crop_height)/2, ...
+    patch = img ((height - crop_height)/2 : (height + crop_height)/2, ...
              (width - crop_width)/2 : (width + crop_width)/2);
 
     % scale
-    im = imresize(im, [dst_height, dst_width]);
+    patch = imresize(patch, [dst_height, dst_width]);
+    
+    % equalize
+    patch = histeq(patch);
     
     % write
-    imwrite(im, [imagesDirOut, imName.name]);
+    imwrite(patch, [imagesDirOut, imName.name]);
 end
     
