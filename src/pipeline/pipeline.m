@@ -27,13 +27,18 @@ subtractor = BackgroundSubtractor(5, 30);
 %vehicles
 
 %Constructor
-% geom = GeometryEstimator();
-% fprintf('Estimating the 3D geometry of the scene...\n');
-% [cMaps, cMapNames] = geom.getConfidenceMaps(im0);
+geom = GeometryEstimator();
+matFile = '../geometry/Geometry_Camera360.mat';
+geom.setupRoadFromFile(matFile);
+
+fprintf('Estimating the 3D geometry of the scene...\n');
+[cMaps, cMapNames] = geom.getConfidenceMaps(im0);
+
 %cMaps{1}(:,:,1) = confidence map for ground
 %cMaps{1}(:,:,2) = confidence map for vertical surfaces
 %cMaps{1}(:,:,3) = confidence map for sky
-% fprintf('Estimation done :D \n');
+fprintf('Estimation done :D \n');
+%return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 t = 2;
