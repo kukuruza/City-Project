@@ -10,9 +10,9 @@ global CITY_DATA_PATH;
 %global CITY_DATA_LOCAL_PATH;
 
 % patches dir
-imagesDirIn = [CITY_DATA_PATH, 'violajones/cbcl/patches_positive/'];
+imagesDirIn = [CITY_DATA_PATH, 'violajones/cbcl/patches_negative/cam360/'];
 % output features name
-featureFileOut = [CITY_DATA_PATH, 'violajones/cbcl/features/hog-4x3-eq/pos.mat'];
+featureFileOut = [CITY_DATA_PATH, 'violajones/cbcl/features/hog-4x3-eq/neg.mat'];
 
 
 % get the filenames

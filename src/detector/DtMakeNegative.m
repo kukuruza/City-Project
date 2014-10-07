@@ -10,6 +10,9 @@
 
 clear all
 
+% do historgram equalization
+doHistEqual = false;
+
 % maximunm intersection with smth positive, that is still considered neg.
 maxInters = 0.5;
 halfSizeMin = 5;
@@ -32,8 +35,7 @@ run '../subdirPathsSetup.m';
 
 global CITY_DATA_PATH;
 %global CITY_DATA_LOCAL_PATH;
-
-imagesDirOut = [CITY_DATA_PATH, 'violajones/cbcl/patches_negative/', camName, '/'];
+imagesDirOut = [CITY_DATA_PATH, 'violajones/cbcl/patches_neg_nequ/', camName, '/'];
 camMaskFile = [CITY_DATA_PATH, 'roadMasks/', camName, '.png'];
 camMask = logical(imread(camMaskFile));
 
@@ -66,11 +68,14 @@ while 1
             if sum(sum( backgroundMask(y-a : y+a-1, x-a : x+a-1) )) > a^2 * 4 * maxInters
                 patch = img (y-a : y+a-1, x-a : x+a-1, :);
                 
+                % to grayscale
+                if ~ismatrix(patch), patch = rgb2gray(patch); end
+                
                 % scale
                 patch = imresize(patch, [dst_height, dst_width]);
 
                 % equalize
-                patch = histeq(patch);
+                if doHistEqual == true, patch = histeq(patch); end
 
                 % write
                 imwrite (patch, [imagesDirOut, 'car_', sprintf('%04d', counter), '.ppm']);

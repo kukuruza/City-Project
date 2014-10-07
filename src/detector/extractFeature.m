@@ -8,7 +8,7 @@ function featureVect = extractFeature (patch)
 
 %% feature specific constants
 % a patch is cut into cells of side cellsize.
-cellsize = 4;
+cellsize = 10;
 
 
 %% verify input
