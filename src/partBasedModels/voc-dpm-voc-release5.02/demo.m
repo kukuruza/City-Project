@@ -13,7 +13,7 @@ function demo()
 % your project.
 % -------------------------------------------------------
 
-startup;
+voc_startup;
 
 fprintf('compiling the code...');
 compile;
