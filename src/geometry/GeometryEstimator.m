@@ -1,13 +1,18 @@
 %Class definition for Geometry Detection along with methods
 
-classdef GeometryEstimator
+classdef GeometryEstimator < handle
     properties
+        %Paths for various components of the code
         geometryPath;
         returnPath;
         classifierPath;
+        
+        %Road object
+        road;
+    
     end
     methods
-        %Constructor
+        %% Constructor
         function[obj] = GeometryEstimator()
             %Paths to the geometry folder and back to current
             obj.geometryPath = '../objectsInPerspective/GeometricContext/';
@@ -18,9 +23,19 @@ classdef GeometryEstimator
             %Adding the path to geometry context verification 
             addpath(strcat(obj.geometryPath, 'src/'));
             
+            %Matfile name given manually for now, can be passed based on
+            %the camera we are working with
         end
-        %Method to calculate confidence maps to detect various geometries
-        %in the image
+        
+        %% Method to setup the road for further calculations
+        function[] = setupRoadFromFile(obj, matFile)
+           %Initializing the road attributes from manually marked and saved
+           %mat file
+           obj.road = Road(matFile);
+        end
+        
+        %% Method to calculate confidence maps to detect various geometries
+        % in the image
         function[cMaps, cMapNames] = getConfidenceMaps(obj, inputImg)
             cd(strcat(obj.geometryPath, 'src'));
             %[cMaps, cMapNames] = photoPopup(inputImg, obj.classifierPath ,...
@@ -30,8 +45,6 @@ classdef GeometryEstimator
                         'inputImage.jpg', [], '');
             cd(obj.returnPath);
         end
-        
-        
         
         %% interface for initial map. by Evgeny
         function mask = getCameraRoadmask (obj)%, camDirName? )
@@ -44,5 +57,6 @@ classdef GeometryEstimator
             assert (isscalar(frameDiff));
             
         end
+        
     end
 end
