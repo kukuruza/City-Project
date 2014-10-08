@@ -12,9 +12,12 @@ classdef FrameReaderImages < FrameReader
     
     methods
         function FR = FrameReaderImages ()
+            global CITY_DATA_PATH
+            if isempty(CITY_DATA_PATH), error('run rootPathsSetup.m first'); end
+            
             % move out constants
             ext = '.jpg';
-            FR.imDir = '/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber360/';
+            FR.imDir = [CITY_DATA_PATH, 'five camera for 2 min/cameraNumber360/'];
             imTemplate = [FR.imDir, 'image*', ext];
             FR.imNames = dir (imTemplate);
             FR.counter = 1;

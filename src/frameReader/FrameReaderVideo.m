@@ -9,8 +9,11 @@ classdef FrameReaderVideo < FrameReader
     end % properties
     methods
         function FR = FrameReaderVideo ()
+            global CITY_DATA_PATH
+            if isempty(CITY_DATA_PATH), error('run rootPathsSetup.m first'); end
+            
             % move out constants
-            workingDir = '/Users/evg/Box Sync/City Project/data/five camera for 2 min';
+            workingDir = [CITY_DATA_PATH, '/five camera for 2 min'];
             resultDir = fullfile(workingDir,'Result');
             videoName = fullfile(resultDir,'shuttle_out.avi');
             FR.videoSource = vision.VideoFileReader(videoName,'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 

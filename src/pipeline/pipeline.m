@@ -6,6 +6,9 @@
 
 clear all
 
+% setup all the paths
+pipelineSetup;
+
 % percentage for expandoing boxes
 ExpandBoxesPerc = 0.2;
 
@@ -53,7 +56,7 @@ while 1
     %assert (isempty(scale) || isvector(scale));
     %assert (size(bboxes,2) == length(scales) && size(bboxes,2) == length(orientations));
     
-    bboxes = expandboxes (bboxes, ExpandBoxesPerc, im);
+    bboxes = expandBboxes (bboxes, ExpandBoxesPerc, im);
     N = size(bboxes,1);
     
     % actually detect cars
@@ -62,6 +65,10 @@ while 1
         bbox = bboxes(j,:);
         patch = im (bbox(2) : bbox(4)+bbox(2)-1, bbox(1) : bbox(3)+bbox(1)-1, :);
         carsPatch = detector.detect(patch);%, scales(j), orientations(j));
+        % bring the bboxes to the absolute coordinate system
+        for k = 1 : length(carsPatch)
+            carsPatch{k}.bboxes = addOffset2Boxes(int32(carsPatch{k}.bboxes), bbox(1:2));
+        end
         cars = [cars; carsPatch];
     end
     
@@ -70,14 +77,14 @@ while 1
     
     % output
     tCycle = toc;
-    fprintf ('frame %d in %f sec \n', t, tCycle);
     frame_out = im;
     for j = 1 : length(cars)
-        showCarboxes(frame_out, cars{j}, frame_out);
+        frame_out = showCarboxes(frame_out, cars{j});
     end
     frame_out = subtractor.drawboxes(frame_out, bboxes);
     imshow(frame_out);
-    pause(0.5);
     
+    fprintf ('frame %d in %f sec \n', t, tCycle);
+
     t = t + 1;
 end
