@@ -15,8 +15,8 @@ classdef Road < handle
         roadVelVar = 5; % Variance
 
         %Height of the camera (need some source)
-        camHeightMu = 6;
-        camHeightVar = 0;
+        camHeightMu = 6; %metres
+        camHeightVar = 0; %metres
 
         %Height of the car (sedan for now, need some source)
         carHeightMu = 1.46; %metres
@@ -37,7 +37,7 @@ classdef Road < handle
             for i = 1:noLanes
                leftExt = [xPts((3*(i-1)+1):(3*i))'; yPts((3*(i-1)+1):(3*i))'];
                rightExt = [xPts((3*i+1):(3*(i+1)))'; yPts((3*i+1):(3*(i+1)))'];
-               newLane = Lane(leftExt, rightExt, 'in');  
+               newLane = Lane(rightExt, leftExt, 'in');  
                obj.addLane(newLane);
             end
 
@@ -78,6 +78,56 @@ classdef Road < handle
             
             %Evaluating the vanishing point
             vanPoint = (polyfit(-1*parLines(1,:), parLines(2, :), 1))';
+        end
+        
+        %% Detecting the lane of the car
+        function[laneIndex, lane] = detectCarLane(obj, carOrPoint)
+        %This function calculates the lane to which the car belong and 
+        % returns the lane object and lane index. It returns 0 if doesnt
+        % belong to the road.
+        
+        %We assume the midpoint of the lower edge of the bounding box as
+        %the grounded mid-point of the car
+            if(isa(carOrPoint, 'Car'))
+                gndPt = [carOrPoint.bbox(1) + carOrPoint.bbox(3)/2 ; carOrPoint.bbox(2) + carOrPoint.bbox(4)/2];
+            else
+                gndPt = carOrPoint;
+            end
+            
+            %For each lane, check if its within or out of the lane
+            intercpts = gndPt(1);
+            
+            %Checking left extreme
+            xIntrpt = (gndPt(2) - obj.lanes{1}.leftEq(2)) /  obj.lanes{1}.leftEq(1); 
+            %fprintf('Checking left extreme : %f %d\n', xIntrpt, gndPt(1));
+            if(xIntrpt > gndPt(1)) 
+                laneIndex = 0;
+                lane = NaN;
+                return;
+            end
+            intercpts = [intercpts; xIntrpt];
+            
+            %Checking right extreme
+            xIntrpt = (gndPt(2) - obj.lanes{end}.rightEq(2)) /  obj.lanes{end}.rightEq(1);
+            %fprintf('Checking right extreme : %f %d\n', xIntrpt, gndPt(1));
+            if(xIntrpt < gndPt(1)) 
+                laneIndex = 0;
+                lane = NaN;
+                return;
+            end
+            intercpts = [intercpts; xIntrpt];
+            
+            %Computing the intersections for all the lanes
+            for i = 1:length(obj.lanes)-1
+                xIntrpt = (gndPt(2) - obj.lanes{i}.rightEq(2)) /  obj.lanes{i}.rightEq(1);
+                intercpts = [intercpts; xIntrpt];
+            end
+            
+            %Sorting and finding the lane on which the car is detected
+            %intercpts
+            intercpts = sort(intercpts);
+            laneIndex = find(intercpts == gndPt(1)) - 1;
+            lane = obj.lanes{laneIndex};
         end
         
         %% Debugging methods

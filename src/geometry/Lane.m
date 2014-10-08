@@ -23,7 +23,6 @@ classdef Lane
             %Finding the equation
             obj.rightEq = (polyfit(obj.rightPts(1,:), obj.rightPts(2,:), 1))';
             obj.leftEq = (polyfit(obj.leftPts(1,:), obj.leftPts(2,:), 1))';
-            
         end
         
         %Overload of constructor, not functional in matlab
