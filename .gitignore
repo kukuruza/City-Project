@@ -1,6 +1,3 @@
-# the user-specific paths setup file
-rootPathsSetup.m
-
 # ignore all the videos, etc.
 data/
 results/

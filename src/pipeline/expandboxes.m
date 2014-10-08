@@ -28,5 +28,5 @@ for i = 1 : size(bboxes,1)
     expandedBBoxes(i,:) = bbox;
 end
 
-expandedBBoxes = clipBboxes(expandedBBoxes, im);
+expandedBBoxes = clipboxes(expandedBBoxes, im);
 

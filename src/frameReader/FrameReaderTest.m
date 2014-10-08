@@ -5,9 +5,6 @@
 
 clear all
 
-% setup data directory
-run '../rootPathsSetup.m';
-
 %frameReader = FrameReaderVideo();
 frameReader = FrameReaderImages();
 %frameReader = FrameReaderInternet();

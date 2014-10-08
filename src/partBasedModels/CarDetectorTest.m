@@ -4,11 +4,7 @@
 
 clear all
 
-% setup CITY_DATA_PATH
-run '../rootPathsSetup.m';
-
-global CITY_DATA_PATH
-im = imread([CITY_DATA_PATH, '/five camera for 2 min/cameraNumber572/image0024.jpg']);
+im = imread('/Users/evg/Box Sync/City Project/data/five camera for 2 min/cameraNumber572/image0024.jpg');
 gray = rgb2gray(im);
 
 modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
