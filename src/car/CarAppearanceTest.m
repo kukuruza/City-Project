@@ -1,7 +1,17 @@
 % test for extracting features
 %
 
-car = Car();
-car.bbox = [1 2 3 4];
+% input constants
+image = imread('testdata/cam493_im0068.jpg');
+bbox = [150 160 100 75];
+iFrame = 1;
 
-carAppear = CarAppearance(car);
+% create car
+car = CarAppearance(bbox, iFrame);
+
+% test patch extraction
+imshow (car.extractPatch(image));
+
+% test generated feature
+car.generateFeature(image);
+car.feature
