@@ -10,13 +10,19 @@ global CITY_DATA_PATH;
 %global CITY_DATA_LOCAL_PATH;
 
 % patches dir
-imagesDirIn = [CITY_DATA_PATH, 'violajones/cbcl/patches_negative/cam360/'];
+imagesDirIn = [CITY_DATA_PATH, 'violajones/KITTI/patches/positive_nequ/0/'];
 % output features name
-featureFileOut = [CITY_DATA_PATH, 'violajones/cbcl/features/hog-4x3-eq/neg.mat'];
+featureFileOut = [CITY_DATA_PATH, 'violajones/cbcl/features/hog-4x3-eq/positive_nequ_KITTI_0.mat'];
+
+
+% % patches dir
+% imagesDirIn = [CITY_DATA_PATH, 'violajones/cbcl/patches_negative/'];
+% % output features name
+% featureFileOut = [CITY_DATA_PATH, 'violajones/cbcl/features/hog-4x3-eq/neg1.mat'];
 
 
 % get the filenames
-imTemplate = [imagesDirIn, '*.ppm'];
+imTemplate = [imagesDirIn, '*.png'];
 imNames = dir (imTemplate);
 
 featuresCell = cell (length(imNames),1);
