@@ -12,7 +12,7 @@ classdef Road < handle
         %Assumed velocity for the road (need some source, probably estimate
         %it using detections)
         roadVelMu =  40; % Mean
-        roadVelSigma = 5; % Variance
+        roadVelSigma = 20; % Variance
 
         %Height of the camera (need some source)
         camHeightMu = 6; %metres

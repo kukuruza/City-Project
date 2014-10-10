@@ -16,15 +16,12 @@ classdef GeometryEstimator < handle
     end
     methods
         %% Constructor
-        function[obj] = GeometryEstimator(initImage, camPropertyFile)
+        function [obj] = GeometryEstimator(initImage, camPropertyFile)
             %Paths to the geometry folder and back to current
             obj.geometryPath = '../objectsInPerspective/GeometricContext/';
             obj.returnPath = '../../../pipeline';
             %Relative to geometry Path
             obj.classifierPath = '../data/classifiers_08_22_2005.mat';
-            
-            %Adding the path to geometry context verification 
-            addpath(fullfile(obj.geometryPath, 'src/'));
             
             %Matfile name given manually for now, can be passed based on
             %the camera we are using it with
@@ -32,11 +29,22 @@ classdef GeometryEstimator < handle
             %Creating the road object from mat
             obj.road = Road(camPropertyFile);
             obj.imageSize = [size(initImage, 1), size(initImage, 2)];
-            geom.getRoadMask();
+            
+            obj.roadMask = zeros(obj.imageSize);
+            for i = 1:obj.imageSize(1)
+                for j = 1:obj.imageSize(2)
+                    obj.roadMask(i, j) = obj.road.detectCarLane([j, i]);
+                end
+            end
 
-            %Fetch the camera road map for various sizes of the cars expected
-            obj.cameraRoadMap = geom.getCameraRoadMap();
-
+            %Using the geometry from objects in perspective paper
+            [~, mask] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
+            
+            %Need to normalize the image co-ordinates using f
+            mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor, zeros(obj.imageSize));
+            mask = mask .* (obj.roadMask ~= 0);
+            obj.cameraRoadMap = mask;
+            
         end
         
         %% Method to calculate confidence maps to detect various geometries
@@ -52,24 +60,13 @@ classdef GeometryEstimator < handle
         end
         
         %% Creating a road Mask indicating the presence / absence of road
-        function [] = getRoadMask(obj)
-            roadMask = zeros(obj.imageSize);
-            for i = 1:obj.imageSize(1)
-                for j = 1:obj.imageSize(2)
-                    roadMask(i, j) = obj.road.detectCarLane([j, i]);
-                end
-            end
-            obj.roadMask = roadMask;
+        function roadMask = getRoadMask(obj)
+            roadMask = obj.roadMask;
         end
         
         %% interface for initial map. by Evgeny
-        function mask = getCameraRoadMap (obj)%, camDirName? )
-            %Using the geometry from objects in perspective paper
-            [~, mask] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
-            
-            %Need to normalize the image co-ordinates using f
-            mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor, zeros(obj.imageSize));
-            mask = mask .* (obj.roadMask ~= 0);
+        function mask = getCameraRoadMap (obj)
+            mask = obj.cameraRoadMap;
         end
         
         %% interface for probability for a car to move. by Evgeny

@@ -2,8 +2,13 @@
 % various functionalities
 
 %Directory and image name to load up a toy image
-imageDir = '~/CMU/5-camera-for-2-hours/cameraNumber360-part1';
-imageName = 'image0.jpg';
+clear all
+
+run ../rootPathsSetup.m
+run ../subdirPathsSetup.m
+
+imageDir = [CITY_DATA_PATH 'five camera for 2 hours/cameraNumber360'];
+imageName = 'image0000.jpg';
 filePath = fullfile(imageDir, imageName);
 
 %Reading the image and marking points
@@ -12,13 +17,12 @@ image = imread(filePath);
 % Loading the road properties that were manually marked (Pts for the lanes)
 % Default for camera 360 marked within the constructor for
 % GeometryEstimator()
-%matFile = 'Geometry_Camera_360.mat';
-geom = GeometryEstimator();
+matFile = 'Geometry_Camera_360.mat';
+geom = GeometryEstimator(image, matFile);
+fprintf ('GeometryEstimator: constructor finished\n');
 
 %setting the image size for the geometry module
-fprintf('Road mask generated from lanes\n');
-geom.imageSize = [size(image, 1), size(image, 2)];
-geom.getRoadMask();
+roadMask = geom.getRoadMask();
 
 %Fetch the camera road map for various sizes of the cars expected
 cameraRoadMap = geom.getCameraRoadMap();
@@ -39,8 +43,10 @@ bbox2 = [pts(1, car2Ind) pts(2, car2Ind) 0 0];
 car1 = Car(bbox1);
 car2 = Car(bbox2);
 
-%Obtain the mmutual 
+%Obtain the mmutual
+tic
 probability = geom.getMutualProb(car1, car2, frameDiff);
+toc
 fprintf('Estimated probability for given two cars: %f\n', probability);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
