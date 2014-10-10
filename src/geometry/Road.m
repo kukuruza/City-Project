@@ -12,16 +12,21 @@ classdef Road < handle
         %Assumed velocity for the road (need some source, probably estimate
         %it using detections)
         roadVelMu =  40; % Mean
-        roadVelVar = 5; % Variance
+        roadVelSigma = 5; % Variance
 
         %Height of the camera (need some source)
         camHeightMu = 6; %metres
-        camHeightVar = 0; %metres
+        camHeightSigma = 0; %metres
 
         %Height of the car (sedan for now, need some source)
         carHeightMu = 1.46; %metres
         carHeightVar = 0.2; %metres
 
+        %Scale factor for linearly varying size from vanishing point
+        scaleFactor;
+        
+        %Probability of changing lanes
+        laneChangeProb = 0.05;
     end
     
     methods
@@ -43,7 +48,6 @@ classdef Road < handle
 
             obj.setVanishPoint();
         end
-        
         %Overload of constructor, not functional in matlab
         %function[obj] = Road(roadLanes, vanPoint)
         %    obj.lanes = roadLanes;
@@ -61,6 +65,9 @@ classdef Road < handle
         %% Setting the vanishing point
         function[] = setVanishPoint(obj)
            obj.vanishPt = obj.findVanishPoint(); 
+           
+           %Also set the scale factor
+           obj.scaleFactor = obj.carHeightMu / obj.camHeightMu;
         end
         
         %% Finding the vanishing point
