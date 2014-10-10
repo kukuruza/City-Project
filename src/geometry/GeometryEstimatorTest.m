@@ -1,9 +1,7 @@
 % A simple tutorial script to demonstrate the use of Geometry class for
 % various functionalities
 
-%Directory and image name to load up a toy image
 clear all
-
 run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
@@ -21,6 +19,8 @@ matFile = 'Geometry_Camera_360.mat';
 geom = GeometryEstimator(image, matFile);
 fprintf ('GeometryEstimator: constructor finished\n');
 
+geom.road.drawLanesOnImage(image);
+
 %setting the image size for the geometry module
 roadMask = geom.getRoadMask();
 
@@ -28,22 +28,26 @@ roadMask = geom.getRoadMask();
 cameraRoadMap = geom.getCameraRoadMap();
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%Checking the probability calculating module given two cars (choose any two
-%cars from below list of random points)
-pts = [50 151 97 124 197 237 217 306; 177 135 176 187 167 126 203 161];
-index = [1 1 2 3 4 5 5];
+% Checking the probability calculating module given two cars (choose any two
+%   cars from below list of random points)
+% pts = N x [x y]
+pts = [110 191; ...  % first real point (4th lane)
+       183 143; ...  % second real point (4th lane) 
+       161 143; ...  % the same as second, but on the 3rd lane
+       209 145; ...  % the same as second, but on the 5th lane
+       ];
+laneIndex = [4 4 3 5];
 
 car1Ind = 1;
-car2Ind = 2;
+car2Ind = 3;
 frameDiff = 1;
 
-bbox1 = [pts(1, car1Ind) pts(2, car1Ind) 0 0];
-bbox2 = [pts(1, car2Ind) pts(2, car2Ind) 0 0];
-
+bbox1 = [pts(car1Ind, 1:2) 0 0];
+bbox2 = [pts(car2Ind, 1:2) 0 0];
 car1 = Car(bbox1);
 car2 = Car(bbox2);
 
-%Obtain the mmutual
+% Obtain the mutual
 tic
 probability = geom.getMutualProb(car1, car2, frameDiff);
 toc

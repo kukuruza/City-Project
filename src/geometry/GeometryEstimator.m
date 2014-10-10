@@ -71,7 +71,7 @@ classdef GeometryEstimator < handle
         
         %% interface for probability for a car to move. by Evgeny
         function prob = getMutualProb (obj, car1, car2, frameDiff)
-            assert (isa(car1, 'Car') && isa(car2, 'Car'));
+            %assert (isa(car1, 'Car') && isa(car2, 'Car'));
             assert (isscalar(frameDiff));
             
             carPt1 = [car1.bbox(1) + car1.bbox(3)/2 ; car1.bbox(2) + car1.bbox(4)/2];
@@ -129,6 +129,8 @@ classdef GeometryEstimator < handle
                 else
                     %Car changing lanes (currently handles only one lane
                     %change between the given two frames)
+                    laneId1
+                    laneId2
                     if(abs(laneId1, laneId2) > 1)
                         fprintf('More than one car lane change, handles only one\n');
                         prob = 0;
