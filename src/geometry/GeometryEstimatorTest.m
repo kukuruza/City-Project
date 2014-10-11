@@ -39,7 +39,7 @@ pts = [110 191; ...  % first real point (4th lane)
 laneIndex = [4 4 3 5];
 
 car1Ind = 1;
-car2Ind = 3;
+car2Ind = 2;
 frameDiff = 1;
 
 bbox1 = [pts(car1Ind, 1:2) 0 0];

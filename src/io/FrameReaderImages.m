@@ -1,4 +1,4 @@
-% An implementation of FrameGetter for reading .jpg images from a dir
+% An implementation of FrameReader for reading .jpg images from a dir
 %   It implements an interface getNewFrame()
 %
 % It is essentially a thin wrapper of imread()
@@ -11,13 +11,16 @@ classdef FrameReaderImages < FrameReader
     end % properties
     
     methods
-        function FR = FrameReaderImages ()
+        function FR = FrameReaderImages (camNum)
             global CITY_DATA_PATH
             if isempty(CITY_DATA_PATH), error('run rootPathsSetup.m first'); end
             
-            % move out constants
             ext = '.jpg';
-            FR.imDir = [CITY_DATA_PATH, 'five camera for 2 min/cameraNumber360/'];
+            FR.imDir = [CITY_DATA_PATH, '2-min/camera' num2str(camNum) '/'];
+            if ~exist(FR.imDir, 'file')
+                FR.imDir
+                error ('FrameReaderImages: dir doesn''t exist');
+            end
             imTemplate = [FR.imDir, 'image*', ext];
             FR.imNames = dir (imTemplate);
             FR.counter = 1;
