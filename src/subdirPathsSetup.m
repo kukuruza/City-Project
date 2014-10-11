@@ -16,13 +16,10 @@ if isempty(CITY_PATHS_SET)
             error ('CITY_SRC_PATH is not set. Execute rootPathSetup.m first');
         end
     end
-    
-    % remove this maybe?
-    %restoredefaultpath
 
     % add all sub-directories from src/
     addpath(genpath(CITY_SRC_PATH));
 
-    fprintf('pipelineSetup note: have added the whole dir tree to pathdef. \n');
+    fprintf('subdirPathsSetup note: have added the whole dir tree to pathdef. \n');
 
 end
