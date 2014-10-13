@@ -13,7 +13,7 @@ clear all;
 doHistEqual = false;
 
 % number of negatives for each positive
-NegNumber = 2;
+NegNumber = 10;
 % number of maximum tries to get a negative with accepatable intersection
 NegBreakNumber = 100;
 % max acceptable intersection
@@ -26,22 +26,25 @@ negative_szs = uint32([0.5; 0.7; 1] * positive_sz);
 % destination (rescaled) size
 dst_sz = [30 40];
 
+% output prefix
+outPrefix = 'cbcl';
+
 
 % setup data directory
-run '../rootPathsSetup.m';
+run '../../rootPathsSetup.m';
 
 global CITY_DATA_PATH;
-%global CITY_DATA_LOCAL_PATH;
-imagesDirIn = [CITY_DATA_PATH, 'violajones/cbcl/cars128x128/'];
-patchesDirPosOut = [CITY_DATA_PATH, 'violajones/cbcl/patches_positive/'];
-patchesDirNegOut = [CITY_DATA_PATH, 'violajones/cbcl/patches_negative/'];
-ext = '.ppm';
+global CITY_SHARED_DATA_PATH;
+imagesDirIn = [CITY_SHARED_DATA_PATH, 'violajones/cbcl/cars128x128/'];
+patchesDirPosOut = [CITY_DATA_PATH, 'violajones/cbcl/patches/positive_nequ/'];
+patchesDirNegOut = [CITY_DATA_PATH, 'violajones/cbcl/patches/negative_nequ/'];
 
 
 % get the filenames
-imTemplate = [imagesDirIn, '*', ext];
+imTemplate = [imagesDirIn, '*.ppm'];
 imNames = dir (imTemplate);
 
+patchcounter = 1;
 for i = 1 : length(imNames)
     imName = imNames(i);
     
@@ -116,12 +119,13 @@ for i = 1 : length(imNames)
     end
     
     % write
-    imPrefix = 'car_';
-    imPosNum = sprintf('%04d', i - 1);
-    imwrite(patch_pos, [patchesDirPosOut imPrefix imPosNum ext]);
+    imPosNum = sprintf('%04d', patchcounter);
+    patchcounter = patchcounter + 1;
+    imwrite(patch_pos, [patchesDirPosOut outPrefix '_' imPosNum '.png']);
     for j = 1 : length(patches_neg)
-        imNegNum = sprintf('%01d', j - 1);
-        imwrite(patches_neg{j}, [patchesDirNegOut imPrefix imPosNum imNegNum ext]);
+        imNegNum = sprintf('%04d', patchcounter);
+        patchcounter = patchcounter + 1;
+        imwrite(patches_neg{j}, [patchesDirNegOut outPrefix '_' imNegNum '.png']);
     end
 end
     

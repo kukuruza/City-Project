@@ -23,24 +23,24 @@ dst_height = 30;
 dst_width = 40;
 
 % number of patches from a camera
-enoughPatches = 10;
+enoughPatches = 100;
 
 
 % camera
+camNum = 360;
 camName = 'cam360';
 
 % setup data directory
-run '../rootPathsSetup.m';
-run '../subdirPathsSetup.m';
+run '../../rootPathsSetup.m';
+run '../../subdirPathsSetup.m';
 
 global CITY_DATA_PATH;
-%global CITY_DATA_LOCAL_PATH;
-imagesDirOut = [CITY_DATA_PATH, 'violajones/cbcl/patches_neg_nequ/', camName, '/'];
+imagesDirOut = [CITY_DATA_PATH, 'violajones/cameras/' camName '/patches/negative_nequ/'];
 camMaskFile = [CITY_DATA_PATH, 'roadMasks/', camName, '.png'];
 camMask = logical(imread(camMaskFile));
 
 
-frameReader = FrameReaderImages(); 
+frameReader = FrameReaderImages(camNum); 
 subtractor = BackgroundSubtractor(5, 30);
 
 counter = 0;
@@ -78,7 +78,7 @@ while 1
                 if doHistEqual == true, patch = histeq(patch); end
 
                 % write
-                imwrite (patch, [imagesDirOut, 'car_', sprintf('%04d', counter), '.ppm']);
+                imwrite (patch, [imagesDirOut camName '_' sprintf('%04d', counter) '.png']);
                 
                 counter = counter + 1;
                 counterFrame = counterFrame + 1;
