@@ -1,4 +1,4 @@
-% An implementation of FrameWritter for writing frames to a video
+% An implementation of FrameWriter for writing frames to a video
 %   It implements an interface writeNextFrame()
 %
 % This class takes multiple images and puts them together in a grid

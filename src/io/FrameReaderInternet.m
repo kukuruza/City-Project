@@ -9,11 +9,12 @@ classdef FrameReaderInternet < FrameReader
     properties (Hidden)
         urlPart1 = 'http://207.251.86.238/cctv';
         urlPart2 = '.jpg?rand=';
-        CallInterval = 0.7; % min interval in seconds between calls
+        CallDelay = 0.7; % min interval after the previous successful call
+        CallInterval = 0.1; % min interval in seconds between calls
         url               % is made up from parts 
         camNum            % number of the camera, given in constructor
         lastFrame = [];   % to compare against a new one. If same then wait
-        lastCall = tic;   % time of the last call. If too close then wait
+        %lastCall = tic;   % time of the last call. If too close then wait
     end % properties
     
     methods
@@ -25,16 +26,17 @@ classdef FrameReaderInternet < FrameReader
             % wait until new image is there
             while true
                 % wait until it's time to send a new request
-                while toc(FR.lastCall) < FR.CallInterval
-                    pause(0.05);
-                end
+                %while toc(FR.lastCall) < FR.CallDelay
+                %    pause(FR.CallInterval);
+                %end
                 frame = imread([FR.url num2str(now)]);
                 if isempty(FR.lastFrame) || nnz(FR.lastFrame - frame) ~= 0
                     FR.lastFrame = frame;
                     break
                 end
+                pause(FR.CallInterval);
             end
-            FR.lastCall = tic;
+            %FR.lastCall = tic;
         end
     end % methods
 end

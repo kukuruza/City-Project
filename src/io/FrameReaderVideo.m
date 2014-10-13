@@ -8,15 +8,9 @@ classdef FrameReaderVideo < FrameReader
         videoSource
     end % properties
     methods
-        function FR = FrameReaderVideo ()
-            global CITY_DATA_PATH
-            if isempty(CITY_DATA_PATH), error('run rootPathsSetup.m first'); end
-            
-            % move out constants
-            workingDir = [CITY_DATA_PATH, '/five camera for 2 min'];
-            resultDir = fullfile(workingDir,'Result');
-            videoName = fullfile(resultDir,'shuttle_out.avi');
-            FR.videoSource = vision.VideoFileReader(videoName,'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 
+        function FR = FrameReaderVideo (videoPath)
+            FR.videoSource = vision.VideoFileReader(videoPath, ...
+                'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 
         end
         function delete (FR)
             release(FR.videoSource);

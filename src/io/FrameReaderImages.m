@@ -11,19 +11,17 @@ classdef FrameReaderImages < FrameReader
     end % properties
     
     methods
-        function FR = FrameReaderImages (icam)
-            global CITY_DATA_PATH
-            if isempty(CITY_DATA_PATH), error('run rootPathsSetup.m first'); end
-            
-            % default camera
-            if ~exist('icam', 'var'), icam = 360; end
-            
-            % move out constants
-            FR.imDir = [CITY_DATA_PATH, 'five camera for 2 min/cameraNumber', ...
-                                        sprintf('%03d', icam), '/'];
+        function FR = FrameReaderImages (imDir)
+
+            FR.imDir = imDir;
             imTemplate = [FR.imDir, '*.jpg'];
             FR.imNames = dir (imTemplate);
             FR.counter = 1;
+            
+            if ~exist(FR.imDir, 'file')
+                fprintf('FrameReaderImages(): FR.imDir = %s \n', FR.imDir);
+                error('FrameReaderImages(): imDir doesn''t exist');
+            end
             
             if isempty(FR.imNames)
                 fprintf ('FrameReaderImages(): imTemplate = %s \n', imTemplate);
