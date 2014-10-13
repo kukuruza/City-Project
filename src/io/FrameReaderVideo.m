@@ -8,18 +8,18 @@ classdef FrameReaderVideo < FrameReader
         videoSource
     end % properties
     methods
-        function FR = FrameReaderVideo (camName)
+        function FR = FrameReaderVideo ()
             global CITY_DATA_PATH
             if isempty(CITY_DATA_PATH), error('run rootPathsSetup.m first'); end
             
-            videoPath = [CITY_DATA_PATH, '2-min/camera' num2str(camName) '.avi'];
-            if ~exist (videoPath, 'file')
-                disp (videoPath)
-                error ('FrameReaderVideo: path does not exist');
-            end
-            
-            FR.videoSource = vision.VideoFileReader (videoPath, ...
-                'ImageColorSpace', 'RGB', 'VideoOutputDataType', 'uint8'); 
+            % move out constants
+            workingDir = [CITY_DATA_PATH, '/five camera for 2 min'];
+            resultDir = fullfile(workingDir,'Result');
+            videoName = fullfile(resultDir,'shuttle_out.avi');
+            FR.videoSource = vision.VideoFileReader(videoName,'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 
+        end
+        function delete (FR)
+            release(FR.videoSource);
         end
         function frame = getNewFrame(FR)
             [frame, EOF] = step(FR.videoSource);
