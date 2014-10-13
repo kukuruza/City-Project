@@ -9,8 +9,8 @@ clear all
 run '../rootPathsSetup.m';
 
 %frameReader = FrameReaderVideo();
-frameReader = FrameReaderImages(493);
-%frameReader = FrameReaderInternet();
+%frameReader = FrameReaderImages(493);
+frameReader = FrameReaderInternet(360);
 
 while true
     frame = frameReader.getNewFrame();
@@ -19,6 +19,6 @@ while true
     end
     
     imshow(frame)
-    pause(0.1)
+    pause(1)
 end
     
