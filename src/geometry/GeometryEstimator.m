@@ -81,13 +81,13 @@ classdef GeometryEstimator < handle
             if(isobject(carOrPoint1))
                 point1 = floor([carOrPoint1.bbox(1) + carOrPoint1.bbox(3)/2 ; carOrPoint1.bbox(2) + carOrPoint1.bbox(4)/2]);
             else
-                point1 = carOrPoint1;
+                point1 = floor(carOrPoint1);
             end
             
             if(isobject(carOrPoint2))
                 point2 = floor([carOrPoint2.bbox(1) + carOrPoint2.bbox(3)/2 ; carOrPoint2.bbox(2) + carOrPoint2.bbox(4)/2]);
             else
-                point2 = carOrPoint2;
+                point2 = floor(carOrPoint2);
             end
             
             %Reading car lanes from the mask
@@ -138,15 +138,20 @@ classdef GeometryEstimator < handle
                 %If cars are from the same lane (no turning)
                 if(laneId1 == laneId2)
                     %Slope evaluated using points - point1 and point2
-                    if(point1(1) ~= point2(1))
-                        slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
+                    %if(abs(point1(1) - point2(1)) > 5)
+                    %if(point1(1) ~= point2(1))
+                    %if(0)
+                    %    slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
                     
                         %Evaluating the distance (approx) along the road
-                        dist3D = ((slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point1(2)/point2(2)));
-                    else
+                    %    dist3D = ((slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                    %else
                         %Vertical line
-                        dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
-                    end
+                    %    dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                    %end
+                    
+                    %We care only about the distance along the road
+                    dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
                     
                     %Use the distance to evaluate the probability
                     %Distribution = Guassian (frameDiff * obj.road.roadVelMu,
@@ -167,22 +172,23 @@ classdef GeometryEstimator < handle
                     end
                     
                     %Slope evaluated using points - point1 and point2
-                    if(point1(1) ~= point2(1))
-                        slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
+                    %if(abs(point1(1) - point2(1)) > 5)
+                    %if(point1(1) ~= point2(1))
+                    %if(0)
+                    %    slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
                     
                         %Evaluating the distance (approx) along the road
                         %[slope (slope^f2+1)]% class(slope) class(slope^2 + 1)]% (slope ^ 2+ 1) ^ 0.5]
-                        dist3D = (double(slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point1(2)/point2(2)));
-                    else
-                        %Vertical line
-                        dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
-                    end
+                    %    dist3D = (double(slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                    %else
+                    %    %Vertical line
+                    %    dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                    %end
                     
-                    %slope = (point1(2) - point2(2)) / (point1(1) - point2(1));
-                    %Evaluating the distance (approx) along the road
-                    %dist3D = (slope^2 + 1) ^ 0.5 / obj.road.scaleFactor * log(point1(2)/point2(2));
-                    
-                    
+                    %We care only about the distance along the road
+                    dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                   
+                    %Debugging
                     %fprintf('Lane change (in) : %f\n', dist3D);
                     %Use the distance to evaluate the probability
                     %Distribution = Guassian (frameDiff * obj.road.roadVelMu,
@@ -209,22 +215,23 @@ classdef GeometryEstimator < handle
                 %If cars are from the same lane (no turning)
                 if(laneId1 == laneId2)
                     %Slope evaluated using points - point1 and point2
-                    if(point1(1) ~= point2(1))
-                        slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
+                    %if(point1(1) ~= point2(1))
+                    %if(abs(point1(1) - point2(1)) > 5)
+                    %if(0)
+                    %    slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
                     
                         %Evaluating the distance (approx) along the road
-                        dist3D = ((slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point2(2)/point1(2)));
-                    else
+                    %    dist3D = ((slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    %else
                         %Vertical line
-                        dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
-                    end
+                    %    dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    %end
                     
-                    %slope = (point1(2) - point2(2)) / (point1(1) - point2(1));
-                    %Evaluating the distance (approx) along the road
-                    %dist3D = (slope^2 + 1) ^ 0.5 / obj.road.scaleFactor * log(point2(2)/point1(2));
-
+                    %We care only about the distance along the road
+                    dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    
+                    %Debugging
                     %fprintf('No lane change (out) : %f\n', dist3D);
-                    
                     %Use the distance to evaluate the probability
                     %Distribution = Guassian (frameDiff * obj.road.roadVelMu,
                     %frameDiff^2 * obj.road.roadVelVar)
@@ -246,19 +253,20 @@ classdef GeometryEstimator < handle
                     end
 
                     %Slope evaluated using points - point1 and point2
-                    if(point1(1) ~= point2(1))
-                        slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
+                    %if(point1(1) ~= point2(1))
+                    %if(abs(point1(1) - point2(1)) > 5)
+                    %if(0)
+                    %    slope = double((point1(2) - point2(2)) / (point1(1) - point2(1)));
                     
                         %Evaluating the distance (approx) along the road
-                        dist3D = ((slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point2(2)/point1(2)));
-                    else
+                    %    dist3D = ((slope^2 + 1) ^ 0.5) / obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    %else
                         %Vertical line
-                        dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
-                    end
+                    %    dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    %end
                     
-                    %slope = (point1(2) - point2(2)) / (point1(1) - point2(1));
-                    %Evaluating the distance (approx) along the road
-                    %dist3D = (slope^2 + 1) ^ 0.5 / obj.road.scaleFactor * log(point2(2)/point1(2));
+                    %We care only about the distance along the road
+                    dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
                     
                     %fprintf('Changing lane : %f\n', dist3D);
                     prob = obj.road.laneChangeProb * ...
@@ -268,10 +276,12 @@ classdef GeometryEstimator < handle
             end
         end
         
-        %% Get the probability map of next transition given a point / position of the car
-        function probMap = generateProbMap(obj, carOrPoint, frameDiff)
-            probMap = zeros(obj.imageSize(1), obj.imageSize(2));
+        %% DEBUGGING FUNCTIONS
+        % Get the probability map of next transition given a point /
+        % position of the car and overlaying for visualization
+        function[probMap, overlaidImg] = generateProbMap(obj, carOrPoint, frameDiff, image)
             
+            probMap = zeros(obj.imageSize(1), obj.imageSize(2));
             % Checking if its a point or a car
             if(isobject(carOrPoint))
                 point = [carOrPoint.bbox(1) + carOrPoint.bbox(3)/2 ; carOrPoint.bbox(2) + carOrPoint.bbox(4)/2];
@@ -285,6 +295,26 @@ classdef GeometryEstimator < handle
                 [r, c] = ind2sub(obj.imageSize, ptsOnRoad(i));
                 probMap([ptsOnRoad(i)]) = obj.getMutualProb(point, [c, r], frameDiff);
             end
+            
+            if(nargin < 4)
+                overlaidImg = zeros(obj.imageSize);
+                return
+            end
+            %Overlaying the probability map over the image
+            %Normalizing to [0, 1] to [0, 255];
+            probMapNorm = probMap / max(probMap(:));
+            rgbMap = label2rgb(gray2ind(probMapNorm, 255), jet(255));
+            
+            %Creating mask for overlaying and ignoring small valued
+            %probabilities
+            mask = (probMapNorm < 10^-10);
+            mask = mask(:, :, [1 1 1]);
+
+            overlaidImg =  uint8(mask) .* image + uint8(~mask) .* rgbMap;
+            
+            %Marking the origin point 
+            markerInserter = vision.MarkerInserter('Size', 5, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
+            overlaidImg = step(markerInserter, overlaidImg, uint8(point));
         end
     end
 end

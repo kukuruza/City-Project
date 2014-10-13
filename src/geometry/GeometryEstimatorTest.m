@@ -53,7 +53,6 @@ car1Ind = 1;
 car2Ind = 2;
 frameDiff = 1;
 
-return
 % Obtain the mutual probabilites 1 to i
 car1 = Car(bboxes(1, :));
 for i = 2 : size(bboxes,1)
@@ -62,6 +61,15 @@ for i = 2 : size(bboxes,1)
     fprintf('Estimated probability from 1 to %d: %f \n', i, probability);
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Displaying the probability heat maps for visualization for all these
+% points
+
+%for i = 1:size(bboxes, 1)
+%    car = Car(bboxes(i, :));
+%    [probHeatMap, overLaidImg] = geom.generateProbMap(car, frameDiff, image);
+%    figure; imshow(overLaidImg)
+%end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Displaying the results
