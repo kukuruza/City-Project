@@ -43,7 +43,12 @@ classdef BackgroundSubtractor < handle
              %imshow([frame 255*uint8(mask)]);
              %waitforbuttonpress
          end
-         s
+         
+         % when mask from the previus function is changed and bboxes wanted
+         function bboxes = mask2bboxes (BS, mask)
+             bboxes = step(BS.blob, mask);
+         end 
+         
          function im_out = drawboxes (BS, im, bboxes)
              bboxes = [bboxes(:,1), bboxes(:,2), bboxes(:,3), bboxes(:,4)];
              im_out = step(BS.shapeInserter, im, bboxes);
