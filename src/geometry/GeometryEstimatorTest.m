@@ -49,11 +49,11 @@ rois = ...
 
 bboxes = [rois(:,1:2) rois(:,3)-rois(:,1) rois(:,4)-rois(:,2)];
 
-
 car1Ind = 1;
 car2Ind = 2;
 frameDiff = 1;
 
+return
 % Obtain the mutual probabilites 1 to i
 car1 = Car(bboxes(1, :));
 for i = 2 : size(bboxes,1)

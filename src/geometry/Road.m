@@ -11,7 +11,7 @@ classdef Road < handle
     
         %Assumed velocity for the road (need some source, probably estimate
         %it using detections)
-        roadVelMu =  40; % Mean
+        roadVelMu = 40; % Mean
         roadVelSigma = 20; % Variance
 
         %Height of the camera (need some source)
@@ -67,7 +67,8 @@ classdef Road < handle
            obj.vanishPt = obj.findVanishPoint(); 
            
            %Also set the scale factor
-           obj.scaleFactor = obj.carHeightMu / obj.camHeightMu;
+           %Calculated using road width estimates (need to better)
+           obj.scaleFactor = 1/200; %obj.carHeightMu / obj.camHeightMu;
         end
         
         %% Finding the vanishing point
