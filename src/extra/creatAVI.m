@@ -1,11 +1,21 @@
 % Convert jpg to avi
+%
+% @author: Lynna
+%
 
-workingDir = '/Users/lgui/Box Sync/City Project/data/five camera for 2 min';
-outputVideo = VideoWriter(fullfile(workingDir,'shuttle_out.avi'));
-outputVideo.FrameRate = 1;%shuttleVideo.FrameRate;
+clear all
+
+camName = 'camera671';
+
+run ../rootPathsSetup.m;
+
+workingDir = [CITY_DATA_PATH '2-min/'];
+outputVideoPath = fullfile (workingDir, [camName '.avi']);
+outputVideo = VideoWriter (outputVideoPath);
+outputVideo.FrameRate = 1;
 open(outputVideo);
 
-imageNames = dir(fullfile(workingDir,'cameraNumber360','*.jpg'));
+imageNames = dir(fullfile(workingDir, camName, '*.jpg'));
 imageNames = {imageNames.name}';
 
 imageStrings = regexp([imageNames{:}],'(\d*)','match');
@@ -14,11 +24,11 @@ imageNumbers = str2double(imageStrings);
 sortedImageNames = imageNames(sortedIndices);
 
 for ii = 1:length(sortedImageNames)
-    img = imread(fullfile(workingDir,'cameraNumber360',sortedImageNames{ii}));
+    img = imread(fullfile(workingDir, camName, sortedImageNames{ii}));
 
     writeVideo(outputVideo,img);
 end
 
 close(outputVideo);
 
-shuttleAvi = VideoReader(fullfile(workingDir,'shuttle_out.avi'));
+shuttleAvi = VideoReader(fullfile(workingDir, [camName '.avi']));

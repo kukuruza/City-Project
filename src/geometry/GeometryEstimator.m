@@ -64,12 +64,12 @@ classdef GeometryEstimator < handle
             roadMask = obj.roadMask;
         end
         
-        %% interface for initial map. by Evgeny
+        %% interface for initial map
         function mask = getCameraRoadMap (obj)
             mask = obj.cameraRoadMap;
         end
         
-        %% interface for probability for a car to move. by Evgeny
+        %% interface for probability for a car to move
         function prob = getMutualProb (obj, car1, car2, frameDiff)
             %assert (isa(car1, 'Car') && isa(car2, 'Car'));
             assert (isscalar(frameDiff));

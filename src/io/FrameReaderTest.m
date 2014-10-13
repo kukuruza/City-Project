@@ -8,8 +8,8 @@ clear all
 % setup data directory
 run '../rootPathsSetup.m';
 
-%frameReader = FrameReaderVideo();
-frameReader = FrameReaderImages();
+frameReader = FrameReaderVideo(368);
+%frameReader = FrameReaderImages(360);
 %frameReader = FrameReaderInternet();
 
 while true
