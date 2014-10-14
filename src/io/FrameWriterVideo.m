@@ -20,12 +20,22 @@ classdef FrameWriterVideo < FrameWriter
         framesz        % for debugging
     end % properties
     methods
+        
         function FW = FrameWriterVideo (videopath, framerate, layout)
+            if ~exist(videopath, 'file')
+                fprintf ('FrameWriterVideo: videopath: %s\n', videopath);
+                error ('FrameWriterVideo: videopath does not exist');
+            end
             FW.video = VideoWriter(videopath);
             FW.video.FrameRate = framerate;
             FW.layout = layout;
             open(FW.video);
+
+            % figure preparation
+            figure (FW.FIG_NUM);
+            set (FW.FIG_NUM,'units','normalized','outerposition',[0 0 1 1]);
         end
+        
         % accepts one image (if layout == 1) or cell array of images
         function writeNextFrame(FW, images)
             assert (~isempty(images));
@@ -45,37 +55,26 @@ classdef FrameWriterVideo < FrameWriter
                 for row = 1 : nrows
                     for col = 1 : ncols
                         i = (row-1) * ncols + col;
-                        i
-                        ncols
-                        nrows
                         subplot(nrows, ncols, i);
                         imshow(images{i});
                     end
                 end
-                F = getframe(gcf);
-                error('bv');
-                frame = image(F.cdata);
                 
-                error('bv');
-                imshow(frame);
+                frame = getframe(gcf);
                 
-                % switch to the remembered figure
+                % switch back to the remembered figure
                 figure(currentFigure);
             else
                 frame = images;
             end
-%        function writeNextFrame(FW, frame)
-            if isempty(FW.framesz), FW.framesz = size(frame); end
-            if ndims(frame) ~= length(FW.framesz) || any(size(frame) ~= FW.framesz)
-                FW.framesz
-                size(frame)
-                error('frame size changed');
-            end
+            
             writeVideo (FW.video, frame);
+            
             FW.counter = FW.counter + 1;
         end
+        
         function delete(FW)
-            fprintf('FrameWriterVideo: %d frames written.\n', FW.counter);
+            if ishandle(FW.FIG_NUM), close(FW.FIG_NUM), end
             close (FW.video);
         end
 

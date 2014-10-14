@@ -24,8 +24,8 @@ classdef FrameWriterImages < FrameWriter
         
         function FW = FrameWriterImages (imDir, layout, ext)
             if ~exist(imDir, 'file') % TODO: add: or it is not a folder
-                fprintf ('FrameWriterVideo: imDir: %s\n', imDir);
-                error ('FrameWriterVideo: imDir does not exist');
+                fprintf ('FrameWriterImages: imDir: %s\n', imDir);
+                error ('FrameWriterImages: imDir does not exist');
             end
             FW.imDir = imDir;
             FW.layout = layout;
