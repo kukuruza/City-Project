@@ -10,12 +10,12 @@ run '../rootPathsSetup.m';
 
 
 videoPath = [CITY_DATA_PATH, '2-min/camera360.avi'];
-frameReader = FrameReaderVideo (videoPath);
+%frameReader = FrameReaderVideo (videoPath);
 
 imDir = [CITY_DATA_PATH, '2-min/camera360/'];
 %frameReader = FrameReaderImages (imDir);
 
-%frameReader = FrameReaderInternet (360);
+frameReader = FrameReaderInternet (360);
 
 
 while true

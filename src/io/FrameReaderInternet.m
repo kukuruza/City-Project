@@ -14,7 +14,7 @@ classdef FrameReaderInternet < FrameReader
         url               % is made up from parts 
         camNum            % number of the camera, given in constructor
         lastFrame = [];   % to compare against a new one. If same then wait
-        %lastCall = tic;   % time of the last call. If too close then wait
+        lastCall = tic;   % time of the last call. If too close then wait
     end % properties
     
     methods
@@ -22,21 +22,27 @@ classdef FrameReaderInternet < FrameReader
             FR.camNum = camNum;
             FR.url = [FR.urlPart1 num2str(camNum) FR.urlPart2];
         end
-        function frame = getNewFrame(FR)
+        function [frame, timeinterval] = getNewFrame(FR)
             % wait until new image is there
             while true
-                % wait until it's time to send a new request
-                %while toc(FR.lastCall) < FR.CallDelay
-                %    pause(FR.CallInterval);
-                %end
+                
+                % save some server requests
+                while toc(FR.lastCall) < FR.CallDelay
+                    pause(FR.CallInterval);
+                end
+                
                 frame = imread([FR.url num2str(now)]);
                 if isempty(FR.lastFrame) || nnz(FR.lastFrame - frame) ~= 0
+                    timeinterval = toc(FR.lastCall);
                     FR.lastFrame = frame;
                     break
                 end
+                %if ~isempty(FR.lastFrame), nnz(FR.lastFrame - frame), end
+                
                 pause(FR.CallInterval);
+                
             end
-            %FR.lastCall = tic;
+            FR.lastCall = tic;
         end
     end % methods
 end
