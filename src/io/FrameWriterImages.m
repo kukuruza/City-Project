@@ -1,4 +1,4 @@
-% An implementation of FrameWriter for writing frames to a video
+% An implementation of FrameWriter for writing frames to a set of images
 %   It implements an interface writeNextFrame()
 %
 % This class takes multiple images and puts them together in a grid
@@ -10,22 +10,33 @@
 %
 
 
-classdef FrameWriterVideo < FrameWriter
+classdef FrameWriterImages < FrameWriter
     properties (Hidden)
         FIG_NUM = 314159265; % random unlikely number
         
+        ext = '.jpg';
         layout = [1 1] % images grid in a frame. [nrows, ncols]
-        video          % output
+        imDir          % output
         counter = 0    % to know how much was written
         framesz        % for debugging
     end % properties
     methods
-        function FW = FrameWriterVideo (videopath, framerate, layout)
-            FW.video = VideoWriter(videopath);
-            FW.video.FrameRate = framerate;
+        
+        function FW = FrameWriterImages (imDir, layout, ext)
+            if ~exist(imDir, 'file') % TODO: add: or it is not a folder
+                fprintf ('FrameWriterVideo: imDir: %s\n', imDir);
+                error ('FrameWriterVideo: imDir does not exist');
+            end
+            FW.imDir = imDir;
             FW.layout = layout;
-            open(FW.video);
+            FW.ext = ext;
+            
+            % figure preparation
+            addpath export_fig
+            figure (FW.FIG_NUM);
+            set (FW.FIG_NUM,'units','normalized','outerposition',[0 0 1 1]);
         end
+        
         % accepts one image (if layout == 1) or cell array of images
         function writeNextFrame(FW, images)
             assert (~isempty(images));
@@ -45,38 +56,26 @@ classdef FrameWriterVideo < FrameWriter
                 for row = 1 : nrows
                     for col = 1 : ncols
                         i = (row-1) * ncols + col;
-                        i
-                        ncols
-                        nrows
                         subplot(nrows, ncols, i);
                         imshow(images{i});
                     end
                 end
-                F = getframe(gcf);
-                error('bv');
-                frame = image(F.cdata);
                 
-                error('bv');
-                imshow(frame);
+                imPath = fullfile(FW.imDir, [sprintf('%06d', FW.counter) FW.ext]);
+                export_fig(imPath, gcf);
                 
-                % switch to the remembered figure
+                % switch back to the remembered figure
                 figure(currentFigure);
             else
                 frame = images;
+                imPath = fullfile(FW.imDir, [sprintf('%06d', FW.counter) FW.ext]);
+                imwrite(frame, imPath);
             end
-%        function writeNextFrame(FW, frame)
-            if isempty(FW.framesz), FW.framesz = size(frame); end
-            if ndims(frame) ~= length(FW.framesz) || any(size(frame) ~= FW.framesz)
-                FW.framesz
-                size(frame)
-                error('frame size changed');
-            end
-            writeVideo (FW.video, frame);
             FW.counter = FW.counter + 1;
         end
+        
         function delete(FW)
-            fprintf('FrameWriterVideo: %d frames written.\n', FW.counter);
-            close (FW.video);
+            if ishandle(FW.FIG_NUM), close(FW.FIG_NUM), end
         end
 
     end % methods
