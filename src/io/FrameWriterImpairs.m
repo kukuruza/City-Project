@@ -38,7 +38,7 @@ classdef FrameWriterImpairs < FrameWriter
             assert (all(size(FW.prevFrame) == size(frame)));
             
             % make composite image
-            img = [FW.prevFrame, frame];
+            img = [FW.prevFrame; frame];
             imgName = [FW.prevName '-' frameName FW.ext];
             
             % write
