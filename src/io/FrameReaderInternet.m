@@ -7,6 +7,7 @@
 
 classdef FrameReaderInternet < FrameReader
     properties (Hidden)
+        % url example: http://207.251.86.238/cctv360.jpg?rand=0988954345345
         urlPart1 = 'http://207.251.86.238/cctv';
         urlPart2 = '.jpg?rand=';
         CallDelay = 0.7; % min interval after the previous successful call
@@ -32,7 +33,11 @@ classdef FrameReaderInternet < FrameReader
                 end
                 
                 frame = imread([FR.url num2str(now)]);
-                if isempty(FR.lastFrame) || nnz(FR.lastFrame - frame) ~= 0
+                if isempty(FR.lastFrame)
+                    timeinterval = -1;
+                    FR.lastFrame = frame;
+                    break
+                elseif nnz(FR.lastFrame - frame) ~= 0
                     timeinterval = toc(FR.lastCall);
                     FR.lastFrame = frame;
                     break

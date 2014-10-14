@@ -22,18 +22,18 @@ classdef FrameWriterVideo < FrameWriter
     methods
         
         function FW = FrameWriterVideo (videopath, framerate, layout)
-            if ~exist(videopath, 'file')
-                fprintf ('FrameWriterVideo: videopath: %s\n', videopath);
-                error ('FrameWriterVideo: videopath does not exist');
-            end
+            assert (isvector(layout) && length(layout) <= 2);
+            
             FW.video = VideoWriter(videopath);
             FW.video.FrameRate = framerate;
             FW.layout = layout;
             open(FW.video);
 
             % figure preparation
-            figure (FW.FIG_NUM);
-            set (FW.FIG_NUM,'units','normalized','outerposition',[0 0 1 1]);
+            if ~isscalar(layout) && layout(1) * layout(2) > 1
+                figure (FW.FIG_NUM);
+                set (FW.FIG_NUM,'units','normalized','outerposition',[0 0 1 1]);
+            end
         end
         
         % accepts one image (if layout == 1) or cell array of images
