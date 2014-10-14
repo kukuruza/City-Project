@@ -15,11 +15,12 @@ classdef FrameReaderVideo < FrameReader
         function delete (FR)
             release(FR.videoSource);
         end
-        function frame = getNewFrame(FR)
+        function [frame, timeinterval] = getNewFrame(FR)
             [frame, EOF] = step(FR.videoSource);
             if EOF == true
                 frame = [];
             end
+            timeinterval = 1;
         end
     end % methods
 

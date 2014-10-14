@@ -28,13 +28,14 @@ classdef FrameReaderImages < FrameReader
                 error('FrameReaderImages(): imNames is empty');
             end
         end
-        function frame = getNewFrame(FR)
+        function [frame, timeinterval] = getNewFrame(FR)
             if FR.counter > length(FR.imNames)
                 frame = [];
             else
                 frame = imread([FR.imDir, FR.imNames(FR.counter).name]);
             end
             FR.counter = FR.counter + 1;
+            timeinterval = 1;
         end
     end % methods
     
