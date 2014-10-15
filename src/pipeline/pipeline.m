@@ -7,21 +7,29 @@
 clear all
 
 % setup all the paths
+run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
-% percentage for expandoing boxes
+camNum = 360;
+
+% expand bboxes from BackgroundSubtractor to feed CarDetector
 ExpandBoxesPerc = 0.2;
 
-frameReader = FrameReaderImages(); 
+% input frames
+frameReader = FrameReaderImages (camNum); 
 im0 = frameReader.getNewFrame();
 
-%modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
-%detector = CarDetector(modelPath, '2010', 5, -0.5);
+% geometry
+matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_360.mat'];
+geom = GeometryEstimator(im0, matFile);
+roadMask = geom.getRoadMask();
 
+% background
 subtractor = BackgroundSubtractor(5, 30);
 
-matFile = 'Geometry_Camera_360.mat';
-geom = GeometryEstimator(im0, matFile);
+% detector
+modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
+detector = CascadeCarDetector (modelPath);
 
 t = 2;
 while 1
@@ -34,9 +42,11 @@ while 1
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    [foregroundMask, bboxes] = subtractor.subtract(gray);
+    foregroundMask = subtractor.subtract(gray);
 
-    % geometry should process the mask
+    % geometry processing mask and bboxes
+    foregroundMask = foregroundMask & logical(roadMask);
+    bboxes = subtractor.mask2bboxes(foregroundMask);
     %[scales, orientation] = geom.guess(foregroundMask, bboxes);
     
     assert (isempty(bboxes) || size(bboxes,2) == 4);
@@ -46,11 +56,15 @@ while 1
     bboxes = expandBboxes (bboxes, ExpandBoxesPerc, im);
     N = size(bboxes,1);
     
+%     img_out = subtractor.drawboxes(im, bboxes);
+%     imshow(foregroundMask);
+%     waitforbuttonpress
+    
     % actually detect cars
     cars = [];
     for j = 1 : N
         bbox = bboxes(j,:);
-        patch = im (bbox(2) : bbox(4)+bbox(2)-1, bbox(1) : bbox(3)+bbox(1)-1, :);
+        patch = extractBboxPatch (im, bbox);
         carsPatch = detector.detect(patch);%, scales(j), orientations(j));
         % bring the bboxes to the absolute coordinate system
         for k = 1 : length(carsPatch)
@@ -59,17 +73,17 @@ while 1
         cars = [cars; carsPatch];
     end
     
-    % HMM processing
+    % count cars
     
     
-    % output
-    tCycle = toc;
-    frame_out = im;
-    for j = 1 : length(cars)
-        frame_out = showCarboxes(frame_out, cars{j});
-    end
-    frame_out = subtractor.drawboxes(frame_out, bboxes);
-    imshow(frame_out);
+%     % output
+     tCycle = toc;
+%     frame_out = im;
+%     for j = 1 : length(cars)
+%         frame_out = showCarboxes(frame_out, cars{j});
+%     end
+%     frame_out = subtractor.drawboxes(frame_out, bboxes);
+%     imshow(frame_out);
     
     fprintf ('frame %d in %f sec \n', t, tCycle);
 
