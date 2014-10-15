@@ -13,10 +13,10 @@ run ../subdirPathsSetup.m;
 camNum = 360;
 
 % expand bboxes from BackgroundSubtractor to feed CarDetector
-ExpandBoxesPerc = 0.2;
+ExpandBoxesPerc = 0.5;
 
 % input frames
-frameReader = FrameReaderImages (camNum); 
+frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera360/']); 
 im0 = frameReader.getNewFrame();
 
 % geometry
@@ -65,12 +65,12 @@ while 1
     for j = 1 : N
         bbox = bboxes(j,:);
         patch = extractBboxPatch (im, bbox);
-        carsPatch = detector.detect(patch);%, scales(j), orientations(j));
+        carsInPatch = detector.detect(patch);%, scales(j), orientations(j));
         % bring the bboxes to the absolute coordinate system
-        for k = 1 : length(carsPatch)
-            carsPatch{k}.bboxes = addOffset2Boxes(int32(carsPatch{k}.bboxes), bbox(1:2));
+        for k = 1 : length(carsInPatch)
+            carsInPatch(k).bbox = addOffset2Boxes(int32(carsInPatch(k).bbox), bbox(1:2));
         end
-        cars = [cars; carsPatch];
+        cars = [cars carsInPatch];
     end
     
     % count cars
