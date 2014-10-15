@@ -9,11 +9,12 @@ classdef FrameReaderVideo < FrameReader
     end % properties
     methods
         function FR = FrameReaderVideo (videoPath)
+            if ~exist(videoPath,'file')
+                fprintf ('FrameReaderVideo: videoPath: %s\n', videoPath);
+                error ('FrameReaderVideo: videoPath doesn''t exist');
+            end
             FR.videoSource = vision.VideoFileReader(videoPath, ...
                 'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 
-        end
-        function delete (FR)
-            release(FR.videoSource);
         end
         function [frame, timeinterval] = getNewFrame(FR)
             [frame, EOF] = step(FR.videoSource);
