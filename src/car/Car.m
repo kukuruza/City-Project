@@ -1,4 +1,6 @@
-% class for holding general car info
+% This class is primarily for halping CarDetector classes to provide
+%   more verbose output: besides the bounding box, the class may store 
+%   any additional information like size, orientation, etc.
 %
 
 classdef Car
