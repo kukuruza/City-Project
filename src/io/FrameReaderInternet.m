@@ -7,6 +7,8 @@
 
 classdef FrameReaderInternet < FrameReader
     properties (Hidden)
+        % url of the web-viewer
+        urlViewerPart = 'http://nyctmc.org/google_popup.php?cid=';
         % url example: http://207.251.86.238/cctv360.jpg?rand=0988954345345
         urlPart1 = 'http://207.251.86.238/cctv';
         urlPart2 = '.jpg?rand=';
@@ -20,8 +22,18 @@ classdef FrameReaderInternet < FrameReader
     
     methods
         function FR = FrameReaderInternet (camNum)
-            FR.camNum = camNum;
-            FR.url = [FR.urlPart1 num2str(camNum) FR.urlPart2];
+            
+            % open the viewer and read the html
+            urlViewer = [FR.urlViewerPart num2str(camNum)];
+            content = urlread(urlViewer);
+            
+            % find the camera number in the html
+            match = regexp(content, 'http://207.251.86.238/cctv\d+', 'match');
+            assert (~isempty(match));
+            
+            % set the camera number and image url
+            FR.camNum = str2num( match{1}(27:end) );
+            FR.url = [FR.urlPart1 num2str(FR.camNum) FR.urlPart2];
         end
         function [frame, timeinterval] = getNewFrame(FR)
             % wait until new image is there
