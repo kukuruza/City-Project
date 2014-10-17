@@ -42,7 +42,7 @@ classdef Road < handle
             for i = 1:noLanes
                leftExt = [xPts((3*(i-1)+1):(3*i))'; yPts((3*(i-1)+1):(3*i))'];
                rightExt = [xPts((3*i+1):(3*(i+1)))'; yPts((3*i+1):(3*(i+1)))'];
-               newLane = Lane(rightExt, leftExt, 'in');  
+               newLane = Lane(rightExt, leftExt, directions(i));  
                obj.addLane(newLane);
             end
 
@@ -87,6 +87,8 @@ classdef Road < handle
             %Evaluating the vanishing point
             vanPoint = (polyfit(-1*parLines(1,:), parLines(2, :), 1))';
         end
+        
+        %% Caliberating the scale factor for the car size
         
         %% Detecting the lane of the car
         function[laneIndex, lane] = detectCarLane(obj, carOrPoint)
@@ -136,20 +138,40 @@ classdef Road < handle
             intercpts = sort(intercpts);
             laneIndex = find(intercpts == gndPt(1)) - 1;
             lane = obj.lanes{laneIndex};
+            if(strcmp(lane.direction, 'none'))
+                laneIndex = 0;
+                lane = NaN;
+                return;
+            end 
         end
         
         %% Debugging methods
         function[markedImg] = drawLanesOnImage(obj, image)
             markerInserter = vision.MarkerInserter('Size', 1, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
             markerPts = [];
+            
+            %Obtaining the line points to draw the vanishing point
             for i = 1:length(obj.lanes)
-               xLine = 1:size(image, 1);
-               xLine = xLine';
-               yLine = obj.lanes{i}.rightEq(1) * xLine + obj.lanes{i}.rightEq(2);
+               %xLine = 1:size(image, 1);
+               %xLine = xLine';
+               %yLine = obj.lanes{i}.rightEq(1) * xLine + obj.lanes{i}.rightEq(2);
+               %yLine = obj.lanes{i}.leftEq(1) * xLine + obj.lanes{i}.leftEq(2);
+               
+               %Drawing the lane based on yLine instead of xLine
+               yLine = obj.vanishPt(2):size(image, 1);
+               yLine = yLine';
+               xLine = (yLine - obj.lanes{i}.rightEq(2)) / obj.lanes{i}.rightEq(1);
                markerPts = [markerPts; uint8(xLine) uint8(yLine)]; 
-               yLine = obj.lanes{i}.leftEq(1) * xLine + obj.lanes{i}.leftEq(2);
+               xLine = (yLine - obj.lanes{i}.leftEq(2)) / obj.lanes{i}.leftEq(1);
                markerPts = [markerPts; uint8(xLine) uint8(yLine)]; 
+               
+               %Drawing only the extremes
+               markerPts = [markerPts; uint8(obj.lanes{i}.leftPts)'];
+               markerPts = [markerPts; uint8(obj.lanes{i}.rightPts)'];
             end
+            %Drawing only the selected points (debug)
+            %labelPts = ;
+            
             %Marking the lanes
             markedImg = step(markerInserter, image, markerPts);
             %Marking the vanishing point with red

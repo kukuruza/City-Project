@@ -111,6 +111,17 @@ classdef GeometryEstimator < handle
             lane1 = obj.road.lanes{laneId1};
             lane2 = obj.road.lanes{laneId2};
             
+            %If one of the car is on the 'none' lane (parking /
+            %divider), return zero
+            if(strcmp(lane1.direction, 'none') || strcmp(lane2.direction, 'none'))
+               %Debug messages
+                if(verbose)
+                    fprintf('Specified transition not permitted as one of car is on none lane..\n');
+                end
+                prob = 0;
+                return;
+            end
+            
             %Invalid transitions
             %Direction doesnt match
             if(strcmp(lane1.direction, lane2.direction) ~= 1)
