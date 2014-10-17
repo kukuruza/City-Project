@@ -8,8 +8,12 @@ classdef CascadeCarDetector < CarDetectorInterface
         function CD = CascadeCarDetector (modelPath)
             CD.detector = vision.CascadeObjectDetector(modelPath);
         end
-        function bboxes = detect (CD, img)
+        function cars = detect (CD, img)
             bboxes = step(CD.detector, img);
+            cars = [];
+            for i = 1 : size(bboxes,1)
+                cars = [cars; Car(bboxes(i,:))];
+            end
         end
     end % methods
 end

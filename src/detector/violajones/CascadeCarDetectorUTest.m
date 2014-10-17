@@ -1,5 +1,7 @@
 % detect object using trained cascade classifier
 
+clear all
+
 run '../../rootPathsSetup.m';
 run '../../subdirPathsSetup.m'
 
@@ -13,6 +15,8 @@ detector = CascadeCarDetector(modelPath);
 imPath = [imagesDir 'cam368_0080.jpg'];
 img = imread(imPath);
 
-bboxes = detector.detect(img);
-detectedImg = insertObjectAnnotation(img, 'rectangle', bboxes, 'car');
-figure; imshow(detectedImg);
+cars = detector.detect(img);
+for i = 1 : length(cars)
+    img = insertObjectAnnotation(img, 'rectangle', cars(i).bbox, 'car');
+end
+figure; imshow(img);
