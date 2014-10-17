@@ -9,6 +9,9 @@ results/
 build/
 bin/
 
+# temporary from Matlab
+*.asv
+
 # temporary from gedit
 ##################
 *~
