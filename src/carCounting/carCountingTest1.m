@@ -1,8 +1,3 @@
-% 
-%
-
-clear all
-
 run ../rootPathsSetup
 
 %% input and ground truth
@@ -70,29 +65,9 @@ corresp{3} = ...
  0 0 0 0 0 0 0 0 ...
 ];
 
-
-%% check that input patches are correct
-% 
-% for iIm = 1 : 3
-%     im = imread(imPath{iIm});
-%     imshow(im);
-%     waitforbuttonpress
-%     for j = 1 : size(bboxes{iIm},1)
-%         bbox = bboxes{iIm}(j,:);
-%         patch = im (bbox(2) : bbox(2)+bbox(4)-1, bbox(1) : bbox(1)+bbox(3)-1, :);
-%         imshow(patch);
-%         waitforbuttonpress
-%     end
-% end
-
-
-%% do computation
-
-metricLearner = MetricLearner(); % pass necessary arguments to constructor
 count0 = size(bboxes{1},1);
-
 for iframe = 1 : length(bboxes)
-
+    
     % read frame
     frame = imread(imPath{iframe});
     
@@ -105,16 +80,11 @@ for iframe = 1 : length(bboxes)
         % cars = [cars CarAppearance(bboxesF(i,:))];      
     end
     
-    % counting the new cars and total number of cars for a new frame
-    [newCarNumber Match] = metricLearner.processFrame(frame, cars);
-    count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
+    % process
+    [newCarNumber Match] = carCountingTest0(frame, cars);
+    count1 = count0 + newCarNumber;
     count0 = count1; 
-    
     % compare output with ground truth
     corresp{iframe}
     
 end
-
-
-        
-

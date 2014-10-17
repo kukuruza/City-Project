@@ -69,7 +69,7 @@ classdef MetricLearner < handle
         end
             
             
-        function [newCarNumber Match] = processFrame (image, cars)
+        function [newCarNumber Match] = processFrame (image, cars, seencars)
             
             % validation of parameters
             assert (ndims(image) == 3);         % color image
