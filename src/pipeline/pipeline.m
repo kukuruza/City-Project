@@ -13,22 +13,19 @@ cd (fileparts(mfilename('fullpath')));
 run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
-camNum = 360;
-
-% expand bboxes from BackgroundSubtractor to feed CarDetector
-ExpandBoxesPerc = 0.5;
+camNum = 572;
 
 % input frames
-frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera360/']); 
+frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera572/']); 
 im0 = frameReader.getNewFrame();
 
 % geometry
-matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_360.mat'];
+matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_572.mat'];
 geom = GeometryEstimator(im0, matFile);
 roadMask = geom.getRoadMask();
 
 % background
-subtractor = BackgroundSubtractor(5, 30);
+subtractor = BackgroundSubtractor(5, 25, 80);
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
@@ -39,9 +36,9 @@ while 1
     tic
     
     % read image
-    im = frameReader.getNewFrame();
-    if isempty(im), break, end
-    gray = rgb2gray(im);
+    frame = frameReader.getNewFrame();
+    if isempty(frame), break, end
+    gray = rgb2gray(frame);
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
@@ -51,7 +48,7 @@ while 1
     foregroundMask = foregroundMask & logical(roadMask);
     
     % actually detect cars
-    cars = detector.detect(im);%, scales(j), orientations(j));
+    cars = detector.detect(frame);%, scales(j), orientations(j));
     
     % filter detected cars based on foreground mask
     carsFilt = [];
@@ -66,14 +63,13 @@ while 1
     % count cars
     
     
-%     % output
-     tCycle = toc;
-%     frame_out = im;
-%     for j = 1 : length(cars)
-%         frame_out = showCarboxes(frame_out, cars{j});
-%     end
-%     frame_out = subtractor.drawboxes(frame_out, bboxes);
-%     imshow(frame_out);
+    % output
+    tCycle = toc;
+    frame_out = frame;
+    for j = 1 : length(cars)
+        frame_out = cars(j).drawCar(frame_out);
+    end
+    imshow(frame_out);
     
     fprintf ('frame %d in %f sec \n', t, tCycle);
 
