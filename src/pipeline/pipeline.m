@@ -6,6 +6,9 @@
 
 clear all
 
+% change dir to the directory of this script
+cd (fileparts(mfilename('fullpath')));
+
 % setup all the paths
 run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
@@ -42,36 +45,23 @@ while 1
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = subtractor.subtract(gray);
+    foregroundMask = subtractor.subtractAndDenoise(gray);
 
     % geometry processing mask and bboxes
     foregroundMask = foregroundMask & logical(roadMask);
-    bboxes = subtractor.mask2bboxes(foregroundMask);
-    %[scales, orientation] = geom.guess(foregroundMask, bboxes);
-    
-    assert (isempty(bboxes) || size(bboxes,2) == 4);
-    %assert (isempty(scale) || isvector(scale));
-    %assert (size(bboxes,2) == length(scales) && size(bboxes,2) == length(orientations));
-    
-    bboxes = expandBboxes (bboxes, ExpandBoxesPerc, im);
-    N = size(bboxes,1);
-    
-%     img_out = subtractor.drawboxes(im, bboxes);
-%     imshow(foregroundMask);
-%     waitforbuttonpress
     
     % actually detect cars
-    cars = [];
-    for j = 1 : N
-        bbox = bboxes(j,:);
-        patch = extractBboxPatch (im, bbox);
-        carsInPatch = detector.detect(patch);%, scales(j), orientations(j));
-        % bring the bboxes to the absolute coordinate system
-        for k = 1 : length(carsInPatch)
-            carsInPatch(k).bbox = addOffset2Boxes(int32(carsInPatch(k).bbox), bbox(1:2));
+    cars = detector.detect(im);%, scales(j), orientations(j));
+    
+    % filter detected cars based on foreground mask
+    carsFilt = [];
+    for k = 1 : length(cars)
+        center = cars(k).getCenter(); % [y x]
+        if foregroundMask(center(1), center(2))
+            carsFilt = [carsFilt cars(k)];
         end
-        cars = [cars carsInPatch];
     end
+    cars = carsFilt;
     
     % count cars
     

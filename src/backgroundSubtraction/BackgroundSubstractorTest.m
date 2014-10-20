@@ -26,13 +26,15 @@ subtractor = BackgroundSubtractor (5, 25, 80);
 
 while true
     frame = frameReader.getNewFrame();
-    [mask, bboxes] = subtractor.subtract(frame);
-    frame_out = subtractor.drawboxes(frame, bboxes);
-    subplot(2,2,3),imshow(mask);
-    tic
-    maskOut = denoiseForegroundMask(mask, 15, 1);
-    toc
+    %[mask, bboxes] = subtractor.subtract(frame);
+    %frame_out = subtractor.drawboxes(frame, bboxes);
+    %subplot(2,2,3),imshow(mask);
+    %tic
+    %maskOut = denoiseForegroundMask(mask, 15, 1);
+    %toc
+    %subplot(2,2,2),imshow(maskOut);
     subplot(2,2,1),imshow(frame);
+    maskOut = subtractor.subtractAndDenoise (frame);
     subplot(2,2,2),imshow(maskOut);
     pause(0.5);
 end

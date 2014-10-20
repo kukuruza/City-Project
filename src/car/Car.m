@@ -14,5 +14,9 @@ classdef Car
         function roi = getROI (C)
             roi = [C.bbox(2) C.bbox(1) C.bbox(4)+C.bbox(2)-1 C.bbox(3)+C.bbox(1)-1];
         end
+        function center = getCenter (C) % [y x]
+            center = [int32(C.bbox(2) + C.bbox(4) / 2), ...
+                      int32(C.bbox(1) + C.bbox(3) / 2)];
+        end
     end % methods
 end
