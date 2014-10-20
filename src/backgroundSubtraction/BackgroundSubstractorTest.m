@@ -1,9 +1,17 @@
 % test that the background substraction class works the same way
 %   as the original Lynna's code
+%
+% Ctrl+C to interrupt unfortunately
+
 
 clear all
 
+% change dir to the directory of this script
+cd (fileparts(mfilename('fullpath')));
+
+% add all scripts to matlab pathdef
 run ../subdirPathsSetup.m
+
 
 
 %% input and ground truth
@@ -20,10 +28,11 @@ while true
     frame = frameReader.getNewFrame();
     [mask, bboxes] = subtractor.subtract(frame);
     frame_out = subtractor.drawboxes(frame, bboxes);
-    %imshow(frame_out);
-    maskOut = maskProcess(mask);
-  %   subplot(1,2,1),imshow(frame);
-  %   subplot(1,2,2),
-    imshow(maskOut);
+    subplot(2,2,3),imshow(mask);
+    tic
+    maskOut = denoiseForegroundMask(mask, 15, 1);
+    toc
+    subplot(2,2,1),imshow(frame);
+    subplot(2,2,2),imshow(maskOut);
     pause(0.5);
 end
