@@ -8,7 +8,6 @@ import sys
 import glob
 
 
-
 def beautify_image_names (image_dir, prefix, postfix):
     """
     read all .jpg files from a dir and add leading zeros to match template

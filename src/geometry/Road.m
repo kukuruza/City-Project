@@ -163,25 +163,22 @@ classdef Road < handle
                %yLine = obj.lanes{i}.leftEq(1) * xLine + obj.lanes{i}.leftEq(2);
                
                %Drawing the lane based on yLine instead of xLine
-               yLine = obj.vanishPt(2):size(image, 1);
+               yLine = floor(obj.vanishPt(2)):size(image, 1);
                yLine = yLine';
                xLine = (yLine - obj.lanes{i}.rightEq(2)) / obj.lanes{i}.rightEq(1);
-               markerPts = [markerPts; uint8(xLine) uint8(yLine)]; 
+               markerPts = [markerPts; uint32(xLine) uint32(yLine)]; 
                xLine = (yLine - obj.lanes{i}.leftEq(2)) / obj.lanes{i}.leftEq(1);
-               markerPts = [markerPts; uint8(xLine) uint8(yLine)]; 
+               markerPts = [markerPts; uint32(xLine) uint32(yLine)]; 
                
                %Drawing only the extremes
-               markerPts = [markerPts; uint8(obj.lanes{i}.leftPts)'];
-               markerPts = [markerPts; uint8(obj.lanes{i}.rightPts)'];
+               %markerPts = [markerPts; uint32(obj.lanes{i}.rightPts)'];
+               %markerPts = [markerPts; uint32(obj.lanes{i}.leftPts)'];
             end
-            %Drawing only the selected points (debug)
-            %labelPts = ;
-            
             %Marking the lanes
             markedImg = step(markerInserter, image, markerPts);
             %Marking the vanishing point with red
             markerInserter = vision.MarkerInserter('Size', 4, 'BorderColor','Custom','CustomBorderColor', uint8([255 0 0]));
-            markedImg = step(markerInserter, markedImg, uint8(obj.vanishPt')); 
+            markedImg = step(markerInserter, markedImg, uint32(obj.vanishPt')); 
         end
     end
 end
