@@ -11,17 +11,19 @@ classdef Road < handle
     
         %Assumed velocity for the road (need some source, probably estimate
         %it using detections)
-        roadVelMu = 40; % Mean
-        roadVelSigma = 20; % Variance
+        roadVelMu = 0.44704 * (30); % Mean in m/s (1 mph = 0.44704 m/s)
+        roadVelSigma = 0.44704 * (10); % Variance in m/s
 
         %Height of the camera (need some source)
         camHeightMu = 6; %metres
         camHeightSigma = 0; %metres
 
         %Height of the car (sedan for now, need some source)
-        carHeightMu = 1.46; %metres
+        carHeightMu = 1.5; %metres
         carHeightVar = 0.2; %metres
 
+        %Width of the lane (taken from some internet sources)
+        laneWidthMu = 3.6; %metres
         %Scale factor for linearly varying size from vanishing point
         scaleFactor;
         
@@ -68,7 +70,8 @@ classdef Road < handle
            
            %Also set the scale factor
            %Calculated using road width estimates (need to better)
-           obj.scaleFactor = 1/200; %obj.carHeightMu / obj.camHeightMu;
+           %obj.scaleFactor = 1/200; %obj.carHeightMu / obj.camHeightMu;
+           obj.scaleFactor = obj.findScaleFactor();
         end
         
         %% Finding the vanishing point
@@ -89,10 +92,26 @@ classdef Road < handle
         end
         
         %% Caliberating the scale factor for the car size sampling at various locations
-        function[] = calibrateScale(obj)
+        function[scale] = findScaleFactor(obj)
             %Samples the mean width of lanes at various heights and fits a
-            %line to evaluate the scale factor
+            %line to evaluate the scale factor for height calculation of
+            %cars
             
+            roadWidth = [];
+            %Taking around 10 samples spaced at 30 vertical pixels
+            ySamples = (floor(obj.vanishPt(2)) + (50:30:300))';
+            for i=1:length(obj.lanes)
+                %Finding the left intersection points at various y values
+                xSamples = (ySamples - obj.lanes{i}.leftEq(2)) / obj.lanes{i}.leftEq(1);
+                %Finding the size of the road taking absolute value of
+                %right intersection points for similar values of y
+                curWidth = abs(xSamples - (ySamples - obj.lanes{i}.rightEq(2)) / obj.lanes{i}.rightEq(1));
+                % Get the mean width of the lanes
+                roadWidth = [roadWidth, curWidth];
+            end
+            meanWidth = mean(roadWidth, 2);
+            fit = polyfit(ySamples, meanWidth, 1);
+            scale = fit(1)/obj.laneWidthMu;
         end
         
         %% Detecting the lane of the car

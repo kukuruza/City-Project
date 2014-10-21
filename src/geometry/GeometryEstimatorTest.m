@@ -5,7 +5,7 @@ clear all
 run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
-imageDir = [CITY_DATA_PATH '2-min/camera368'];
+imageDir = [CITY_DATA_PATH '2-min/camera360'];
 imageName = 'image0000.jpg';
 filePath = fullfile(imageDir, imageName);
 
@@ -13,7 +13,7 @@ filePath = fullfile(imageDir, imageName);
 image = imread(filePath);
 
 % Loading the road properties that were manually marked (Pts for the lanes)
-matFile = 'Geometry_Camera_368.mat';
+matFile = 'Geometry_Camera_360.mat';
 geom = GeometryEstimator(image, matFile);
 fprintf ('GeometryEstimator: constructor finished\n');
 
@@ -90,11 +90,11 @@ end
 % Displaying the probability heat maps for visualization for all these
 % points
 
-% for i = 1:size(bboxes, 1)
-%  car = Car(bboxes(i, :));
-%  [probHeatMap, overLaidImg] = geom.generateProbMap(car, frameDiff, image);
-%  figure; imshow(overLaidImg)
-% end
+for i = 1:2%size(bboxes, 1)
+ car = Car(bboxes(i, :));
+ [probHeatMap, overLaidImg] = geom.generateProbMap(car, frameDiff, image);
+ figure; imshow(overLaidImg)
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Displaying the results
