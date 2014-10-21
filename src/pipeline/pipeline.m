@@ -6,26 +6,26 @@
 
 clear all
 
+% change dir to the directory of this script
+cd (fileparts(mfilename('fullpath')));
+
 % setup all the paths
 run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
-camNum = 360;
-
-% expand bboxes from BackgroundSubtractor to feed CarDetector
-ExpandBoxesPerc = 0.5;
+camNum = 572;
 
 % input frames
-frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera360/']); 
+frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera572/']); 
 im0 = frameReader.getNewFrame();
 
 % geometry
-matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_360.mat'];
+matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_572.mat'];
 geom = GeometryEstimator(im0, matFile);
 roadMask = geom.getRoadMask();
 
 % background
-subtractor = BackgroundSubtractor(5, 30);
+subtractor = BackgroundSubtractor(5, 25, 80);
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
@@ -36,54 +36,40 @@ while 1
     tic
     
     % read image
-    im = frameReader.getNewFrame();
-    if isempty(im), break, end
-    gray = rgb2gray(im);
+    frame = frameReader.getNewFrame();
+    if isempty(frame), break, end
+    gray = rgb2gray(frame);
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = subtractor.subtract(gray);
+    foregroundMask = subtractor.subtractAndDenoise(gray);
 
     % geometry processing mask and bboxes
     foregroundMask = foregroundMask & logical(roadMask);
-    bboxes = subtractor.mask2bboxes(foregroundMask);
-    %[scales, orientation] = geom.guess(foregroundMask, bboxes);
-    
-    assert (isempty(bboxes) || size(bboxes,2) == 4);
-    %assert (isempty(scale) || isvector(scale));
-    %assert (size(bboxes,2) == length(scales) && size(bboxes,2) == length(orientations));
-    
-    bboxes = expandBboxes (bboxes, ExpandBoxesPerc, im);
-    N = size(bboxes,1);
-    
-%     img_out = subtractor.drawboxes(im, bboxes);
-%     imshow(foregroundMask);
-%     waitforbuttonpress
     
     % actually detect cars
-    cars = [];
-    for j = 1 : N
-        bbox = bboxes(j,:);
-        patch = extractBboxPatch (im, bbox);
-        carsInPatch = detector.detect(patch);%, scales(j), orientations(j));
-        % bring the bboxes to the absolute coordinate system
-        for k = 1 : length(carsInPatch)
-            carsInPatch(k).bbox = addOffset2Boxes(int32(carsInPatch(k).bbox), bbox(1:2));
+    cars = detector.detect(frame);%, scales(j), orientations(j));
+    
+    % filter detected cars based on foreground mask
+    carsFilt = [];
+    for k = 1 : length(cars)
+        center = cars(k).getCenter(); % [y x]
+        if foregroundMask(center(1), center(2))
+            carsFilt = [carsFilt cars(k)];
         end
-        cars = [cars carsInPatch];
     end
+    cars = carsFilt;
     
     % count cars
     
     
-%     % output
-     tCycle = toc;
-%     frame_out = im;
-%     for j = 1 : length(cars)
-%         frame_out = showCarboxes(frame_out, cars{j});
-%     end
-%     frame_out = subtractor.drawboxes(frame_out, bboxes);
-%     imshow(frame_out);
+    % output
+    tCycle = toc;
+    frame_out = frame;
+    for j = 1 : length(cars)
+        frame_out = cars(j).drawCar(frame_out);
+    end
+    imshow(frame_out);
     
     fprintf ('frame %d in %f sec \n', t, tCycle);
 

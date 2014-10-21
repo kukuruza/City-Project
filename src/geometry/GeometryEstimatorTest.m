@@ -28,13 +28,34 @@ fprintf ('GeometryEstimator: constructor finished\n');
 geom.road.drawLanesOnImage(image);
 
 %setting the image size for the geometry module
-roadMask = geom.getRoadMask();
+laneMask = geom.getRoadMask();
 
 %Fetch the camera road map for various sizes of the cars expected
 cameraRoadMap = geom.getCameraRoadMap();
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Check the probability calculating module given two cars 
+
+
+%% Check size [and lane] estimation for every point on the road
+
+roadPoints = ...  % [x y]
+[109 186; ...     % car in the 4th lane in the front
+ 157 143; ...     % car in the 4th lane faraway
+ 210 139; ...     % car in the 4th lane faraway
+ 300 200; ...     % not a road
+ 100 100 ...     % not a road
+];
+
+carWidths = [50 20 20 0 0];
+
+carLanes = [4 4 5 0 0];
+
+for i = 1 : size(roadPoints,1)
+    fprintf ('car width at point #%d, estimate: %f, truth: %f\n', ...
+        i, carWidths(i), cameraRoadMap(roadPoints(i,2), roadPoints(i,1)));
+end
+
+
+%% Check the probability calculating module given two cars 
 %   Cars are taken from cam360, image0045 and image0048
 % Choose any two cars from below list of points
 % rois   = N x [x1 y1 x2 y2] - easier to get
@@ -47,13 +68,12 @@ rois = ...
  167 126 182 137; ...  % 5: normal dist, but on the 3rd lane (should be small)
  209 126 223 135; ...  % 6: normal dist, but on the 5th lane (should be small)
  158 145 176 158; ...  % 7: car is in the 4th lane, but passed only half dist. 
- 34 199 82 234; ...    % 8: car is moved in opposite direction (should be 0)
+ 34 199 82 234 ...    % 8: car is moved in opposite direction (should be 0)
 ];
-
-% probabilities should be 2: high,  3: ~0,  4: ~0,  5: small,  6: small
-%   7: small,  8: ==0
-
 bboxes = [rois(:,1:2) rois(:,3)-rois(:,1) rois(:,4)-rois(:,2)];
+
+% ground truth
+mutualProb = {'n/a', 'high', '~0', '~0', 'small', 'small', 'smaller', '==0'};
 
 car1Ind = 1;
 car2Ind = 2;
@@ -63,8 +83,9 @@ frameDiff = 1;
 car1 = Car(bboxes(1, :));
 for i = 2 : size(bboxes,1)
     car2 = Car(bboxes(i, :));
-    probability = geom.getMutualProb(car1, car2, frameDiff);
-    fprintf('Estimated probability from 1 to %d: %f \n', i, probability);
+    prob = geom.getMutualProb(car1, car2, frameDiff);
+    fprintf('probability to move from 1 to %d, estimate: %f, truth: %s \n', ...
+        i, prob, mutualProb{i});
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

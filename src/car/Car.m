@@ -11,8 +11,18 @@ classdef Car
         function C = Car (bbox)
             C.bbox = bbox;
         end
+        
         function roi = getROI (C)
             roi = [C.bbox(2) C.bbox(1) C.bbox(4)+C.bbox(2)-1 C.bbox(3)+C.bbox(1)-1];
+        end
+        
+        function center = getCenter (C) % [y x]
+            center = [int32(C.bbox(2) + C.bbox(4) / 2), ...
+                      int32(C.bbox(1) + C.bbox(3) / 2)];
+        end
+        
+        function im = drawCar (C, im)
+            im = insertObjectAnnotation(im, 'rectangle', C.bbox, 'car');
         end
     end % methods
 end

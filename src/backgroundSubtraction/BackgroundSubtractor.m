@@ -5,6 +5,10 @@ classdef BackgroundSubtractor < handle
          detector;
          blob;
          shapeInserter;
+         
+         % those are specific to cameras and should be learned and set
+         fn_level = 15;
+         fp_level = 1;
      end % properties
      
      methods
@@ -42,6 +46,12 @@ classdef BackgroundSubtractor < handle
              %ROIs
              %imshow([frame 255*uint8(mask)]);
              %waitforbuttonpress
+         end
+         
+         % add more foreground and remove noise
+         function mask = subtractAndDenoise (BS, frame)
+             mask = BS.subtract(frame);
+             mask = denoiseForegroundMask(mask, BS.fn_level, BS.fp_level);
          end
          
          % when mask from the previus function is changed and bboxes wanted
