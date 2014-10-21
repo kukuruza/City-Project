@@ -88,7 +88,12 @@ classdef Road < handle
             vanPoint = (polyfit(-1*parLines(1,:), parLines(2, :), 1))';
         end
         
-        %% Caliberating the scale factor for the car size
+        %% Caliberating the scale factor for the car size sampling at various locations
+        function[] = calibrateScale(obj)
+            %Samples the mean width of lanes at various heights and fits a
+            %line to evaluate the scale factor
+            
+        end
         
         %% Detecting the lane of the car
         function[laneIndex, lane] = detectCarLane(obj, carOrPoint)
