@@ -20,8 +20,11 @@ frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera572/']);
 im0 = frameReader.getNewFrame();
 
 % geometry
-matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_572.mat'];
-geom = GeometryEstimator(im0, matFile);
+%matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_572.mat'];
+%geom = GeometryEstimator(im0, matFile);
+objectFile = 'GeometryObject_Camera_572.mat';
+load(objectFile);
+fprintf ('Have read the Geometry object from file\n');
 roadMask = geom.getRoadMask();
 
 % background
@@ -48,7 +51,9 @@ while 1
     foregroundMask = foregroundMask & logical(roadMask);
     
     % actually detect cars
+    tic
     cars = detector.detect(frame);%, scales(j), orientations(j));
+    toc
     
     % filter detected cars based on foreground mask
     carsFilt = [];
@@ -72,6 +77,4 @@ while 1
     imshow(frame_out);
     
     fprintf ('frame %d in %f sec \n', t, tCycle);
-
-    t = t + 1;
 end
