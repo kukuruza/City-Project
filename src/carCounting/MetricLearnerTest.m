@@ -4,6 +4,7 @@
 clear all
 
 run ../rootPathsSetup
+run ../subdirPathsSetup.m
 
 %% input and ground truth
 
@@ -88,7 +89,8 @@ corresp{3} = ...
 
 %% do computation
 
-metricLearner = MetricLearner(); % pass necessary arguments to constructor
+counting = MetricLearner(); % pass necessary arguments to constructor
+% counting.MetricLearner();
 count0 = size(bboxes{1},1);
 
 for iframe = 1 : length(bboxes)
@@ -106,7 +108,9 @@ for iframe = 1 : length(bboxes)
     end
     
     % counting the new cars and total number of cars for a new frame
-    [newCarNumber Match] = metricLearner.processFrame(frame, cars);
+    matFile = 'Geometry_Camera_360.mat';
+    geom = GeometryEstimator(frame, matFile);
+    [newCarNumber Match] = counting.processFrame(frame, cars,geom);
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 
     
