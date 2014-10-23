@@ -41,7 +41,7 @@ classdef GeometryEstimator < handle
             [~, mask] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
             
             %Need to normalize the image co-ordinates using f
-            mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor, zeros(obj.imageSize));
+            mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor * obj.road.carHeightMu, zeros(obj.imageSize));
             mask = mask .* (obj.roadMask ~= 0);
             obj.cameraRoadMap = mask;
             
@@ -73,9 +73,9 @@ classdef GeometryEstimator < handle
         % Extended functionality to calculate the probabilities for either
         % between pairs of points/cars or between a point and a car
         function prob = getMutualProb (obj, carOrPoint1, carOrPoint2, frameDiff)
-            %assert (isa(car1, 'Car') && isa(car2, 'Car'));
+            assert (isa(carOrPoint1, 'CarAppearance') && isa(carOrPoint2, 'CarAppearance'));
             assert (isscalar(frameDiff));
-            verbose = false;
+            verbose = true;
             
             % Checking if the given argument is an object / double
             if(isobject(carOrPoint1))
