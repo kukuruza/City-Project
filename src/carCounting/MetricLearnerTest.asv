@@ -88,27 +88,8 @@ corresp{3} = ...
 
 
 %% do computation
-% Populating the carAppearance objects for the detected cars
- cars = {};
- for j = 1:3
-     cars{j} = {};
-     for i = 1:length(bboxes{j})
-         cars{j}{i} = CarAppearance(bboxes{j}(i, :), j);
-     end
- end
+
 counting = MetricLearner(); % pass necessary arguments to constructor
-%matFile = 'Geometry_Camera_360.mat';
-%geom = GeometryEstimator(frame, matFile);
-% Loading the road properties that were manually marked (Pts for the lanes)
-% Geometry object can be simply loaded using the object file
-% The object geom will be directly loaded. However, newer functionalities
-% might need this object to be created again
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
-    'Update if made changes to GeometryEstimator class\n'));
-
-
 % counting.MetricLearner();
 count0 = size(bboxes{1},1);
 
@@ -127,7 +108,8 @@ for iframe = 1 : length(bboxes)
     end
     
     % counting the new cars and total number of cars for a new frame
-
+    matFile = 'Geometry_Camera_360.mat';
+    geom = GeometryEstimator(frame, matFile);
     [newCarNumber Match] = counting.processFrame(frame, cars,geom);
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 

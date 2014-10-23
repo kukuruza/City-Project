@@ -88,60 +88,29 @@ corresp{3} = ...
 
 
 %% do computation
-% Populating the carAppearance objects for the detected cars
-%cars = {};
-%  for j = 1:3
-%      cars{j} = {};
-%      for i = 1:length(bboxes{j})
-%          cars{j}{i} = CarAppearance(bboxes{j}(i, :), j);
-%          cars{j}{i}.generateFeature(image);
-%      end
-%  end
-counting = MetricLearner(); % pass necessary arguments to constructor
-count0 = size(bboxes{1},1); % initial should be the number of cars in the first frame
-%matFile = 'Geometry_Camera_360.mat';
-%geom = GeometryEstimator(frame, matFile);
-% Loading the road properties that were manually marked (Pts for the lanes)
-% Geometry object can be simply loaded using the object file
-% The object geom will be directly loaded. However, newer functionalities
-% might need this object to be created again
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
-    'Update if made changes to GeometryEstimator class\n'));
 
+counting = MetricLearner(); % pass necessary arguments to constructor
+% counting.MetricLearner();
+count0 = size(bboxes{1},1);
 
 for iframe = 1 : length(bboxes)
 
     % read frame
     frame = imread(imPath{iframe});
-    j = iframe;
-     cars = {};
-     for i = 1:length(bboxes{j})
-         cars{i} = CarAppearance(bboxes{j}(i, :), j);
-         cars{i}.generateFeature(frame);
-     end
-     
-     %In order to read the patch for the ith car
-     % cars{i}.features
-     % in order to read the bbox
-     % cars{i}.bbox
-     
-     
-%     % make cars from bboxes
-%     cars = {};
-%     for i = 1 : size(bboxes{iframe},1)
-%         bboxesF = bboxes{iframe};
-%         bboxesCar = bboxesF(i,:);
-%         cars{i} = frame(bboxesCar(2) : bboxesCar(2)+bboxesCar(4)-1, bboxesCar(1) : bboxesCar(1)+bboxesCar(3)-1, :);
-%         % cars = [cars CarAppearance(bboxesF(i,:))];      
-%     end
     
-
-
+    % make cars from bboxes
+    cars = {};
+    for i = 1 : size(bboxes{iframe},1)
+        bboxesF = bboxes{iframe};
+        bboxesCar = bboxesF(i,:);
+        cars{i} = frame(bboxesCar(2) : bboxesCar(2)+bboxesCar(4)-1, bboxesCar(1) : bboxesCar(1)+bboxesCar(3)-1, :);
+        % cars = [cars CarAppearance(bboxesF(i,:))];      
+    end
+    
     % counting the new cars and total number of cars for a new frame
-
-    [newCarNumber Match] = counting.processFrame(iframe, frame, cars, geom);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    matFile = 'Geometry_Camera_360.mat';
+    geom = GeometryEstimator(frame, matFile);
+    [newCarNumber Match] = counting.processFrame(frame, cars,geom);
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 
     

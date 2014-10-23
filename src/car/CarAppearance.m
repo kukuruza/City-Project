@@ -1,7 +1,7 @@
 % class for holding general car info
 %
 
-classdef CarAppearance < handle
+classdef CarAppearance
     properties
         iFrame;
         feature = [];
@@ -22,7 +22,7 @@ classdef CarAppearance < handle
         function generateFeature (C, image)
             patch  = C.extractPatch(image);
             % logic
-            C.feature = patch;  % TODO: implement
+            C.feature = [];  % TODO: implement
         end
     end % methods
 end
