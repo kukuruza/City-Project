@@ -47,8 +47,6 @@ classdef GeometryEstimator < handle
             % calculate the scale factor accordingly
             mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor * obj.road.carHeightMu, zeros(obj.imageSize));
             
-            
-            
             % Ignoring points outside the roadMask
             mask = mask .* (obj.roadMask ~= 0);
             obj.cameraRoadMap = mask;
@@ -86,13 +84,13 @@ classdef GeometryEstimator < handle
             
             % Checking if the given argument is an object / double
             if(isobject(carOrPoint1))
-                point1 = floor([carOrPoint1.bbox(1) + carOrPoint1.bbox(3)/2 ; carOrPoint1.bbox(2) + carOrPoint1.bbox(4)/2]);
+                point1 = floor([carOrPoint1.bbox(1) + carOrPoint1.bbox(3)/2 ; carOrPoint1.bbox(2) + carOrPoint1.bbox(4)]);
             else
                 point1 = floor(carOrPoint1);
             end
             
             if(isobject(carOrPoint2))
-                point2 = floor([carOrPoint2.bbox(1) + carOrPoint2.bbox(3)/2 ; carOrPoint2.bbox(2) + carOrPoint2.bbox(4)/2]);
+                point2 = floor([carOrPoint2.bbox(1) + carOrPoint2.bbox(3)/2 ; carOrPoint2.bbox(2) + carOrPoint2.bbox(4)]);
             else
                 point2 = floor(carOrPoint2);
             end
@@ -302,7 +300,7 @@ classdef GeometryEstimator < handle
             probMap = zeros(obj.imageSize(1), obj.imageSize(2));
             % Checking if its a point or a car
             if(isobject(carOrPoint))
-                point = [carOrPoint.bbox(1) + carOrPoint.bbox(3)/2 ; carOrPoint.bbox(2) + carOrPoint.bbox(4)/2];
+                point = [carOrPoint.bbox(1) + carOrPoint.bbox(3)/2 ; carOrPoint.bbox(2) + carOrPoint.bbox(4)];
             else
                 point = carOrPoint;
             end
@@ -311,9 +309,11 @@ classdef GeometryEstimator < handle
             ptsOnRoad = find(obj.roadMask ~= 0);
             for i = 1:length(ptsOnRoad)
                 [r, c] = ind2sub(obj.imageSize, ptsOnRoad(i));
-                probMap([ptsOnRoad(i)]) = obj.getMutualProb(point, [c, r], frameDiff);
+                probMap(ptsOnRoad(i)) = obj.getMutualProb(point, [c, r], frameDiff);
             end
             
+            %Debugging
+            %fprintf('Number of arguments %d \n', nargin);
             if(nargin < 4)
                 overlaidImg = zeros(obj.imageSize);
                 return
@@ -325,14 +325,16 @@ classdef GeometryEstimator < handle
             
             %Creating mask for overlaying and ignoring small valued
             %probabilities
-            mask = (probMapNorm < 10^-10);
+            mask = (probMapNorm < 10^-5);
             mask = mask(:, :, [1 1 1]);
-
-            overlaidImg =  uint8(mask) .* image + uint8(~mask) .* rgbMap;
+            
+            %overlaidImg(mask) =  image(mask);
+            %overlaidImg(~mask) = rgbMap(~mask);
+            overlaidImg = uint8(mask) .* image + uint8(~mask) .* rgbMap;
             
             %Marking the origin point 
             markerInserter = vision.MarkerInserter('Size', 5, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
-            overlaidImg = step(markerInserter, overlaidImg, uint8(point));
+            overlaidImg = step(markerInserter, overlaidImg, uint32(point));
         end
     end
 end
