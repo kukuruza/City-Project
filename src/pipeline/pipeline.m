@@ -31,15 +31,22 @@ roadMask = geom.getRoadMask();
 subtractor = BackgroundSubtractor(5, 25, 80);
 
 % detector
-modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 detector = CascadeCarDetector (modelPath);
+frameid = 0;
 
-t = 2;
+% 
+counting = MetricLearner(); % pass necessary arguments to constructor
+countcars = 0;
+
+
+t = 1;
 while 1
     tic
     
     % read image
-    frame = frameReader.getNewFrame();
+    [frame, interval] = frameReader.getNewFrame();
+    frameid = frameid + interval;
     if isempty(frame), break, end
     gray = rgb2gray(frame);
     
@@ -66,16 +73,16 @@ while 1
     cars = carsFilt;
     
     % count cars
-     cars2 = {};
-     for i = 1:length(cars.bbox)
-         cars2{i} = CarAppearance(cars.bbox(i, :), frameReader.counter);
-         cars2{i}.generateFeature(frame);
-     end
-    counting = MetricLearner(); % pass necessary arguments to constructor
-    count0 = length(detector.detect(im0));  %%%???
-    [newCarNumber Match] = counting.processFrame(frameReader.counter, frame, cars2, geom);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
-    count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
-    count0 = count1; 
+    %if ~isempty(cars)
+        carsApp = {};
+        for i = 1:length(cars)
+             carsApp{i} = CarAppearance(cars(i).bbox, t);
+             carsApp{i}.generateFeature(frame);
+        end
+        length(carsApp)
+        [newCarNumber, ~] = counting.processFrame(t, frame, carsApp, geom);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+        countcars = countcars + newCarNumber;    % count1 is the total number of cars for all the frames.
+    %end
     
     % output
     tCycle = toc;
@@ -85,5 +92,6 @@ while 1
     end
     imshow(frame_out);
     
+    t = t + 1;
     fprintf ('frame %d in %f sec \n', t, tCycle);
 end

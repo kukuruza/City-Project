@@ -10,7 +10,7 @@ run '../../subdirPathsSetup.m'
 
 % test images dir
 imagesDir = [CITY_DATA_PATH, 'testdata/detector/'];
-modelPath = [CITY_DATA_PATH, 'violajones/models/model2.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 
 avgsize = [18 36];
 detector = CascadeCarDetector(modelPath, avgsize);

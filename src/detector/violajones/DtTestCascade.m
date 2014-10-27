@@ -3,14 +3,14 @@
 run '../../rootPathsSetup.m';
 
 % test images dir
-imagesDir = [CITY_DATA_PATH, 'violajones/testdata/images/'];
-modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
+%imagesDir = [CITY_DATA_PATH, 'violajones/testdata/images/'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 
 % load model
 detector = vision.CascadeObjectDetector(modelPath);
 
 % detect
-imPath = [imagesDir 'cam368_0080.jpg'];
+imPath = [CITY_DATA_PATH 'testdata/detector/001269.jpg'];
 img = imread(imPath);
 
 bboxes = step(detector, img);

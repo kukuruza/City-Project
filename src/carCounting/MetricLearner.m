@@ -18,7 +18,7 @@ classdef MetricLearner < handle
         function [ProbCol, ProbHOG] = AppProb (ML, car1, car2)
             % HOG
             % run('C:\Users\Shaolong\Documents\MATLAB\vlfeat-0.9.19\toolbox\vl_setup.m');
-            run('vlfeat-0.9.19/toolbox/vl_setup.m');
+            %run('vlfeat-0.9.19/toolbox/vl_setup.m');
             
             carRe1 = imresize(car1,[64 48]);
             carRe2 = imresize(car2,[64 48]);
@@ -78,7 +78,8 @@ classdef MetricLearner < handle
                 ML.seenCarapps{iframe} = cars;
                 ML.framecounter = 1;
                 Match = 1;
-            else
+                return
+            end
                 
             % validation of parameters
             assert (ndims(image) == 3);         % color image
@@ -88,6 +89,8 @@ classdef MetricLearner < handle
                     
             ML.framecounter = ML.framecounter + 1;
             carapps = cars;
+            iframe
+            length(ML.seenCarapps)
             seen = ML.seenCarapps{iframe-1};
 
             
@@ -126,8 +129,8 @@ classdef MetricLearner < handle
                     %pause()
                     fprintf('Prob : %f\n', ProbGeo(i,j));
                     [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(carapp.feature, seenCarapp.feature);
-                    ProbCol(i,j) = 0.5;
-                    ProbHOG(i,j) = 0.5;
+                    %ProbCol(i,j) = 0.5;
+                    %ProbHOG(i,j) = 0.5;
                     ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
                     
                 end
@@ -148,10 +151,10 @@ classdef MetricLearner < handle
             newCarNumber = length(carapps) - CountMatch;    
             ML.seenCarapps{iframe} = cars;
             
-            fileGeoProb = strcat('GeoProb', num2str(iframe));
-            save(fileGeoProb, 'ProbGeo');
-            fileMatch = strcat('Match', num2str(iframe));
-            save(fileMatch, 'Match');
+            %fileGeoProb = strcat('GeoProb', num2str(iframe));
+            %save(fileGeoProb, 'ProbGeo');
+            %fileMatch = strcat('Match', num2str(iframe));
+            %save(fileMatch, 'Match');
             % element-wise operation to come up with a single matrix
             % constraints = GeoProb .* appearConstraints;
             
@@ -163,7 +166,6 @@ classdef MetricLearner < handle
             % for appearCar = ML.seenAppearCars find iFrame > ...
             
             % put the new cars into the list
-            end
         end
     end % methods
 end

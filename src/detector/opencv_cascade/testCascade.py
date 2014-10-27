@@ -24,11 +24,11 @@ cascade = cv2.CascadeClassifier("/Users/evg/projects/City-Project/data/violajone
 rects = cascade.detectMultiScale(img)
 
 # display until escape key is hit
-while True:
+#while True:
 
     # get a list of rectangles
-    for x,y, width,height in rects:
-        cv2.rectangle(img, (x,y), (x+width, y+height), color, strokeWeight)
+for x,y, width,height in rects:
+    cv2.rectangle(img, (x,y), (x+width, y+height), color, strokeWeight)
 
     # display!
 #    cv2.imshow(windowName, img)
