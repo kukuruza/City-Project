@@ -5,6 +5,10 @@
 
 clear all
 
+
+% change dir to the directory of this script
+cd (fileparts(mfilename('fullpath')));
+
 % setup data directory
 run '../rootPathsSetup.m';
 
@@ -15,7 +19,7 @@ videoPath = [CITY_DATA_PATH, '2-min/camera360.avi'];
 imDir = [CITY_DATA_PATH, '2-min/camera360/'];
 %frameReader = FrameReaderImages (imDir);
 
-frameReader = FrameReaderInternet (360);
+frameReader = FrameReaderInternet (572);
 
 
 while true

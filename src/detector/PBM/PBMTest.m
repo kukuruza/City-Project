@@ -4,22 +4,25 @@
 
 clear all
 
+% change dir to the directory of this script
+cd (fileparts(mfilename('fullpath')));
+
 % setup CITY_DATA_PATH
-run '../rootPathsSetup.m';
+run '../../rootPathsSetup.m';
 
 global CITY_DATA_PATH
-im = imread([CITY_DATA_PATH, '/five camera for 2 min/cameraNumber572/image0024.jpg']);
+im = imread([CITY_DATA_PATH, 'testdata/detector/cam672-0000.jpg']);
 gray = rgb2gray(im);
 
 modelPath = 'voc-dpm-voc-release5.02/VOC2010/car_final.mat';
-detector = CarDetector(modelPath, '2010', 5, -0.5);
+detector = PBMDetector(modelPath, '2010', 5, -0.5);
 
 offset = [190 190];
 ROIs = [190 190 280 280];
 i = 1;
 roi = ROIs (i,:);
-%patch = im;
-patch = im (roi(2) : roi(4), roi(1) : roi(3), :);
+patch = im;
+%patch = im (roi(2) : roi(4), roi(1) : roi(3), :);
 
 tic;
 cars = detector.detect(patch);

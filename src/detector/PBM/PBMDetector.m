@@ -1,11 +1,11 @@
-classdef CarDetector < handle
+classdef PBMDetector < handle
     properties (Hidden)
         model;
         csc_model;
     end % properties
     methods
         
-        function detector = CarDetector (modelPath, modelYear, pca, thresh)
+        function detector = PBMDetector (modelPath, modelYear, pca, thresh)
 
             % load the model
             temp = load(modelPath);
@@ -19,7 +19,7 @@ classdef CarDetector < handle
                 error('run rootPathsSetup.m first');
             end
             
-            cd ([CITY_SRC_PATH, 'partBasedModels/voc-dpm-voc-release5.02']);
+            cd ([CITY_SRC_PATH, 'detector/PBM/voc-dpm-voc-release5.02']);
             %startup;
             detector.csc_model = cascade_model(detector.model, modelYear, pca, thresh);
             cd (currentDir)
