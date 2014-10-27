@@ -30,7 +30,8 @@ classdef BackgroundSubtractor < handle
                    'InitialVariance', InitialVariance_^2);
 
              BS.blob = vision.BlobAnalysis(...
-                   'CentroidOutputPort', false, 'AreaOutputPort', false, ...
+                   'CentroidOutputPort', false, ...
+                   'AreaOutputPort', false, ...
                    'BoundingBoxOutputPort', true, ...
                    'MinimumBlobAreaSource', 'Property', ...
                    'MinimumBlobArea', MinimumBlobArea_);
@@ -49,9 +50,10 @@ classdef BackgroundSubtractor < handle
          end
          
          % add more foreground and remove noise
-         function mask = subtractAndDenoise (BS, frame)
-             mask = BS.subtract(frame);
+         function [mask, bboxes] = subtractAndDenoise (BS, frame)
+             mask  = step(BS.detector, frame);
              mask = denoiseForegroundMask(mask, BS.fn_level, BS.fp_level);
+             bboxes = step(BS.blob, mask);
          end
          
          % when mask from the previus function is changed and bboxes wanted
