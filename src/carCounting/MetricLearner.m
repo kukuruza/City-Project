@@ -72,7 +72,7 @@ classdef MetricLearner < handle
         end
             
             
-        function [newCarNumber Match] = processFrame (ML, iframe, image, cars, geometryObj)
+        function [newCarNumber Match NewIndex] = processFrame (ML, iframe, image, cars, geometryObj)
             if(iframe == 1)
                 newCarNumber = 0;
                 ML.seenCarapps{iframe} = cars;
@@ -129,8 +129,8 @@ classdef MetricLearner < handle
                     %pause()
                     fprintf('Prob : %f\n', ProbGeo(i,j));
                     [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(carapp.feature, seenCarapp.feature);
-                    %ProbCol(i,j) = 0.5;
-                    %ProbHOG(i,j) = 0.5;
+                    % ProbCol(i,j) = 0.5;
+                    % ProbHOG(i,j) = 0.5;
                     ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
                     
                 end
@@ -138,12 +138,14 @@ classdef MetricLearner < handle
            
             % build the match matrix
             Match = zeros(size(ProbWeighted));
+            NewIndex = zeros(length(carapps), 1);
             for k = 1: length(carapps)
                 [maxProb, index] = max(ProbWeighted(k,:));
                 if(maxProb>0.8)
                     Match(k,index) = 1;
+                    NewIndex(k)= 1;
                 else
-                    Match(k,index) = 0;
+                    NewIndex(k)= 0;
                 end
             end
             % compute new car number
