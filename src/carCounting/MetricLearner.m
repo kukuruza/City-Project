@@ -126,8 +126,8 @@ classdef MetricLearner < handle
                     %pause()
                     fprintf('Prob : %f\n', ProbGeo(i,j));
                     [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(carapp.feature, seenCarapp.feature);
-                    ProbCol(i,j) = 0.5;
-                    ProbHOG(i,j) = 0.5;
+                    % ProbCol(i,j) = 0.5;
+                    % ProbHOG(i,j) = 0.5;
                     ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
                     
                 end
@@ -135,15 +135,14 @@ classdef MetricLearner < handle
            
             % build the match matrix
             Match = zeros(size(ProbWeighted));
-            NewIndex = zeros(length(carapps),1);
+            NewIndex = zeros(length(carapps), 1);
             for k = 1: length(carapps)
                 [maxProb, index] = max(ProbWeighted(k,:));
                 if(maxProb>0.8)
                     Match(k,index) = 1;
-                    NewIndex(k) = 1;
+                    NewIndex(k)= 1;
                 else
-                    Match(k,index) = 0;
-                    NewIndex(k) = 0;
+                    NewIndex(k)= 0;
                 end
             end
             % compute new car number
@@ -153,8 +152,14 @@ classdef MetricLearner < handle
             
             fileGeoProb = strcat('GeoProb', num2str(iframe));
             save(fileGeoProb, 'ProbGeo');
+            fileGeoProb = strcat('ColProb', num2str(iframe));
+            save(fileGeoProb, 'ProbCol');
+            fileGeoProb = strcat('HOGProb', num2str(iframe));
+            save(fileGeoProb, 'ProbHOG');
             fileMatch = strcat('Match', num2str(iframe));
             save(fileMatch, 'Match');
+            fileMatch = strcat('NewIndex', num2str(iframe));
+            save(fileMatch, 'NewIndex');
             % element-wise operation to come up with a single matrix
             % constraints = GeoProb .* appearConstraints;
             
