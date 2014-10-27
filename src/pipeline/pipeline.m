@@ -66,7 +66,16 @@ while 1
     cars = carsFilt;
     
     % count cars
-    
+     cars2 = {};
+     for i = 1:length(cars.bbox)
+         cars2{i} = CarAppearance(cars.bbox(i, :), frameReader.counter);
+         cars2{i}.generateFeature(frame);
+     end
+    counting = MetricLearner(); % pass necessary arguments to constructor
+    count0 = length(detector.detect(im0));  %%%???
+    [newCarNumber Match] = counting.processFrame(frameReader.counter, frame, cars2, geom);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
+    count0 = count1; 
     
     % output
     tCycle = toc;

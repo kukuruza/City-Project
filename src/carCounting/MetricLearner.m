@@ -18,7 +18,7 @@ classdef MetricLearner < handle
         function [ProbCol, ProbHOG] = AppProb (ML, car1, car2)
             % HOG
             % run('C:\Users\Shaolong\Documents\MATLAB\vlfeat-0.9.19\toolbox\vl_setup.m');
-            run('vlfeat-0.9.19\toolbox\vl_setup.m');
+            run('vlfeat-0.9.19/toolbox/vl_setup.m');
             
             carRe1 = imresize(car1,[64 48]);
             carRe2 = imresize(car2,[64 48]);
@@ -117,7 +117,7 @@ classdef MetricLearner < handle
                 carapp = carapps{i};      % all the cars in new frame
                 for j = 1 : length(seen)
                     seenCarapp = seen{j};   % all the cars in former frame                
-                    ProbGeo(i,j) = geometryObj.getMutualProb(carapp, seenCarapp, 3);
+                    ProbGeo(i,j) = geometryObj.getMutualProb(seenCarapp, carapp, 1);  % seen car should be the first arguement
                     % seenCarapp
                     % pause()
                     
@@ -126,6 +126,8 @@ classdef MetricLearner < handle
                     %pause()
                     fprintf('Prob : %f\n', ProbGeo(i,j));
                     [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(carapp.feature, seenCarapp.feature);
+                    ProbCol(i,j) = 0.5;
+                    ProbHOG(i,j) = 0.5;
                     ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
                     
                 end
