@@ -31,11 +31,11 @@ while True:
         cv2.rectangle(img, (x,y), (x+width, y+height), color, strokeWeight)
 
     # display!
-    cv2.imshow(windowName, img)
+#    cv2.imshow(windowName, img)
 
     # escape key (ASCII 27) closes window
-    if cv2.waitKey(20) == 27:
-        break
+#    if cv2.waitKey(20) == 27:
+#        break
 
 # if esc key is hit, quit!
 exit()
