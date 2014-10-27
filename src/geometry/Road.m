@@ -96,7 +96,6 @@ classdef Road < handle
             %Samples the mean width of lanes at various heights and fits a
             %line to evaluate the scale factor for height calculation of
             %cars
-            
             roadWidth = [];
             %Taking around 10 samples spaced at 30 vertical pixels
             ySamples = (floor(obj.vanishPt(2)) + (50:30:300))';
@@ -109,8 +108,11 @@ classdef Road < handle
                 % Get the mean width of the lanes
                 roadWidth = [roadWidth, curWidth];
             end
+            
             meanWidth = mean(roadWidth, 2);
+            
             fit = polyfit(ySamples, meanWidth, 1);
+            
             scale = fit(1)/obj.laneWidthMu;
         end
         
