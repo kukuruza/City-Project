@@ -23,13 +23,13 @@ classdef GeometryEstimator < handle
             %Relative to geometry Path
             obj.classifierPath = '../data/classifiers_08_22_2005.mat';
             
-            %Matfile name given manually for now, can be passed based on
-            %the camera we are using it with
-            %matFile = 'Geometry_Camera_360.mat';
-            %Creating the road object from mat
+            % Reading the mat file that contains the manually marked points
+            % Creating the road object from the mat
             obj.road = Road(camPropertyFile);
             obj.imageSize = [size(initImage, 1), size(initImage, 2)];
             
+            % Identifying the car lanes for the given image and given lanes
+            % Costly and naive way to do things - needs improvization
             obj.roadMask = zeros(obj.imageSize);
             for i = 1:obj.imageSize(1)
                 for j = 1:obj.imageSize(2)
@@ -37,14 +37,21 @@ classdef GeometryEstimator < handle
                 end
             end
 
-            %Using the geometry from objects in perspective paper
+            % Creating map of expected car sizes at different locations on
+            % the image - should also include the orientation extension
+            % because of the orientations
             [~, mask] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
             
-            %Need to normalize the image co-ordinates using f
+            %Need to normalize the image co-ordinates using f 
+            % Alternatively, we calibrate using the average lane width and
+            % calculate the scale factor accordingly
             mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor * obj.road.carHeightMu, zeros(obj.imageSize));
+            
+            
+            
+            % Ignoring points outside the roadMask
             mask = mask .* (obj.roadMask ~= 0);
             obj.cameraRoadMap = mask;
-            
         end
         
         %% Method to calculate confidence maps to detect various geometries
