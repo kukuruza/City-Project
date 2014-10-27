@@ -17,7 +17,8 @@ classdef MetricLearner < handle
         
         function [ProbCol, ProbHOG] = AppProb (ML, car1, car2)
             % HOG
-            run('C:\Users\Shaolong\Documents\MATLAB\vlfeat-0.9.19\toolbox\vl_setup.m');
+            % run('C:\Users\Shaolong\Documents\MATLAB\vlfeat-0.9.19\toolbox\vl_setup.m');
+            run('vlfeat-0.9.19\toolbox\vl_setup.m');
             
             carRe1 = imresize(car1,[64 48]);
             carRe2 = imresize(car2,[64 48]);
