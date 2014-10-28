@@ -20,12 +20,10 @@ frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera572/']);
 im0 = frameReader.getNewFrame();
 
 % geometry
-%matFile = [CITY_SRC_PATH 'geometry/Geometry_Camera_572.mat'];
-%geom = GeometryEstimator(im0, matFile);
 objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
-roadMask = geom.getRoadMask();
+roadCameraMap = geom.roadCameraMap(im0);
 
 % background
 subtractor = BackgroundSubtractor(5, 25, 80);
@@ -73,6 +71,23 @@ while 1
         end
     end
     cars = carsFilt;
+    
+    % filtering cars based on sizes
+    SizeTolerance = 1.5;
+    counter = 1;
+    carsFilt = Car.empty;
+    for k = 1 : length(cars)
+        center = cars(k).getCenter(); % [y x]
+        expectedSize = roadCameraMap(center(1), center(2));
+        fprintf('expectedSize: %f ', expectedSize);
+        fprintf('actualSize: %f\n', cars(k).bbox(3));
+        if expectedSize / SizeTolerance < cars(k).bbox(3) && ...
+           expectedSize * SizeTolerance > cars(k).bbox(3)
+            carsFilt(counter) = cars(k);
+            counter = counter + 1;
+        end
+    end
+    cars = carsFilt;    
     
     % count cars
     for i = 1:length(cars)

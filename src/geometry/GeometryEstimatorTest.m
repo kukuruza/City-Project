@@ -2,6 +2,10 @@
 % various functionalities
 
 clear all
+
+% change dir to the directory of this script
+cd (fileparts(mfilename('fullpath')));
+
 run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 

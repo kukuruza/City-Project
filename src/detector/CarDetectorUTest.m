@@ -1,97 +1,77 @@
-% test car detector
-% 
+% detect object using trained cascade classifier
 
 clear all
 
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
 
-run ../subdirPathsSetup.m
+run '../rootPathsSetup.m';
+run '../subdirPathsSetup.m'
 
 
-%% input and ground truth
 
-imDir = [CITY_DATA_PATH 'testdata/detector/'];
+%% input
 
-imPath{1} = [imDir 'cam672-0000.jpg'];
-imPath{2} = [imDir 'cam672-0002.jpg'];
-imPath{3} = [imDir 'cam672-0003.jpg'];
-imPath{4} = [imDir 'cam672-0005.jpg'];
+imPath = [CITY_DATA_PATH, 'testdata/detector/img000.jpg'];
+img0 = imread(imPath);
 
-% bounding boxes in input images are taken from CarCount test
-% x1 y1 width height
-bboxes{1} = ...
-[151 248 88 66; ...   % #1
- 235 180 36 27; ...   % #2
- 169 169 44 33; ...   % #3
- 118 181 40 30; ...   % #4
- 255 160 28 21  ...   % #5
-];
 
-bboxes{2} = ...
-[203 210 60 45; ...   % #2
- 52 212 92 69; ...    % #3
- 1 222 72 54; ...     % #4
- 247 167 36 27; ...   % #5
- 255 144 36 27; ...   % #6
- 91 176 52 39; ...    % #7
- 151 163 36 27 ...    % #8
-];
 
-bboxes{3} = ...
-[42 323 168 126; ...  % #2
- 227 187 48 36; ...   % #5
- 255 151 28 27; ...   % #6
- 84 187 52 39; ...    % #8
- 188 169 36 27; ...   % #9
- 169 154 28 21 ...    % #10
-];
+%% ground truth
 
-% expand bounding boxes
-percExpand = 0.5; % twice
-for iframe = 1 : 3
-    im = imread(imPath{iframe});
-    bboxes{iframe} = int32(expandBboxes(bboxes{iframe}, percExpand, im));
+trueBboxes = dlmread([CITY_DATA_PATH, 'testdata/detector/img000.txt']);
+
+
+
+
+%% detect and refine
+
+modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
+
+detector = CascadeCarDetector(modelPath);
+
+tic
+cars = detector.detect(img0);
+toc
+
+img = img0;
+for i = 1 : length(cars)
+    img = insertObjectAnnotation(img, 'rectangle', cars(i).bbox, 'car');
 end
+figure (1);
+imshow(img);
+
+% geometry
+objectFile = 'GeometryObject_Camera_572.mat';
+load(objectFile);
+fprintf ('Have read the Geometry object from file\n');
+roadCameraMap = geom.getCameraRoadMap();
 
 
-%% check that input patches are correct
-
-% for iIm = 1 : 3
-%     im = imread(imPath{iIm});
-%     imshow(im);
-%     waitforbuttonpress
-%     for j = 1 : size(bboxes{iIm},1)
-%         bbox = bboxes{iIm}(j,:);
-%         patch = im (bbox(2) : bbox(2)+bbox(4)-1, bbox(1) : bbox(1)+bbox(3)-1, :);
-%         imshow(patch);
-%         waitforbuttonpress
-%     end
-% end
-
-
-%% test
-
-% create
-modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
-detector = CascadeCarDetector (modelPath);
-
-% detect
-for iIm = 1 : 3
-    im = imread(imPath{iIm});
-    for j = 1 : size(bboxes{iIm},1)
-        bbox = bboxes{iIm}(j,:);
-        patch = im (bbox(2) : bbox(2)+bbox(4)-1, bbox(1) : bbox(1)+bbox(3)-1, :);
-
-        cars = detector.detect(patch);
-
-        for k = 1 : length(cars)
-            patch = insertObjectAnnotation(patch, 'rectangle', cars(k).bbox, 'car');
-        end
-        imshow(patch);
-        waitforbuttonpress;
+% filtering cars based on sizes
+SizeTolerance = 1.5;
+counter = 1;
+carsFilt = Car.empty;
+for k = 1 : length(cars)
+    center = cars(k).getCenter(); % [y x]
+    expectedSize = roadCameraMap(center(1), center(2));
+    fprintf('expectedSize: %f ', expectedSize);
+    fprintf('actualSize: %f\n', cars(k).bbox(3));
+    if expectedSize / SizeTolerance < cars(k).bbox(3) && ...
+       expectedSize * SizeTolerance > cars(k).bbox(3)
+        carsFilt(counter) = cars(k);
+        counter = counter + 1;
     end
 end
+cars = carsFilt;    
+
+
+img = img0;
+for i = 1 : length(carsFilt)
+    img = insertObjectAnnotation(img, 'rectangle', carsFilt(i).bbox, 'car');
+end
+figure (2);
+imshow(img);
 
 
 
