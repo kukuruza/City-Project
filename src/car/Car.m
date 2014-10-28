@@ -15,6 +15,10 @@ classdef Car < CarInterface
     end % propertioes
     methods
         function C = Car (bbox, timestamp)
+            %Assigning a default value to timeStamp
+            if(nargin < 2)
+                timestamp = [1 2 3 4 5 6]; 
+            end
             C.bbox = bbox;
             C.timeStamp = timestamp;
         end
