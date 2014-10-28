@@ -146,7 +146,7 @@ for iframe = 1 : length(bboxes)
     count0 = count1; 
     
     % compare output with ground truth
-    corresp{iframe}
+    % corresp{iframe}
     
 end
 

@@ -6,10 +6,9 @@ classdef CascadeCarDetector < CarDetectorInterface
         detector; % vision.CascadeObjectDetector
     end % properties
     methods
-        function CD = CascadeCarDetector (modelPath, avgsize)
-            assert (isvector(avgsize) && length(avgsize) == 2);
-            minsize = [18 36];
-            maxsize = [30 60];
+        function CD = CascadeCarDetector (modelPath)
+            minsize = [15 20];
+            maxsize = [60 80];
             CD.detector = vision.CascadeObjectDetector(modelPath, ...
                 'MinSize', minsize, 'MaxSize', maxsize);
         end

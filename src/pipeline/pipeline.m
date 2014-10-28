@@ -31,15 +31,22 @@ roadMask = geom.getRoadMask();
 subtractor = BackgroundSubtractor(5, 25, 80);
 
 % detector
-modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 detector = CascadeCarDetector (modelPath);
+frameid = 0;
 
-t = 2;
+% 
+counting = MetricLearner(); % pass necessary arguments to constructor
+countcars = 0;
+
+
+t = 1;
 while 1
     tic
     
     % read image
-    frame = frameReader.getNewFrame();
+    [frame, interval] = frameReader.getNewFrame();
+    frameid = frameid + interval;
     if isempty(frame), break, end
     gray = rgb2gray(frame);
     
@@ -56,17 +63,24 @@ while 1
     toc
     
     % filter detected cars based on foreground mask
-    carsFilt = [];
+    counter = 1;
+    carsFilt = Car.empty;
     for k = 1 : length(cars)
         center = cars(k).getCenter(); % [y x]
         if foregroundMask(center(1), center(2))
-            carsFilt = [carsFilt cars(k)];
+            carsFilt(counter) = cars(k);
+            counter = counter + 1;
         end
     end
     cars = carsFilt;
     
     % count cars
-    
+    for i = 1:length(cars)
+         cars(i).iFrame = t;
+         cars(i).extractPatch(frame);
+    end
+    [newCarNumber, ~] = counting.processFrame(t, frame, cars, geom);
+    countcars = countcars + newCarNumber;
     
     % output
     tCycle = toc;
@@ -76,5 +90,6 @@ while 1
     end
     imshow(frame_out);
     
+    t = t + 1;
     fprintf ('frame %d in %f sec \n', t, tCycle);
 end

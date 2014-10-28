@@ -44,7 +44,12 @@ classdef FrameReaderInternet < FrameReader
                     pause(FR.CallInterval);
                 end
                 
-                frame = imread([FR.url num2str(now)]);
+                try
+                    frame = imread([FR.url num2str(now)]);
+                catch
+                    frame = FR.lastFrame;
+                end
+                
                 if isempty(FR.lastFrame)
                     timeinterval = -1;
                     FR.lastFrame = frame;

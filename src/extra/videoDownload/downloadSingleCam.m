@@ -14,7 +14,7 @@ end
 
 % where to write video and intervals
 videoPath = fullfile(outDir, ['camera' num2str(camNum) '.avi']);
-intervalsPath = fullfile(outDir, ['intervals' num2str(camNum) '.txt']);
+intervalsPath = fullfile(outDir, ['times' num2str(camNum) '.txt']);
 
 frameReader = FrameReaderInternet (camNum);
 frameWriter = FrameWriterVideo (videoPath, 2, 1);

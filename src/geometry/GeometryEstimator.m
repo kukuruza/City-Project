@@ -78,7 +78,8 @@ classdef GeometryEstimator < handle
         % Extended functionality to calculate the probabilities for either
         % between pairs of points/cars or between a point and a car
         function prob = getMutualProb (obj, carOrPoint1, carOrPoint2, frameDiff)
-            %assert (isa(car1, 'Car') && isa(car2, 'Car'));
+            assert (isa(carOrPoint1, 'Car') || isvector(carOrPoint1));
+            assert (isa(carOrPoint2, 'Car') || isvector(carOrPoint2));
             assert (isscalar(frameDiff));
             verbose = false;
             
