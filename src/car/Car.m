@@ -9,15 +9,20 @@ classdef Car < CarInterface
         patch = [];
         
         % features
-        iFrame;
+        timeStamp; %Time stamp for the car
         feature = [];
         histHog = [];
         histCol = [];
         
     end % propertioes
     methods
-        function C = Car (bbox)
+        function C = Car (bbox, timestamp)
+            %Assigning a default value to timeStamp
+            if(nargin < 2)
+                timestamp = [1 2 3 4 5 6]; 
+            end
             C.bbox = bbox;
+            C.timeStamp = timestamp;
         end
         
         function roi = getROI (C)  % [y1, x1, y2, x2]

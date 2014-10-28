@@ -1,9 +1,11 @@
-function downloadSingleCam (camNum, outDir, numMinutes)
-%DOWNLOADSINGLECAM (camNum, outDir, numMinutes) downloads images 
-%from internet and saves them in a video. 
-%Separetely write a text file with the time when the frame was created 
-%(because it is not 1 sec, but a range 0.6 - 3 sec.)
+function downloadSingleCam (camNum, outFileTemplate, numMinutes)
+%DOWNLOADSINGLECAM (camNum, outFileTemplate, numMinutes) downloads images 
+% from internet and saves them in a video. 
+% Separetely write a text file with the time when the frame was created 
+% (because it is not 1 sec, but a range 0.6 - 3 sec.)
 %
+% The filepaths are [outFileTemplate '.avi'] for video
+% and [outFileTemplate '.txt'] for text
 
 clear frameWriter frameReader
 
@@ -13,8 +15,8 @@ if ~exist('FrameWriter', 'class')
 end
 
 % where to write video and intervals
-videoPath = fullfile(outDir, ['camera' num2str(camNum) '.avi']);
-intervalsPath = fullfile(outDir, ['times' num2str(camNum) '.txt']);
+videoPath = fullfile([outFileTemplate, '.avi']);
+intervalsPath = fullfile([outFileTemplate,'.txt']);
 
 frameReader = FrameReaderInternet (camNum);
 frameWriter = FrameWriterVideo (videoPath, 2, 1);

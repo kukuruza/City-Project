@@ -49,7 +49,7 @@ classdef GeometryEstimator < handle
             
             % Ignoring points outside the roadMask
             mask = mask .* (obj.roadMask ~= 0);
-            obj.cameraRoadMap = mask;
+            obj.cameraRoadMap = 2 * mask;
         end
         
         %% Method to calculate confidence maps to detect various geometries
@@ -217,7 +217,6 @@ classdef GeometryEstimator < handle
                     
             else
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            
                 %Current lane of the car is out
                 %Checking for time consistency
                 if(point2(2) < point1(2))
@@ -246,7 +245,15 @@ classdef GeometryEstimator < handle
                     
                     %We care only about the distance along the road
                     dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
-                    
+                
+                    %Debug message
+                    if(true)
+                        fprintf('Car 1: (%d, %d) %d \nCar 2: (%d %d) %d\nDistance: %f\n', ...
+                            point1(1), point1(2), laneId1, ...
+                            point2(1), point2(2), laneId2, ...
+                            dist3D);
+                    end
+                
                     %Debugging
                     %fprintf('No lane change (out) : %f\n', dist3D);
                     %Use the distance to evaluate the probability
@@ -293,6 +300,59 @@ classdef GeometryEstimator < handle
             end
         end
         
+        %% Function to read the car lane using pre-computed roadMask
+        function laneId = readCarLane(obj, carObj)
+            %Input : carObj - A car object with valid bbox
+            %Output : laneId - returns the id of the lane on which the car
+            %is present
+            
+            carPoint = [carObj.bbox(1) + carObj.bbox(3)/2 ; carObj.bbox(2) + carObj.bbox(4)];
+            laneId = obj.roadMask(carPoint);
+        end
+        
+        %% Generating the probability matrix given the cars in one frame; cars in another frame
+        % according to the geometric constraints
+        function[probMatrix] = generateProbMatrix(obj, carsFrame1, carsFrame2)
+            % Generating the probability matrix given the cars in one frame
+            % and cars in another, so that geometry is not violated
+            % Input : 
+            % CarsFrame1 = Cell of Car / CarAppearance objects in frame1
+            % CarsFrame2 = Cell of Car / CarAppearance objects in frame2
+            % 
+            % Output:
+            % probMatrix = Matrix of probability values for pairs of cars
+            %
+            
+            %Assuming all the cars in frame 1 have same time stamp;
+            %similarly for cars in frame 2
+            
+            if(isempty(carsFrame1))
+                fprintf('Error in generating probability matrix, frame 1 has no cars\n');
+                probMatrix = NaN;
+                return;
+            end
+            
+            if(isempty(carsFrame2))
+                fprintf('Error in generating probability matrix, frame 2 has no cars\n');
+                probMatrix = NaN;
+                return;
+            end
+            
+            timeDiff = carsFrame2{1}.timeStamp - carsFrame1{1}.timeStamp;
+            
+            %Get the lanes for all the cars
+            carLanes = cell(2, 1);
+            for i = 1:length(carsFrame1)
+                %carLanes{1}(
+            end
+            for i = 1:length(carsFrame2)
+                
+            end
+            
+            %Returning the probability matrix
+            probMatrix = zeros(length(carsFrame2), length(carsFrame1));
+        end
+        
         %% DEBUGGING FUNCTIONS
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization
@@ -337,5 +397,7 @@ classdef GeometryEstimator < handle
             markerInserter = vision.MarkerInserter('Size', 5, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
             overlaidImg = step(markerInserter, overlaidImg, uint32(point));
         end
+        
+        
     end
 end
