@@ -3,25 +3,25 @@
 classdef MetricLearner < handle
     properties (Hidden)
         framecounter = 0;
-        seenCarapps = {};   % cars from previous frames
+        seenCars = {};   % cars from previous frames
     end % properties
     methods
         function ML = MetricLearner()
             
             ML.framecounter = 0;
-            ML.seenCarapps  = {};
+            ML.seenCars  = {};
             % a = 1
         
         end
         
         
-        function [ProbCol, ProbHOG] = AppProb (ML, car1, car2)
+        function [ProbCol, ProbHOG] = AppProb (ML, patch1, patch2)
             % HOG
             % run('C:\Users\Shaolong\Documents\MATLAB\vlfeat-0.9.19\toolbox\vl_setup.m');
             %run('vlfeat-0.9.19/toolbox/vl_setup.m');
             
-            carRe1 = imresize(car1,[64 48]);
-            carRe2 = imresize(car2,[64 48]);
+            carRe1 = imresize(patch1,[64 48]);
+            carRe2 = imresize(patch2,[64 48]);
             HOG1 = vl_hog(single(carRe1), 4);
             HOG2 = vl_hog(single(carRe2), 4);
             m1 = numel(HOG1);
@@ -45,7 +45,7 @@ classdef MetricLearner < handle
             histograms2=zeros(n_bins,n_bins,n_bins);
             
             
-            IR=imresize(car1,[64 48]);
+            IR=imresize(patch1,[64 48]);
             IR=im2double(IR);         
             [~,r_bins] = histc(reshape(IR(:,:,1),1,[]),edges); r_bins = r_bins + 1;
             [~,g_bins] = histc(reshape(IR(:,:,1),1,[]),edges); g_bins = g_bins + 1;
@@ -56,7 +56,7 @@ classdef MetricLearner < handle
             end
             histograms1= reshape(histogram1,1,[]) / sum(histogram1(:)); % normalize, better for all probabilistic methods
             
-            IR=imresize(car2,[64 48]);
+            IR=imresize(patch2,[64 48]);
             IR=im2double(IR);         
             [~,r_bins] = histc(reshape(IR(:,:,1),1,[]),edges); r_bins = r_bins + 1;
             [~,g_bins] = histc(reshape(IR(:,:,1),1,[]),edges); g_bins = g_bins + 1;
@@ -72,55 +72,48 @@ classdef MetricLearner < handle
         end
             
             
-        function [newCarNumber Match NewIndex] = processFrame (ML, iframe, image, cars, geometryObj)
-            if(iframe == 1)
+        function [newCarNumber, Match, NewIndex] = processFrame (ML, iframe, image, cars, geometryObj)
+            if (iframe == 1)
                 newCarNumber = 0;
-                ML.seenCarapps{iframe} = cars;
+                ML.seenCars{iframe} = cars;
                 ML.framecounter = 1;
                 Match = 1;
                 return
             end
                 
-            % validation of parameters
-            assert (ndims(image) == 3);         % color image
-            % assert (ismatrix(foregroundMask));  % grayscale mask
-            % assert (all([size(image,1) size(image,2)] == size(foregroundMask)));
-            % if ~isempty(carcell), assert (isa(carcell(1), 'Car')), end % cars are of class Car
+            % validation of arguments
+            % color image
+            assert (ndims(image) == 3 && size(image,3) == 3);
+            % usual vector instead of cell array
+            if ~isempty(cars), assert (~iscell(cars) && isvector(cars)); end
+            % car is an object of class Car
+            if ~isempty(cars), assert (isa(cars(1), 'Car')); end
                     
             ML.framecounter = ML.framecounter + 1;
-            carapps = cars;
-            iframe
-            length(ML.seenCarapps)
-            seen = ML.seenCarapps{iframe-1};
+            seen = ML.seenCars{iframe-1};
 
-            
-            % make CarAppearance objects from Car objects
-            %             carapps = [];
-            %             for car = cars
-            %                 carapp = CarAppearance (car, ML.framecounter);
-            %                 carapps = [carapps, carapp];
-            %             end
-            
+            %size(cars)
+            %size(seen)
             % extract features
-            %             for carapp = carapps
-            %                 carapp.generateFeature (image, foregroundMask);
-            %             end
+            % for car = cars
+            %     car.generateFeature (image);
+            % end
             
             
             
             % compute matching probability between each in the new frame and each car in the former frames; construct similarity matrix with seen cars
           
             % probability of geometry
-            ProbCol = zeros(length(carapps), length(seen));
-            ProbHOG = zeros(length(carapps), length(seen));
-            ProbWeighted = zeros(length(carapps), length(seen));
+            ProbCol = zeros(length(cars), length(seen));
+            ProbHOG = zeros(length(cars), length(seen));
+            ProbWeighted = zeros(length(cars), length(seen));
             
  
-            for i = 1 : length(carapps)
-                carapp = carapps{i};      % all the cars in new frame
+            for i = 1 : length(cars)
+                car = cars(i);      % all the cars in new frame
                 for j = 1 : length(seen)
-                    seenCarapp = seen{j};   % all the cars in former frame                
-                    ProbGeo(i,j) = geometryObj.getMutualProb(seenCarapp, carapp, 1);  % seen car should be the first arguement
+                    seenCar = seen(j);   % all the cars in former frame                
+                    ProbGeo(i,j) = geometryObj.getMutualProb(seenCar, car, 1);  % seen car should be the first arguement
                     % seenCarapp
                     % pause()
                     
@@ -128,18 +121,17 @@ classdef MetricLearner < handle
                     %imshow(probMap)
                     %pause()
                     fprintf('Prob : %f\n', ProbGeo(i,j));
-                    [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(carapp.feature, seenCarapp.feature);
+                    [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(car.patch, seenCar.patch);
                     % ProbCol(i,j) = 0.5;
                     % ProbHOG(i,j) = 0.5;
                     ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
-                    
                 end
             end
            
             % build the match matrix
             Match = zeros(size(ProbWeighted));
-            NewIndex = zeros(length(carapps), 1);
-            for k = 1: length(carapps)
+            NewIndex = zeros(length(cars), 1);
+            for k = 1: length(cars)
                 [maxProb, index] = max(ProbWeighted(k,:));
                 if(maxProb>0.8)
                     Match(k,index) = 1;
@@ -150,8 +142,8 @@ classdef MetricLearner < handle
             end
             % compute new car number
             CountMatch = sum(sum(Match));
-            newCarNumber = length(carapps) - CountMatch;    
-            ML.seenCarapps{iframe} = cars;
+            newCarNumber = length(cars) - CountMatch;    
+            ML.seenCars{iframe} = cars;
             
             %fileGeoProb = strcat('GeoProb', num2str(iframe));
             %save(fileGeoProb, 'ProbGeo');

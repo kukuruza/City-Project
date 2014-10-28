@@ -63,26 +63,24 @@ while 1
     toc
     
     % filter detected cars based on foreground mask
-    carsFilt = [];
+    counter = 1;
+    carsFilt = Car.empty;
     for k = 1 : length(cars)
         center = cars(k).getCenter(); % [y x]
         if foregroundMask(center(1), center(2))
-            carsFilt = [carsFilt cars(k)];
+            carsFilt(counter) = cars(k);
+            counter = counter + 1;
         end
     end
     cars = carsFilt;
     
     % count cars
-    %if ~isempty(cars)
-        carsApp = {};
-        for i = 1:length(cars)
-             carsApp{i} = CarAppearance(cars(i).bbox, t);
-             carsApp{i}.generateFeature(frame);
-        end
-        length(carsApp)
-        [newCarNumber, ~] = counting.processFrame(t, frame, carsApp, geom);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
-        countcars = countcars + newCarNumber;    % count1 is the total number of cars for all the frames.
-    %end
+    for i = 1:length(cars)
+         cars(i).iFrame = t;
+         cars(i).extractPatch(frame);
+    end
+    [newCarNumber, ~] = counting.processFrame(t, frame, cars, geom);
+    countcars = countcars + newCarNumber;
     
     % output
     tCycle = toc;
