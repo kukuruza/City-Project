@@ -216,7 +216,6 @@ classdef GeometryEstimator < handle
                     
             else
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            
                 %Current lane of the car is out
                 %Checking for time consistency
                 if(point2(2) < point1(2))
@@ -245,7 +244,15 @@ classdef GeometryEstimator < handle
                     
                     %We care only about the distance along the road
                     dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
-                    
+                
+                    %Debug message
+                    if(true)
+                        fprintf('Car 1: (%d, %d) %d \nCar 2: (%d %d) %d\nDistance: %f\n', ...
+                            point1(1), point1(2), laneId1, ...
+                            point2(1), point2(2), laneId2, ...
+                            dist3D);
+                    end
+                
                     %Debugging
                     %fprintf('No lane change (out) : %f\n', dist3D);
                     %Use the distance to evaluate the probability
@@ -292,6 +299,31 @@ classdef GeometryEstimator < handle
             end
         end
         
+        %% Generating the probability matrix given the cars in one frame; cars in another frame
+        % according to the geometric constraints
+        function[probMatrix] = generateProbMatrix(obj, carsFrame1, carsFrame2, frameDiff)
+            % Generating the probability matrix given the cars in one frame
+            % and cars in another, so that geometry is not violated
+            % Input : 
+            % CarsFrame1 = Cell of Car / CarAppearance objects in frame1
+            % CarsFrame2 = Cell of Car / CarAppearance objects in frame2
+            % frameDiff = Time difference in the car frames
+            %
+            % Output:
+            % probMatrix = Matrix of probability values for pairs of cars
+            
+            %Get the lanes for all the cars
+            carLanes = zero(2, max(length(carsFrame1), length(carsFrame2)));
+            for i = 1:length(carsFrame1)
+                
+            end
+            for i = 1:length(carsFrame2)
+                
+            end
+            
+            %Returning the probability matrix
+            probMatrix = zeros(length(carsFrame2), length(carsFrame1));
+        end
         %% DEBUGGING FUNCTIONS
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization
@@ -336,5 +368,8 @@ classdef GeometryEstimator < handle
             markerInserter = vision.MarkerInserter('Size', 5, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
             overlaidImg = step(markerInserter, overlaidImg, uint32(point));
         end
+        
+        
+        
     end
 end
