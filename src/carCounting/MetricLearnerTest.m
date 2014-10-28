@@ -116,10 +116,12 @@ for iframe = 1 : length(bboxes)
     % read frame
     frame = imread(imPath{iframe});
     j = iframe;
-     cars = {};
+     cars = Car.empty;
      for i = 1:length(bboxes{j})
-         cars{i} = CarAppearance(bboxes{j}(i, :), j);
-         cars{i}.generateFeature(frame);
+         cars(i) = Car(bboxes{j}(i, :));
+         cars(i).getROI ();
+         cars(i).extractPatch(frame);
+         cars(i).generateFeature(frame);
      end
      
      %In order to read the patch for the ith car
