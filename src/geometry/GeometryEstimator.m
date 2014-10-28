@@ -307,7 +307,7 @@ classdef GeometryEstimator < handle
             %is present
             
             carPoint = [carObj.bbox(1) + carObj.bbox(3)/2 ; carObj.bbox(2) + carObj.bbox(4)];
-            laneId = obj.roadMask(carPoint);
+            laneId = obj.roadMask(carPoint(2), carPoint(1));
         end
         
         %% Generating the probability matrix given the cars in one frame; cars in another frame
@@ -316,15 +316,15 @@ classdef GeometryEstimator < handle
             % Generating the probability matrix given the cars in one frame
             % and cars in another, so that geometry is not violated
             % Input : 
-            % CarsFrame1 = Cell of Car / CarAppearance objects in frame1
-            % CarsFrame2 = Cell of Car / CarAppearance objects in frame2
+            % CarsFrame1 = Cell of Car objects in frame1
+            % CarsFrame2 = Cell of Car objects in frame2
             % 
             % Output:
             % probMatrix = Matrix of probability values for pairs of cars
             %
             
-            %Assuming all the cars in frame 1 have same time stamp;
-            %similarly for cars in frame 2
+            % Assuming all the cars in frame 1 have same time stamp;
+            % similarly for cars in frame 2
             
             if(isempty(carsFrame1))
                 fprintf('Error in generating probability matrix, frame 1 has no cars\n');
@@ -338,19 +338,41 @@ classdef GeometryEstimator < handle
                 return;
             end
             
-            timeDiff = carsFrame2{1}.timeStamp - carsFrame1{1}.timeStamp;
+            % Initializing the probability matrix
+            probMatrix = zeros(length(carsFrame2), length(carsFrame1));
             
-            %Get the lanes for all the cars
-            carLanes = cell(2, 1);
+            % Difference in second between two time frames
+            % timeDiff = etime(carsFrame2{1}.timeStamp, carsFrame1{1}.timeStamp);
+            timeDiff = 1;
+            
+            % Get the lanes for all the cars
+            sortedCars = cell(2, length(obj.road.lanes));
             for i = 1:length(carsFrame1)
-                %carLanes{1}(
+                curCarLane = obj.readCarLane(carsFrame1{i});
+                sortedCars{1, curCarLane} = [sortedCars{1, curCarLane}, carsFrame1{i}];
             end
             for i = 1:length(carsFrame2)
-                
+                curCarLane = obj.readCarLane(carsFrame2{i});
+                sortedCars{2, curCarLane} = [sortedCars{2, curCarLane}, carsFrame2{i}];
             end
             
-            %Returning the probability matrix
-            probMatrix = zeros(length(carsFrame2), length(carsFrame1));
+            % Evaluate the mutual probabilities between the cars in two
+            % frames
+            for i = 1:length(carsFrame1)
+                for j = 1:length(carsFrame2)
+                    probMatrix(i, j) = obj.getMutualProb(carsFrame1{1}, carsFrame2{j}, timeDiff);
+                end
+            end
+               
+            % Now check for consistency between cars on the same lane in
+            % both the frames
+            % Reset the probability to zero if violation is found
+            % Nearest car is most likely to be closer match (assumption)
+            % (Can be made better by comparing how other cars move)
+            
+            
+            
+            
         end
         
         %% DEBUGGING FUNCTIONS
