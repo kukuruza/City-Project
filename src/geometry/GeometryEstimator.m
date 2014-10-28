@@ -49,7 +49,7 @@ classdef GeometryEstimator < handle
             
             % Ignoring points outside the roadMask
             mask = mask .* (obj.roadMask ~= 0);
-            obj.cameraRoadMap = mask;
+            obj.cameraRoadMap = 2 * mask;
         end
         
         %% Method to calculate confidence maps to detect various geometries
@@ -300,23 +300,50 @@ classdef GeometryEstimator < handle
             end
         end
         
+        %% Function to read the car lane using pre-computed roadMask
+        function laneId = readCarLane(obj, carObj)
+            %Input : carObj - A car object with valid bbox
+            %Output : laneId - returns the id of the lane on which the car
+            %is present
+            
+            carPoint = [carObj.bbox(1) + carObj.bbox(3)/2 ; carObj.bbox(2) + carObj.bbox(4)];
+            laneId = obj.roadMask(carPoint);
+        end
+        
         %% Generating the probability matrix given the cars in one frame; cars in another frame
         % according to the geometric constraints
-        function[probMatrix] = generateProbMatrix(obj, carsFrame1, carsFrame2, frameDiff)
+        function[probMatrix] = generateProbMatrix(obj, carsFrame1, carsFrame2)
             % Generating the probability matrix given the cars in one frame
             % and cars in another, so that geometry is not violated
             % Input : 
             % CarsFrame1 = Cell of Car / CarAppearance objects in frame1
             % CarsFrame2 = Cell of Car / CarAppearance objects in frame2
-            % frameDiff = Time difference in the car frames
-            %
+            % 
             % Output:
             % probMatrix = Matrix of probability values for pairs of cars
+            %
+            
+            %Assuming all the cars in frame 1 have same time stamp;
+            %similarly for cars in frame 2
+            
+            if(isempty(carsFrame1))
+                fprintf('Error in generating probability matrix, frame 1 has no cars\n');
+                probMatrix = NaN;
+                return;
+            end
+            
+            if(isempty(carsFrame2))
+                fprintf('Error in generating probability matrix, frame 2 has no cars\n');
+                probMatrix = NaN;
+                return;
+            end
+            
+            timeDiff = carsFrame2{1}.timeStamp - carsFrame1{1}.timeStamp;
             
             %Get the lanes for all the cars
-            carLanes = zero(2, max(length(carsFrame1), length(carsFrame2)));
+            carLanes = cell(2, 1);
             for i = 1:length(carsFrame1)
-                
+                %carLanes{1}(
             end
             for i = 1:length(carsFrame2)
                 
@@ -325,6 +352,7 @@ classdef GeometryEstimator < handle
             %Returning the probability matrix
             probMatrix = zeros(length(carsFrame2), length(carsFrame1));
         end
+        
         %% DEBUGGING FUNCTIONS
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization
@@ -369,7 +397,6 @@ classdef GeometryEstimator < handle
             markerInserter = vision.MarkerInserter('Size', 5, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
             overlaidImg = step(markerInserter, overlaidImg, uint32(point));
         end
-        
         
         
     end

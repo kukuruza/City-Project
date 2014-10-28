@@ -9,13 +9,14 @@ classdef Car < CarInterface
         patch = [];
         
         % features
-        iFrame;
+        timeStamp; %Time stamp for the car
         feature = [];
 
     end % propertioes
     methods
-        function C = Car (bbox)
+        function C = Car (bbox, timestamp)
             C.bbox = bbox;
+            C.timeStamp = timestamp;
         end
         
         function roi = getROI (C)  % [y1, x1, y2, x2]
