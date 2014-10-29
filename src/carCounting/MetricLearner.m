@@ -2,20 +2,17 @@
 
 classdef MetricLearner < handle
     properties (Hidden)
-        framecounter = 0;
+        framecounter = 1;
+        geometryObj;     
         seenCars = {};   % cars from previous frames
     end % properties
     methods
-        function ML = MetricLearner()
-            
-            ML.framecounter = 0;
-            ML.seenCars  = {};
-            % a = 1
-        
+        function ML = MetricLearner(geometryObj)
+            ML.geometryObj = geometryObj;
         end
         
         
-        function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)
+        function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)   % don't need the ML to be the first argument, for this function doesn't change anything of ML
             % HOG
             
             dHOG = chi_square_statistics(CarObj1.histHog,CarObj2.histHog);
@@ -28,11 +25,11 @@ classdef MetricLearner < handle
         end
             
             
-        function [newCarNumber, Match, NewIndex] = processFrame (ML, iframe, image, cars, geometryObj)
-            if (iframe == 1)
+        function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)  % delete the iframe input argument
+            if (ML.framecounter == 1)
                 newCarNumber = 0;
-                ML.seenCars{iframe} = cars;
-                ML.framecounter = 1;
+                ML.seenCars{1} = cars;
+                % ML.framecounter = 2;
                 Match = 1;
                 return
             end
@@ -45,8 +42,8 @@ classdef MetricLearner < handle
             % car is an object of class Car
             if ~isempty(cars), assert (isa(cars(1), 'Car')); end
                     
-            ML.framecounter = ML.framecounter + 1;
-            seen = ML.seenCars{iframe-1};
+            % ML.framecounter = ML.framecounter + 1;
+            seen = ML.seenCars{ML.framecounter-1};
             
             % compute matching probability between each in the new frame and each car in the former frames; construct similarity matrix with seen cars
           
@@ -55,13 +52,13 @@ classdef MetricLearner < handle
             ProbWeighted = zeros(length(cars), length(seen));
                      
             % probability of geometry
-            ProbGeo = geometryObj.getProbMatrix(seen, cars, 1);
+            %ProbGeo = geometryObj.generateProbMatrix(seen, cars);
 
             for i = 1 : length(cars)
                 car = cars(i);      % all the cars in new frame
                 for j = 1 : length(seen)
                     seenCar = seen(j);   % all the cars in former frame                
-                    %ProbGeo = geometryObj.getMutualProb(seen, cars, 1);  % seen car should be the first arguement
+                    ProbGeo(i,j) = ML.geometryObj.getMutualProb(seenCar, car, 1);  % seen car should be the first arguement
                     %fprintf('Prob : %f\n', ProbGeo(i,j));
                     [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(car, seenCar);
                     ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
@@ -83,14 +80,14 @@ classdef MetricLearner < handle
             % compute new car number
             CountMatch = sum(sum(Match));
             newCarNumber = length(cars) - CountMatch;    
-            ML.seenCars{iframe} = cars;
+            ML.seenCars{ML.framecounter} = cars;
             
-%             fileGeoProb = strcat('GeoProb', num2str(iframe));
-%             save(fileGeoProb, 'ProbGeo');
-%             fileGeoProb = strcat('ColProb', num2str(iframe));
-%             save(fileGeoProb, 'ProbCol');
-%             fileGeoProb = strcat('HOGProb', num2str(iframe));
-%             save(fileGeoProb, 'ProbHOG');
+            fileGeoProb = strcat('GeoProb', num2str(ML.framecounter));
+            save(fileGeoProb, 'ProbGeo');
+            fileGeoProb = strcat('ColProb', num2str(ML.framecounter));
+            save(fileGeoProb, 'ProbCol');
+            fileGeoProb = strcat('HOGProb', num2str(ML.framecounter));
+            save(fileGeoProb, 'ProbHOG');
             
 
             % element-wise operation to come up with a single matrix

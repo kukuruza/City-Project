@@ -9,7 +9,7 @@ classdef Car < CarInterface
         patch = [];
         
         % features
-        timeStamp; %Time stamp for the car
+        timeStamp; % the time the frame was taken. [yyyy mm dd hh mm ss]. sec. is float
         feature = [];
         histHog = [];
         histCol = [];
@@ -40,8 +40,8 @@ classdef Car < CarInterface
             carPatch = C.extractPatch(image);
             
             % Hog Feature
-            carRe = imresize(carPatch,[64 48]);
-            HOG = vl_hog(single(carRe), 4);
+            carRe = imresize(carPatch,[32 24]);   % [64 48] is too large
+            HOG = vl_hog(single(carRe), 2);
             m = numel(HOG);
             feat = reshape(HOG, 1, m);
             C.histHog = zeros(m);
