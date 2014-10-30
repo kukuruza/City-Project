@@ -26,7 +26,7 @@ fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.roadCameraMap(im0);
 
 % background
-subtractor = BackgroundSubtractor(5, 25, 80);
+subtractor = BackgroundSubtractor();
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
