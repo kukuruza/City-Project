@@ -16,17 +16,19 @@ run ../subdirPathsSetup.m;
 camNum = 572;
 
 % input frames
-frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera572/']); 
+videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
+timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
+frameReader = FrameReaderVideo (videoPath, timesPath); 
 im0 = frameReader.getNewFrame();
 
 % geometry
 objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
-roadCameraMap = geom.roadCameraMap(im0);
+roadCameraMap = geom.getCameraRoadMap();
 
 % background
-subtractor = BackgroundSubtractor();
+background = Background();
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
@@ -34,7 +36,7 @@ detector = CascadeCarDetector (modelPath);
 frameid = 0;
 
 % 
-counting = MetricLearner(); % pass necessary arguments to constructor
+counting = MetricLearner(geom);
 countcars = 0;
 
 
@@ -50,10 +52,10 @@ while 1
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = subtractor.subtractAndDenoise(gray);
+    foregroundMask = background.subtractAndDenoise(gray);
 
     % geometry processing mask and bboxes
-    foregroundMask = foregroundMask & logical(roadMask);
+    foregroundMask = foregroundMask & logical(roadCameraMap);
     
     % actually detect cars
     tic
@@ -90,11 +92,8 @@ while 1
     cars = carsFilt;    
     
     % count cars
-    for i = 1:length(cars)
-         cars(i).iFrame = t;
-         cars(i).extractPatch(frame);
-    end
-    [newCarNumber, ~] = counting.processFrame(t, frame, cars, geom);
+    length(cars)
+    newCarNumber = counting.processFrame(frame, cars)
     countcars = countcars + newCarNumber;
     
     % output
