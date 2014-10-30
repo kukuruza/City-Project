@@ -88,17 +88,7 @@ corresp{3} = ...
 
 
 %% do computation
-% Populating the carAppearance objects for the detected cars
-%cars = {};
-%  for j = 1:3
-%      cars{j} = {};
-%      for i = 1:length(bboxes{j})
-%          cars{j}{i} = CarAppearance(bboxes{j}(i, :), j);
-%          cars{j}{i}.generateFeature(image);
-%      end
-%  end
-counting = MetricLearner(); % pass necessary arguments to constructor
-count0 = size(bboxes{1},1); % initial should be the number of cars in the first frame
+
 %matFile = 'Geometry_Camera_360.mat';
 %geom = GeometryEstimator(frame, matFile);
 % Loading the road properties that were manually marked (Pts for the lanes)
@@ -109,7 +99,8 @@ objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
     'Update if made changes to GeometryEstimator class\n'));
-
+counting = MetricLearner(geom); % pass necessary arguments to constructor
+count0 = size(bboxes{1},1); % initial should be the number of cars in the first frame
 
 for iframe = 1 : length(bboxes)
 
@@ -143,9 +134,10 @@ for iframe = 1 : length(bboxes)
 
     % counting the new cars and total number of cars for a new frame
 
-    [newCarNumber Match] = counting.processFrame(iframe, frame, cars, geom);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    [newCarNumber Match] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 
+    counting.framecounter = counting.framecounter + 1;
     
     % compare output with ground truth
     % corresp{iframe}
