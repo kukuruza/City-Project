@@ -360,7 +360,7 @@ classdef GeometryEstimator < handle
             % frames
             for i = 1:length(carsFrame1)
                 for j = 1:length(carsFrame2)
-                    probMatrix(i, j) = obj.getMutualProb(carsFrame1(i), carsFrame2(j), timeDiff);
+                    probMatrix(j, i) = obj.getMutualProb(carsFrame1(i), carsFrame2(j), timeDiff);
                 end
             end
                
@@ -369,7 +369,6 @@ classdef GeometryEstimator < handle
             % Reset the probability to zero if violation is found
             % Nearest car is most likely to be closer match (assumption)
             % (Can be made better by comparing how other cars move)
-            
             
             
             
