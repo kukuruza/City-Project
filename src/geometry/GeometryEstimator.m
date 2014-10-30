@@ -247,7 +247,7 @@ classdef GeometryEstimator < handle
                     dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
                 
                     %Debug message
-                    if(true)
+                    if(verbose)
                         fprintf('Car 1: (%d, %d) %d \nCar 2: (%d %d) %d\nDistance: %f\n', ...
                             point1(1), point1(2), laneId1, ...
                             point2(1), point2(2), laneId2, ...
@@ -342,7 +342,7 @@ classdef GeometryEstimator < handle
             probMatrix = zeros(length(carsFrame2), length(carsFrame1));
             
             % Difference in second between two time frames
-            % timeDiff = etime(carsFrame2{1}.timeStamp, carsFrame1{1}.timeStamp);
+            % timeDiff = etime(carsFrame2(1).timeStamp, carsFrame1(1).timeStamp);
             timeDiff = 1;
             
             % Get the lanes for all the cars
