@@ -5,39 +5,37 @@ classdef BackgroundSubtractor < handle
          detector;
          blob;
          shapeInserter;
+     end
+     properties  % constants
          
-         % those are specific to cameras and should be learned and set
+         % background subtraction
+         num_training_frames = 5;
+         initial_variance = 30;
+         
+         % mask refinement
          fn_level = 15;
          fp_level = 1;
+         
+         % extracting bounding boxes
+         minimum_blob_area = 50;
+         
      end % properties
      
      methods
-         function BS = BackgroundSubtractor (NumTrainingFrames_, InitialVariance_, MinimumBlobArea_)
-             
-             % default parameters
-             if ~exist('NumTrainingFrames_','var') || isempty(NumTrainingFrames_)
-                 NumTrainingFrames_ = 5;
-             end
-             if ~exist('InitialVariance_','var') || isempty(InitialVariance_)
-                 InitialVariance_ = 30;
-             end
-             if ~exist('MinimumBlobArea_','var') || isempty(MinimumBlobArea_)
-                 MinimumBlobArea_ = 50;
-             end
-
+         function BS = BackgroundSubtractor ()
              BS.detector = vision.ForegroundDetector(...
-                   'NumTrainingFrames', NumTrainingFrames_, ...
-                   'InitialVariance', InitialVariance_^2);
-
+                   'NumTrainingFrames', BS.num_training_frames, ...
+                   'InitialVariance', BS.initial_variance^2);
              BS.blob = vision.BlobAnalysis(...
                    'CentroidOutputPort', false, ...
                    'AreaOutputPort', false, ...
                    'BoundingBoxOutputPort', true, ...
                    'MinimumBlobAreaSource', 'Property', ...
-                   'MinimumBlobArea', MinimumBlobArea_);
-               
+                   'MinimumBlobArea', BS.minimum_blob_area);
              BS.shapeInserter = vision.ShapeInserter('BorderColor','White');
          end
+         
+         
 
          % bbox [x,y,w,h] 
          function [mask, bboxes] = subtract (BS, frame)
@@ -53,6 +51,10 @@ classdef BackgroundSubtractor < handle
          function [mask, bboxes] = subtractAndDenoise (BS, frame)
              mask  = step(BS.detector, frame);
              mask = denoiseForegroundMask(mask, BS.fn_level, BS.fp_level);
+             
+             % alternative function to denoiseForegroundMask
+             %mask = gaussFilterMask(mask, 20, 0.1);
+             
              bboxes = step(BS.blob, mask);
          end
          
