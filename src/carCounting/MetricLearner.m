@@ -52,19 +52,24 @@ classdef MetricLearner < handle
             ProbWeighted = zeros(length(cars), length(seen));
                      
             % probability of geometry
-            %ProbGeo = geometryObj.generateProbMatrix(seen, cars);
+            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars);
 
+
+            
             for i = 1 : length(cars)
                 car = cars(i);      % all the cars in new frame
                 for j = 1 : length(seen)
                     seenCar = seen(j);   % all the cars in former frame                
-                    ProbGeo(i,j) = ML.geometryObj.getMutualProb(seenCar, car, 1);  % seen car should be the first arguement
+                    % ProbGeo(i,j) = ML.geometryObj.getMutualProb(seenCar, car, 1);  % seen car should be the first arguement
                     %fprintf('Prob : %f\n', ProbGeo(i,j));
                     [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(car, seenCar);
-                    ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
+                    % ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
                 end
             end
-           
+            size(ProbGeo)
+            size(ProbCol)
+            size(ProbHOG)
+                    ProbWeighted = 0.5 * 100 * ProbGeo + 0.3 * ProbCol + 0.2 * ProbHOG;
             % build the match matrix
             Match = zeros(size(ProbWeighted));
             NewIndex = zeros(length(cars), 1);
@@ -82,12 +87,12 @@ classdef MetricLearner < handle
             newCarNumber = length(cars) - CountMatch;    
             ML.seenCars{ML.framecounter} = cars;
             
-            fileGeoProb = strcat('GeoProb', num2str(ML.framecounter));
-            save(fileGeoProb, 'ProbGeo');
-            fileGeoProb = strcat('ColProb', num2str(ML.framecounter));
-            save(fileGeoProb, 'ProbCol');
-            fileGeoProb = strcat('HOGProb', num2str(ML.framecounter));
-            save(fileGeoProb, 'ProbHOG');
+             fileGeoProb = strcat('GeoProb', num2str(ML.framecounter));
+             save(fileGeoProb, 'ProbGeo');
+%             fileGeoProb = strcat('ColProb', num2str(ML.framecounter));
+%             save(fileGeoProb, 'ProbCol');
+%             fileGeoProb = strcat('HOGProb', num2str(ML.framecounter));
+%             save(fileGeoProb, 'ProbHOG');
             
 
             % element-wise operation to come up with a single matrix
