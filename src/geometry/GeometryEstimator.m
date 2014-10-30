@@ -348,19 +348,19 @@ classdef GeometryEstimator < handle
             % Get the lanes for all the cars
             sortedCars = cell(2, length(obj.road.lanes));
             for i = 1:length(carsFrame1)
-                curCarLane = obj.readCarLane(carsFrame1{i});
-                sortedCars{1, curCarLane} = [sortedCars{1, curCarLane}, carsFrame1{i}];
+                curCarLane = obj.readCarLane(carsFrame1(i));
+                sortedCars{1, curCarLane} = [sortedCars{1, curCarLane}, carsFrame1(i)];
             end
             for i = 1:length(carsFrame2)
-                curCarLane = obj.readCarLane(carsFrame2{i});
-                sortedCars{2, curCarLane} = [sortedCars{2, curCarLane}, carsFrame2{i}];
+                curCarLane = obj.readCarLane(carsFrame2(i));
+                sortedCars{2, curCarLane} = [sortedCars{2, curCarLane}, carsFrame2(i)];
             end
             
             % Evaluate the mutual probabilities between the cars in two
             % frames
             for i = 1:length(carsFrame1)
                 for j = 1:length(carsFrame2)
-                    probMatrix(i, j) = obj.getMutualProb(carsFrame1{1}, carsFrame2{j}, timeDiff);
+                    probMatrix(i, j) = obj.getMutualProb(carsFrame1(i), carsFrame2(j), timeDiff);
                 end
             end
                
