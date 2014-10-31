@@ -134,7 +134,7 @@ for iframe = 1 : length(bboxes)
 
     % counting the new cars and total number of cars for a new frame
 
-    [newCarNumber Match] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    [newCarNumber, matchMatrix] = counting.processFrame(frame, cars);
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 
     counting.framecounter = counting.framecounter + 1;

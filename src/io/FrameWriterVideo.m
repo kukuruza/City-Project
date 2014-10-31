@@ -17,7 +17,6 @@ classdef FrameWriterVideo < FrameWriter
         layout = [1 1] % images grid in a frame. [nrows, ncols]
         video          % output
         counter = 0    % to know how much was written
-        framesz        % for debugging
     end % properties
     methods
         
@@ -68,6 +67,7 @@ classdef FrameWriterVideo < FrameWriter
                 frame = images;
             end
             
+            imshow(frame);
             writeVideo (FW.video, frame);
             
             FW.counter = FW.counter + 1;

@@ -30,7 +30,8 @@ classdef MetricLearner < handle
                 newCarNumber = 0;
                 ML.seenCars{1} = cars;
                 % ML.framecounter = 2;
-                Match = 1;
+                Match = [];
+                NewIndex = ones(length(cars), 1);
                 return
             end
                 
