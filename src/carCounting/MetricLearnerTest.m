@@ -60,15 +60,25 @@ corresp{2} = ...
  0 0 0 0 0; ...
  0 0 0 0 0 ...
 ];
+% 
+% corresp{3} = ...
+% [
+%  1 0 0 0 0 0 0 0; ...
+%  0 0 0 1 0 0 0 0; ...
+%  0 0 0 0 1 0 0 0; ...
+%  0 0 0 0 0 1 0 0; ...
+%  0 0 0 0 0 0 0 0; ...
+%  0 0 0 0 0 0 0 0 ...
+% ];
 
 corresp{3} = ...
 [
- 1 0 0 0 0 0 0 0; ...
- 0 0 0 1 0 0 0 0; ...
- 0 0 0 0 1 0 0 0; ...
- 0 0 0 0 0 1 0 0; ...
- 0 0 0 0 0 0 0 0; ...
- 0 0 0 0 0 0 0 0 ...
+ 1 0 0 0 0 0 0 ; ...
+ 0 0 0 1 0 0 0 ; ...
+ 0 0 0 0 1 0 0 ; ...
+ 0 0 0 0 0 0 1 ; ...
+ 0 0 0 0 0 0 0 ; ...
+ 0 0 0 0 0 0 0  ...
 ];
 
 
@@ -137,12 +147,45 @@ for iframe = 1 : length(bboxes)
     counting.WeightHog = 0.4;
     counting.WeightCol = 0.2;
     counting.Th = 0.5;
+    TP = 0;
+    TN = 0;
+    FP = 0;
+    FN = 0;
+    Acc = 0;
     
+    % counting.Th = 0.1:0.05:1;
+    for k = 1:19
+    counting.Th = 0.1;
     [newCarNumber Match] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    
+    if(counting.framecounter > 1)
+    [m n] =size(Match);
+    
+%     for p = 1:m
+%         for q = 1:n
+%             if (Match(p,q)==1 && corresp{iframe}(p,q)==1)
+%                 TP = TP +1;
+%             elseif (Match(p,q)==0 && corresp{iframe}(p,q)==0)
+%                 TN = TN +1;
+%             elseif (Match(p,q)==1 && corresp{iframe}(p,q)==0)
+%                 FP = FP +1;
+%             elseif (Match(p,q)==0 && corresp{iframe}(p,q)==1)
+%                 FN = FN +1;
+%             end
+%         end
+%     end
+%     
+%     Acc(k) = (TP + TN)/(FP +FN);   
+    
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 
-    counting.framecounter = counting.framecounter + 1;
+%     counting.framecounter = counting.framecounter + 1;
+%     counting.Th = counting.Th + 0.05;
+    end
     
+    end
+%     counting.Th = 0.1:0.05:1;
+%     plot(Acc, counting.Th)
     % compare output with ground truth
     % corresp{iframe}
     
