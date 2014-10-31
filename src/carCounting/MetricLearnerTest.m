@@ -133,7 +133,11 @@ for iframe = 1 : length(bboxes)
 
 
     % counting the new cars and total number of cars for a new frame
-
+    counting.WeightGeom = 0.4;
+    counting.WeightHog = 0.4;
+    counting.WeightCol = 0.2;
+    counting.Th = 0.5;
+    
     [newCarNumber Match] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     count0 = count1; 
