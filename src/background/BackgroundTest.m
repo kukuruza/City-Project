@@ -1,4 +1,4 @@
-% test that the background substraction class works the same way
+% test that the background subtraction class works the same way
 %   as the original Lynna's code
 %
 % Ctrl+C to interrupt unfortunately
@@ -16,34 +16,37 @@ run ../subdirPathsSetup.m
 
 %% input and ground truth
 imagesDir = [CITY_DATA_PATH 'camdata/cam572/2-hours/'];
-
+outImagePath = [CITY_DATA_PATH 'testdata/background/result/'];
 
 
 %% test
 
 frameReader = FrameReaderImages (imagesDir);
-subtractor = BackgroundSubtractor();
+background = Background();
 
 
 % background subtraction
-subtractor.num_training_frames = 5;
-subtractor.initial_variance = 30;
+background.num_training_frames = 5;
+background.initial_variance = 30;
 
 % mask refinement
-subtractor.fn_level = 15;
-subtractor.fp_level = 1;
+background.fn_level = 15;
+background.fp_level = 1;
 
 % extracting bounding boxes
-subtractor.minimum_blob_area = 50;
+background.minimum_blob_area = 50;
          
-
+N=0;
 while true
     frame = frameReader.getNewFrame();
     %[mask, bboxes] = subtractor.subtract(frame);
-    [mask, bboxes] = subtractor.subtractAndDenoise (frame);
+    [mask, bboxes] = background.subtractAndDenoise (frame);
     %bboxes
-    frame_out = subtractor.drawboxes(frame, bboxes);
+    frame_out = background.drawboxes(frame, bboxes);
     subplot(1,2,1),imshow(frame_out);
     subplot(1,2,2),imshow(mask);
+    imname = sprintf('result%d.png',N);
+    imwrite(mask,fullfile(outImagePath,imname));
     pause(0.5);
+    N=N+1;
 end

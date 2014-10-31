@@ -6,13 +6,16 @@ Th = 0.00005*h*w;
 
 % imshow(fgMask);
 
-L = bwlabel(fgMask,8);
-for j = 1:max(L(1:end))
-    [r,c]=find(L==j);
-    if length(r)<Th
-        L(r,c)=0;
-    end
-end
+% L = bwlabel(fgMask,8);
+% for j = 1:max(L(1:end))
+%     [r,c]=find(L==j);
+%     if length(r)<Th
+%         L(r,c)=0;
+%     end
+% end
+fn_level = 10;
+fp_level = 2;
+L = denoiseForegroundMask (fgMask, fn_level, fp_level);
 
 [y,x] = find(L~=0);
 if length(y)~=0

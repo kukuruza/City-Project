@@ -71,8 +71,11 @@ classdef Car < CarInterface
                 int32(C.bbox(1) + C.bbox(3) / 2)];
         end
         
-        function im = drawCar (C, im)
-            im = insertObjectAnnotation(im, 'rectangle', C.bbox, 'car');
+        function im = drawCar (C, im, color, tag)
+            if nargin < 3, color = 'yellow'; end
+            if nargin < 4, tag = 'car'; end
+            im = insertObjectAnnotation(im, 'rectangle', C.bbox, ...
+                tag, 'Color', color);
         end
         
     end % methods

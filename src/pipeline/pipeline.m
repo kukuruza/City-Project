@@ -16,31 +16,38 @@ run ../subdirPathsSetup.m;
 camNum = 572;
 
 % input frames
-frameReader = FrameReaderImages ([CITY_DATA_PATH '2-min/camera572/']); 
+videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
+timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
+frameReader = FrameReaderVideo (videoPath, timesPath); 
 im0 = frameReader.getNewFrame();
 
 % geometry
 objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
-roadCameraMap = geom.roadCameraMap(im0);
+roadCameraMap = geom.getCameraRoadMap();
 
 % background
-subtractor = BackgroundSubtractor();
+background = Background();
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 detector = CascadeCarDetector (modelPath);
 frameid = 0;
 
-% 
-counting = MetricLearner(); % pass necessary arguments to constructor
+% probabilistic model
+counting = MetricLearner(geom);
 countcars = 0;
 
+% output results
+outputPath = [CITY_DATA_PATH, 'testdata/pipeline/cam572-5pm.avi'];
+frameWriter = FrameWriterVideo (outputPath, 2, 1);
 
 t = 1;
 while 1
     tic
+    
+    if t == 100, break, end
     
     % read image
     [frame, interval] = frameReader.getNewFrame();
@@ -50,15 +57,13 @@ while 1
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = subtractor.subtractAndDenoise(gray);
+    foregroundMask = background.subtractAndDenoise(gray);
 
     % geometry processing mask and bboxes
-    foregroundMask = foregroundMask & logical(roadMask);
+    foregroundMask = foregroundMask & logical(roadCameraMap);
     
     % actually detect cars
-    tic
-    cars = detector.detect(frame);%, scales(j), orientations(j));
-    toc
+    cars = detector.detect(frame); % orientations(j));
     
     % filter detected cars based on foreground mask
     counter = 1;
@@ -79,32 +84,35 @@ while 1
     for k = 1 : length(cars)
         center = cars(k).getCenter(); % [y x]
         expectedSize = roadCameraMap(center(1), center(2));
-        fprintf('expectedSize: %f ', expectedSize);
-        fprintf('actualSize: %f\n', cars(k).bbox(3));
         if expectedSize / SizeTolerance < cars(k).bbox(3) && ...
            expectedSize * SizeTolerance > cars(k).bbox(3)
             carsFilt(counter) = cars(k);
             counter = counter + 1;
         end
     end
-    cars = carsFilt;    
+    cars = carsFilt;
+    fprintf ('pipeline: filtered detections: %d\n', length(cars));
     
     % count cars
-    for i = 1:length(cars)
-         cars(i).iFrame = t;
-         cars(i).extractPatch(frame);
-    end
-    [newCarNumber, ~] = counting.processFrame(t, frame, cars, geom);
+    [newCarNumber, ~, newCarIndices] = counting.processFrame(frame, cars);
+    fprintf ('pipeline: new cars: %d\n', newCarNumber);
     countcars = countcars + newCarNumber;
     
     % output
-    tCycle = toc;
     frame_out = frame;
     for j = 1 : length(cars)
-        frame_out = cars(j).drawCar(frame_out);
+        if newCarIndices(j) == 0, tagColor = 'blue';
+        else tagColor = 'yellow'; 
+        end
+        frame_out = cars(j).drawCar(frame_out, tagColor);
     end
     imshow(frame_out);
+    frameWriter.writeNextFrame(frame_out);
     
+    tCycle = toc;
     t = t + 1;
-    fprintf ('frame %d in %f sec \n', t, tCycle);
+    fprintf ('frame %d in %f sec \n \n', t, tCycle);
 end
+
+clear frameWriter frameReader
+

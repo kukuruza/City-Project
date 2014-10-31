@@ -17,15 +17,16 @@ filePath = fullfile(imageDir, imageName);
 image = imread(filePath);
 
 % Loading the road properties that were manually marked (Pts for the lanes)
-matFile = 'Geometry_Camera_360.mat';
-geom = GeometryEstimator(image, matFile);
-fprintf ('GeometryEstimator: constructor finished\n');
+%matFile = 'Geometry_Camera_360.mat';
+%geom = GeometryEstimator(image, matFile);
+%fprintf ('GeometryEstimator: constructor finished\n');
 
 % Geometry object can be simply loaded using the object file
 % The object geom will be directly loaded. However, newer functionalities
 % might need this object to be created again
-%objectFile = 'GeometryObject_Camera_360.mat';
-%load(objectFile);
+clear geom;
+objectFile = 'GeometryObject_Camera_572.mat';
+load(objectFile);
 %fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
 %    'Update if made changes to GeometryEstimator class\n'));
 

@@ -12,8 +12,8 @@ classdef CarInterface < handle
         % compute the center of the bbox
         center = getCenter (C) % [y x]
 
-        % draw car on an image
-        im = drawCar (C, im)
+        % draw car on an image with (optionally) specified tag and color
+        im = drawCar (C, im, color, tag)
         
     end % methods
 end

@@ -1,8 +1,13 @@
 % Background substraction
 
-workingDir = '/Users/lgui/Box Sync/City Project/data/five camera for 2 min';
+% workingDir = '/Users/lgui/Box Sync/City Project/data/five camera for 2 min';
+% resultDir = fullfile(workingDir,'Result');
+% videoName = fullfile(resultDir,'shuttle_out.avi');
+
+workingDir = '/Users/lgui/Dropbox/City-Project/data/2-min';
 resultDir = fullfile(workingDir,'Result');
-videoName = fullfile(resultDir,'shuttle_out.avi');
+videoName = fullfile(resultDir,'camera572.avi');
+
 
 
 videoSource = vision.VideoFileReader(videoName,'ImageColorSpace','Intensity','VideoOutputDataType','uint8');
@@ -18,16 +23,23 @@ shapeInserter = vision.ShapeInserter('BorderColor','White');
 
 videoPlayer = vision.VideoPlayer();
 N=0;
+
 while ~isDone(videoSource)
-    tic
+   
      frame  = step(videoSource);
      fgMask = step(detector, frame);
      bbox   = step(blob, fgMask);
-     toc
+     
      out    = step(shapeInserter, frame, bbox); % draw bounding boxes around cars
-     step(videoPlayer, fgMask); % view results in the video player
+     
+  %   
+   tic
+ %  mask_out = denoiseForegroundMask (fgMask, fn_level, fp_level);
+    mask_out = maskProcess(fgMask);
+     toc
      imname = sprintf('result%d.jpg',N);
-     imwrite(fgMask,fullfile(resultDir,imname));
+     imwrite(mask_out,fullfile(resultDir,imname));
+     step(videoPlayer, mask_out); % view results in the video player
      N=N+1;
 end
 release(videoPlayer);

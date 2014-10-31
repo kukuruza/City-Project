@@ -1,6 +1,6 @@
 % A thin wrapper around vision.ForegroundDetector and vision.BlobAnalysis
 
-classdef BackgroundSubtractor < handle
+classdef Background < handle
      properties (Hidden)
          detector;
          blob;
@@ -22,7 +22,7 @@ classdef BackgroundSubtractor < handle
      end % properties
      
      methods
-         function BS = BackgroundSubtractor ()
+         function BS = Background ()
              BS.detector = vision.ForegroundDetector(...
                    'NumTrainingFrames', BS.num_training_frames, ...
                    'InitialVariance', BS.initial_variance^2);
@@ -50,7 +50,7 @@ classdef BackgroundSubtractor < handle
          % add more foreground and remove noise
          function [mask, bboxes] = subtractAndDenoise (BS, frame)
              mask  = step(BS.detector, frame);
-             mask = denoiseForegroundMask(mask, BS.fn_level, BS.fp_level);
+             mask = denoiseMask(mask, BS.fn_level, BS.fp_level);
              
              % alternative function to denoiseForegroundMask
              %mask = gaussFilterMask(mask, 20, 0.1);
