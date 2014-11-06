@@ -1,4 +1,4 @@
-% viola-jones implementation of CarDetectorInterface
+% Matlab viola-jones implementation of CarDetectorInterface
 
 classdef CascadeCarDetector < CarDetectorInterface
     properties (Hidden)

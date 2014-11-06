@@ -9,7 +9,7 @@ strokeWeight = 1        # thickness of outline
 windowName = "Object Detection"
 
 # load an image to search for faces
-img = cv2.imread("/Users/evg/projects/City-Project/data/testdata/detector/001269.jpg");
+img = cv2.imread("/Users/evg/projects/City-Project/data/testdata/detector/img000.jpg");
 #img = cv2.imread("/Users/evg/projects/City-Project/data/violajones/cameras/cam572/negative/cam572_000.png")
 
 # load detection file (various files for different views and uses)
