@@ -112,55 +112,116 @@ fprintf(strcat('Read Geometry object from file, might not be the latest version\
 counting = MetricLearner(geom); % pass necessary arguments to constructor
 count0 = size(bboxes{1},1); % initial should be the number of cars in the first frame
 
-for iframe = 1 : length(bboxes)
-
+for iframe = 1 : length(bboxes)   
     % read frame
     frame = imread(imPath{iframe});
     j = iframe;
-     cars = Car.empty;
-     for i = 1:length(bboxes{j})
-         cars(i) = Car(bboxes{j}(i, :));
-         cars(i).getROI ();
-         cars(i).extractPatch(frame);
-         cars(i).generateFeature(frame);
-     end
-     
-     %In order to read the patch for the ith car
-     % cars{i}.features
-     % in order to read the bbox
-     % cars{i}.bbox
-     
-     
-%     % make cars from bboxes
-%     cars = {};
-%     for i = 1 : size(bboxes{iframe},1)
-%         bboxesF = bboxes{iframe};
-%         bboxesCar = bboxesF(i,:);
-%         cars{i} = frame(bboxesCar(2) : bboxesCar(2)+bboxesCar(4)-1, bboxesCar(1) : bboxesCar(1)+bboxesCar(3)-1, :);
-%         % cars = [cars CarAppearance(bboxesF(i,:))];      
-%     end
+    cars = Car.empty;
+    for i = 1:length(bboxes{j})
+        cars(i) = Car(bboxes{j}(i, :));
+        cars(i).getROI ();
+        cars(i).extractPatch(frame);
+        cars(i).generateFeature(frame);
+    end
     
-
-
+    %In order to read the patch for the ith car
+    % cars{i}.features
+    % in order to read the bbox
+    % cars{i}.bbox
+    
     % counting the new cars and total number of cars for a new frame
-    counting.WeightGeom = 0.4;
-    counting.WeightHog = 0.4;
-    counting.WeightCol = 0.2;
-    counting.Th = 0.5;
-    TP = 0;
-    TN = 0;
-    FP = 0;
-    FN = 0;
-    Acc = 0;
+    Thre = 0.1:0.02:0.96;
+    weight =[0.1 0.8 0.1;
+             0.1 0.7 0.2;
+             0.1 0.6 0.3;
+             0.1 0.5 0.4;
+             0.1 0.4 0.5;
+             0.1 0.3 0.6;
+             0.1 0.2 0.7;
+             0.1 0.1 0.8;
+             0.2 0.7 0.1;
+             0.2 0.6 0.2;
+             0.2 0.5 0.3;
+             0.2 0.4 0.4;
+             0.2 0.3 0.5;
+             0.2 0.2 0.6;
+             0.2 0.1 0.7;
+             0.3 0.6 0.1;
+             0.3 0.5 0.2;
+             0.3 0.4 0.3;
+             0.3 0.3 0.4;
+             0.3 0.2 0.5;
+             0.3 0.1 0.6;
+             0.4 0.5 0.1;
+             0.4 0.4 0.2;
+             0.4 0.3 0.3;
+             0.4 0.2 0.4;
+             0.4 0.1 0.5;
+             0.5 0.4 0.1;
+             0.5 0.3 0.2;
+             0.5 0.2 0.3;
+             0.5 0.1 0.4;
+             0.6 0.3 0.1;
+             0.6 0.2 0.2;
+             0.6 0.1 0.3;
+             0.7 0.2 0.1;
+             0.7 0.1 0.2;
+             0.8 0.1 0.1;
+             0.9 0.05 0.05];
+%     for k = 1:length(Thre)
+%         counting.Th = Thre(k);
+    for k = 1:length(weight)
+        counting.Th = 0.5;
+        counting.WeightGeom = weight(k,1);
+        counting.WeightHog = weight(k,2);
+        counting.WeightCol = weight(k,3);
+        [newCarNumber Match{k}] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    end
+    Result{counting.framecounter} = Match;
+    counting.framecounter = counting.framecounter + 1;
+    %     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
+    %     count0 = count1;    
+end
+    % compare output with ground truth
+    % corresp{iframe}
     
-    % counting.Th = 0.1:0.05:1;
-    for k = 1:19
-    counting.Th = 0.1;
-    [newCarNumber Match] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    for k = 1:length(weight)
+        for iframe = 1 : length(bboxes)
+            if(iframe> 1)
+                t = (Result{1,iframe}{1,k} == corresp{iframe});
+                f = (Result{1,iframe}{1,k} ~= corresp{iframe});
+                tt((iframe-1),k) = sum(sum(t));
+                ff((iframe-1),k) = sum(sum(f));
+                Truth = sum(tt,1);
+                False = sum(ff,1);
+            end
+        end
+        
+    end
+    save('Result', 'Result');
+    save('trueMatrix', 't');
+    save('falseMatrix', 'f');
+    save('Truth', 'Truth');
+    save('False', 'False');
     
-    if(counting.framecounter > 1)
-    [m n] =size(Match);
+     x = 1:1:length(weight);
+     Acc = Truth./False;
+     plot(x,Acc);
+     % axis([0 1 5 11]);
+     % set(gca,'XTick',[0:0.05:1]);
+     % title('Accuracy vs. Threshold');
+     % xlabel('Threshold');
+     % ylabel('Accuracy');
+        
+     title('Accuracy vs. weight');
+     xlabel('weight');
+     ylabel('Accuracy');
+     
+     
+     
     
+    
+    %    [m n] =size(Match);   
 %     for p = 1:m
 %         for q = 1:n
 %             if (Match(p,q)==1 && corresp{iframe}(p,q)==1)
@@ -174,23 +235,15 @@ for iframe = 1 : length(bboxes)
 %             end
 %         end
 %     end
-%     
-%     Acc(k) = (TP + TN)/(FP +FN);   
-    
-    count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
-    count0 = count1; 
-%     counting.framecounter = counting.framecounter + 1;
-%     counting.Th = counting.Th + 0.05;
-    end
-    
-    end
-%     counting.Th = 0.1:0.05:1;
-%     plot(Acc, counting.Th)
-    % compare output with ground truth
-    % corresp{iframe}
-    
-end
 
+%              0.1 0.8 0.1;
+%              0.1 0.7 0.2;
+%              0.1 0.6 0.3;
+%              0.1 0.5 0.4;
+%              0.1 0.3 0.6;
+%              0.1 0.2 0.7;
+%              0.1 0.8 0.1
+%     
 
         
 
