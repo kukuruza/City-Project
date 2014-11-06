@@ -373,7 +373,11 @@ classdef GeometryEstimator < handle
             
             
         end
-        
+
+        %% Interface to update the speed of the lanes based on approximate matching matrix
+        function updateSpeed(obj, carsFrame1, carsFrame2, matchingMat)
+            
+        end
         %% DEBUGGING FUNCTIONS
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization

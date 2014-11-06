@@ -1,5 +1,6 @@
 % A simple tutorial script to demonstrate the use of Geometry class for
-% various functionalities
+% various functionalities 
+% Also tests these for camera 572 
 
 clear all
 
@@ -9,9 +10,13 @@ cd (fileparts(mfilename('fullpath')));
 run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
-imageDir = [CITY_DATA_PATH '2-min/camera360'];
-imageName = 'image0000.jpg';
+imageDir = [CITY_DATA_PATH 'geometry'];
+imageName = 'img000.jpg';
 filePath = fullfile(imageDir, imageName);
+textPath = strrep(filePath, '.jpg', '.txt');
+
+% Grouth truth bounding boxes
+gtBboxes = dlmread(textPath, ',');
 
 %Reading the image and marking points
 image = imread(filePath);
@@ -24,13 +29,12 @@ image = imread(filePath);
 % Geometry object can be simply loaded using the object file
 % The object geom will be directly loaded. However, newer functionalities
 % might need this object to be created again
-clear geom;
 objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
-%fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
-%    'Update if made changes to GeometryEstimator class\n'));
+fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
+   'Update if made changes to GeometryEstimator class\n'));
 
-geom.road.drawLanesOnImage(image);
+%geom.road.drawLanesOnImage(image);
 
 %setting the image size for the geometry module
 laneMask = geom.getRoadMask();
@@ -38,45 +42,58 @@ laneMask = geom.getRoadMask();
 %Fetch the camera road map for various sizes of the cars expected
 cameraRoadMap = geom.getCameraRoadMap();
 
+
 %% Check size [and lane] estimation for every point on the road
+% Using the ground truths, get the position of the car
+% Compare the ground truth with the estimated width
 
-roadPoints = ...  % [x y]
-[109 186; ...     % car in the 4th lane in the front
- 157 143; ...     % car in the 4th lane faraway
- 210 139; ...     % car in the 4th lane faraway
- 300 200; ...     % not a road
- 100 100 ...     % not a road
-];
-
-carWidths = [50 20 20 0 0];
-
-carLanes = [4 4 5 0 0];
-
-for i = 1 : size(roadPoints,1)
-    fprintf ('car width at point #%d, estimate: %f, truth: %f\n', ...
-        i, carWidths(i), cameraRoadMap(roadPoints(i,2), roadPoints(i,1)));
+for i = 1 : 1%size(gtBboxes,1)
+    % Extracting the position of the car on the road and its size
+    box = gtBboxes(i, :);
+    carPos = floor([box(1) + box(3)/2, box(2) + box(4)]);
+    carSize = box(3);
+    
+    fprintf ('Car width at point #%d, Ground: %f, Estimate: %f\n', ...
+        i, box(3), cameraRoadMap(carPos(2), carPos(1)));
 end
 
 
-%% Check the probability calculating module given two cars 
-%   Cars are taken from cam360, image0045 and image0048
-% Choose any two cars from below list of points
-% rois   = N x [x1 y1 x2 y2] - easier to get
-% bboxes = N x [x y width height]
-rois = ...
-[84 172 132 200; ...   % 1: first detection of the real car in 4th lane
- 186 126 200 136; ...  % 2: second detection of the real car in 4th lane
- 134 122 147 130; ...  % 3: normal dist, but on the 1st lane (should be ~0)
- 149 125 164 134; ...  % 4: normal dist, but on the 2nd lane (should be ~0)
- 167 126 182 137; ...  % 5: normal dist, but on the 3rd lane (should be small)
- 209 126 223 135; ...  % 6: normal dist, but on the 5th lane (should be small)
- 158 145 176 158; ...  % 7: car is in the 4th lane, but passed only half dist. 
- 34 199 82 234 ...    % 8: car is moved in opposite direction (should be 0)
-];
-bboxes = [rois(:,1:2) rois(:,3)-rois(:,1) rois(:,4)-rois(:,2)];
+% %% Check the probability calculating module given two cars 
+% %   Cars are taken from cam572, images 004 and 005
+% % Choose any two cars from below list of points
+% % rois   = N x [x1 y1 x2 y2] - easier to get
+% % bboxes = N x [x y width height]
 
-% ground truth
-mutualProb = {'n/a', 'high', '~0', '~0', 'small', 'small', 'smaller', '==0'};
+% Car 1 : Lane 2, in front of car 2
+% Car 2 : Lane 2, behind car 1
+% Car 3 : Lane 3, in front of car 4
+% Car 4 : Lane 3, in front of car 3
+% Ground truth boxes for frame 1(image 004)
+cars1 = ...
+[247, 180, 42, 39; ...
+202, 225, 64, 40; ...
+213, 165, 28, 23; ...
+160, 182, 54, 43];
+
+% Cars in frame 2
+cars2 = ...
+[221, 199, 64, 53; ...
+139, 274, 92, 72; ...
+184, 180, 42, 30; ...
+48, 222, 104, 80];
+
+% Other random rois which we want to check our estimator with
+rois = ...
+[440, 205 65 35; ... % 1: Point on a lane travelling on different direction; 
+                      %should result in zero
+237, 151, 18, 15; ... % 2: Car behind all the other cars; should result in zero
+];
+
+% ground truth of the probabilities
+% First we compare cars with each other and then with additional roi
+% Comparing (1)
+mutualProb = {'0', 'high', ...
+    '~0', '~0', 'small', 'small', 'smaller', '==0'};
 
 car1Ind = 1;
 car2Ind = 2;
@@ -91,32 +108,13 @@ for i = 2 : size(bboxes,1)
         i, prob, mutualProb{i});
 end
 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % Displaying the probability heat maps for visualization for all these
+% % points
+% % for i = 1:size(bboxes, 1)
+% %     car = Car(bboxes(i, :));
+% %     [probHeatMap, overLaidImg] = geom.generateProbMap(car, frameDiff, image);
+% %     figure; imshow(overLaidImg)
+% % end
+% 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Displaying the probability heat maps for visualization for all these
-% points
-
-for i = 1:2%size(bboxes, 1)
- car = Car(bboxes(i, :));
- [probHeatMap, overLaidImg] = geom.generateProbMap(car, frameDiff, image);
- figure; imshow(overLaidImg)
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Displaying the results
-%figure; imagesc(geom.roadMask);
-%figure; imagesc(geom.getCameraRoadMap());
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Testing the road module seperately.
-%road = Road(matFile);
-% markedImg = road.drawLanesOnImage(image);
-% imshow(markedImg)
-%return
-%pts = [50 151 97 124 197 237 217 306; 177 135 176 187 167 126 203 161];
-%index = [1 1 2 3 4 5 5];
-% for i = 1:size(pts, 2)
-%     bbox = [pts(1, i) pts(2, i) 0 0];
-%     car = Car(bbox);
-%     index = [index; road.detectCarLane(car)];
-%     fprintf('%d %d => %d \n', pts(1, i), pts(2, i), index(end));
-% end
