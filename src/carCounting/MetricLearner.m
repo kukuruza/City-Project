@@ -2,15 +2,16 @@
 
 classdef MetricLearner < handle
     properties (Hidden)
-        framecounter = 1;
+        % framecounter = 1;
         geometryObj;     
         seenCars = {};   % cars from previous frames
     end % properties
     properties
-        WeightGeom = 0.5;    % can be changed outside
-        WeightHog = 0.2;
+        WeightGeom = 0.4;    % can be changed outside
+        WeightHog = 0.3;
         WeightCol = 0.3;
-        Th = 0.7;
+        Th = 0.5;
+        framecounter = 1;
     end
     
     methods
