@@ -15,7 +15,7 @@ run '../rootPathsSetup.m';
 % Change the video path accordingly
 % Time stamp path is expected to be of the same name but with .txt
 % extension
-videoPath = [CITY_DATA_PATH, 'cam572/2-hours-morning/2-hours-morning.avi'];
+videoPath = [CITY_DATA_PATH, 'cam572/5pm/15-mins.avi'];
 timeStampPath = strrep(videoPath, '.avi', '.txt');
 frameReader = FrameReaderVideo (videoPath, timeStampPath);
 
