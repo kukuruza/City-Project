@@ -13,7 +13,7 @@ classdef Background < handle
          initial_variance = 30;
          
          % mask refinement
-         fn_level = 15;
+         fn_level = 17;
          fp_level = 1;
          
          % extracting bounding boxes

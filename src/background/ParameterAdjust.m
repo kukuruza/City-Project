@@ -66,7 +66,7 @@ while true
  %   pause(0.5);
     N=N+1;
 end
-R(i-10,j) = mean(recall);
-P(i-10,j) = mean(precision);
+R(i-10,j) = mean(recall)
+P(i-10,j) = mean(precision)
  %   end
 %end
