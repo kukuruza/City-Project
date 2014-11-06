@@ -23,7 +23,7 @@ classdef MetricLearner < handle
         function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)   % don't need the ML to be the first argument, for this function doesn't change anything of ML
             % HOG
             
-            dHOG = chi_square_statistics(CarObj1.histHog,CarObj2.histHog);
+            dHOG = chi_square_statistics(CarObj1.histHog, CarObj2.histHog);
             ProbHOG = 1-dHOG;
             
             % Color          
@@ -37,10 +37,17 @@ classdef MetricLearner < handle
             if (ML.framecounter == 1)
                 newCarNumber = 0;
                 ML.seenCars{1} = cars;
-                % ML.framecounter = 2;
+                ML.framecounter = 2;
                 Match = [];
                 NewIndex = ones(length(cars), 1);
                 return
+            end
+            
+            % gewnerate appearance features
+            for car = cars
+                car.getROI ();
+                car.extractPatch(image);
+                car.generateFeature(image);
             end
                 
             % validation of arguments
@@ -89,7 +96,7 @@ classdef MetricLearner < handle
             end
             % compute new car number
             CountMatch = sum(sum(Match));
-            newCarNumber = length(cars) - CountMatch;    
+            newCarNumber = length(cars) - CountMatch;
             ML.seenCars{ML.framecounter} = cars;
             
 %             fileGeoProb = strcat('GeoProb', num2str(ML.framecounter));
@@ -102,6 +109,8 @@ classdef MetricLearner < handle
 
             % element-wise operation to come up with a single matrix
             % constraints = GeoProb .* appearConstraints;
+
+            ML.framecounter = ML.framecounter + 1;
             
 
             % == bookkeeping ==

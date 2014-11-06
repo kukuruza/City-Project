@@ -307,7 +307,7 @@ classdef GeometryEstimator < handle
             %is present
             
             carPoint = [carObj.bbox(1) + carObj.bbox(3)/2 ; carObj.bbox(2) + carObj.bbox(4)];
-            laneId = obj.roadMask(carPoint(2), carPoint(1));
+            laneId = obj.roadMask(int32(carPoint(2)), int32(carPoint(1)));
         end
         
         %% Generating the probability matrix given the cars in one frame; cars in another frame

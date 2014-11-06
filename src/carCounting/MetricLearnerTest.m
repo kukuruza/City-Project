@@ -119,9 +119,6 @@ for iframe = 1 : length(bboxes)
     cars = Car.empty;
     for i = 1:length(bboxes{j})
         cars(i) = Car(bboxes{j}(i, :));
-        cars(i).getROI ();
-        cars(i).extractPatch(frame);
-        cars(i).generateFeature(frame);
     end
     
     %In order to read the patch for the ith car
