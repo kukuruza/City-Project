@@ -168,7 +168,8 @@ classdef GeometryEstimator < handle
                     %end
                     
                     %We care only about the distance along the road
-                    dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                    dist3D = obj.computeDistance3D(point1, point2);
+                    %dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
                     
                     %Use the distance to evaluate the probability
                     %Distribution = Guassian (frameDiff * obj.road.roadVelMu,
@@ -203,7 +204,8 @@ classdef GeometryEstimator < handle
                     %end
                     
                     %We care only about the distance along the road
-                    dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
+                    dist3D = obj.computeDistance3D(point1, point2);
+                    %dist3D = 1/obj.road.scaleFactor * log(double(point1(2)/point2(2)));
                    
                     %Debugging
                     %fprintf('Lane change (in) : %f\n', dist3D);
@@ -244,7 +246,8 @@ classdef GeometryEstimator < handle
                     %end
                     
                     %We care only about the distance along the road
-                    dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    dist3D = obj.computeDistance3D(point1, point2);
+                    %dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
                 
                     %Debug message
                     if(verbose)
@@ -290,7 +293,8 @@ classdef GeometryEstimator < handle
                     %end
                     
                     %We care only about the distance along the road
-                    dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
+                    dist3D = obj.computeDistance3D(point1, point2);
+                    %dist3D = 1/obj.road.scaleFactor * log(double(point2(2)/point1(2)));
                     
                     %fprintf('Changing lane : %f\n', dist3D);
                     prob = obj.road.laneChangeProb * ...
@@ -375,9 +379,69 @@ classdef GeometryEstimator < handle
         end
 
         %% Interface to update the speed of the lanes based on approximate matching matrix
-        function updateSpeed(obj, carsFrame1, carsFrame2, matchingMat)
+        function updateSpeed(obj, carsFrame1, carsFrame2, matchingMat, geomMatrix)
+            % Function to update the speed of the lanes using approximate
+            % matching available
+            % TODO: Import the timeStamp attribute to get exact timing
             
+            % Temporarily take time = 1
+            timeStep = 1;
+            
+            % Evaluating the possible speeds for all the pairs of matching
+            speeds = [];
+            
+            % Indices of geometrically valid car transitions
+            possTransitions = find(geomMatrix > 0);
+            [f2Id, f1Id] = ind2sub(size(geomMatrix), possTransitions);
+            
+            noChecks = length(f1Id);
+            speeds = zeros(noChecks, 1);
+            
+            % Getting possible speeds
+            for i = 1:noChecks
+                % Extracting the points on road for the car
+                box1 = carsFrame1(f1Id(i)).bbox;
+                box2 = carsFrame2(f2Id(i)).bbox;
+                
+                car1Pt = [box1(1) + box1(3)/2, box1(2) + box1(4)];
+                car2Pt = [box2(1) + box2(3)/2, box2(2) + box2(4)];
+                
+                % Computing the distance, in effect the speed
+                speeds(i) = obj.computeDistance3D(car1Pt, car2Pt);
+            end
+            
+            %speeds'
+            %geomMatrix(possTransitions)'
+            %sum(speeds.*geomMatrix(possTransitions))/sum(geomMatrix(possTransitions))
+            weightedSpeed = sum(speeds .* matchingMat(possTransitions))/sum(matchingMat(possTransitions));
+            %obj.road.roadVelMu
+            % Some random message
+            fprintf('\nCompleted the speed update\nMeanSpeed : %f , %f\nPriorSpeed: %f\n',...
+                    weightedSpeed, mean(speeds), obj.road.roadVelMu);
         end
+        
+        %% Function to return the 3D distance for the given geometry
+        function dist3D = computeDistance3D(obj, point1, point2)
+            % Check for lower y-coordinate point
+            yRatio = double(point1(2) - obj.road.vanishPt(2)) / (point2(2) - obj.road.vanishPt(2));
+            
+            % Check for points to be on the road
+            assert(point1(2) > obj.road.vanishPt(2) || point2(2) > obj.road.vanishPt(2));
+            
+            % Flip the points if yRatio is less than 1
+            if(yRatio < 1)
+               yRatio = 1.0/yRatio;
+            end
+
+            % We care only about the distance along the road (for now)
+            dist3D = 1/obj.road.scaleFactor * log(yRatio);
+            
+            % Debugging
+            %if(~isreal(dist3D))
+            %    fprintf('Distance, yRatio: %f %f \n', dist3D, yRatio);
+            %end
+        end
+        
         %% DEBUGGING FUNCTIONS
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization

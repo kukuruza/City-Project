@@ -94,7 +94,7 @@ end
 % Displaying the probability heat maps for visualization for all these
 % points
 
-for i = 1:2%size(bboxes, 1)
+for i = 1:size(bboxes, 1)
  car = Car(bboxes(i, :));
  [probHeatMap, overLaidImg] = geom.generateProbMap(car, frameDiff, image);
  figure; imshow(overLaidImg)
