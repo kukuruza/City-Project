@@ -18,11 +18,11 @@ for i = 1:3
 
     %Reading the image and marking points
     image = imread(filePath);
-
+    
     % Loading the road properties that were manually marked (Pts for the lanes)
     matFile = strcat('Geometry_Camera_', cameraStr, '.mat');
     geom = GeometryEstimator(image, matFile);
     fprintf ('GeometryEstimator for camera %s: constructor finished\n', cameraStr);
-
+    
     save(strcat('GeometryObject_Camera_', cameraStr, '.mat'), 'geom');
 end

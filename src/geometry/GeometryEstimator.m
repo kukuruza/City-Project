@@ -29,27 +29,12 @@ classdef GeometryEstimator < handle
             obj.imageSize = [size(initImage, 1), size(initImage, 2)];
             
             % Identifying the car lanes for the given image and given lanes
-            % Costly and naive way to do things - needs improvization
-            obj.roadMask = zeros(obj.imageSize);
-            for i = 1:obj.imageSize(1)
-                for j = 1:obj.imageSize(2)
-                    obj.roadMask(i, j) = obj.road.detectCarLane([j, i]);
-                end
-            end
-
+            obj.computeRoadMask();
+            
             % Creating map of expected car sizes at different locations on
             % the image - should also include the orientation extension
             % because of the orientations
-            [~, mask] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
-            
-            %Need to normalize the image co-ordinates using f 
-            % Alternatively, we calibrate using the average lane width and
-            % calculate the scale factor accordingly
-            mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor * obj.road.carHeightMu, zeros(obj.imageSize));
-            
-            % Ignoring points outside the roadMask
-            mask = mask .* (obj.roadMask ~= 0);
-            obj.cameraRoadMap = 2 * mask;
+            obj.computeCameraRoadMap();   
         end
         
         %% Method to calculate confidence maps to detect various geometries
@@ -486,7 +471,82 @@ classdef GeometryEstimator < handle
             markerInserter = vision.MarkerInserter('Size', 5, 'BorderColor','Custom','CustomBorderColor', uint8([0 0 255]));
             overlaidImg = step(markerInserter, overlaidImg, uint32(point));
         end
+    end
+    
+    %% Methods that are hidden and private to the class
+    methods (Hidden)
+        % Computing the road mask
+        function computeRoadMask(obj)
+            % Identifying the car lanes for the given image and given lanes
+            % Costly and naive way to do things - needs improvization
+            obj.roadMask = zeros(obj.imageSize);
+            %tic
+            newRoadMask = zeros(obj.imageSize);
+            % Explicitely calculating the road lanes
+            % Calculating the intercepts for the lan
+            for yPt = floor(obj.road.vanishPt(2)):obj.imageSize(1)
+                % Checking the intercepts for all the lanes
+                intercpts = [];
+
+                % Computing the interesection for first left lane
+                xIntrpt = (yPt - obj.road.lanes{1}.leftEq(2)) /  obj.road.lanes{1}.leftEq(1);
+                intercpts = [intercpts; xIntrpt];
+                
+                %Computing the intersections for right line segments
+                for i = 1:length(obj.road.lanes)
+                    xIntrpt = (yPt - obj.road.lanes{i}.rightEq(2)) /  obj.road.lanes{i}.rightEq(1);
+                    intercpts = [intercpts; xIntrpt];
+                end
+                
+                % Making the intercepts indices
+                intercpts = floor(intercpts);
+                
+                % Assigning the corresponding points
+                for i = 1:length(intercpts)-1
+                    % Move to the next lane if current lane isnt in the
+                    % frame yet
+                    if(intercpts(i+1) < 1)
+                        continue;
+                    end
+                    
+                    % Break the process if the current lane exists the
+                    % frame
+                    if(intercpts(i) > obj.imageSize(2))
+                        break;
+                    end
+                    %[i intercpts(i) intercpts(i+1) max(intercpts(i), 1) min(intercpts(i+1), obj.imageSize(2))]
+                    
+                    if(strcmp(obj.road.lanes{i}.direction, 'in') || strcmp(obj.road.lanes{i}.direction, 'out'))
+                        newRoadMask(yPt, max(intercpts(i), 1) : min(intercpts(i+1), obj.imageSize(2))) = i; 
+                    end
+                end
+            end
+            %toc
+            
+            % Brute-force way
+            %for i = 1:obj.imageSize(1)
+            %   for j = 1:obj.imageSize(2)
+            %       obj.roadMask(i, j) = obj.road.detectCarLane([j, i]);
+            %   end
+            %end
+            %toc
+        end
         
-        
+        % Computing the camera road map
+        function computeCameraRoadMap(obj)
+            % Creating map of expected car sizes at different locations on
+            % the image - should also include the orientation extension
+            % because of the orientations
+            [~, mask] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
+            
+            %Need to normalize the image co-ordinates using f 
+            % Alternatively, we calibrate using the average lane width and
+            % calculate the scale factor accordingly
+            mask = max(double(mask - obj.road.vanishPt(2)) * obj.road.scaleFactor * obj.road.carHeightMu, zeros(obj.imageSize));
+            
+            % Ignoring points outside the roadMask
+            mask = mask .* (obj.roadMask ~= 0);
+            obj.cameraRoadMap = 2 * mask;
+        end
     end
 end
