@@ -53,8 +53,7 @@ while 1
     if t == 100, break, end
     
     % read image
-    [frame, interval] = frameReader.getNewFrame();
-    frameid = frameid + interval;
+    [frame, timestamp] = frameReader.getNewFrame();
     if isempty(frame), break, end
     gray = rgb2gray(frame);
     
@@ -67,6 +66,11 @@ while 1
     
     % actually detect cars
     cars = detector.detect(frame); % orientations(j));
+    
+    % assign timestamps to cars
+    for i = 1 : length(cars)
+        cars(i).timeStamp = timestamp;
+    end
     
     % filter detected cars based on foreground mask
     counter = 1;
