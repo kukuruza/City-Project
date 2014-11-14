@@ -1,6 +1,6 @@
 % Metric learning method for identifying same cars
 
-classdef MetricLearner < handle
+classdef MetricLearner < MetricLearnerInterface
     properties (Hidden)
         % framecounter = 1;
         geometryObj;     

@@ -114,7 +114,7 @@ while 1
             frame_out = cars(j).drawCar(frame_out, 'yellow', 'new');
         end
     end
-    drawCarTransitions(seenCars, cars, transitionMatrix);
+    drawCarTransitions(seenCars, cars, transitionMatrix, frame_out);
     figure(1); imshow(frame_out);
     frameWriter.writeNextFrame(frame_out);
     
