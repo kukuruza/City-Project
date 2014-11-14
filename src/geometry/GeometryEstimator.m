@@ -403,6 +403,7 @@ classdef GeometryEstimator < handle
             % Some random message
             fprintf('\nCompleted the speed update\nMeanSpeed : %f , %f\nPriorSpeed: %f\n',...
                     weightedSpeed, mean(speeds), obj.road.roadVelMu);
+            obj.road.roadVelMu = weightedSpeed;
         end
         
         %% Function to return the 3D distance for the given geometry
@@ -521,6 +522,7 @@ classdef GeometryEstimator < handle
                     end
                 end
             end
+            obj.roadMask = newRoadMask;
             %toc
             
             % Brute-force way
