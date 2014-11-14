@@ -36,6 +36,11 @@ classdef MetricLearner < MetricLearnerInterface
         function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)  % delete the iframe input argument
             if (ML.framecounter == 1)
                 newCarNumber = 0;
+                for car = cars  % for all the car patches in cars
+                    car.getROI ();
+                    car.extractPatch(image);
+                    car.generateFeature(image);
+                end
                 ML.seenCars{1} = cars;
                 ML.framecounter = 2;
                 Match = [];
@@ -44,7 +49,7 @@ classdef MetricLearner < MetricLearnerInterface
             end
             
             % gewnerate appearance features
-            for car = cars
+            for car = cars  % for all the car patches in cars
                 car.getROI ();
                 car.extractPatch(image);
                 car.generateFeature(image);
