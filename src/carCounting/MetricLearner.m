@@ -82,6 +82,13 @@ classdef MetricLearner < handle
             end
 
             ProbWeighted = ML.WeightGeom * 100 * ProbGeo + ML.WeightCol * ProbCol + ML.WeightHog * ProbHOG;
+            
+            % Using the probability matrix and geometry matrix; updating
+            % the speed of the model for better posterior estimate
+            if(length(seen) > 0 && length(cars) > 0)
+                ML.geometryObj.updateSpeed(seen, cars, ProbWeighted, ProbGeo);
+            end
+            
             % build the match matrix
             Match = zeros(size(ProbWeighted));
             NewIndex = zeros(length(cars), 1);

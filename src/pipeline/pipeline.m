@@ -98,6 +98,10 @@ while 1
     fprintf ('pipeline: new cars: %d\n', newCarNumber);
     countcars = countcars + newCarNumber;
     
+    % Drawing the current frame for visualzing the speed change
+    nextPosImage = geom.drawNextPosition(cars, frame);
+    figure(2); imshow(nextPosImage)
+    
     % output
     frame_out = frame;
     for j = 1 : length(cars)
@@ -106,7 +110,7 @@ while 1
         end
         frame_out = cars(j).drawCar(frame_out, tagColor);
     end
-    imshow(frame_out);
+    figure(1); imshow(frame_out);
     frameWriter.writeNextFrame(frame_out);
     
     tCycle = toc;
