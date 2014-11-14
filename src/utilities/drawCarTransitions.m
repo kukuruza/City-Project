@@ -43,7 +43,11 @@ function [drawImage] = drawCarTransitions(carFrame1, carFrame2, binaryMatching, 
         
         % Drawing a line from one point to the another
         ySpan = min(point1(2), point2(2)) : max(point1(2), point2(2));
-
+        
+        if(point1(2) - point2(2) == 0)
+            continue;
+        end
+        
         xSpan = point1(1) + (ySpan - point1(2)) * ...
                 (point1(1) - point2(1))/ (point1(2) - point2(2));
 
@@ -56,6 +60,9 @@ function [drawImage] = drawCarTransitions(carFrame1, carFrame2, binaryMatching, 
         % channel RGB
         for channel = 1:3
             indices = sub2ind(size(image), floor(ySpan), floor(xSpan), channel*ones(size(ySpan)));
+            %if(sumindices == NaN)
+              %  continue;
+            %end
             drawImage(indices) = color(channel);
         end
     end 
