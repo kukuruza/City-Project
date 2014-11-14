@@ -13,7 +13,7 @@ img = cv2.imread("/Users/evg/projects/City-Project/data/testdata/detector/img000
 #img = cv2.imread("/Users/evg/projects/City-Project/data/violajones/cameras/cam572/negative/cam572_000.png")
 
 # load detection file (various files for different views and uses)
-cascade = cv2.CascadeClassifier("/Users/evg/projects/City-Project/data/violajones/opencv/cascade.xml")
+cascade = cv2.CascadeClassifier("/Users/evg/projects/City-Project/data/violajones/models/model1.xml")
 
 # preprocessing, as suggested by: http://www.bytefish.de/wiki/opencv/object_detection
 # img_copy = cv2.resize(img, (img.shape[1]/2, img.shape[0]/2))
