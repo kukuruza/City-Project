@@ -13,6 +13,10 @@ classdef GeometryEstimator < handle
         roadMask; %Mask to know where exactly the road is present
             %We use the lanes from the road for now.
         cameraRoadMap; %Contains the map for size estimations
+        
+        % Belief that builds through accumulating foreground pixels in
+        % someway
+        roadBelief;
     end
     methods
         %% Constructor
@@ -22,6 +26,9 @@ classdef GeometryEstimator < handle
             obj.returnPath = '../../../pipeline';
             %Relative to geometry Path
             obj.classifierPath = '../data/classifiers_08_22_2005.mat';
+           
+            % Initializing the belief about the road
+            obj.roadBelief = zeros(size(initImage));
             
             % Reading the mat file that contains the manually marked points
             % Creating the road object from the mat
@@ -428,6 +435,11 @@ classdef GeometryEstimator < handle
             %if(~isreal(dist3D))
             %    fprintf('Distance, yRatio: %f %f \n', dist3D, yRatio);
             %end
+        end
+        
+        %% Function to get a belief about the road using foreground (binary)
+        function generateRoadBelief(obj, foreground)
+            %figure(1); 
         end
         
         %% DEBUGGING FUNCTIONS
