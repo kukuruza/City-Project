@@ -43,6 +43,9 @@ countcars = 0;
 outputPath = [CITY_DATA_PATH, 'testdata/pipeline/cam572-5pm.avi'];
 frameWriter = FrameWriterVideo (outputPath, 2, 1);
 
+% cache seen cars from previous frame
+seenCars = [];
+
 t = 1;
 while 1
     tic
@@ -94,7 +97,7 @@ while 1
     fprintf ('pipeline: filtered detections: %d\n', length(cars));
     
     % count cars
-    [newCarNumber, ~, newCarIndices] = counting.processFrame(frame, cars);
+    [newCarNumber, transitionMatrix, newCarIndices] = counting.processFrame(frame, cars);
     fprintf ('pipeline: new cars: %d\n', newCarNumber);
     countcars = countcars + newCarNumber;
     
@@ -105,14 +108,17 @@ while 1
     % output
     frame_out = frame;
     for j = 1 : length(cars)
-        if newCarIndices(j) == 0, tagColor = 'blue';
-        else tagColor = 'yellow'; 
+        if newCarIndices(j) == 0
+            frame_out = cars(j).drawCar(frame_out, 'blue', 'seen');
+        else 
+            frame_out = cars(j).drawCar(frame_out, 'yellow', 'new');
         end
-        frame_out = cars(j).drawCar(frame_out, tagColor);
     end
+    drawCarTransitions(seenCars, cars, transitionMatrix);
     figure(1); imshow(frame_out);
     frameWriter.writeNextFrame(frame_out);
     
+    seenCars = cars;
     tCycle = toc;
     t = t + 1;
     fprintf ('frame %d in %f sec \n \n', t, tCycle);

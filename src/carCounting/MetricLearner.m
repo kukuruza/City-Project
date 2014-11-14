@@ -96,9 +96,9 @@ classdef MetricLearner < handle
                 [maxProb, index] = max(ProbWeighted(k,:));
                 if(maxProb> ML.Th)
                     Match(k,index) = 1;
-                    NewIndex(k)= 1;
-                else
                     NewIndex(k)= 0;
+                else
+                    NewIndex(k)= 1;
                 end
             end
             % compute new car number
