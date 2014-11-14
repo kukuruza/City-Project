@@ -102,8 +102,8 @@ while 1
     countcars = countcars + newCarNumber;
     
     % Drawing the current frame for visualzing the speed change
-    nextPosImage = geom.drawNextPosition(cars, frame);
-    figure(2); imshow(nextPosImage)
+    %nextPosImage = geom.drawNextPosition(cars, frame);
+    %figure(2); imshow(nextPosImage)
     
     % output
     frame_out = frame;
@@ -114,7 +114,8 @@ while 1
             frame_out = cars(j).drawCar(frame_out, 'yellow', 'new');
         end
     end
-    drawCarTransitions(seenCars, cars, transitionMatrix);
+    
+    frame_out = drawCarTransitions(seenCars, cars, transitionMatrix, frame_out);
     figure(1); imshow(frame_out);
     frameWriter.writeNextFrame(frame_out);
     
