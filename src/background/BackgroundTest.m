@@ -40,13 +40,13 @@ N=0;
 while true
     frame = frameReader.getNewFrame();
     %[mask, bboxes] = subtractor.subtract(frame);
-    [mask, bboxes] = background.subtractAndDenoise (frame);
+    [mask, bboxes] = background.subtract (frame);
     %bboxes
     frame_out = background.drawboxes(frame, bboxes);
     subplot(1,2,1),imshow(frame_out);
     subplot(1,2,2),imshow(mask);
     imname = sprintf('result%d.png',N);
-    imwrite(mask,fullfile(outImagePath,imname));
+    %imwrite(mask,fullfile(outImagePath,imname));
     pause(0.5);
     N=N+1;
 end
