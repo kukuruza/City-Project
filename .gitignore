@@ -1,6 +1,9 @@
 # the user-specific paths setup file
 rootPathsSetup.m
 
+# vlfeat package is in the source until we fix the issue
+src/vlfeat
+
 # ignore all the videos, etc.
 !src/objectsInPerspective/cvpr06src/data/*
 !src/objectsInPerspective/GeometricContext/data/*

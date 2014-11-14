@@ -127,120 +127,44 @@ for iframe = 1 : length(bboxes)
     % cars{i}.bbox
     
     % counting the new cars and total number of cars for a new frame
-    Thre = 0.1:0.02:0.96;
-    weight =[0.1 0.8 0.1;
-             0.1 0.7 0.2;
-             0.1 0.6 0.3;
-             0.1 0.5 0.4;
-             0.1 0.4 0.5;
-             0.1 0.3 0.6;
-             0.1 0.2 0.7;
-             0.1 0.1 0.8;
-             0.2 0.7 0.1;
-             0.2 0.6 0.2;
-             0.2 0.5 0.3;
-             0.2 0.4 0.4;
-             0.2 0.3 0.5;
-             0.2 0.2 0.6;
-             0.2 0.1 0.7;
-             0.3 0.6 0.1;
-             0.3 0.5 0.2;
-             0.3 0.4 0.3;
-             0.3 0.3 0.4;
-             0.3 0.2 0.5;
-             0.3 0.1 0.6;
-             0.4 0.5 0.1;
-             0.4 0.4 0.2;
-             0.4 0.3 0.3;
-             0.4 0.2 0.4;
-             0.4 0.1 0.5;
-             0.5 0.4 0.1;
-             0.5 0.3 0.2;
-             0.5 0.2 0.3;
-             0.5 0.1 0.4;
-             0.6 0.3 0.1;
-             0.6 0.2 0.2;
-             0.6 0.1 0.3;
-             0.7 0.2 0.1;
-             0.7 0.1 0.2;
-             0.8 0.1 0.1;
-             0.9 0.05 0.05];
-%     for k = 1:length(Thre)
-%         counting.Th = Thre(k);
-    for k = 1:length(weight)
+
         counting.Th = 0.5;
-        counting.WeightGeom = weight(k,1);
-        counting.WeightHog = weight(k,2);
-        counting.WeightCol = weight(k,3);
-        [newCarNumber Match{k}] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
-    end
-    Result{counting.framecounter} = Match;
-    counting.framecounter = counting.framecounter + 1;
+        counting.WeightGeom = 0.4;
+        counting.WeightHog = 0.2;
+        counting.WeightCol = 0.4;
+        [newCarNumber Match] = counting.processFrame(frame, cars);  % cars is the cell array of the class carappearance, every cell is the carappearance based on every bbox
+    
+    Result{counting.framecounter - 1} = Match;
+    % counting.framecounter = counting.framecounter + 1;
     %     count1 = count0 + newCarNumber;    % count1 is the total number of cars for all the frames.
     %     count0 = count1;    
 end
     % compare output with ground truth
     % corresp{iframe}
     
-    for k = 1:length(weight)
+    
+    
         for iframe = 1 : length(bboxes)
             if(iframe> 1)
-                t = (Result{1,iframe}{1,k} == corresp{iframe});
-                f = (Result{1,iframe}{1,k} ~= corresp{iframe});
-                tt((iframe-1),k) = sum(sum(t));
-                ff((iframe-1),k) = sum(sum(f));
-                Truth = sum(tt,1);
-                False = sum(ff,1);
+                t = (Result{iframe}== corresp{iframe});  % true matrix for iframe
+                f = (Result{iframe}~= corresp{iframe});
+                tt(iframe-1) = sum(sum(t));              % tt vector is the total true value for all frames 
+                ff(iframe-1) = sum(sum(f));
+                trueMatrix{iframe-1} = t;                 % trueMatrix cell array is the true matrix for all iframes
+                falseMatrix{iframe-1} = f;
+                % Truth = sum(tt,1);           
+                % False = sum(ff,1);
             end
         end
         
-    end
-    save('Result', 'Result');
-    save('trueMatrix', 't');
-    save('falseMatrix', 'f');
-    save('Truth', 'Truth');
-    save('False', 'False');
     
-     x = 1:1:length(weight);
-     Acc = Truth./False;
-     plot(x,Acc);
-     % axis([0 1 5 11]);
-     % set(gca,'XTick',[0:0.05:1]);
-     % title('Accuracy vs. Threshold');
-     % xlabel('Threshold');
-     % ylabel('Accuracy');
-        
-     title('Accuracy vs. weight');
-     xlabel('weight');
-     ylabel('Accuracy');
+%     save('Result', 'Result');
+%     save('trueMatrix', 'trueMatrix');
+%     save('falseMatrix', 'falseMatrix');
+%     save('T-all-frames', 'tt');
+%     save('F-all-frames', 'ff');
+
      
      
      
-    
-    
-    %    [m n] =size(Match);   
-%     for p = 1:m
-%         for q = 1:n
-%             if (Match(p,q)==1 && corresp{iframe}(p,q)==1)
-%                 TP = TP +1;
-%             elseif (Match(p,q)==0 && corresp{iframe}(p,q)==0)
-%                 TN = TN +1;
-%             elseif (Match(p,q)==1 && corresp{iframe}(p,q)==0)
-%                 FP = FP +1;
-%             elseif (Match(p,q)==0 && corresp{iframe}(p,q)==1)
-%                 FN = FN +1;
-%             end
-%         end
-%     end
-
-%              0.1 0.8 0.1;
-%              0.1 0.7 0.2;
-%              0.1 0.6 0.3;
-%              0.1 0.5 0.4;
-%              0.1 0.3 0.6;
-%              0.1 0.2 0.7;
-%              0.1 0.8 0.1
-%     
-
-        
-
+   
