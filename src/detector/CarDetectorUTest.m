@@ -26,7 +26,7 @@ trueBboxes = dlmread([CITY_DATA_PATH, 'testdata/detector/img000.txt']);
 
 %% detect and refine
 
-modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
 
 detector = CascadeCarDetector(modelPath);
 
