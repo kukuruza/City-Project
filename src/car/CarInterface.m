@@ -6,6 +6,9 @@ classdef CarInterface < handle
         % compute ROI from car bbox
         roi = getROI (C);  % [y1, x1, y2, x2]
         
+        % extract car patch from image
+        patch = extractPatch (C, image)
+        
         % compute appearance feature (HoG, color, etc) and save it
         generateFeature (C, image);
         

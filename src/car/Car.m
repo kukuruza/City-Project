@@ -27,15 +27,18 @@ classdef Car < CarInterface
             end
         end
         
+        
         function roi = getROI (C)  % [y1, x1, y2, x2]
             roi = [C.bbox(2) C.bbox(1) C.bbox(4)+C.bbox(2)-1 C.bbox(3)+C.bbox(1)-1];
         end
+        
         
         function patch = extractPatch (C, image)
             roi = C.getROI();
             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
             patch = C.patch;
         end
+        
         
         function generateFeature (C, image)
             
@@ -68,10 +71,12 @@ classdef Car < CarInterface
                       
         end
         
+        
         function center = getCenter (C) % [y x]
             center = [int32(C.bbox(2) + C.bbox(4) / 2), ...
                 int32(C.bbox(1) + C.bbox(3) / 2)];
         end
+        
         
         function im = drawCar (C, im, color, tag)
             if nargin < 3, color = 'yellow'; end
