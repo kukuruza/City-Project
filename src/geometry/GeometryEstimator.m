@@ -338,8 +338,8 @@ classdef GeometryEstimator < handle
             probMatrix = zeros(length(carsFrame2), length(carsFrame1));
             
             % Difference in second between two time frames
-            % timeDiff = etime(carsFrame2(1).timeStamp, carsFrame1(1).timeStamp);
-            timeDiff = 1;
+            timeDiff = etime(carsFrame2(1).timeStamp, carsFrame1(1).timeStamp);
+            %timeDiff = 1;
             
             % Get the lanes for all the cars
             %sortedCars = cell(2, length(obj.road.lanes));
@@ -376,16 +376,21 @@ classdef GeometryEstimator < handle
             % matching available
             % TODO: Import the timeStamp attribute to get exact timing
             
-            % Temporarily take time = 1
-            timeStep = 1;
+            % If either of the list is empty, do nothing
+            if(isempty(carsFrame1) || isempty(carsFrame2) == 0)
+                return;
+            end
             
-            % Evaluating the possible speeds for all the pairs of matching
-            speeds = [];
+            % Assuming atleast one car in each of the frames
+            % Difference in second between two time frames
+            timeDiff = etime(carsFrame2(1).timeStamp, carsFrame1(1).timeStamp);
+            
             
             % Indices of geometrically valid car transitions
             possTransitions = find(geomMatrix > 0);
             [f2Id, f1Id] = ind2sub(size(geomMatrix), possTransitions);
             
+            % Evaluating the possible speeds for all the pairs of matching
             noChecks = length(f1Id);
             speeds = zeros(noChecks, 1);
             
@@ -398,8 +403,9 @@ classdef GeometryEstimator < handle
                 car1Pt = [box1(1) + box1(3)/2, box1(2) + box1(4)];
                 car2Pt = [box2(1) + box2(3)/2, box2(2) + box2(4)];
                 
-                % Computing the distance, in effect the speed
-                speeds(i) = obj.computeDistance3D(car1Pt, car2Pt);
+                % Computing the distance, in effect the speed by dividing
+                % by timeDiff
+                speeds(i) = obj.computeDistance3D(car1Pt, car2Pt) / timeDiff;
             end
             
             % Updating the speeds based on the probabilities obtained from
@@ -487,7 +493,7 @@ classdef GeometryEstimator < handle
             overlaidImg = step(markerInserter, overlaidImg, uint32(point));
         end
     
-        % Function draws next position based on the speed
+        % Function draws next position (assuming 1s) based on the speed
         function drawImage = drawNextPosition(obj, carFrames, image)
             % Input :
             % carFrames : Cars in this current frame
