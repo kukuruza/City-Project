@@ -13,13 +13,10 @@ cd (fileparts(mfilename('fullpath')));
 run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
-camNum = 572;
-
 % input frames
 videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
 timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
 frameReader = FrameReaderVideo (videoPath, timesPath); 
-im0 = frameReader.getNewFrame();
 
 % geometry
 objectFile = 'GeometryObject_Camera_572.mat';
@@ -33,7 +30,6 @@ background = Background();
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 detector = CascadeCarDetector (modelPath);
-frameid = 0;
 
 % probabilistic model
 counting = MetricLearner(geom);
@@ -46,11 +42,9 @@ frameWriter = FrameWriterVideo (outputPath, 2, 1);
 % cache seen cars from previous frame
 seenCars = [];
 
-t = 1;
-while 1
+for t = 1 : 100
+    fprintf('frame %d\n', t);
     tic
-    
-    if t == 100, break, end
     
     % read image
     [frame, timestamp] = frameReader.getNewFrame();
@@ -75,10 +69,10 @@ while 1
     % filter detected cars based on foreground mask
     counter = 1;
     carsFilt = Car.empty;
-    for k = 1 : length(cars)
-        center = cars(k).getCenter(); % [y x]
+    for i = 1 : length(cars)
+        center = cars(i).getCenter(); % [y x]
         if foregroundMask(center(1), center(2))
-            carsFilt(counter) = cars(k);
+            carsFilt(counter) = cars(i);
             counter = counter + 1;
         end
     end
@@ -88,12 +82,12 @@ while 1
     SizeTolerance = 1.5;
     counter = 1;
     carsFilt = Car.empty;
-    for k = 1 : length(cars)
-        center = cars(k).getCenter(); % [y x]
+    for i = 1 : length(cars)
+        center = cars(i).getCenter(); % [y x]
         expectedSize = roadCameraMap(center(1), center(2));
-        if expectedSize / SizeTolerance < cars(k).bbox(3) && ...
-           expectedSize * SizeTolerance > cars(k).bbox(3)
-            carsFilt(counter) = cars(k);
+        if expectedSize / SizeTolerance < cars(i).bbox(3) && ...
+           expectedSize * SizeTolerance > cars(i).bbox(3)
+            carsFilt(counter) = cars(i);
             counter = counter + 1;
         end
     end
@@ -111,11 +105,11 @@ while 1
     
     % output
     frame_out = frame;
-    for j = 1 : length(cars)
-        if newCarIndices(j) == 0
-            frame_out = cars(j).drawCar(frame_out, 'blue', 'seen');
+    for i = 1 : length(cars)
+        if newCarIndices(i) == 0
+            frame_out = cars(i).drawCar(frame_out, 'blue', 'seen');
         else 
-            frame_out = cars(j).drawCar(frame_out, 'yellow', 'new');
+            frame_out = cars(i).drawCar(frame_out, 'yellow', 'new');
         end
     end
     
@@ -125,8 +119,9 @@ while 1
     
     seenCars = cars;
     tCycle = toc;
-    t = t + 1;
     fprintf ('frame %d in %f sec \n \n', t, tCycle);
+    
+    pause
 end
 
 clear frameWriter frameReader

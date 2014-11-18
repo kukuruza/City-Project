@@ -35,6 +35,7 @@ detector = CascadeCarDetector (modelPath);
 outputDir = [CITY_DATA_PATH, 'testdata/carcount/detections/'];
 
 for t = 1 : 100
+    fprintf('frame %d\n', t);
     
     % read frame
     [frame, timestamp] = frameReader.getNewFrame();
@@ -51,13 +52,18 @@ for t = 1 : 100
     % actually detect cars
     cars = detector.detect(frame);
     
+    % assign timestamps to cars
+    for i = 1 : length(cars)
+        cars(i).timeStamp = timestamp;
+    end
+    
     % filter detected cars based on foreground mask
     counter = 1;
     carsFilt = Car.empty;
-    for k = 1 : length(cars)
-        center = cars(k).getCenter(); % [y x]
+    for i = 1 : length(cars)
+        center = cars(i).getCenter(); % [y x]
         if foregroundMask(center(1), center(2))
-            carsFilt(counter) = cars(k);
+            carsFilt(counter) = cars(i);
             counter = counter + 1;
         end
     end
@@ -67,12 +73,12 @@ for t = 1 : 100
     SizeTolerance = 1.5;
     counter = 1;
     carsFilt = Car.empty;
-    for k = 1 : length(cars)
-        center = cars(k).getCenter(); % [y x]
+    for i = 1 : length(cars)
+        center = cars(i).getCenter(); % [y x]
         expectedSize = roadCameraMap(center(1), center(2));
-        if expectedSize / SizeTolerance < cars(k).bbox(3) && ...
-           expectedSize * SizeTolerance > cars(k).bbox(3)
-            carsFilt(counter) = cars(k);
+        if expectedSize / SizeTolerance < cars(i).bbox(3) && ...
+           expectedSize * SizeTolerance > cars(i).bbox(3)
+            carsFilt(counter) = cars(i);
             counter = counter + 1;
         end
     end
@@ -81,15 +87,17 @@ for t = 1 : 100
     
     % output
     frame_out = frame;
-    for j = 1 : length(cars)
+    for i = 1 : length(cars)
         
-        % export patch
-        patch = cars(j).extractPatch(frame);
-        patchName = [sprintf('%03d', t) '-patch' sprintf('%03d', j) '.png'];
-        imwrite (patch, [outputDir patchName]);
+        % export car
+        car = cars(i);
+        car.patch = car.extractPatch(frame);
+        namePrefix = [sprintf('%03d', t) '-car' sprintf('%03d', i)];
+        save ([outputDir namePrefix '.mat'], 'car');
+        %imwrite (car.patch, [outputDir namePrefix '.png']);
         
         % draw patch on image
-        frame_out = cars(j).drawCar(frame_out, 'yellow', num2str(j));
+        frame_out = cars(i).drawCar(frame_out, 'yellow', num2str(i));
         
     end
     % export frame
