@@ -18,6 +18,7 @@ groundtruthImagePath= [CITY_DATA_PATH 'testdata/background/groundtruth/'];
 
 %% test
 
+background = Background();
 
 
 
@@ -25,13 +26,17 @@ groundtruthImagePath= [CITY_DATA_PATH 'testdata/background/groundtruth/'];
 background.num_training_frames = 5;
 background.initial_variance = 30;
 
-% mask refinement
-%for i = 11%:20
-%    for j = 2
-i = 15;
-j = 2;
-background.fn_level = i;%15;
+j = 1;
 background.fp_level = j;%1;
+
+% mask refinement
+for fn = 11:40
+    for numframes = 3:10
+        for variance = 20:5:50
+
+background.fn_level = fn;%15;
+background.num_training_frames = numframes;
+background.initial_variance = variance;
 
 % extracting bounding boxes
 background.minimum_blob_area = 50;
@@ -40,7 +45,6 @@ N=0;
 recall = [];
 precision = [];
 frameReader = FrameReaderImages (imagesDir);
-background = Background();
 while true
     frame = frameReader.getNewFrame();
     %[mask, bboxes] = subtractor.subtract(frame);
@@ -66,7 +70,18 @@ while true
  %   pause(0.5);
     N=N+1;
 end
-R(i-10,j) = mean(recall)
-P(i-10,j) = mean(precision)
- %   end
-%end
+R(fn-21,numframes-2,(variance-20)/5+1) = mean(recall);
+P(fn-21,numframes-2,(variance-20)/5+1) = mean(precision);
+    end
+    end
+fn
+end
+
+save('RecallPrecise.mat','R','P')
+% [x,y,z]=find(R>0.95&P>0.3);
+% x=12;
+% y=1;
+% 
+% fn = 22;
+% numframes = 3;
+% variance = 20;

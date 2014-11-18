@@ -9,11 +9,11 @@ classdef Background < handle
      properties  % constants
          
          % background subtraction
-         num_training_frames = 5;
-         initial_variance = 30;
+         num_training_frames = 3;
+         initial_variance = 20;
          
          % mask refinement
-         fn_level = 17;
+         fn_level = 22;
          fp_level = 1;
          
          % extracting bounding boxes
