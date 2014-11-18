@@ -79,10 +79,12 @@ classdef MetricLearner < MetricLearnerInterface
                 car = cars(i);      % all the cars in new frame
                 for j = 1 : length(seen)
                     seenCar = seen(j);   % all the cars in former frame                
-                    % ProbGeo(i,j) = ML.geometryObj.getMutualProb(seenCar, car, 1);  % seen car should be the first arguement
-                    %fprintf('Prob : %f\n', ProbGeo(i,j));
-                    [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(car, seenCar);
-                    % ProbWeighted(i,j) = 0.5*100*ProbGeo(i,j) + 0.3*ProbCol(i,j) + 0.2*ProbHOG(i,j);
+                    if(ProbGeo(i,j) == 0)
+                        ProbCol(i,j) = 0;
+                        ProbHOG(i,j) = 0;
+                    else
+                        [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(car, seenCar);
+                    end
                 end
             end
 
