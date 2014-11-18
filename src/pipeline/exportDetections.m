@@ -97,7 +97,7 @@ for t = 1 : 100
         %imwrite (car.patch, [outputDir namePrefix '.png']);
         
         % draw patch on image
-        frame_out = cars(i).drawCar(frame_out, 'yellow', num2str(i));
+        frame_out = cars(i).drawCar(frame_out, 'yellow', num2str(i), 0.1);
         
     end
     % export frame
