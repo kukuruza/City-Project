@@ -73,7 +73,7 @@ classdef MetricLearner < MetricLearnerInterface
             ProbWeighted = zeros(length(cars), length(seen));
                      
             % probability of geometry
-            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars)
+            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars);
             
             for i = 1 : length(cars)
                 car = cars(i);      % all the cars in new frame
@@ -100,26 +100,26 @@ classdef MetricLearner < MetricLearnerInterface
             Match = zeros(size(ProbWeighted));
             NewIndex = zeros(length(cars), 1);
             % greedy search for the unique matching matrix
-            for k = 1: length(cars)
-                [x,y] = find(ProbWeighted==max(ProbWeighted(:)));
-                Match(x,y) = 1;
-                NewIndex(x)= 1;
-                ProbWeighted(x, :) = [];
-                ProbWeighted(:, y) = [];
-                if(max(ProbWeighted(:)) < 0.5)
-                    break
-                end
-            end
-            
 %             for k = 1: length(cars)
-%                 [maxProb, index] = max(ProbWeighted(k,:));
-%                 if(maxProb> ML.Th)
-%                     Match(k,index) = 1;
-%                     NewIndex(k)= 0;
-%                 else
-%                     NewIndex(k)= 1;
+%                 [x,y] = find(ProbWeighted==max(ProbWeighted(:)));
+%                 Match(x,y) = 1;
+%                 NewIndex(x)= 1;
+%                 ProbWeighted(x, :) = [];
+%                 ProbWeighted(:, y) = [];
+%                 if(max(ProbWeighted(:)) < 0.5)
+%                     break
 %                 end
 %             end
+            
+            for k = 1: length(cars)
+                [maxProb, index] = max(ProbWeighted(k,:));
+                if(maxProb> ML.Th)
+                    Match(k,index) = 1;
+                    NewIndex(k)= 0;
+                else
+                    NewIndex(k)= 1;
+                end
+            end
             
             
             % compute new car number
