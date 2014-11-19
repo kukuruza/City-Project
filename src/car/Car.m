@@ -15,6 +15,26 @@ classdef Car < CarInterface
         histCol = [];
         
     end % propertioes
+    methods (Static)
+        
+        % if pcaCoef and pcaOffset are not loaded then load. Else fetch them
+        function [pcaCoeffOut, pcaOffsetOut] = getModelPCA()
+            persistent pcaColorCoeff;
+            persistent pcaColorOffset;
+            if isempty(pcaColorCoeff) || isempty(pcaColorOffset)
+                assert (exist('pcaColor.mat', 'file') > 0);
+                assert (exist('pcaHog.mat', 'file') > 0);
+                load ('pcaColor.mat');
+                load ('pcaHog.mat');
+                pcaColorCoeff = coeff;
+                pcaColorOffset = offset;
+                fprintf ('Car.getModelPCA(): loaded model from file.\n');
+            end
+            pcaCoeffOut = pcaColorCoeff;
+            pcaOffsetOut = pcaColorOffset;
+        end
+        
+    end
     methods
         function C = Car (bbox, timestamp)
             C.bbox = bbox;
@@ -41,22 +61,19 @@ classdef Car < CarInterface
         end
         
         
-        function generateFeature (C)
-            
-            % must call C.extractPatch() before
-            assert (~isempty(C.patch));
+        function generateHogFeature (C)
+            assert (~isempty(C.patch)); % must call C.extractPatch() before
             
             % Hog Feature
             HOG = vl_hog(single(imresize(C.patch, [24 24])), 12);
             C.histHog = reshape(HOG, 1, numel(HOG));
-            C.histHog = C.histHog / sum(C.histHog(:)); % normalize, better for all probabilistic methods
-            
-            % Color Feature
-            %             r = mean(mean(C.patch(:,:,1)));
-            %             g = mean(mean(C.patch(:,:,2)));
-            %             b = mean(mean(C.patch(:,:,3)));
-            %             C.histCol = [r g b];
-            
+            % normalize, better for all probabilistic methods
+            %C.histHog = C.histHog / sum(C.histHog(:)) * numel(HOG); 
+        end
+        
+        
+        function generateColorHistFeature (C)
+            assert (~isempty(C.patch)); % must call C.extractPatch() before
             
             n_bins=4;
             edges=(0:(n_bins-1))/n_bins;
@@ -72,8 +89,34 @@ classdef Car < CarInterface
             for j=1:numel(r_bins)
                 histogramCol(r_bins(j),g_bins(j),b_bins(j)) = histogramCol(r_bins(j),g_bins(j),b_bins(j)) + 1;
             end
-            C.histCol= reshape(histogramCol,1,[]) / sum(histogramCol(:)); % normalize, better for all probabilistic methods
-            
+            % normalize, better for all probabilistic methods
+            C.histCol= reshape(histogramCol,1,[]) / sum(histogramCol(:)); 
+        end
+
+        
+        function generateSingleColorFeature (C)
+            assert (~isempty(C.patch)); % must call C.extractPatch() before
+            % Color Feature
+            r = mean(mean(C.patch(:,:,1)));
+            g = mean(mean(C.patch(:,:,2)));
+            b = mean(mean(C.patch(:,:,3)));
+            C.histCol = [r g b] / 255;
+        end
+        
+        
+        % transform according to pre-learned PCA
+        function [histHog, histCol] = reduceDimensions(C)
+            [hogCoeff, hogOffset] = C.getModelPCA();
+            histHog = C.histHog * hogCoeff + hogOffset;
+            [colorCoeff, colorOffset] = C.getModelPCA();
+            histCol = C.histCol * colorCoeff + colorOffset;
+        end
+        
+        
+        % choose here which features you like
+        function generateFeature (C)
+            C.generateHogFeature();
+            C.generateColorHistFeature();
         end
         
         

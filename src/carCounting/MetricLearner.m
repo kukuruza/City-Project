@@ -73,7 +73,7 @@ classdef MetricLearner < MetricLearnerInterface
             ProbWeighted = zeros(length(cars), length(seen));
                      
             % probability of geometry
-            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars);
+            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars)
             
             for i = 1 : length(cars)
                 car = cars(i);      % all the cars in new frame
