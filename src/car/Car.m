@@ -40,35 +40,22 @@ classdef Car < CarInterface
         end
         
         
-        function generateFeature (C, image)
+        function generateFeature (C)
             
-            carPatch = C.extractPatch(image);
+            % must call C.extractPatch() before
+            assert (~isempty(C.patch));
             
             % Hog Feature
-            carRe = imresize(carPatch,[32 24]);   % [64 48] is too large
-            HOG = vl_hog(single(carRe), 2);
-            m = numel(HOG);
-            feat = reshape(HOG, 1, m);
-            C.histHog = zeros(m);
-            C.histHog = feat/ sum(feat(:)); % normalize, better for all probabilistic methods
+            HOG = vl_hog(single(imresize(C.patch, [24 24])), 12);
+            C.histHog = reshape(HOG, 1, numel(HOG));
+            C.histHog = C.histHog / sum(C.histHog(:)); % normalize, better for all probabilistic methods
             
             % Color Feature
-            n_bins=4;
-            edges=(0:(n_bins-1))/n_bins;
-            histogramCol=zeros(n_bins,n_bins,n_bins);     
-            C.histCol=zeros(n_bins,n_bins,n_bins);
-        
-            IR=imresize(carPatch,[64 48]);
-            IR=im2double(IR);
-            [~,r_bins] = histc(reshape(IR(:,:,1),1,[]),edges); r_bins = r_bins + 1;
-            [~,g_bins] = histc(reshape(IR(:,:,1),1,[]),edges); g_bins = g_bins + 1;
-            [~,b_bins] = histc(reshape(IR(:,:,1),1,[]),edges); b_bins = b_bins + 1;
-            
-            for j=1:numel(r_bins)
-                histogramCol(r_bins(j),g_bins(j),b_bins(j)) = histogramCol(r_bins(j),g_bins(j),b_bins(j)) + 1;
-            end
-            C.histCol= reshape(histogramCol,1,[]) / sum(histogramCol(:)); % normalize, better for all probabilistic methods
-                      
+            r = mean(mean(C.patch(:,:,1)));
+            g = mean(mean(C.patch(:,:,2)));
+            b = mean(mean(C.patch(:,:,3)));
+            C.histCol = [r g b];
+                                  
         end
         
         

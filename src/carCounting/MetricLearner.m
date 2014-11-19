@@ -39,7 +39,7 @@ classdef MetricLearner < MetricLearnerInterface
                 for car = cars  % for all the car patches in cars
                     car.getROI ();
                     car.extractPatch(image);
-                    car.generateFeature(image);
+                    car.generateFeature();
                 end
                 ML.seenCars{1} = cars;
                 ML.framecounter = 2;
@@ -52,7 +52,7 @@ classdef MetricLearner < MetricLearnerInterface
             for car = cars  % for all the car patches in cars
                 car.getROI ();
                 car.extractPatch(image);
-                car.generateFeature(image);
+                car.generateFeature();
             end
                 
             % validation of arguments
