@@ -79,7 +79,7 @@ classdef MetricLearner < MetricLearnerInterface
                 car = cars(i);      % all the cars in new frame
                 for j = 1 : length(seen)
                     seenCar = seen(j);   % all the cars in former frame                
-                    if(ProbGeo(i,j) == 0)
+                    if(ProbGeo(i,j) == 0)   % if the ProbGeo is 0, hog and color prob should also be 0
                         ProbCol(i,j) = 0;
                         ProbHOG(i,j) = 0;
                     else
@@ -99,15 +99,29 @@ classdef MetricLearner < MetricLearnerInterface
             % build the match matrix
             Match = zeros(size(ProbWeighted));
             NewIndex = zeros(length(cars), 1);
+            % greedy search for the unique matching matrix
             for k = 1: length(cars)
-                [maxProb, index] = max(ProbWeighted(k,:));
-                if(maxProb> ML.Th)
-                    Match(k,index) = 1;
-                    NewIndex(k)= 0;
-                else
-                    NewIndex(k)= 1;
+                [x,y] = find(ProbWeighted==max(ProbWeighted(:)));
+                Match(x,y) = 1;
+                NewIndex(x)= 1;
+                ProbWeighted(x, :) = [];
+                ProbWeighted(:, y) = [];
+                if(max(ProbWeighted(:)) < 0.5)
+                    break
                 end
             end
+            
+%             for k = 1: length(cars)
+%                 [maxProb, index] = max(ProbWeighted(k,:));
+%                 if(maxProb> ML.Th)
+%                     Match(k,index) = 1;
+%                     NewIndex(k)= 0;
+%                 else
+%                     NewIndex(k)= 1;
+%                 end
+%             end
+            
+            
             % compute new car number
             CountMatch = sum(sum(Match));
             newCarNumber = length(cars) - CountMatch;
