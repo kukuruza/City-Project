@@ -323,14 +323,14 @@ classdef GeometryEstimator < handle
             % similarly for cars in frame 2
             
             if(isempty(carsFrame1))
-                fprintf('Error in generating probability matrix, frame 1 has no cars\n');
-                probMatrix = NaN;
+                fprintf('Degeneracy in generating probability matrix, frame 1 has no cars\n');
+                probMatrix = [];
                 return;
             end
             
             if(isempty(carsFrame2))
-                fprintf('Error in generating probability matrix, frame 2 has no cars\n');
-                probMatrix = NaN;
+                fprintf('Degeneracy in generating probability matrix, frame 2 has no cars\n');
+                probMatrix = [];
                 return;
             end
             
@@ -339,6 +339,13 @@ classdef GeometryEstimator < handle
             
             % Difference in second between two time frames
             timeDiff = etime(carsFrame2(1).timeStamp, carsFrame1(1).timeStamp);
+            
+            % If difference in time stamps is less than a threshold (almost
+            % same), we return empty matrix
+            if(timeDiff < 1e-2)
+                fprintf('Degeneracy in generating probability matrix, timediff is zero\n');
+                return;
+            end
             %timeDiff = 1;
             
             % Get the lanes for all the cars

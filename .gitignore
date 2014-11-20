@@ -8,6 +8,7 @@ data/
 results/
 build/
 bin/
+src/vlfeat
 amazon/
 
 # temporary from Matlab
