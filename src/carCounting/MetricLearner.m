@@ -20,7 +20,8 @@ classdef MetricLearner < MetricLearnerInterface
         end
         
         
-        function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)   % don't need the ML to be the first argument, for this function doesn't change anything of ML
+        % don't need the ML to be the first argument
+        function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)   
             % HOG
             
             dHOG = chi_square_statistics(CarObj1.histHog, CarObj2.histHog);
@@ -33,7 +34,7 @@ classdef MetricLearner < MetricLearnerInterface
         end
             
             
-        function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)  % delete the iframe input argument
+        function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)
             if (ML.framecounter == 1)
                 newCarNumber = 0;
                 for car = cars  % for all the car patches in cars
@@ -48,7 +49,7 @@ classdef MetricLearner < MetricLearnerInterface
                 return
             end
             
-            % gewnerate appearance features
+            % generate appearance features
             for car = cars  % for all the car patches in cars
                 car.getROI ();
                 car.extractPatch(image);
@@ -66,7 +67,9 @@ classdef MetricLearner < MetricLearnerInterface
             % ML.framecounter = ML.framecounter + 1;
             seen = ML.seenCars{ML.framecounter-1};
             
-            % compute matching probability between each in the new frame and each car in the former frames; construct similarity matrix with seen cars
+            % compute matching probability between each in the new frame 
+            %   and each car in the former frames; 
+            %   construct similarity matrix with seen cars
           
             ProbCol = zeros(length(cars), length(seen));
             ProbHOG = zeros(length(cars), length(seen));

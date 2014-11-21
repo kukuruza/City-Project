@@ -13,6 +13,7 @@ classdef Car < CarInterface
         feature = [];
         histHog = [];
         histCol = [];
+        color = [];
         
     end % propertioes
     methods (Static)
@@ -64,7 +65,7 @@ classdef Car < CarInterface
             assert (~isempty(C.patch)); % must call C.extractPatch() before
             
             % Hog Feature
-            HOG = vl_hog(single(imresize(C.patch, [24 24])), 12);
+            HOG = vl_hog(single(imresize(C.patch, [36 36])), 12);
             C.histHog = reshape(HOG, 1, numel(HOG));
             % normalize, better for all probabilistic methods
             %C.histHog = C.histHog / sum(C.histHog(:)) * numel(HOG); 
@@ -89,7 +90,7 @@ classdef Car < CarInterface
                 histogramCol(r_bins(j),g_bins(j),b_bins(j)) = histogramCol(r_bins(j),g_bins(j),b_bins(j)) + 1;
             end
             % normalize, better for all probabilistic methods
-            C.histCol= reshape(histogramCol,1,[]) / sum(histogramCol(:)); 
+            C.histCol = reshape(histogramCol,1,[]) / sum(histogramCol(:));
         end
 
         
@@ -99,16 +100,20 @@ classdef Car < CarInterface
             r = mean(mean(C.patch(:,:,1)));
             g = mean(mean(C.patch(:,:,2)));
             b = mean(mean(C.patch(:,:,3)));
-            C.histCol = [r g b] / 255;
+            C.color = [r g b] / 255;
         end
         
         
         % transform according to pre-learned PCA
         function [histHog, histCol] = reduceDimensions(C)
             [hogCoeff, hogOffset] = C.getModelPCA();
-            histHog = C.histHog * hogCoeff + hogOffset;
-            [colorCoeff, colorOffset] = C.getModelPCA();
-            histCol = C.histCol * colorCoeff + colorOffset;
+            %size(C.histHog)
+            %size(hogCoeff)
+            %size(hogOffset)
+            histHog = (C.histHog - hogOffset) * hogCoeff;
+            histCol = [];
+            %[colorCoeff, colorOffset] = C.getModelPCA();
+            %histCol = C.histCol * colorCoeff + colorOffset;
         end
         
         
@@ -116,6 +121,7 @@ classdef Car < CarInterface
         function generateFeature (C)
             C.generateHogFeature();
             C.generateColorHistFeature();
+            C.generateSingleColorFeature();
         end
         
         
