@@ -20,7 +20,8 @@ classdef MetricLearner < MetricLearnerInterface
         end
         
         
-        function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)   % don't need the ML to be the first argument, for this function doesn't change anything of ML
+        % don't need the ML to be the first argument
+        function [ProbCol, ProbHOG] = AppProb (ML, CarObj1, CarObj2)   
             % HOG
             
             dHOG = chi_square_statistics(CarObj1.histHog, CarObj2.histHog);
@@ -33,7 +34,7 @@ classdef MetricLearner < MetricLearnerInterface
         end
             
             
-        function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)  % delete the iframe input argument
+        function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)
             if (ML.framecounter == 1)
                 newCarNumber = 0;
                 for car = cars  % for all the car patches in cars
@@ -48,7 +49,7 @@ classdef MetricLearner < MetricLearnerInterface
                 return
             end
             
-            % gewnerate appearance features
+            % generate appearance features
             for car = cars  % for all the car patches in cars
                 car.getROI ();
                 car.extractPatch(image);
@@ -66,14 +67,16 @@ classdef MetricLearner < MetricLearnerInterface
             % ML.framecounter = ML.framecounter + 1;
             seen = ML.seenCars{ML.framecounter-1};
             
-            % compute matching probability between each in the new frame and each car in the former frames; construct similarity matrix with seen cars
+            % compute matching probability between each in the new frame 
+            %   and each car in the former frames; 
+            %   construct similarity matrix with seen cars
           
             ProbCol = zeros(length(cars), length(seen));
             ProbHOG = zeros(length(cars), length(seen));
             ProbWeighted = zeros(length(cars), length(seen));
                      
             % probability of geometry
-            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars)
+            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars);
             
             for i = 1 : length(cars)
                 car = cars(i);      % all the cars in new frame
@@ -100,26 +103,26 @@ classdef MetricLearner < MetricLearnerInterface
             Match = zeros(size(ProbWeighted));
             NewIndex = zeros(length(cars), 1);
             % greedy search for the unique matching matrix
-            for k = 1: length(cars)
-                [x,y] = find(ProbWeighted==max(ProbWeighted(:)));
-                Match(x,y) = 1;
-                NewIndex(x)= 1;
-                ProbWeighted(x, :) = [];
-                ProbWeighted(:, y) = [];
-                if(max(ProbWeighted(:)) < 0.5)
-                    break
-                end
-            end
-            
 %             for k = 1: length(cars)
-%                 [maxProb, index] = max(ProbWeighted(k,:));
-%                 if(maxProb> ML.Th)
-%                     Match(k,index) = 1;
-%                     NewIndex(k)= 0;
-%                 else
-%                     NewIndex(k)= 1;
+%                 [x,y] = find(ProbWeighted==max(ProbWeighted(:)));
+%                 Match(x,y) = 1;
+%                 NewIndex(x)= 1;
+%                 ProbWeighted(x, :) = [];
+%                 ProbWeighted(:, y) = [];
+%                 if(max(ProbWeighted(:)) < 0.5)
+%                     break
 %                 end
 %             end
+            
+            for k = 1: length(cars)
+                [maxProb, index] = max(ProbWeighted(k,:));
+                if(maxProb> ML.Th)
+                    Match(k,index) = 1;
+                    NewIndex(k)= 0;
+                else
+                    NewIndex(k)= 1;
+                end
+            end
             
             
             % compute new car number

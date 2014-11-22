@@ -9,7 +9,12 @@ classdef Car < CarInterface
         patch = [];
         
         % features
+<<<<<<< HEAD
+        % timeStamp = [1 2 3 4 5 6]; % the time the frame was taken. [yyyy mm dd hh mm ss]. sec. is float
+        timeStamp = [];
+=======
         timeStamp; % the time the frame was taken. [yyyy mm dd hh mm ss]. sec. is float
+>>>>>>> origin/master
         feature = [];
         histHog = [];
         histCol = [];
@@ -42,7 +47,12 @@ classdef Car < CarInterface
             
             if (nargin < 2)
                 % assigning a default value to timeStamp
+<<<<<<< HEAD
+                C.timeStamp = [];
+                % timestamp = [1 2 3 4 5 6]; 
+=======
                 C.timeStamp = [0 0 0 0 0 0];
+>>>>>>> origin/master
             else
                 C.timeStamp = timestamp;
             end

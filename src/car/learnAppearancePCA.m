@@ -39,7 +39,7 @@ end
 
 % do PCA
 [coeff,score,~,~,explained,offset] = pca(poolHog, 'NumComponents',80);
-save('pcaColor.mat', 'coeff', 'explained', 'offset');
+save('pcaHog.mat', 'coeff', 'explained', 'offset');
 [coeff,score,~,~,explained,offset] = pca(poolCol);
-save('pcaHog.mat',   'coeff', 'explained', 'offset');
+save('pcaColor.mat',   'coeff', 'explained', 'offset');
 

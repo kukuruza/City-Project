@@ -3,7 +3,7 @@
 
 clear all
 
-run ../rootPathsSetup
+run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
 %% input and ground truth
@@ -119,7 +119,7 @@ for iframe = 1 : length(bboxes)
     cars = Car.empty;
     for i = 1:length(bboxes{j})
         cars(i) = Car(bboxes{j}(i, :));
-        cars(i).timestamp = [0 0 0 0 0 2 * iframe];
+        cars(i).timeStamp = [0 0 0 0 0 2 * iframe];
     end
     
     %In order to read the patch for the ith car
