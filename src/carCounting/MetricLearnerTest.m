@@ -3,7 +3,7 @@
 
 clear all
 
-run ../rootPathsSetup.m
+run ../rootPathsSetup
 run ../subdirPathsSetup.m
 
 %% input and ground truth
