@@ -115,7 +115,7 @@ for t = 1 : 100
     
     frame_out = drawCarTransitions(seenCars, cars, transitionMatrix, frame_out);
     figure(1); imshow(frame_out);
-    frameWriter.writeNextFrame(frame_out);
+    %frameWriter.writeNextFrame(frame_out);
     
     seenCars = cars;
     tCycle = toc;

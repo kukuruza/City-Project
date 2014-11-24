@@ -322,20 +322,14 @@ classdef GeometryEstimator < handle
             % Assuming all the cars in frame 1 have same time stamp;
             % similarly for cars in frame 2
             
-            if(isempty(carsFrame1))
-                fprintf('Degeneracy in generating probability matrix, frame 1 has no cars\n');
-                probMatrix = [];
-                return;
-            end
-            
-            if(isempty(carsFrame2))
-                fprintf('Degeneracy in generating probability matrix, frame 2 has no cars\n');
-                probMatrix = [];
-                return;
-            end
-            
             % Initializing the probability matrix
             probMatrix = zeros(length(carsFrame2), length(carsFrame1));
+            
+            if isempty(carsFrame1) || isempty(carsFrame2)
+                % it's not a degeneracy, it's normal  // Evgeny
+                %fprintf('Degeneracy in generating probability matrix, frame 1 has no cars\n');
+                return;
+            end
             
             % Difference in second between two time frames
             timeDiff = etime(carsFrame2(1).timeStamp, carsFrame1(1).timeStamp);

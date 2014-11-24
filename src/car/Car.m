@@ -40,7 +40,7 @@ classdef Car < CarInterface
         function C = Car (bbox, timestamp)
             C.bbox = bbox;
             
-            if (nargin < 2)
+            if nargin < 2
                 % assigning a default value to timeStamp
                 C.timeStamp = [0 0 0 0 0 0];
             else
