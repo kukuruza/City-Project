@@ -127,11 +127,17 @@ classdef Car < CarInterface
         
         function center = getCenter (C) % [y x]
             center = [int32(C.bbox(2) + C.bbox(4) / 2), ...
-                int32(C.bbox(1) + C.bbox(3) / 2)];
+                      int32(C.bbox(1) + C.bbox(3) / 2)];
         end
         
         
-        function im = drawCar (C, im, color, tag, boxOpacity)
+        function center = getBottomCenter (C) % [y x]
+            center = [int32(C.bbox(2) + C.bbox(4) - 1), ...
+                      int32(C.bbox(1) + C.bbox(3) / 2)];
+        end
+        
+        
+        function im = drawCar (C, im, color, tag)
             if nargin < 3, color = 'yellow'; end
             if nargin < 4, tag = 'car'; end
             if nargin < 5, boxOpacity = 0.6; end

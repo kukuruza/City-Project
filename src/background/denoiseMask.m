@@ -1,4 +1,4 @@
-function mask_out = denoiseForegroundMask (mask_in, fn_level, fp_level)
+function mask_out = denoiseMask (mask_in, fn_level, fp_level)
 %DENOISEFOREGROUNDMASK
 % denoise foreground mask.
 % That is, significantly increase foreground recall and decrease accuracy
