@@ -1,6 +1,6 @@
 %Class definition for Geometry Detection along with methods
 
-classdef GeometryEstimator < handle
+classdef GeometryEstimator < GeometryInterface
     properties
         %Paths for various components of the code
         geometryPath;
@@ -62,8 +62,8 @@ classdef GeometryEstimator < handle
         end
         
         %% interface for initial map
-        function mask = getCameraRoadMap (obj)
-            mask = obj.cameraRoadMap;
+        function sizeMap = getCameraRoadMap (obj)
+            sizeMap = obj.cameraRoadMap;
         end
         
         %% interface for probability for a car to move
@@ -308,7 +308,7 @@ classdef GeometryEstimator < handle
         
         %% Generating the probability matrix given the cars in one frame; cars in another frame
         % according to the geometric constraints
-        function[probMatrix] = generateProbMatrix(obj, carsFrame1, carsFrame2)
+        function probMatrix = generateProbMatrix(obj, carsFrame1, carsFrame2)
             % Generating the probability matrix given the cars in one frame
             % and cars in another, so that geometry is not violated
             % Input : 

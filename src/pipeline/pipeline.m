@@ -29,7 +29,7 @@ background = Background();
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
-detector = CascadeCarDetector (modelPath);
+detector = CascadeCarDetector (modelPath, geom);
 
 % probabilistic model
 counting = MetricLearner(geom);

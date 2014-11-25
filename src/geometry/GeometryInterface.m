@@ -2,18 +2,21 @@
 %   Its goal is to 1) provide function definitions to users of the class
 %   2) provide definitions of feature-request functions
 
-classdef GeometryInterface
+classdef GeometryInterface < handle
     methods (Abstract)
         
         % get map for sizes of cars on the road (0 for forbiden areas)
-        getCameraRoadMap (obj, inputImg)
+        sizeMap = getCameraRoadMap (obj)
+        
+        % get map of cars orientations on the road
+        % TODO: output to be deterrmined
+        orientationMap = getOrientationMap (obj)
         
         % get probability for a car to move from A to B
-        getMutualProb (obj, car1, car2, frameDiff)
+        prob = getMutualProb (obj, car1, car2, frameDiff)
 
-        % Generating the entire probability matrix for sets of cars present
-        % in two frames
-        generateProbMatrix(obj, carsFrame1, carsFrame2);
+        % generate the entire probability matrix between sets of cars from two frames
+        probMatrix = generateProbMatrix (obj, carsFrame1, carsFrame2);
         
         % Interface to update the speed of the lanes based on approximate matching matrix
         %

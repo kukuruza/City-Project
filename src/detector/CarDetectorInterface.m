@@ -4,7 +4,7 @@ classdef CarDetectorInterface < handle
     methods (Abstract)
         
         % method returns car objects
-        detect (CD, image);
+        cars = detect (CD, img)
         
     end % methods
 end

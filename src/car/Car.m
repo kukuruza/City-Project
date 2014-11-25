@@ -8,8 +8,11 @@ classdef Car < CarInterface
         bbox;  % [x1 y1 width height]
         patch = [];
         
-        % features
-        timeStamp; % the time the frame was taken. [yyyy mm dd hh mm ss]. sec. is float
+        % parameters
+        timeStamp; % time of the frame. [yyyy mm dd hh mm ss]. sec. is float
+        orientation; % to be determined
+        
+        % descriptors
         feature = [];
         histHog = [];
         histCol = [];

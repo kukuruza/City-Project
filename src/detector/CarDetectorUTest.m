@@ -26,9 +26,14 @@ trueBboxes = dlmread([CITY_DATA_PATH, 'testdata/detector/img000.txt']);
 
 %% detect and refine
 
+% geometry
+objectFile = 'GeometryObject_Camera_572.mat';
+load(objectFile);
+fprintf ('Have read the Geometry object from file\n');
+
 modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
 
-detector = CascadeCarDetector(modelPath);
+detector = CascadeCarDetector(modelPath, geom);
 
 tic
 cars = detector.detect(img0);
