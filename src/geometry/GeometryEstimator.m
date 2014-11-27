@@ -13,10 +13,13 @@ classdef GeometryEstimator < GeometryInterface
         roadMask; %Mask to know where exactly the road is present
             %We use the lanes from the road for now.
         cameraRoadMap; %Contains the map for size estimations
+        orientationMap; % Orientation of cars at the given point
+        homography; % Computing the homography to get 'cannonical' form
         
         % Belief that builds through accumulating foreground pixels in
         % someway
         roadBelief;
+        
     end
     methods
         %% Constructor
@@ -38,10 +41,13 @@ classdef GeometryEstimator < GeometryInterface
             % Identifying the car lanes for the given image and given lanes
             obj.computeRoadMask();
             
+            % Computing the homography
+            obj.computeHomography();
+            
             % Creating map of expected car sizes at different locations on
             % the image - should also include the orientation extension
             % because of the orientations
-            obj.computeCameraRoadMap();   
+            obj.computeCameraRoadMapWithH();   
         end
         
         %% Method to calculate confidence maps to detect various geometries
@@ -55,17 +61,7 @@ classdef GeometryEstimator < GeometryInterface
                         'inputImage.jpg', [], '');
             cd(obj.returnPath);
         end
-        
-        %% Creating a road Mask indicating the presence / absence of road
-        function roadMask = getRoadMask(obj)
-            roadMask = obj.roadMask;
-        end
-        
-        %% interface for initial map
-        function sizeMap = getCameraRoadMap (obj)
-            sizeMap = obj.cameraRoadMap;
-        end
-        
+      
         %% interface for probability for a car to move
         % Extended functionality to calculate the probabilities for either
         % between pairs of points/cars or between a point and a car
@@ -449,6 +445,52 @@ classdef GeometryEstimator < GeometryInterface
             %figure(1); 
         end
         
+          %% Computing the camera road map
+        function computeCameraRoadMapWithH(obj)
+            % Creating map of expected car sizes at different locations on
+            % the image - should also include the orientation extension
+            % because of the orientations
+            [x, y] = meshgrid(1:obj.imageSize(2), 1:obj.imageSize(1));
+            
+            % Brute force looping for now
+            % Compute the y co-ordinate in the warped image
+            roadElems = find(obj.roadMask ~= 0);
+            H = obj.homography;
+            
+            yWarped = zeros(obj.imageSize);
+            yWarped(roadElems) = ...
+               (H(2, 1)*x(roadElems) + H(2,2)*y(roadElems) +H(2,3)) ./ ...
+               (H(3, 1)*x(roadElems) + H(3,2)*y(roadElems) +H(3,3) + eps);
+            
+            mask = max((yWarped-obj.road.vanishPt(2)) * ...
+                  obj.road.scaleFactor * obj.road.carHeightMu, zeros(obj.imageSize));
+ 
+            % Assigning the road map calculated to the object
+            obj.cameraRoadMap = 2 * mask;
+        end
+        
+        %% Getters
+        % Function to get the expected orientation of cars at a particular
+        % point using geometry
+        function orientationMap = getOrientationMap(obj)
+            orientationMap = obj.orientationMap;
+        end
+        
+        % Creating a road Mask indicating the presence / absence of road
+        function roadMask = getRoadMask(obj)
+            roadMask = obj.roadMask;
+        end
+        
+        % interface for initial map
+        function sizeMap = getCameraRoadMap (obj)
+            sizeMap = obj.cameraRoadMap;
+        end
+        
+        % Get the homography
+        function homography = getHomography(obj)
+            homography = obj.homography;
+        end
+        
         %% DEBUGGING FUNCTIONS
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization
@@ -565,12 +607,12 @@ classdef GeometryEstimator < GeometryInterface
                 % drawImage = step(markerInserter, drawImage, uint32(point));
                 % Draw
             end 
-        end
+        end   
     end
     
-    %% Methods that are hidden and private to the class
+    % Methods that are hidden and private to the class
     methods (Hidden)
-        % Computing the road mask
+        %% Computing the road mask
         function computeRoadMask(obj)
             % Identifying the car lanes for the given image and given lanes
             % Costly and naive way to do things - needs improvization
@@ -628,7 +670,7 @@ classdef GeometryEstimator < GeometryInterface
             %toc
         end
         
-        % Computing the camera road map
+        %% Computing the camera road map
         function computeCameraRoadMap(obj)
             % Creating map of expected car sizes at different locations on
             % the image - should also include the orientation extension
@@ -644,5 +686,78 @@ classdef GeometryEstimator < GeometryInterface
             mask = mask .* (obj.roadMask ~= 0);
             obj.cameraRoadMap = 2 * mask;
         end
+       
+        %% Function to get the expected orientation of cars at a particular
+        % point using geometry
+        function orientationMap = computeOrientationMap(obj)
+            orientationMap = zeros(obj.imSize);
+        end
+        
+        % Computing the homography useful for changing the view to a
+        % more central one
+        function computeHomography(obj)
+            % Setting up the point correspondences
+            % Image 1 : Standard cannonical image
+            % Image 2 : Current, given image
+            
+            % Vanishing points go to each other
+            % Center of the frame at the current y of vanishPt
+            pts1 = [obj.imageSize(2)/2; obj.road.vanishPt(2)]; 
+            pts2 = obj.road.vanishPt;
+            
+            % First extreme wrt to the border goes to bottom left
+            pts1 = [pts1, [1; obj.imageSize(1)]];
+            
+            lineEq = obj.road.lanes{1}.leftEq;
+            % Intercept with left border
+            % Checking if within the frame
+            if(lineEq(2) < obj.imageSize(1))
+                pts2 = [pts2, [1; lineEq(2)]];
+            else
+                % If not check intercept with bottom
+                bottomIntercept = -1 * lineEq(2)/lineEq(1);
+                if(bottomIntercept < 0 || bottomIntercept > obj.imageSize(2))
+                    % Error possibly
+                    error('Error in finding homography');
+                else
+                    pts2 = [pts2, [bottomIntercept; obj.imageSize(1)]];
+                end
+            end
+            
+            % Right extreme wrt to the border goes to bottom right
+            pts1 = [pts1, [obj.imageSize(2); obj.imageSize(1)]];
+   
+            lineEq = obj.road.lanes{end}.rightEq;
+            % Intercept with right border
+            % Checking if within the frame
+            rightIntercept = lineEq(1) * obj.imageSize(2) + lineEq(2);
+            if(rightIntercept > 0 && rightIntercept < obj.imageSize(1))
+                pts2 = [pts2, [obj.imageSize(2); rightIntercept]];
+            else
+                % If not check intercept with bottom
+                bottomIntercept = -1 * lineEq(2)/lineEq(1);
+                if(bottomIntercept < 0 || bottomIntercept > obj.imageSize(2))
+                    % Error possibly
+                    error('Error in finding homography');
+                else
+                    pts2 = [pts2, [bottomIntercept; obj.imageSize(1)]];
+                end
+            end
+            
+            % Middle point goes to middle point
+            pts1 = [pts1, mean([pts1(:, 2), pts1(:, 3)])'];
+            pts2 = [pts2, mean([pts2(:, 2), pts2(:, 3)])'];
+            
+            % Compute H
+            H = computeH(pts1, pts2);
+            
+            % Warp the image
+            %warpedImg = warpH(image, H, obj.imageSize);
+            % Display image for visualization
+            %figure; imshow(image)
+            %figure; imshow(warpedImg)
+            
+            obj.homography = H;
+        end 
     end
 end

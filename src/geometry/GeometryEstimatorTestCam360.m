@@ -90,6 +90,8 @@ for i = 2 : size(bboxes,1)
         i, prob, mutualProb{i});
 end
 
+return;
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Displaying the probability heat maps for visualization for all these
 % points
