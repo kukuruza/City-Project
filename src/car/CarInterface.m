@@ -12,9 +12,6 @@ classdef CarInterface < handle
         % patch is a crop of the car from the provided image
         patch = extractPatch (C, image)
         
-        % compute appearance feature (HoG, color, etc) and save it
-        generateFeature (C, image);
-        
         % compute the center of the bbox
         center = getCenter (C) % [y x]
         

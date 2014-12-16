@@ -4,7 +4,7 @@ classdef MetricLearner < MetricLearnerInterface
     properties (Hidden)
         % framecounter = 1;
         geometryObj;     
-        seenCars = {};   % cars from previous frames
+        seenPandas = {};   % cars from previous frames
     end % properties
     properties
         WeightGeom = 0.4;    % can be changed outside
@@ -37,23 +37,29 @@ classdef MetricLearner < MetricLearnerInterface
         function [newCarNumber, Match, NewIndex] = processFrame (ML, image, cars)
             if (ML.framecounter == 1)
                 newCarNumber = 0;
+                pandas = [];
                 for car = cars  % for all the car patches in cars
                     car.getROI ();
                     car.extractPatch(image);
-                    car.generateFeature();
+                    panda = Panda(car);
+                    panda.generateFeature();
+                    pandas = [pandas; panda];
                 end
-                ML.seenCars{1} = cars;
+                ML.seenPandas{1} = pandas;
                 ML.framecounter = 2;
                 Match = [];
-                NewIndex = ones(length(cars), 1);
+                NewIndex = ones(length(pandas), 1);
                 return
             end
             
             % generate appearance features
+            pandas = [];
             for car = cars  % for all the car patches in cars
                 car.getROI ();
                 car.extractPatch(image);
-                car.generateFeature();
+                panda = Panda(car);
+                panda.generateFeature();
+                pandas = [pandas; panda];
             end
                 
             % validation of arguments
@@ -65,28 +71,28 @@ classdef MetricLearner < MetricLearnerInterface
             if ~isempty(cars), assert (isa(cars(1), 'Car')); end
                     
             % ML.framecounter = ML.framecounter + 1;
-            seen = ML.seenCars{ML.framecounter-1};
+            seen = ML.seenPandas{ML.framecounter-1};
             
             % compute matching probability between each in the new frame 
             %   and each car in the former frames; 
             %   construct similarity matrix with seen cars
           
-            ProbCol = zeros(length(cars), length(seen));
-            ProbHOG = zeros(length(cars), length(seen));
-            ProbWeighted = zeros(length(cars), length(seen));
+            ProbCol = zeros(length(pandas), length(seen));
+            ProbHOG = zeros(length(pandas), length(seen));
+            ProbWeighted = zeros(length(pandas), length(seen));
                      
             % probability of geometry
-            ProbGeo = ML.geometryObj.generateProbMatrix(seen, cars);
+            ProbGeo = ML.geometryObj.generateProbMatrix(seen, pandas);
             
-            for i = 1 : length(cars)
-                car = cars(i);      % all the cars in new frame
+            for i = 1 : length(pandas)
+                panda = pandas(i);      % all the cars in new frame
                 for j = 1 : length(seen)
-                    seenCar = seen(j);   % all the cars in former frame                
+                    seenPanda = seen(j);   % all the cars in former frame                
                     if(ProbGeo(i,j) == 0)   % if the ProbGeo is 0, hog and color prob should also be 0
                         ProbCol(i,j) = 0;
                         ProbHOG(i,j) = 0;
                     else
-                        [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(car, seenCar);
+                        [ProbCol(i,j), ProbHOG(i,j)] = ML.AppProb(panda, seenPanda);
                     end
                 end
             end
@@ -95,13 +101,13 @@ classdef MetricLearner < MetricLearnerInterface
             
             % Using the probability matrix and geometry matrix; updating
             % the speed of the model for better posterior estimate
-            if(length(seen) > 0 && length(cars) > 0)
-                ML.geometryObj.updateSpeed(seen, cars, ProbWeighted, ProbGeo);
+            if(~isempty(seen) && ~isempty(pandas))
+                ML.geometryObj.updateSpeed(seen, pandas, ProbWeighted, ProbGeo);
             end
             
             % build the match matrix
             Match = zeros(size(ProbWeighted));
-            NewIndex = zeros(length(cars), 1);
+            NewIndex = zeros(length(pandas), 1);
             % greedy search for the unique matching matrix
 %             for k = 1: length(cars)
 %                 [x,y] = find(ProbWeighted==max(ProbWeighted(:)));
@@ -114,7 +120,7 @@ classdef MetricLearner < MetricLearnerInterface
 %                 end
 %             end
             
-            for k = 1: length(cars)
+            for k = 1: length(pandas)
                 [maxProb, index] = max(ProbWeighted(k,:));
                 if(maxProb> ML.Th)
                     Match(k,index) = 1;
@@ -127,8 +133,8 @@ classdef MetricLearner < MetricLearnerInterface
             
             % compute new car number
             CountMatch = sum(sum(Match));
-            newCarNumber = length(cars) - CountMatch;
-            ML.seenCars{ML.framecounter} = cars;
+            newCarNumber = length(pandas) - CountMatch;
+            ML.seenPandas{ML.framecounter} = pandas;
             
 %             fileGeoProb = strcat('GeoProb', num2str(ML.framecounter));
 %             save(fileGeoProb, 'ProbGeo');
