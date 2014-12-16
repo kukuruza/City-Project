@@ -38,6 +38,7 @@ for t = 1 : 11
         load ([inCarsDir carsList(i).name]);
 
         % generate features
+        car.segmentPatch([]);
         car.generateFeature();
         %   [C.histHog, ~] = C.reduceDimensions();
 
@@ -50,8 +51,8 @@ for t = 1 : 11
         for j = 1 : length(carsPrev)
             feature1 = cars(i).histHog;
             feature2 = carsPrev(j).histHog;
-            %distance = norm(cars(i).color - carsPrev(j).color);
-            distance = chi_square_statistics(feature1, feature2);
+            distance = norm(cars(i).color - carsPrev(j).color);
+            %distance = chi_square_statistics(feature1, feature2);
             predicted(i,j) = 1 / distance;
         end
     end

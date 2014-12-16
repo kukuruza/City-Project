@@ -61,7 +61,7 @@ classdef Car < CarInterface
         % this function must be called after C.patch is set
         function segmentPatch (C, image)
             assert (~isempty(C.patch));
-
+            
             % actual segmentation
             UnariesOffset = 0.4;
             EdgeWeight = 0.2;
@@ -88,7 +88,6 @@ classdef Car < CarInterface
 %             C.segmentMask = zeros (C.bbox(4), C.bbox(3));
 %             C.segmentMask (offsets(2) + 1 : offsets(2) + oldBbox(4), ...
 %                            offsets(1) + 1 : offsets(1) + oldBbox(3)) = mask;
-            
         end
         
                         
@@ -96,6 +95,7 @@ classdef Car < CarInterface
             roi = C.getROI();
             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
             patch = C.patch;
+            C.segmentMask = ones (size(patch,1), size(patch,2));
         end
         
         
@@ -135,9 +135,12 @@ classdef Car < CarInterface
         function generateSingleColorFeature (C)
             assert (~isempty(C.patch)); % must call C.extractPatch() before
             % Color Feature
-            r = mean(mean(C.patch(C.segmentMask,1)));
-            g = mean(mean(C.patch(C.segmentMask,2)));
-            b = mean(mean(C.patch(C.segmentMask,3)));
+            rCh = C.patch(:,:,1);
+            r = mean(mean(rCh(C.segmentMask)));
+            gCh = C.patch(:,:,2);
+            g = mean(mean(gCh(C.segmentMask)));
+            bCh = C.patch(:,:,3);
+            b = mean(mean(bCh(C.segmentMask)));
             C.color = [r g b] / 255;
         end
         
