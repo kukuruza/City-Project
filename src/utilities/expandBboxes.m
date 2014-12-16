@@ -18,9 +18,9 @@ if isempty(bboxes)
 end
 
 for i = 1 : size(bboxes,1)
-    bbox = bboxes(i,:);
-    bbox = bbox + [ -bbox(3) * perc, -bbox(4) * perc, ...
-                     bbox(3) * 2 * perc, bbox(4) * 2 * perc];
+    bbox = int32(bboxes(i,:));
+    bbox = bbox + int32([ -bbox(3) * perc, -bbox(4) * perc, ...
+                          bbox(3) * 2 * perc, bbox(4) * 2 * perc] );
     
     expandedBBoxes(i,:) = bbox;
 end

@@ -7,6 +7,7 @@ classdef Car < CarInterface
     properties
         bbox;  % [x1 y1 width height]
         patch = [];
+        segmentMask;
         
         % parameters
         timeStamp; % time of the frame. [yyyy mm dd hh mm ss]. sec. is float
@@ -57,6 +58,39 @@ classdef Car < CarInterface
         end
         
         
+        % this function must be called after C.patch is set
+        function segmentPatch (C, image)
+            assert (~isempty(C.patch));
+
+            % actual segmentation
+            UnariesOffset = 0.4;
+            EdgeWeight = 0.2;
+            mask = segmentWrapper(C.patch, UnariesOffset, EdgeWeight);
+            
+            % remove small artefacts from mask
+            ArtefactSize = 5;
+            mask = bwareaopen (mask, ArtefactSize^2);
+            roi = mask2roi(mask);
+            mask = mask(roi(1) : roi(3), roi(2) : roi(4));
+            C.bbox = [C.bbox(1), C.bbox(2), 0, 0] + ...
+                     [roi(2), roi(1), roi(4)-roi(2)+1, roi(3)-roi(1)+1];
+
+            % expand bbox
+            ExpandPerc = 0.2;
+            oldBbox = C.bbox;
+            C.bbox = expandBboxes (C.bbox, ExpandPerc, image);
+            offsets = oldBbox - C.bbox;
+            roi = C.getROI();
+
+            % enlarge
+            C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
+            C.segmentMask = zeros (C.bbox(4), C.bbox(3));
+            C.segmentMask (offsets(2) + 1 : offsets(2) + oldBbox(4), ...
+                           offsets(1) + 1 : offsets(1) + oldBbox(3)) = mask;
+            
+        end
+        
+                        
         function patch = extractPatch (C, image)
             roi = C.getROI();
             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
@@ -100,9 +134,9 @@ classdef Car < CarInterface
         function generateSingleColorFeature (C)
             assert (~isempty(C.patch)); % must call C.extractPatch() before
             % Color Feature
-            r = mean(mean(C.patch(:,:,1)));
-            g = mean(mean(C.patch(:,:,2)));
-            b = mean(mean(C.patch(:,:,3)));
+            r = mean(mean(C.patch(C.segmentMask,1)));
+            g = mean(mean(C.patch(C.segmentMask,2)));
+            b = mean(mean(C.patch(C.segmentMask,3)));
             C.color = [r g b] / 255;
         end
         
