@@ -70,23 +70,24 @@ classdef Car < CarInterface
             % remove small artefacts from mask
             ArtefactSize = 5;
             mask = bwareaopen (mask, ArtefactSize^2);
-            roi = mask2roi(mask);
-            mask = mask(roi(1) : roi(3), roi(2) : roi(4));
-            C.bbox = [C.bbox(1), C.bbox(2), 0, 0] + ...
-                     [roi(2), roi(1), roi(4)-roi(2)+1, roi(3)-roi(1)+1];
+            C.segmentMask = mask;
+%             roi = mask2roi(mask);
+%             mask = mask(roi(1) : roi(3), roi(2) : roi(4));
+%             C.bbox = [C.bbox(1), C.bbox(2), 0, 0] + ...
+%                      [roi(2), roi(1), roi(4)-roi(2)+1, roi(3)-roi(1)+1];
 
-            % expand bbox
-            ExpandPerc = 0.2;
-            oldBbox = C.bbox;
-            C.bbox = expandBboxes (C.bbox, ExpandPerc, image);
-            offsets = oldBbox - C.bbox;
-            roi = C.getROI();
-
-            % enlarge
-            C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
-            C.segmentMask = zeros (C.bbox(4), C.bbox(3));
-            C.segmentMask (offsets(2) + 1 : offsets(2) + oldBbox(4), ...
-                           offsets(1) + 1 : offsets(1) + oldBbox(3)) = mask;
+%             % expand bbox
+%             ExpandPerc = 0.2;
+%             oldBbox = C.bbox;
+%             C.bbox = expandBboxes (C.bbox, ExpandPerc, image);
+%             offsets = oldBbox - C.bbox;
+%             roi = C.getROI();
+% 
+%             % enlarge
+%             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
+%             C.segmentMask = zeros (C.bbox(4), C.bbox(3));
+%             C.segmentMask (offsets(2) + 1 : offsets(2) + oldBbox(4), ...
+%                            offsets(1) + 1 : offsets(1) + oldBbox(3)) = mask;
             
         end
         
