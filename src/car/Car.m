@@ -95,7 +95,7 @@ classdef Car < CarInterface
             roi = C.getROI();
             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
             patch = C.patch;
-            C.segmentMask = ones (size(patch,1), size(patch,2));
+            %C.segmentMask = ones (size(patch,1), size(patch,2));
         end
         
         
