@@ -6,11 +6,11 @@ classdef CarInterface < handle
         % compute ROI from car bbox
         roi = getROI (C);  % [y1, x1, y2, x2]
         
-        % use the segmentation to refine patch based on color
-        segmentPatch (C, im);
-        
         % patch is a crop of the car from the provided image
-        patch = extractPatch (C, image)
+        % 
+        % parameters define segmentation method if any. Its syntax is:
+        %   extractPatch(..., 'segment', 'maxflow'/'background')
+        patch = extractPatch (C, image, parameters)
         
         % compute the center of the bbox
         center = getCenter (C) % [y x]

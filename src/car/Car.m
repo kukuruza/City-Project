@@ -14,6 +14,22 @@ classdef Car < CarInterface
         orientation; % to be determined
         
     end % propertioes
+    methods (Hidden)
+        function segmentMaxflow (C)
+            assert (~isempty(C.patch));
+            
+            % actual segmentation
+            UnariesOffset = 0.4;
+            EdgeWeight = 0.2;
+            mask = segmentWrapper(C.patch, UnariesOffset, EdgeWeight);
+            
+            % remove small artefacts from mask
+            ArtefactSize = 5;
+            mask = bwareaopen (mask, ArtefactSize^2);
+            C.segmentMask = mask;
+        end
+    end % Hidden
+
     methods
         function C = Car (bbox, timestamp)
             C.bbox = bbox;
@@ -31,45 +47,25 @@ classdef Car < CarInterface
             roi = [C.bbox(2) C.bbox(1) C.bbox(4)+C.bbox(2)-1 C.bbox(3)+C.bbox(1)-1];
         end
         
-        
-        % this function must be called after C.patch is set
-        function segmentPatch (C, image)
-            assert (~isempty(C.patch));
+                                
+        function patch = extractPatch (C, image, varargin)
+            % parse and validate input
+            parser = inputParser;
+            addRequired (parser, 'image', @(x) ndims(x)==3 && size(x,3)==3);
+            expectedSegmentation = {'none', 'maxflow', 'background'};
+            addParameter (parser, 'segment', 'none', ...
+                          @(x) any(validatestring(x,expectedSegmentation)));
+            parse (parser, image, varargin{:});
             
-            % actual segmentation
-            UnariesOffset = 0.4;
-            EdgeWeight = 0.2;
-            mask = segmentWrapper(C.patch, UnariesOffset, EdgeWeight);
-            
-            % remove small artefacts from mask
-            ArtefactSize = 5;
-            mask = bwareaopen (mask, ArtefactSize^2);
-            C.segmentMask = mask;
-%             roi = mask2roi(mask);
-%             mask = mask(roi(1) : roi(3), roi(2) : roi(4));
-%             C.bbox = [C.bbox(1), C.bbox(2), 0, 0] + ...
-%                      [roi(2), roi(1), roi(4)-roi(2)+1, roi(3)-roi(1)+1];
-
-%             % expand bbox
-%             ExpandPerc = 0.2;
-%             oldBbox = C.bbox;
-%             C.bbox = expandBboxes (C.bbox, ExpandPerc, image);
-%             offsets = oldBbox - C.bbox;
-%             roi = C.getROI();
-% 
-%             % enlarge
-%             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
-%             C.segmentMask = zeros (C.bbox(4), C.bbox(3));
-%             C.segmentMask (offsets(2) + 1 : offsets(2) + oldBbox(4), ...
-%                            offsets(1) + 1 : offsets(1) + oldBbox(3)) = mask;
-        end
-        
-                        
-        function patch = extractPatch (C, image)
+            % extract patch
             roi = C.getROI();
             C.patch = image(roi(1) : roi(3), roi(2) : roi(4), :);
             patch = C.patch;
-            C.segmentMask = ones (size(patch,1), size(patch,2));
+            
+            % segment if required
+            if strcmp(parser.Results.segment, 'maxflow')
+                C.segmentMaxflow();
+            end
         end
         
         

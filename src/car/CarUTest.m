@@ -33,8 +33,7 @@ for i = 1 : length(carsList)
     imshow(patch);
 
     % refine patch
-    car.segmentPatch (image);
-    patch = car.extractPatch (image);
+    patch = car.extractPatch (image, 'segment','maxflow');
     figure(2)
     imshow(patch);
     figure(3)
