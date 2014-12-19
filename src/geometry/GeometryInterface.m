@@ -29,5 +29,7 @@ classdef GeometryInterface < handle
         % GeometryMatrix helps to consider only viable cars according to
         % simple geometry rules (geoProb > 0 => Valid speed estimate
         updateSpeed(obj, carsFrame1, carsFrame2, matchingMat, geometryMatrix)
+        
+        % 
     end % methods
 end

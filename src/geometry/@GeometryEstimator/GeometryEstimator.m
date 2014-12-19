@@ -98,7 +98,11 @@ classdef GeometryEstimator < GeometryInterface
         % homography estimated before
         computeCameraRoadMapWithH(obj);
         
-        %% Getters (debugging and interface)
+        
+        %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Getters(for debugging and interface functionalities)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
         % Function to get the expected orientation of cars at a particular
         % point using geometry
         function orientationMap = getOrientationMap(obj)
@@ -132,6 +136,11 @@ classdef GeometryEstimator < GeometryInterface
         % cannonical setup (vanishing point at center of image, etc)
         computeHomography(obj);
         
+        
+        % Compute the inverse perspective transformation to get zenith view
+        % of the road
+        zenithView = computeIPTransform(obj, image, laneRatio, laneWidth);
+        
         % Computes the corresponding, opposite point on other side of the 
         % road for the cannonical configuration
         oppositePt = getOppositePoint(obj, point, line, oppLine);
@@ -150,10 +159,7 @@ classdef GeometryEstimator < GeometryInterface
         % Computing the camera road map
         computeCameraRoadMap(obj);
         
-        % Function to get the expected orientation of cars at a particular
-        % point using geometry
-        function orientationMap = computeOrientationMap(obj)
-            orientationMap = zeros(obj.imSize);
-        end
+        % Computing the orientation mask for the road
+        computeOrientationMap(obj);            
     end
 end

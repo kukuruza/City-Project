@@ -9,7 +9,7 @@ cd (fileparts(mfilename('fullpath')));
 run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
-imageDir = [CITY_DATA_PATH '2-min/camera360'];
+imageDir = [CITY_DATA_PATH '2-min/camera572'];
 imageName = 'image0000.jpg';
 filePath = fullfile(imageDir, imageName);
 
@@ -18,7 +18,8 @@ image = imread(filePath);
 
 % Loading the road properties that were manually marked (Pts for the lanes)
 %matFile = 'Geometry_Camera_368.mat';
-matFile = 'Geometry_Camera_360.mat';
+%matFile = 'Geometry_Camera_360.mat';
+matFile = 'Geometry_Camera_572.mat';
 geom = GeometryEstimator(image, matFile);
 fprintf ('GeometryEstimator: constructor finished\n');
 
@@ -30,23 +31,27 @@ fprintf ('GeometryEstimator: constructor finished\n');
 %warning(strcat('Read Geometry object from file, might not be the latest version...' , ...
 %   'Update if made changes to GeometryEstimator class'));
 
-roadMap = geom.getCameraRoadMap();
-%figure; imagesc(roadMap)
-
 %geom.computeCameraRoadMapWithH();
 roadMap = geom.getCameraRoadMap();
 %figure; imagesc(roadMap)
-geom.computeHomography();
-
-% Warping the image
-%figure; imshow([image, warpH(image, geom.homography, size(image))]);
-
+% geom.computeHomography();
+% 
+% % Warping the image
+% %figure; imshow([image, warpH(image, geom.homography, size(image))]);
+% 
 figure; imshow(image)
-
-% Debugging the opposite point method
-point = [236; 201];
-line = geom.road.lanes{end}.rightEq;
-oppLine = geom.road.lanes{1}.leftEq;
-H = geom.getOppositePoint(point, line, oppLine);
+% 
+% % Debugging the opposite point method
+% point = [236; 201];
+% line = geom.road.lanes{end}.rightEq;
+% oppLine = geom.road.lanes{1}.leftEq;
+% H = geom.getOppositePoint(point, line, oppLine);
 
 %figure; imshow([image, warpH(image, H, size(image))]);
+
+geom.computeIPTransform(image);
+
+% Debugging the orientation map computation
+%geom.computeOrientationMap();
+%orientMap = geom.getOrientationMap();
+%imshow(orientMap)
