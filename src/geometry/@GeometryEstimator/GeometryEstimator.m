@@ -49,7 +49,11 @@ classdef GeometryEstimator < GeometryInterface
             % Creating map of expected car sizes at different locations on
             % the image - should also include the orientation extension
             % because of the orientations
-            obj.computeCameraRoadMapWithH();   
+            %obj.computeCameraRoadMapWithH();   
+            
+            % Creating the orientation map
+            obj.computeOrientationMap();
+            
         end
         
         %% Method to calculate confidence maps to detect various geometries
@@ -135,7 +139,6 @@ classdef GeometryEstimator < GeometryInterface
         % Computes homography necessary to convert the given setup into a
         % cannonical setup (vanishing point at center of image, etc)
         computeHomography(obj);
-        
         
         % Compute the inverse perspective transformation to get zenith view
         % of the road

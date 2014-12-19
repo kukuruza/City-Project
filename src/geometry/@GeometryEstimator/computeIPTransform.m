@@ -7,6 +7,7 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     % Image 2 : Current, given image
     
     % Checking for arguments and initializng them with defaults otherwise
+    nargin
     if(nargin < 4)
         laneWidth = 200;
     end

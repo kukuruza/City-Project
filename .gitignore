@@ -61,3 +61,6 @@ amazon/
 Icon?
 ehthumbs.db
 Thumbs.db
+
+# Geometry module specific
+src/geometry/testscripts/local*
