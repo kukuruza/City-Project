@@ -52,8 +52,8 @@ roadMap = geom.getCameraRoadMap();
 % debugging the orientation map
 geom.computeOrientationMap();
 orientationMap = geom.getOrientationMap();
-%figure; imagesc(orientationMap.yaw)
-figure; imagesc(orientationMap.pitch);
+figure; imagesc(orientationMap.yaw)
+%figure; imagesc(orientationMap.pitch);
 % Debugging the orientation map computation
 %geom.computeOrientationMap();
 %orientMap = geom.getOrientationMap();
