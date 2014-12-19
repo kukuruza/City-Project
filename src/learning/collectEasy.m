@@ -2,17 +2,20 @@
 
 clear all
 
-
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
 
 % add all scripts to matlab pathdef
-run ../../rootPathsSetup.m;
-run ../../subdirPathsSetup.m;
+run ../rootPathsSetup.m;
+run ../subdirPathsSetup.m;
 
 
 
 %% input
+
+verbose = 0;
+dowrite = true;
+dopause = 0.3;
 
 videoPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.avi'];
 timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
@@ -20,8 +23,8 @@ timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
 
 %% output
 
-outPatchesDir = [CITY_DATA_PATH 'testdata/detector/learned/patches/'];
-outCarsDir = [CITY_DATA_PATH 'testdata/detector/learned/cars/'];
+outPatchesDir = [CITY_DATA_PATH 'testdata/learned/patches/'];
+outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
 
 
 %% init
@@ -30,18 +33,21 @@ outCarsDir = [CITY_DATA_PATH 'testdata/detector/learned/cars/'];
 frameReader = FrameReaderVideo (videoPath, timestampPath);
 
 % background
-background = Background();
+background = Background('num_training_frames', 40);
 
 % geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf ('Have read the Geometry object from file\n');
+cameraId = 572;
+image = imread([CITY_SRC_PATH 'geometry/cam572.png']);
+matFile = [CITY_SRC_PATH 'geometry/' sprintf('Geometry_Camera_%d.mat', cameraId)];
+geom = GeometryEstimator(image, matFile);
+
 roadCameraMap = geom.getCameraRoadMap();
+orientationMap = geom.getOrientationMap();
 
 
 %% work
 
-for t = 1 : 100
+for t = 1 : 200
     
     % read image
     [frame, ~] = frameReader.getNewFrame();
@@ -56,14 +62,21 @@ for t = 1 : 100
     [foregroundMask, bboxes] = background.subtract(gray);
     cars = Car.empty;
     for k = 1 : size(bboxes,1)
-        cars(k) = Car(bboxes(k,:), -1);
+        cars(k) = Car(bboxes(k,:));
     end
     foregroundMask = imerode (foregroundMask, strel('disk', 2));
     foregroundMask = imdilate(foregroundMask, strel('disk', 2));
-    %figure(2)
-    %imshow(foregroundMask);
+    if verbose > 0
+        figure(2)
+        imshow(foregroundMask);
+    end
     fprintf ('background cars: %d\n', length(cars));
     
+    for j = 1 : length(cars)
+        center = cars(j).getCenter();
+        cars(j).orientation = [orientationMap.yaw(center(1), center(2)), ...
+                           orientationMap.pitch(center(1), center(2))];
+    end
 
     % filter: sizes (size is sqrt of area)
     SizeTolerance = 1.5;
@@ -155,14 +168,16 @@ for t = 1 : 100
         car = cars(j);
         car.patch = car.extractPatch(frame);
         namePrefix = ['f' sprintf('%03d',t) '-car' sprintf('%03d',j)];
-        save ([outCarsDir namePrefix '.mat'], 'car');
-        imwrite(car.patch, [outPatchesDir namePrefix '.png']);
+        if dowrite
+            save ([outCarsDir namePrefix '.mat'], 'car');
+            imwrite(car.patch, [outPatchesDir namePrefix '.png']);
+        end
     end
-    figure(1)
-    imshow(frame_out);
-    pause(0.5)
-    
-
+    if verbose > 0
+        figure(1)
+        imshow(frame_out);
+        pause (max(0.1, dopause));
+    end
 end
 
 clear frameReader

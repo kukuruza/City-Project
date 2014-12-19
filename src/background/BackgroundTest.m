@@ -22,19 +22,11 @@ outImagePath = [CITY_DATA_PATH 'testdata/background/result/'];
 %% test
 
 frameReader = FrameReaderImages (imagesDir);
-background = Background();
-
-
-% background subtraction
-background.num_training_frames = 5;
-background.initial_variance = 30;
-
-% mask refinement
-background.fn_level = 15;
-background.fp_level = 1;
-
-% extracting bounding boxes
-background.minimum_blob_area = 50;
+background = Background('num_training_frames', 5, ...
+                        'initial_variance', 30, ...
+                        'fn_level', 15, ...
+                        'fp_level', 1, ...
+                        'minimum_blob_area', 50);
          
 N=0;
 while true

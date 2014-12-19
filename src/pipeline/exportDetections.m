@@ -36,7 +36,7 @@ modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
 detector = CascadeCarDetector (modelPath, geom);
 
 % exported detections
-outputDir = [CITY_DATA_PATH, 'testdata/detector/detections/'];
+outputDir = [CITY_DATA_PATH, 'testdata/learning/detections/'];
 
 for t = 1 : 100
     fprintf('frame %d\n', t);
