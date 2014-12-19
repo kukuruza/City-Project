@@ -15,10 +15,10 @@ classdef GeometryEstimator < GeometryInterface
         cameraRoadMap; %Contains the map for size estimations
         orientationMap; % Orientation of cars at the given point
         homography; % Computing the homography to get 'cannonical' form
+        ipHomography; % Computing the homography for 'IP' transformation
         
-        % Belief that builds through accumulating foreground pixels in
-        % someway
-        roadBelief;
+        % Belief that builds through accumulating foreground pixels
+        roadBelief; 
         
     end
     methods
@@ -33,7 +33,7 @@ classdef GeometryEstimator < GeometryInterface
             addpath('.');
             
             % Initializing the belief about the road
-            obj.roadBelief = zeros(size(initImage));
+            %obj.roadBelief = zeros(size(initImage));
             
             % Reading the mat file that contains the manually marked points
             % Creating the road object from the mat
@@ -95,9 +95,7 @@ classdef GeometryEstimator < GeometryInterface
         dist3D = computeDistance3D(obj, point1, point2);
         
         % Function to get a belief about the road using foreground (binary)
-        function generateRoadBelief(obj, foreground)
-            %figure(1); 
-        end
+        generateRoadBelief(obj, foreground);
         
         % Computing the camera road map, for cannonical system using
         % homography estimated before

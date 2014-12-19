@@ -1,24 +1,30 @@
 function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth)
     % Finding the homography for an approximate inverse perspective 
     % transformation
+    % 
+    % Usage: 
+    % [homography, warpedImg]
+    %   = geometryEstimator.computeIPTransform(image, laneRatio, laneWidth)
+    % 
+    % laneWidth defines the extent to which the end point is close to 
+    % vanishing point (default 0.75)
+    % Lanewidth defines the width of the lane after inverse perspective
+    %   default 0.25 * no of columns
     
     % Setting up the point correspondences
     % Image 1 : Inverse perspective image
     % Image 2 : Current, given image
     
+    %
     % Checking for arguments and initializng them with defaults otherwise
-    nargin
     if(nargin < 4)
-        laneWidth = 200;
+        %laneWidth = 200;
+        laneWidth = obj.imageSize(2) * 0.25;
     end
     
     if(nargin < 3)
-       laneRatio = 0.7; 
+       laneRatio = 0.75; 
     end
-    % lane width (some arbitrary width in the IPM)
-    %laneWidth = obj.imageSize(2)/2 - 2; 
-    %laneWidth = 50;
-    %laneRatio = 0.6;
     
     % Vanishing points go to each other
     % Center of the frame at the current y of vanishPt

@@ -28,15 +28,14 @@ function computeOrientationMap(obj, initialPitchAngle)
     roadElems = find(roadMask == 1);
     yawMap = zeros(obj.imageSize);
     
-    yawMap(roadElems) = atan(double(xId(roadElems) - obj.road.vanishPt(1)) ...
+    % Yaw map in degrees
+    yawMap(roadElems) = atand(double(xId(roadElems) - obj.road.vanishPt(1)) ...
                     ./ (yId(roadElems) - obj.road.vanishPt(2)));
     
     % Pitch is based on a linear relationship (approximate) for 40 degrees
     pitchMap = initialPitchAngle * (yId - obj.road.vanishPt(2)) ...
                     / (obj.imageSize(1) - obj.road.vanishPt(2)) .* roadMask; 
-    
    
-    % (598, 254)
     obj.orientationMap.yaw = yawMap;
     obj.orientationMap.pitch = pitchMap;
 end
