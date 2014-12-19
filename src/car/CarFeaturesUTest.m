@@ -22,36 +22,37 @@ counting = MetricLearner(geom);
 % input cars
 inCarsDir = [CITY_DATA_PATH 'testdata/detector/detections/'];
 
-carsPrev = [];
+pandasPrev = [];
 
 for t = 1 : 11
     carsList = dir([inCarsDir sprintf('%03d', t) '-car*.mat']);
 
     % all features in one matrix
-    cars = Car.empty();
+    pandas = Panda.empty();
 
     % generate features from the current frame
     for i = 1 : length(carsList)
 
         % load car object
-        clear car
         load ([inCarsDir carsList(i).name]);
 
         % generate features
-        car.segmentPatch([]);
-        car.generateFeature();
+        clear panda
+        panda = Panda(car);
+        panda.segmentPatch([]);
+        panda.generateFeature();
         %   [C.histHog, ~] = C.reduceDimensions();
 
-        cars(i) = car;
+        pandas(i) = panda;
     end
     
     % predict transitions matrix
-    predicted = zeros(length(cars), length(carsPrev));
-    for i = 1 : length(cars)
-        for j = 1 : length(carsPrev)
-            feature1 = cars(i).histHog;
-            feature2 = carsPrev(j).histHog;
-            distance = norm(cars(i).color - carsPrev(j).color);
+    predicted = zeros(length(pandas), length(pandasPrev));
+    for i = 1 : length(pandas)
+        for j = 1 : length(pandasPrev)
+            feature1 = pandas(i).histHog;
+            feature2 = pandasPrev(j).histHog;
+            distance = norm(pandas(i).color - pandasPrev(j).color);
             %distance = chi_square_statistics(feature1, feature2);
             predicted(i,j) = 1 / distance;
         end
@@ -59,10 +60,10 @@ for t = 1 : 11
     predicted = predicted / sum(predicted(:));
     
     % ground truth transition matrix
-    if (~isempty(cars) && ~isempty(carsPrev))
+    if (~isempty(pandas) && ~isempty(pandasPrev))
         truthPath = [inCarsDir sprintf('%03d', t-1) '-' sprintf('%03d', t) '.txt'];
         truthMatches = dlmread(truthPath, ' ', 1, 0);
-        truth = matches2transition (truthMatches, length(carsPrev), length(cars));
+        truth = matches2transition (truthMatches, length(pandasPrev), length(pandas));
         truth = truth / sum(truth(:));
 
         colormap('hot');
@@ -79,7 +80,7 @@ for t = 1 : 11
         chi_errors(t) = chi_square_statistics (predicted(:)', truth(:)');
     end
     
-    carsPrev = cars;
+    pandasPrev = pandas;
 end
 
 fprintf('avg error between images: %f\n', mean(chi_errors(chi_errors ~= 0)));

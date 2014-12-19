@@ -29,10 +29,10 @@ background = Background();
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
-detector = CascadeCarDetector (modelPath);
+detector = CascadeCarDetector (modelPath, geom);
 
 % exported detections
-outputDir = [CITY_DATA_PATH, 'testdata/carcount/detections/'];
+outputDir = [CITY_DATA_PATH, 'testdata/detector/detections/'];
 
 for t = 1 : 100
     fprintf('frame %d\n', t);
@@ -42,6 +42,10 @@ for t = 1 : 100
     if isempty(frame), break, end
     gray = rgb2gray(frame);
     
+    % write frame as image
+    frameName = [sprintf('%03d', t) '-clear.png'];
+    imwrite (frame, [outputDir frameName]);
+
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
     foregroundMask = background.subtractAndDenoise(gray);
@@ -101,8 +105,8 @@ for t = 1 : 100
         
     end
     % export frame
-    frameName = [sprintf('%03d', t) '.png'];
-    imwrite (frame_out, [outputDir frameName]);
+    frameOutName = [sprintf('%03d', t) '-detections.png'];
+    %imwrite (frame_out, [outputDir frameOutName]);
     
 end
 
