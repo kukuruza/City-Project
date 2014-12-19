@@ -49,6 +49,7 @@ classdef GeometryEstimator < GeometryInterface
             % Creating map of expected car sizes at different locations on
             % the image - should also include the orientation extension
             % because of the orientations
+            obj.computeCameraRoadMap();
             %obj.computeCameraRoadMapWithH();   
             
             % Creating the orientation map
