@@ -9,7 +9,9 @@ classdef GeometryInterface < handle
         sizeMap = getCameraRoadMap (obj)
         
         % get map of cars orientations on the road
-        % TODO: output to be deterrmined
+        % OrientationMap has following elements
+        % orientationMap.yaw and orientation.pitch which are the
+        % corresponding yaw and pitch maps
         orientationMap = getOrientationMap (obj)
         
         % get probability for a car to move from A to B
@@ -30,7 +32,9 @@ classdef GeometryInterface < handle
         % simple geometry rules (geoProb > 0 => Valid speed estimate
         updateSpeed(obj, carsFrame1, carsFrame2, matchingMat, geometryMatrix)
         
-        [homogr, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth);
-        % 
+        % Compute the inverse perspective transformation to get zenith view
+        % of the road
+        [homography, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth);
+        
     end % methods
 end

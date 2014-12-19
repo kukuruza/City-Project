@@ -7,8 +7,8 @@ clear all
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
 
-run ../rootPathsSetup.m
-run ../subdirPathsSetup.m
+run ../../rootPathsSetup.m
+run ../../subdirPathsSetup.m
 
 imageDir = [CITY_DATA_PATH 'geometry'];
 imageName = 'img000.jpg';

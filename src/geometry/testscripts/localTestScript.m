@@ -6,8 +6,8 @@ clear all
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
 
-run ../rootPathsSetup.m
-run ../subdirPathsSetup.m
+run ../../rootPathsSetup.m
+run ../../subdirPathsSetup.m
 
 imageDir = [CITY_DATA_PATH '2-min/camera572'];
 imageName = 'image0000.jpg';
@@ -39,7 +39,7 @@ roadMap = geom.getCameraRoadMap();
 % % Warping the image
 % %figure; imshow([image, warpH(image, geom.homography, size(image))]);
 % 
-figure; imshow(image)
+% figure; imshow(image)
 % 
 % % Debugging the opposite point method
 % point = [236; 201];
@@ -49,8 +49,11 @@ figure; imshow(image)
 
 %figure; imshow([image, warpH(image, H, size(image))]);
 
-geom.computeIPTransform(image);
-
+% debugging the orientation map
+geom.computeOrientationMap();
+orientationMap = geom.getOrientationMap();
+%figure; imagesc(orientationMap.yaw)
+figure; imagesc(orientationMap.pitch);
 % Debugging the orientation map computation
 %geom.computeOrientationMap();
 %orientMap = geom.getOrientationMap();

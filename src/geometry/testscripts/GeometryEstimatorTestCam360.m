@@ -6,8 +6,8 @@ clear all
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
 
-run ../rootPathsSetup.m
-run ../subdirPathsSetup.m
+run ../../rootPathsSetup.m
+run ../../subdirPathsSetup.m
 
 imageDir = [CITY_DATA_PATH '2-min/camera360'];
 imageName = 'image0000.jpg';
