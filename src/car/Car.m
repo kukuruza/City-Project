@@ -11,7 +11,7 @@ classdef Car < CarInterface
         
         % parameters
         timeStamp; % time of the frame. [yyyy mm dd hh mm ss]. sec. is float
-        orientation; % to be determined
+        orientation; % [yaw pitch]
         
     end % propertioes
     methods (Hidden)

@@ -19,10 +19,14 @@ timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
 frameReader = FrameReaderVideo (videoPath, timesPath); 
 
 % geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf ('Have read the Geometry object from file\n');
+cameraId = 572;
+image = imread([CITY_SRC_PATH 'geometry/cam572.png']);
+matFile = [CITY_SRC_PATH 'geometry/' sprintf('Geometry_Camera_%d.mat', cameraId)];
+geom = GeometryEstimator(image, matFile);
+
 roadCameraMap = geom.getCameraRoadMap();
+orientationMap = geom.getOrientationMap();
+
 
 % background
 background = Background();
@@ -59,6 +63,9 @@ for t = 1 : 100
     % assign timestamps to cars
     for i = 1 : length(cars)
         cars(i).timeStamp = timestamp;
+        center = cars(i).getCenter();
+        cars(i).orientation = [orientationMap.yaw(center(1), center(2)), ...
+                               orientationMap.pitch(center(1), center(2))];
     end
     
     % filter detected cars based on foreground mask
