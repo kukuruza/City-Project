@@ -10,12 +10,6 @@ cd (fileparts(mfilename('fullpath')));
 run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
-% geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf ('Have read the Geometry object from file\n');
-roadCameraMap = geom.getCameraRoadMap();
-
 % input cars
 inCarsDir = [CITY_DATA_PATH 'testdata/detector/detections/'];
 

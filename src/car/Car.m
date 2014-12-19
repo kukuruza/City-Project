@@ -31,15 +31,16 @@ classdef Car < CarInterface
     end % Hidden
 
     methods
-        function C = Car (bbox, timestamp)
-            C.bbox = bbox;
-            
-            if nargin < 2
-                % assigning a default value to timeStamp
-                C.timeStamp = [0 0 0 0 0 0];
-            else
-                C.timeStamp = timestamp;
-            end
+        function C = Car(varargin) % see interface
+            % parse and validate input
+            parser = inputParser;
+            addRequired (parser, 'bbox', @(x) isvector(x) && length(x) == 4);
+            addOptional (parser, 'timestamp', [0 0 0 0 0 0], ...
+                                         @(x) isvector(x) && length(x) == 6);
+            parse (parser, varargin{:});
+
+            C.bbox = parser.Results.bbox;
+            C.timeStamp = parser.Results.timestamp;
         end
         
         
