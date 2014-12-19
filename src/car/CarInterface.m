@@ -3,6 +3,9 @@
 classdef CarInterface < handle
     methods (Abstract)
         
+        % constructor
+        % Car(bbox, timestamp = [0 0 0 0 0 0]);
+        
         % compute ROI from car bbox
         roi = getROI (C);  % [y1, x1, y2, x2]
         
