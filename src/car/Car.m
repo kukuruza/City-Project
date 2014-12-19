@@ -85,7 +85,7 @@ classdef Car < CarInterface
         end
         
         
-        function im = drawCar (C, im, color, tag)
+        function im = drawCar (C, im, color, tag, boxOpacity)
             if nargin < 3, color = 'yellow'; end
             if nargin < 4, tag = 'car'; end
             if nargin < 5, boxOpacity = 0.6; end
