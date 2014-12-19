@@ -139,7 +139,7 @@ classdef GeometryEstimator < GeometryInterface
         
         % Compute the inverse perspective transformation to get zenith view
         % of the road
-        zenithView = computeIPTransform(obj, image, laneRatio, laneWidth);
+        [homogr, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth);
         
         % Computes the corresponding, opposite point on other side of the 
         % road for the cannonical configuration

@@ -1,4 +1,4 @@
-function ipHomography = computeIPTransform(obj, image, laneRatio, laneWidth)
+function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth)
     % Finding the homography for an approximate inverse perspective 
     % transformation
     
@@ -8,7 +8,7 @@ function ipHomography = computeIPTransform(obj, image, laneRatio, laneWidth)
     
     % Checking for arguments and initializng them with defaults otherwise
     if(nargin < 4)
-        laneWidth = 50;
+        laneWidth = 200;
     end
     
     if(nargin < 3)
@@ -80,8 +80,8 @@ function ipHomography = computeIPTransform(obj, image, laneRatio, laneWidth)
     % Warp the image
     warpedImg = warpH(image, ipHomography, obj.imageSize);
     % Display image for visualization
-    figure; imshow(image)
-    figure; imshow(warpedImg)
+    %figure; imshow(image)
+    %figure; imshow(warpedImg)
     
     %obj.homography = H;
 end

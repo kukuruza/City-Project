@@ -30,6 +30,7 @@ classdef GeometryInterface < handle
         % simple geometry rules (geoProb > 0 => Valid speed estimate
         updateSpeed(obj, carsFrame1, carsFrame2, matchingMat, geometryMatrix)
         
+        [homogr, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth);
         % 
     end % methods
 end
