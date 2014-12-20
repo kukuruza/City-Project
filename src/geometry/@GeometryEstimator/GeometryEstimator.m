@@ -17,7 +17,8 @@ classdef GeometryEstimator < GeometryInterface
         homography; % Computing the homography to get 'cannonical' form
         ipHomography; % Computing the homography for 'IP' transformation
         
-        % Belief that builds through accumulating foreground pixels
+        % Belief that builds through accumulating foreground
+        % pixels(histogram based approach)
         roadBelief; 
         
     end
@@ -95,7 +96,7 @@ classdef GeometryEstimator < GeometryInterface
         dist3D = computeDistance3D(obj, point1, point2);
         
         % Function to get a belief about the road using foreground (binary)
-        generateRoadBelief(obj, foreground);
+        generateRoadBelief(obj, foreground, image);
         
         % Computing the camera road map, for cannonical system using
         % homography estimated before
@@ -151,6 +152,9 @@ classdef GeometryEstimator < GeometryInterface
         % Get the probability map of next transition given a point /
         % position of the car and overlaying for visualization
         [probMap, overlaidImg] = generateProbMap(obj, carOrPoint, frameDiff, image);
+        
+        % Drawing the lanes according to the belief
+        
     end
     
     %% Methods that are hidden and private to the class
