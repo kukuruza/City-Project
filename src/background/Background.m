@@ -6,38 +6,44 @@ classdef Background < BackgroundInterface
          blob;
          shapeInserter;
      end
-     properties  % constants
-         
-         % background subtraction
-         num_training_frames = 3;
-         initial_variance = 20;
-         
+     properties (Hidden)  % constants
+
          % mask refinement
          fn_level = 22;
          fp_level = 1;
-         
-         % extracting bounding boxes
-         minimum_blob_area = 50;
-         
+
      end % properties
      
      methods
-         function BS = Background ()
-             BS.detector = vision.ForegroundDetector(...
-                   'NumTrainingFrames', BS.num_training_frames, ...
-                   'InitialVariance', BS.initial_variance^2);
-             BS.blob = vision.BlobAnalysis(...
+        function BS = Background (varargin) % see interface
+            % parse and validate input
+            parser = inputParser;
+            addParameter(parser, 'num_training_frames', 3, @isscalar);
+            addParameter(parser, 'initial_variance', 20, @isscalar);
+            addParameter(parser, 'fn_level', 22, @isscalar);
+            addParameter(parser, 'fp_level', 1, @isscalar);
+            addParameter(parser, 'minimum_blob_area', 50, @isscalar);
+            parse (parser, varargin{:});
+            parsed = parser.Results;
+            
+            BS.fn_level = parsed.fn_level;
+            BS.fp_level = parsed.fp_level;
+
+            BS.detector = vision.ForegroundDetector(...
+                   'NumTrainingFrames', parsed.num_training_frames, ...
+                   'InitialVariance', parsed.initial_variance^2);
+            BS.blob = vision.BlobAnalysis(...
                    'CentroidOutputPort', false, ...
                    'AreaOutputPort', false, ...
                    'BoundingBoxOutputPort', true, ...
                    'MinimumBlobAreaSource', 'Property', ...
-                   'MinimumBlobArea', BS.minimum_blob_area);
-             BS.shapeInserter = vision.ShapeInserter(...
+                   'MinimumBlobArea', parsed.minimum_blob_area);
+            BS.shapeInserter = vision.ShapeInserter(...
                    'BorderColor','White', ...
                    'Fill',true, ...
                    'FillColor','White', ...
                    'Opacity',0.2);
-         end
+        end
          
          
 
