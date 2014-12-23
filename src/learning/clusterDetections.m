@@ -10,10 +10,24 @@ run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
 
-%% output
+%% input
 
-outPatchesDir = [CITY_DATA_PATH 'testdata/learned/patches/'];
-outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
+inPatchesDir = [CITY_DATA_PATH 'testdata/learned/patches/'];
+inCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
 
 
-%% 
+%% work with all cars
+
+carsList = dir([inCarsDir '*-car*.mat']);
+
+sizes = zeros(length(carsList), 1);
+orientations = zeros(length(carsList), 2);  % N x [yaw, pitch]
+
+for i = 1 : length(carsList)
+    % load car object
+    clear car
+    load ([inCarsDir carsList(i).name]);
+    
+    sizes(i) = (car.bbox(3) + car.bbox(4)) / 2;
+    orientations(i,:) = car.orientation;
+end

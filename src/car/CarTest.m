@@ -11,13 +11,12 @@ classdef CarTest < matlab.unittest.TestCase
             cd (fileparts(mfilename('fullpath')));
             run ../rootPathsSetup.m;
             run ../subdirPathsSetup.m;
-        end
-        
-        function setupData(testCase)
-            inCarsDir = 'unitTestData/';
+
+            inCarsDir = 'testdata/';
             testCase.image = imread([inCarsDir '002-clear.png']);
             testCase.carsList = dir([inCarsDir '002-car*.mat']);
         end
+        
     end
 
     methods (Test)
@@ -42,6 +41,16 @@ classdef CarTest < matlab.unittest.TestCase
         function testDefaultTimestamp(testCase)
             car = Car([10 10 20 20]);
             testCase.verifySize(car.timeStamp, [1 6]);
+        end
+        
+        function testGetCenter(testCase)
+            car = Car([10 30 20 20]);   % [x y w h]
+            testCase.verifyEqual(car.getCenter(), int32([30+20/2 10+20/2]));
+        end
+        
+        function testGetBottomCenter(testCase)
+            car = Car([10 30 20 20]);   % [x y w h]
+            testCase.verifyEqual(car.getBottomCenter(), int32([30+19 10+20/2]));
         end
     end
 end

@@ -28,6 +28,10 @@ classdef Car < CarInterface
             mask = bwareaopen (mask, ArtefactSize^2);
             C.segmentMask = mask;
         end
+        
+        function segmentWithBackgound
+            
+        end
     end % Hidden
 
     methods
@@ -82,19 +86,25 @@ classdef Car < CarInterface
         end
         
         
-        function im = drawCar (C, im, color, tag, boxOpacity)
-            if nargin < 3, color = 'yellow'; end
-            if nargin < 4, tag = 'car'; end
-            if nargin < 5, boxOpacity = 0.6; end
-            if boxOpacity > 0.5
+        function im = drawCar (C, im, varargin)
+            % parse and validate input
+            parser = inputParser;
+            addRequired (parser, 'im', @(x) ndims(x)==3 && size(x,3) == 3);
+            addParameter(parser, 'color', 'yellow');
+            addParameter(parser, 'tag', 'car', @ischar);
+            addParameter(parser, 'boxOpacity', 0.6, @(x) isnumeric(x) && isscalar(x));
+            parse (parser, im, varargin{:});
+            parsed = parser.Results;
+
+            if parsed.boxOpacity > 0.5
                 textColor = 'black';
             else
                 textColor = 'white';
             end
             %color = 128 + rand(1,3) * 127;
             im = insertObjectAnnotation(im, 'rectangle', C.bbox, ...
-                tag, 'Color', color, ...
-                'TextBoxOpacity', boxOpacity, 'TextColor', textColor, ...
+                parsed.tag, 'Color', parsed.color, ...
+                'TextBoxOpacity', parsed.boxOpacity, 'TextColor', textColor, ...
                 'FontSize', 12);
         end
         

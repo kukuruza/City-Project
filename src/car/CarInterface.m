@@ -10,9 +10,8 @@ classdef CarInterface < handle
         roi = getROI (C);  % [y1, x1, y2, x2]
         
         % patch is a crop of the car from the provided image
-        % 
-        % parameters define segmentation method if any. Its syntax is:
-        %   extractPatch(..., 'segment', 'maxflow'/'background')
+        % parameters:
+        %   'segment' {'none', 'maxflow', 'background'}, default is 'none'
         patch = extractPatch (C, image, parameters)
         
         % compute the center of the bbox
@@ -22,7 +21,11 @@ classdef CarInterface < handle
         center = getBottomCenter (C) % [y x]
 
         % draw car on an image with (optionally) specified tag and color
-        im = drawCar (C, im, color, tag)
+        % parameters:
+        %  'color', default is 'yellow'
+        %  'tag', default is 'car'
+        %  'boxOpacity', default is 0.6
+        im = drawCar (C, image, parameters)
         
     end % methods
 end

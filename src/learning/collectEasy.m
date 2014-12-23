@@ -47,7 +47,7 @@ orientationMap = geom.getOrientationMap();
 
 %% work
 
-for t = 1 : 200
+for t = 1 : 100000
     
     % read image
     [frame, ~] = frameReader.getNewFrame();
@@ -72,10 +72,12 @@ for t = 1 : 200
     end
     fprintf ('background cars: %d\n', length(cars));
     
+    % assigning orientation
     for j = 1 : length(cars)
-        center = cars(j).getCenter();
-        cars(j).orientation = [orientationMap.yaw(center(1), center(2)), ...
-                           orientationMap.pitch(center(1), center(2))];
+        center = cars(j).getBottomCenter();
+        cars(j).orientation = [orientationMap.yaw(center(1), center(2)) ...
+                               orientationMap.pitch(center(1), center(2))];
+        cars(j).orientation
     end
 
     % filter: sizes (size is sqrt of area)
@@ -132,7 +134,7 @@ for t = 1 : 200
     cars = carsFilt;
     fprintf ('sparse cars:     %d\n', length(cars));
     for j = 1 : length(cars)
-        frame_out = cars(j).drawCar(frame_out, 'blue', 'sparse');
+        frame_out = cars(j).drawCar(frame_out, 'color', 'blue', 'tag', 'sparse');
     end
     
     
@@ -164,7 +166,7 @@ for t = 1 : 200
     % output
     frame_out = frame;
     for j = 1 : length(cars)
-        frame_out = cars(j).drawCar(frame_out, 'yellow', 'detected');
+        frame_out = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
         car = cars(j);
         car.patch = car.extractPatch(frame);
         namePrefix = ['f' sprintf('%03d',t) '-car' sprintf('%03d',j)];
