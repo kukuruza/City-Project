@@ -126,7 +126,6 @@ end
 confidenceMap = zeros(imCopyH,imCopyW);
 
 orientationMap = zeros(imCopyH,imCopyW);
-tempImage = zeros(imCopyH, imCopyW) ;
 
 for i=1+halfKerSize:imCopyH-halfKerSize
     for j=1+halfKerSize:imCopyW-halfKerSize
@@ -136,7 +135,6 @@ for i=1+halfKerSize:imCopyH-halfKerSize
         maxLoc = find(complexResponseVector==100);
         if length(maxLoc)>0
             maxLoc = round(mean(maxLoc));
-            tempImage(i, j) = maxLoc;
             if (maxLoc>2)&&(maxLoc<=34)
                 complexResponseVector(maxLoc-2:maxLoc+2)=0;
             elseif (maxLoc<=2)
@@ -161,9 +159,6 @@ end
 orientationMap = (orientationMap-1)*angleInterval;
 
 args = [];
-args.orientationMap = orientationMap;
-args.confidenceMap = confidenceMap;
-args.tempImage = tempImage;
 if(0)
 
 maxV = max(max(confidenceMap(1+halfKerSize:imCopyH-halfKerSize,1+halfKerSize:imCopyW-halfKerSize)));

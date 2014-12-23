@@ -112,6 +112,11 @@
         complexResponse(:,:,i) = complexResponse(:,:,i)/(kerSize*kerSize);
     end
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Border for the active part of the image
+    border = zeros(imageH, imageW);
+    border(1+halfKerSize:imageH-halfKerSize, 1+halfKerSize:imageW-halfKerSize) = 1;
+
     % Evaluating the dominant orientation
     confidenceMap = zeros(imageH,imageW); % Confidence of the edge orientation
     orientationMap = zeros(imageH,imageW); % Map of the most dominent response
@@ -126,29 +131,46 @@
 
     % Finding the mean of the maximum location i.e. where 100 is found
     [~, ~, orientationId] = meshgrid(1:imageW, 1:imageH, 1:norient);
-    maxLocation = round(mean( orientationId .* (normResponse == 100), 3)); 
+    maxLocation = abs(normResponse - 100) < 1e-5;
+    noMaxima = sum(maxLocation, 3);
+    % Compute the mean only if number of maxima is greater than zero (avoiding zero division)
+    maxLocationIds = sum(orientationId .* maxLocation, 3); 
+    nonZeroMaxima = noMaxima > 0;
+    maxLocationIds(nonZeroMaxima) = maxLocationIds(nonZeroMaxima) ./ noMaxima(nonZeroMaxima);
+    % Aliasing it to maxLocation
+    maxLocation = round(maxLocationIds);
 
     % Re-setting the maximum location to 0
     % Lower side boundaries
     [row, col] = find(maxLocation <= 2 & maxLocation > 0);
     % Converting them into linear indices for easier
     linearInds = sub2ind([imageH, imageW], row, col);
-    linearInds = sub2ind([imageH, imageW, norient], row, col, maxLocation(linearInds));
-    normResponse([linearInds; linearInds+1; linearInds+2]) = 0;
+    linearInds = sub2ind([imageH, imageW, norient], ...
+                    repmat(row, [3 1]), ...
+                    repmat(col, [3 1]), ...
+                    [maxLocation(linearInds); maxLocation(linearInds)+1; maxLocation(linearInds)+2]);
+    normResponse(linearInds) = 0;
 
     % Upper side boundaries
     [row, col] = find(maxLocation >= 35);
     % Converting them into linear indices
     linearInds = sub2ind([imageH, imageW], row, col);
-    linearInds = sub2ind([imageH, imageW, norient], row, col, maxLocation(linearInds));
-    normResponse([linearInds; linearInds-1; linearInds-2]) = 0;
+    linearInds = sub2ind([imageH, imageW, norient], ...
+                    repmat(row, [3 1]), ...
+                    repmat(col, [3 1]), ...
+                    [maxLocation(linearInds); maxLocation(linearInds)-1; maxLocation(linearInds)-2]);
+    normResponse(linearInds) = 0;
 
     % Other inside cases
     [row, col] = find(maxLocation > 2 & maxLocation <= 34);
     % Converting them into linear indices
     linearInds = sub2ind([imageH, imageW], row, col);
-    linearInds = sub2ind([imageH, imageW, norient], row, col, maxLocation(linearInds));
-    normResponse([linearInds+2; linearInds+1;linearInds; linearInds-1; linearInds-2]) = 0;
+    linearInds = sub2ind([imageH, imageW, norient], ...
+                    repmat(row, [5 1]), ...
+                    repmat(col, [5 1]), ...
+                    [maxLocation(linearInds); maxLocation(linearInds)-1; maxLocation(linearInds)-2; ...
+                        maxLocation(linearInds)+1; maxLocation(linearInds)+2]);
+    normResponse(linearInds) = 0;
     
     % Sorted response
     sortedResponse = sort(normResponse, 3, 'descend');
@@ -159,16 +181,12 @@
     confidenceMap(updatePixels) = contrast(updatePixels);
     orientationMap = (maxLocation - 1) * angleInterval;
 
+    % Make response when maxLocation = 0, as zero; only for confidenceMap
+    confidenceMap(maxLocation == 0) = 0;
+    orientationMap(~logical(border)) = -1 * angleInterval;
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    border = zeros(imageH, imageW);
-    border(1+halfKerSize:imageH-halfKerSize, 1+halfKerSize:imageW-halfKerSize) = 1;
-    %sum(sum(abs(border.*orientationMap - args.orientationMap)))
-    %sum(sum(abs(border.*confidenceMap - args.confidenceMap)))
-    %sum(sum(sum(abs(args.tempImage - normResponse .* border(:, :, ones(1,norient))))))
-    sum(sum(abs(args.tempImage - maxLocation .* border)))
-    %sum(sum(abs(args.tempImage - contrast)))
-    %figure; imagesc(confidenceMap)
-    %figure; imagesc(args.confidenceMap)
+
 
 %    vpX = 0; vpY = 0;
 %end
