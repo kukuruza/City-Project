@@ -6,10 +6,9 @@ inputPath = '~/CMU/VanishingPointEstimation/image%03d.jpg'; %%% input image path
 outputPath_final = '~/CMU/VanishingPointEstimation/results/'; %%% result path
 
 vpCoord = [];
-%imSize = [180, 240];
 
 %imgName = sprintf(inputPath, 106);
-   imgName = '~/CMU/VanishingPointEstimation/image0000.jpg';
+   imgName = '~/CMU/VanishingPointEstimation/image106.jpg';
     
 if exist(imgName,'file')>0
     colorImg = imread(imgName);
@@ -19,13 +18,15 @@ if exist(imgName,'file')>0
         img = colorImg;
     end
 
-    img = imresize(img, size(img));%[180, 240]); 
-    colorImg = imresize(colorImg, size(img));
+    imSize = [180, 240];
+    imSize = 0.5 * size(img);
+    %imSize = [90, 120];
+    img = imresize(img, imSize);%[180, 240]); 
+    colorImg = imresize(colorImg, imSize);
     
-    tic
     i = 35;
     % Their implementation
-    tic; args = author(img,colorImg, 36, outputPath_final, i); toc
+    %tic; args = author(img,colorImg, 36, outputPath_final, i); toc
     
     % My implementation
     % Running it as a script
@@ -36,5 +37,6 @@ if exist(imgName,'file')>0
     numOfValidFiles = 35;
     %tic; faster(grayImg, colorImg, norient, outputPath, numOfValidFiles) ; toc
     tic; faster ; toc
+    tic; roadDetection; toc
 end
 

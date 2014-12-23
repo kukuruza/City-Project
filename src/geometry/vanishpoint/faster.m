@@ -213,8 +213,74 @@
         displayOrientImg = displayOrientationImage(orientationMap, grayImg);
         imwrite(uint8(displayOrientImg), fullfile(outputPath, ...
                         sprintf('%d_orientationBarImg.jpg', numOfValidFiles)), 'jpg');
+        imwrite(uint8(orientationMap), fullfile(outputPath, ...
+                        sprintf('%d_orientationMap.jpg', numOfValidFiles)), 'jpg');
     end
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % For shadows remove horizontal or nearly horizontal edges
+    nonHorizontalEdges = ones(imageH, imageW);
+    nonHorizontalEdges(orientationMap == 180) = 0;
+
+    % Voting for vanishing point estimation
+    edgeImg = ones(imageH, imageW) .* outlierBinary .* nonHorizontalEdges;
+    
+    % Indices of edge pixels
+    [rowInd, colInd] = find(edgeImg == 1);
+    noEdgePixels = sum(edgeImg(:));
+
+    % Variables for voting map
+    votingMap = zeros(imageH, imageW);
+    interval = 1;
+    uppPercent = 0.9;
+    halfLargestDistance = largestDistance * 0.5;
+
+    % Change to smaller values for better results in case of extremely 
+    % low vanishing points
+    halfImgH = round(imageH * 0.4);
+
+    % Given a point on the edge, find the regions it can contribute to
+    % Pre-computing few matrices for easier access
+    % Point of interest is assumed to be at the bottom point
+    % ie (halfImgH, imageW)
+    [xInd, yInd] = meshgrid(1:(2*imageW-1) , 1:halfImgH-1);
+    distanceMatrix = hypot(xInd - imageW, yInd - halfImgH);
+    angleMatrix = 180/pi * acos((imageW - xInd) ./ distanceMatrix);
+
+    % For each point on the edge
+    for ptId = 1:noEdgePixels
+        rowPt = rowInd(ptId);
+        colPt = colInd(ptId);
+        
+        % Get the row / column ranges for matrix and map
+        matRowRange = max(halfImgH - rowPt + 1, 1):halfImgH-1;
+        matColRange = imageW-colPt+1:2*imageW-colPt;
+        mapRowRange = max(1, rowPt - halfImgH +1):rowPt-1;
+
+        % Get the region of voting for this pixel
+        angleDiff = abs(angleMatrix(matRowRange, matColRange) - orientationMap(rowPt, colPt));
+        votingRegion = angleDiff < angleInterval;
+
+        distanceSubMatrix = distanceMatrix(matRowRange, matColRange);
+        pointVoteMap = zeros(size(distanceSubMatrix));
+
+        % Only at this points
+        votingPt = (votingRegion == 1);
+        pointVoteMap(votingPt) = exp(-distanceSubMatrix(votingPt) .* angleDiff(votingPt) / halfLargestDistance);
+
+        % Compute its contribution and add it to the voting map
+        %pointVoteMap = exp(-distanceMatrix(matRowRange, matColRange) .* angleDiff/halfLargestDistance);
+        votingMap(mapRowRange, :) = votingMap(mapRowRange, :) + pointVoteMap;
+    end
+
+    % voting map considered only within this region
+    votingRoi = zeros(imageH, imageW);
+    votingRoi(1:round(imageH * 0.9), halfKerSize+1:imageW-halfKerSize) = 1; 
+    votingMap = votingMap .* votingRoi;
+    %sum(sum(abs(args.votingMap - votingMap .* votingRoi)))
+
+    %difference = abs(args.votingMap - votingMap.*votingRoi);
+    %figure; imagesc(difference)
 
  %   vpX = 0; vpY = 0;
 %end
