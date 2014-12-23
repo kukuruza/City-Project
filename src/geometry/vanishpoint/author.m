@@ -158,8 +158,6 @@ for i=1+halfKerSize:imCopyH-halfKerSize
 end
 orientationMap = (orientationMap-1)*angleInterval;
 
-args = [];
-if(0)
 
 maxV = max(max(confidenceMap(1+halfKerSize:imCopyH-halfKerSize,1+halfKerSize:imCopyW-halfKerSize)));
 minV = min(min(confidenceMap(1+halfKerSize:imCopyH-halfKerSize,1+halfKerSize:imCopyW-halfKerSize)));
@@ -228,13 +226,13 @@ for i=10:8:imCopyH*2-10
                 end
             end
         end
-        
-        
-            
     end
 end
 
 imwrite(uint8(doim_resized), [outputPath,int2str(numOfValidFiles),'vpOrientationBarImg.jpg'], 'jpg');
+
+args = [];
+if(0)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% to deal with shadows, remove those edge
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% pixels whose orientations are oriental or

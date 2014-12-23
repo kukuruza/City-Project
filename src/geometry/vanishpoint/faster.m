@@ -1,4 +1,4 @@
-%function [vpY, vpX] = my(grayImg, colorImg, norient, outputPath, numOfValidFiles)
+%function [vpY, vpX] = faster(grayImg, colorImg, norient, outputPath, numOfValidFiles)
     % If files should be dumped for debugging
     fileDump = false;
 
@@ -35,10 +35,10 @@
     %%%%%%%%%%%%%% Saving the outlier image %%%%%%%%%%%%%%     
     if(fileDump)
         outliers = grayImg(:, :, [1 1 1]);
-        outliers(:, :, 1) = (1-candidateVotingMap) .* outliers(:, :, 1) + ...
+        outliers(:, :, 1) = (1-candidateVotingMap).*double(outliers(:, :, 1)) + ...
                             candidateVotingMap .* 255;
 
-        imwrite(unint8(outliers), fullfile(outputPath, ...
+        imwrite(uint8(outliers), fullfile(outputPath, ...
                 sprintf('%d_outliersImage.jpg', numOfValidFiles)), 'jpg');
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -113,9 +113,10 @@
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Border for the active part of the image
-    border = zeros(imageH, imageW);
-    border(1+halfKerSize:imageH-halfKerSize, 1+halfKerSize:imageW-halfKerSize) = 1;
+    % Region of interest for the active part of the image
+    roi = zeros(imageH, imageW);
+    roi(1+halfKerSize:imageH-halfKerSize, 1+halfKerSize:imageW-halfKerSize) = 1;
+    roi = logical(roi);
 
     % Evaluating the dominant orientation
     confidenceMap = zeros(imageH,imageW); % Confidence of the edge orientation
@@ -183,10 +184,37 @@
 
     % Make response when maxLocation = 0, as zero; only for confidenceMap
     confidenceMap(maxLocation == 0) = 0;
-    orientationMap(~logical(border)) = -1 * angleInterval;
+    orientationMap(~logical(roi)) = -1 * angleInterval;
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%% Re-scaling and saving the confidence image %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    minVal = min(confidenceMap(roi));
+    maxVal = max(confidenceMap(roi));
+    confidenceMap(roi) = 255 * (confidenceMap(roi) - minVal)/(maxVal - minVal);
+
+    % Saving the confidence image
+    if(fileDump) 
+        imwrite(confidenceMap, fullfile(outputPath, ...
+                        sprintf('%d_confidenceMap.jpg', numOfValidFiles)), 'jpg');
+    end
+
+    % Saving the confidence image, overlapping on gray image
+    if(fileDump)
+        confidenceMapBinary = (confidenceMap > 30);     
+        confOverlapImg = grayImg .* uint8(~confidenceMapBinary);
+        confOverlapImg = confOverlapImg(:, :, [1 1 1]);
+        confOverlapImg(:, :, 1) = double(confOverlapImg(:, :, 1)) + 255*confidenceMapBinary;
+
+        imwrite(uint8(confOverlapImg), fullfile(outputPath, ...
+                        sprintf('%d_confidenceOverlap.jpg', numOfValidFiles)), 'jpg');
+    end
+
+    % Saving the orientation image, rescaling by 2
+    if(fileDump)
+        displayOrientImg = displayOrientationImage(orientationMap, grayImg);
+        imwrite(uint8(displayOrientImg), fullfile(outputPath, ...
+                        sprintf('%d_orientationBarImg.jpg', numOfValidFiles)), 'jpg');
+    end
 
 
-%    vpX = 0; vpY = 0;
+ %   vpX = 0; vpY = 0;
 %end

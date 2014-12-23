@@ -34,6 +34,7 @@ if exist(imgName,'file')>0
     norient = 36;
     outputPath = outputPath_final;
     numOfValidFiles = 35;
+    %tic; faster(grayImg, colorImg, norient, outputPath, numOfValidFiles) ; toc
     tic; faster ; toc
 end
 
