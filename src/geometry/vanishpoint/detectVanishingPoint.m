@@ -1,7 +1,10 @@
-%function [vpY, vpX] = faster(grayImg, colorImg, norient, outputPath, numOfValidFiles)
+function [vanishPoint, orientationMap] = detectVanishingPoint(grayImg, colorImg, norient, ...
+                            outputPath, numOfValidFiles, fileDump)
     % If files should be dumped for debugging
-    fileDump = false;
-
+    if(nargin < 6)
+        fileDump = false;
+    end
+    
     % Speeded up version for vanishing point detection, written in
     % parallel to the author's implementation
     [imageH, imageW] = size(grayImg);
@@ -275,12 +278,45 @@
 
     % voting map considered only within this region
     votingRoi = zeros(imageH, imageW);
-    votingRoi(1:round(imageH * 0.9), halfKerSize+1:imageW-halfKerSize) = 1; 
-    votingMap = votingMap .* votingRoi;
-    %sum(sum(abs(args.votingMap - votingMap .* votingRoi)))
+    votingRoi(1:round(imageH * uppPercent), halfKerSize+1:imageW-halfKerSize) = 1;
+    votingRoi = logical(votingRoi);
+    votingMap(~votingRoi) = 0;
+    
+    % Normalizing the voting map based on the roi
+    maxVotingMap = max(votingMap(votingRoi));
+    minVotingMap = min(votingMap(votingRoi));
+    votingMap(votingRoi) = (votingMap(votingRoi) - minVotingMap) ...
+                    / (maxVotingMap - minVotingMap);
+    
+    % Setting the lower regions of confidence map zero
+    votingMap(round(uppPercent * imageH):imageH, :) = 0;
 
-    %difference = abs(args.votingMap - votingMap.*votingRoi);
-    %figure; imagesc(difference)
-
- %   vpX = 0; vpY = 0;
-%end
+    % Summing the neighbour using single filter
+    windowSize = 11;
+    votingSumMap = colfilt(votingMap, [windowSize windowSize], 'sliding', @sum);
+    
+    % Find the location/locations of the maximum value and take a mean
+    maxVoteSum = max(votingSumMap(:));
+    maxLinearIds = find(votingSumMap == maxVoteSum);
+    [rowIds, colIds] = ind2sub([imageH, imageW], maxLinearIds);
+    
+    % If multiple maxima, take a mean eitherways
+    vpY = round(mean(rowIds));
+    vpX = round(mean(colIds));
+    vanishPoint = [vpX, vpY];
+    
+    % Drawing the vanishingpoint on the image and dumping it
+    if(fileDump)
+        redColor = uint8([255 0 0]);  % [R G B]; class of red must match class of I
+        vpMarker = vision.MarkerInserter('Shape','Circle', ...
+                    'BorderColor','Custom','CustomBorderColor',redColor);
+        vpMarkedImg = step(vpMarker, colorImg, [vpX vpY]);
+        
+        % Saving marked image 
+        imwrite(uint8(vpMarkedImg), fullfile(outputPath, ...
+                        sprintf('%d_vpMarkedImage.jpg', numOfValidFiles)), 'jpg');
+        
+        imwrite(uint8(votingMap), fullfile(outputPath, ...
+                        sprintf('%d_votingMap.jpg', numOfValidFiles)), 'jpg');
+    end
+end

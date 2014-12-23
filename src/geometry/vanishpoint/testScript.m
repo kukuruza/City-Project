@@ -18,7 +18,7 @@ if exist(imgName,'file')>0
         img = colorImg;
     end
 
-    imSize = [180, 240];
+    %imSize = [180, 240];
     imSize = 0.5 * size(img);
     %imSize = [90, 120];
     img = imresize(img, imSize);%[180, 240]); 
@@ -35,8 +35,19 @@ if exist(imgName,'file')>0
     norient = 36;
     outputPath = outputPath_final;
     numOfValidFiles = 35;
-    %tic; faster(grayImg, colorImg, norient, outputPath, numOfValidFiles) ; toc
-    tic; faster ; toc
-    tic; roadDetection; toc
+    
+    tic; 
+    [vanishPt, orientationMap] = ...
+        detectVanishingPoint(grayImg, colorImg, norient, ...
+                                outputPath, numOfValidFiles);
+    toc
+    
+    tic;
+    [roadImg, displayImg] = ...
+        detectRoadLanes(grayImg, colorImg, vanishPt, orientationMap, ...
+                                outputPath, numOfValidFiles); 
+    toc
+    
+    figure(1); imshow(displayImg)
 end
 
