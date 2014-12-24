@@ -4,19 +4,22 @@ function[debugFrame, lanes] = generateRoadBelief(obj, foreground, frame)
     % Computing the inverse perspective transform, for the first time
     laneRatio = 0.3;
     laneWidth = obj.imageSize(2) * 0.25;
-    [ipHomography, warpedFrame] = obj.computeIPTransform(foreground, laneRatio, laneWidth); 
+    [ipHomography, warpedBackground] = obj.computeIPTransform(foreground, laneRatio, laneWidth); 
+    
+    % Warping the frame for debugging
+    % warpedFrame = warpH(frame, ipHomography, size(frame));
     
     % Valid range for histogram
     minCol = obj.imageSize(2)/2 - laneWidth;
     maxCol = obj.imageSize(2)/2 + laneWidth;
     
-    warpedFrame = warpedFrame(:, minCol:maxCol);
+    warpedBackground = warpedBackground(:, minCol:maxCol);
     
     % Check if roadBelief has been initiated
     if(size(obj.roadBelief, 1) > 0)
-        obj.roadBelief = obj.roadBelief + sum(warpedFrame); 
+        obj.roadBelief = obj.roadBelief + sum(warpedBackground); 
     else
-        obj.roadBelief = sum(warpedFrame); 
+        obj.roadBelief = sum(warpedBackground); 
     end
     
     % Smoothen the belief and estimate the number of minima
