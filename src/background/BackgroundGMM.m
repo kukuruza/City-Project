@@ -1,6 +1,6 @@
 % A thin wrapper around vision.ForegroundDetector and vision.BlobAnalysis
 
-classdef Background < BackgroundInterface
+classdef BackgroundGMM < BackgroundInterface
      properties (Hidden)
          detector;
          blob;
@@ -15,7 +15,7 @@ classdef Background < BackgroundInterface
      end % properties
      
      methods
-        function BS = Background (varargin) % see interface
+        function BS = BackgroundGMM (varargin)
             % parse and validate input
             parser = inputParser;
             addParameter(parser, 'num_training_frames', 3, @isscalar);
@@ -46,48 +46,44 @@ classdef Background < BackgroundInterface
         end
          
          
+        function mask = subtract (BS, image, varargin)
+            % parse and validate input
+            parser = inputParser;
+            addRequired(parser, 'image', @(x) ndims(x) == 3 && size(x,3) == 3);
+            addParameter(parser, 'denoise', true, @islogical);
+            parse (parser, image, varargin{:});
+            parsed = parser.Results;
 
-         % bbox [x,y,w,h] 
-         function [mask, bboxes] = subtract (BS, frame)
-             mask  = step(BS.detector, frame);
-             bboxes = step(BS.blob, mask);
+            % actual subtraction
+            mask  = step(BS.detector, image);
 
-             %ROIs
-             %imshow([frame 255*uint8(mask)]);
-             %waitforbuttonpress
+            if parsed.denoise
+                mask = denoiseMask(mask, BS.fn_level, BS.fp_level);
+            end
          end
          
          
-         % add more foreground and remove noise
-         function [mask, bboxes] = subtractAndDenoise (BS, frame)
-             mask  = step(BS.detector, frame);
-             mask = denoiseMask(mask, BS.fn_level, BS.fp_level);
-             
-             bboxes = step(BS.blob, mask);
-         end
-         
-         
-         % when mask from the previus function is changed and bboxes wanted
+        % bbox [x,y,w,h] 
          function bboxes = mask2bboxes (BS, mask)
              bboxes = step(BS.blob, mask);
          end 
          
          
-         function im_out = drawboxes (BS, im, bboxes)
+         function im_out = drawboxes (BS, image, bboxes)
              bboxes = [bboxes(:,1), bboxes(:,2), bboxes(:,3), bboxes(:,4)];
-             im_out = step(BS.shapeInserter, im, bboxes);
+             im_out = step(BS.shapeInserter, image, bboxes);
          end
          
          
          % If there is just one car in the image detect it
          % Returns [] if there is not exactly one car
-         function [bbox, certainty] = getSingleCar (BS, frame)
+         function [bbox, certainty] = getSingleCar (BS, image)
              % default is failure
              bbox = [];
              certainty = 0;
              
              % get with the usual subtract
-             [~, bboxes] = subtract (BS, frame);
+             [~, bboxes] = subtract (BS, image);
              if size(bboxes,1) ~= 1, return, end
              
              % TODO: get more advanced accuracy

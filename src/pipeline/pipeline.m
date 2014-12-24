@@ -25,7 +25,7 @@ fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.getCameraRoadMap();
 
 % background
-background = Background();
+background = BackgroundGMM();
 
 % detector
 modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
@@ -53,7 +53,7 @@ for t = 1 : 100
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = background.subtractAndDenoise(gray);
+    foregroundMask = background.subtract(frame, 'denoise', true);
 
     % geometry processing mask and bboxes
     foregroundMask = foregroundMask & logical(roadCameraMap);
