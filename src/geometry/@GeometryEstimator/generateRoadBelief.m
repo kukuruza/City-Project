@@ -1,4 +1,4 @@
-function generateRoadBelief(obj, foreground, frame)
+function[debugFrame, lanes] = generateRoadBelief(obj, foreground, frame)
     % Function to generate the belief of the road using the foreground
     
     % Computing the inverse perspective transform, for the first time
@@ -49,11 +49,22 @@ function generateRoadBelief(obj, foreground, frame)
     % Converting from homogeneous to non-homogeneous
     imgPts = [imgPts(1, :) ./ imgPts(3, :); imgPts(2, :) ./ imgPts(3, :)]; 
     
+    % Creating the equations for the lanes
+    for i = 1:length(imgPts)
+        
+    end
+    lanes = [];
+    
     debugFrame = frame;
     % Drawing the points on the image
     for i = 1:size(imgPts, 2)
         debugFrame = drawLineSegment(debugFrame, obj.road.vanishPt, imgPts(:, i));
     end
     
-    figure(3); imshow(debugFrame)
+    debug = true;
+    if(debug)
+        figure(3); imshow(debugFrame)
+        %figure(4); plot(smoothBelief)
+        %figure(5); imshow(warpedFrame)
+    end
 end

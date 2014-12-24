@@ -21,6 +21,11 @@ classdef GeometryEstimator < GeometryInterface
         % pixels(histogram based approach)
         roadBelief; 
         
+        % Belief build using automatic lane marking and vanishingpoint 
+        % detection
+        vanishPoint;
+        boundaryLanes;
+        
     end
     methods
         %% Constructor

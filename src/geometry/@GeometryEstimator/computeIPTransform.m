@@ -35,7 +35,12 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     % First extreme wrt to the border goes to bottom left
     pts1 = []; pts2 = [];
     pts1 = [pts1, [obj.imageSize(2)/2 - laneWidth; obj.imageSize(1)]];
-    lineEq = obj.road.lanes{1}.leftEq;
+    
+    % Using the automatically detected left lanes
+    slope = tand(obj.boundaryLanes(1));
+    lineEq = [slope, obj.road.vanishPt(2) - slope * obj.road.vanishPt(1)];
+    
+    %lineEq = obj.road.lanes{1}.leftEq;
     % Intercept with left border
     % Checking if within the frame
     if(lineEq(2) < obj.imageSize(1))
@@ -55,7 +60,11 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     % Right extreme wrt to the border goes to bottom right
     pts1 = [pts1, [obj.imageSize(2)/2 + laneWidth; obj.imageSize(1)]];
 
-    lineEq = obj.road.lanes{end}.rightEq;
+    % Using the automatically detected left lanes
+    slope = tand(obj.boundaryLanes(2));
+    lineEq = [slope, obj.road.vanishPt(2) - slope * obj.road.vanishPt(1)];
+    
+    %lineEq = obj.road.lanes{end}.rightEq;
     % Intercept with right border
     % Checking if within the frame
     rightIntercept = lineEq(1) * obj.imageSize(2) + lineEq(2);
@@ -92,4 +101,3 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     
     %obj.homography = H;
 end
-
