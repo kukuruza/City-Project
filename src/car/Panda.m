@@ -32,7 +32,7 @@ classdef Panda < Car
     end
     methods
         function C = Panda (car)
-            C = C@Car([]);
+            C = C@Car([-1 -1 -1 -1]);
             C.bbox = car.bbox;
             C.patch = car.patch;
             C.segmentMask = car.segmentMask; 

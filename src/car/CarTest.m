@@ -7,7 +7,7 @@ classdef CarTest < matlab.unittest.TestCase
     end
 
     methods (TestClassSetup)
-        function setupPaths (~)
+        function setupPaths (testCase)
             cd (fileparts(mfilename('fullpath')));
             run ../rootPathsSetup.m;
             run ../subdirPathsSetup.m;

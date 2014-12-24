@@ -6,31 +6,21 @@
 classdef BackgroundInterface < handle
     methods (Abstract)
 
-         % Get noisy foreground mask and optionally boxes (bbox [x,y,w,h])
-         %
-         %function [mask, bboxes] = 
-         subtract (BS, frame)
+         % get foreground mask and optionally denoise it, and merge close
+         % parameters:
+         %   'denoise', {true, false}
+         %   'merge', {true, false}
+         mask = subtract (BS, image, varargin)
          
-         % The same, but with increased foreground recall and removed noise
-         %
-         %function [mask, bboxes] = 
-         subtractAndDenoise (BS, frame)
+         % given a mask, get boxes
+         bboxes = mask2bboxes (BS, mask)
          
-         % When mask from the previus function is changed and bboxes wanted
-         %
-         %function bboxes = 
-         mask2bboxes (BS, mask)
+         % draw provided boxes in the provided image
+         im_out = drawboxes (BS, image, bboxes)
          
-         % Draw provided boxes in the provided image
-         %
-         %function im_out = 
-         drawboxes (BS, im, bboxes)
-         
-         % If there is just one car in the image detect it
-         % Returns [] if there is more than one car
-         %
-         %function [bbox, certainty] = 
-         getSingleCar (BS, frame)
+         % if there is just one car in the image detect it.
+         % returns [] if there is more than one car
+         [bbox, certainty] = getSingleCar (BS, image)
 
     end % methods
 end

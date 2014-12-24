@@ -13,8 +13,8 @@ run ../subdirPathsSetup.m;
 
 %% input
 
-verbose = 0;
-dowrite = true;
+verbose = 1;
+dowrite = false;
 dopause = 0.3;
 
 videoPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.avi'];
@@ -33,7 +33,8 @@ outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
 frameReader = FrameReaderVideo (videoPath, timestampPath);
 
 % background
-background = Background('num_training_frames', 40);
+background = BackgroundTrueback ([CITY_DATA_PATH '/data/camdata/cam572/10am/background1.png'], ...
+    'black_threshold', 30);
 
 % geometry
 cameraId = 572;
