@@ -12,15 +12,17 @@ run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
 % input frames
-videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
-timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
+inDir = 'camdata/cam572/10am/';
+videoPath = [CITY_DATA_PATH, inDir, '2-hours.avi'];
+timesPath = [CITY_DATA_PATH, inDir, '2-hours.txt'];
+%frameReader = FrameReaderImages ([CITY_DATA_PATH, inDir]); 
 frameReader = FrameReaderVideo (videoPath, timesPath); 
 
 % background
 background = BackgroundGMM();
 
 % output model
-outputPath = [CITY_DATA_PATH, 'camdata/cam572/5pm/models/backgroundGMM.mat'];
+outputPath = [CITY_DATA_PATH, inDir, 'models/backgroundGMM.mat'];
 
 for t = 1 : 1000
     fprintf ('.');

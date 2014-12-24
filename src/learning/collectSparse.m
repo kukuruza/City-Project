@@ -23,8 +23,8 @@ timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
 
 %% output
 
-outPatchesDir = [CITY_DATA_PATH 'testdata/learned/patches/'];
-outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
+outPatchesDir = [CITY_DATA_PATH 'testdata/learning/cam572-sparse1/patches/'];
+outCarsDir = [CITY_DATA_PATH 'testdata/learning/cam572-sparse1/cars/'];
 
 
 %% init
@@ -33,8 +33,13 @@ outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
 frameReader = FrameReaderVideo (videoPath, timestampPath);
 
 % background
-background = BackgroundTrueback ([CITY_DATA_PATH '/data/camdata/cam572/10am/background1.png'], ...
-    'black_threshold', 30);
+%background = BackgroundGMM ('fn_level', 15, ...
+%                            'fp_level', 1, ...
+%                            'minimum_blob_area', 50);
+load ([CITY_DATA_PATH, 'camdata/cam572/10am/models/backgroundGMM.mat']);
+
+% true background
+backImage = imread([CITY_DATA_PATH, 'camdata/cam572/10am/background1.png']);
 
 % geometry
 cameraId = 572;
@@ -57,10 +62,12 @@ for t = 1 : 100000
     frame_out = frame;
     fprintf ('frame: %d\n', t);
 
-    
+    % get the trace of foreground. Cars will be learned from this.
+    frameTrace = abs(backImage - frame);
+
     % subtract background and return mask
-    % bboxes = N x [x1 y1 width height]
-    [foregroundMask, bboxes] = background.subtract(gray);
+    foregroundMask = background.subtract(frame);
+    
     cars = Car.empty;
     for k = 1 : size(bboxes,1)
         cars(k) = Car(bboxes(k,:));
@@ -69,7 +76,8 @@ for t = 1 : 100000
     foregroundMask = imdilate(foregroundMask, strel('disk', 2));
     if verbose > 0
         figure(2)
-        imshow(foregroundMask);
+        subplot(1,2,1), imshow(foregroundMask);
+        subplot(1,2,2), imshow(frameTrace);
     end
     fprintf ('background cars: %d\n', length(cars));
     
@@ -169,7 +177,7 @@ for t = 1 : 100000
     for j = 1 : length(cars)
         frame_out = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
         car = cars(j);
-        car.patch = car.extractPatch(frame);
+        car.patch = car.extractPatch(frameTrace); % cars are learned from trace
         namePrefix = ['f' sprintf('%03d',t) '-car' sprintf('%03d',j)];
         if dowrite
             save ([outCarsDir namePrefix '.mat'], 'car');
