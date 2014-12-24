@@ -107,9 +107,9 @@ for t = 1 : 100
     frame_out = frame;
     for i = 1 : length(cars)
         if newCarIndices(i) == 0
-            frame_out = cars(i).drawCar(frame_out, 'blue', 'seen');
+            frame_out = cars(i).drawCar(frame_out, 'color', 'blue', 'tag', 'seen');
         else 
-            frame_out = cars(i).drawCar(frame_out, 'yellow', 'new');
+            frame_out = cars(i).drawCar(frame_out, 'color', 'yellow', 'tag', 'new');
         end
     end
     
