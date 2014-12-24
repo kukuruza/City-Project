@@ -8,6 +8,10 @@ classdef BackgroundGMM < BackgroundInterface
      end
      properties (Hidden)  % constants
 
+         % one of two modes
+         AdaptLearningRate;
+         LearningRate;
+         
          % mask refinement
          fn_level = 22;
          fp_level = 1;
@@ -18,20 +22,39 @@ classdef BackgroundGMM < BackgroundInterface
         function BS = BackgroundGMM (varargin)
             % parse and validate input
             parser = inputParser;
-            addParameter(parser, 'num_training_frames', 3, @isscalar);
-            addParameter(parser, 'initial_variance', 20, @isscalar);
+            addParameter(parser, 'AdaptLearningRate', true, @islogical);
+            addParameter(parser, 'NumTrainingFrames', 50, @isscalar);
+            addParameter(parser, 'LearningRate', 0.005, @isscalar);
+            addParameter(parser, 'MinimumBackgroundRatio', 0.9, @isscalar);
+            addParameter(parser, 'NumGaussians', 2, @isscalar);
+            addParameter(parser, 'InitialVariance', 15^2, @isscalar);
             addParameter(parser, 'fn_level', 22, @isscalar);
             addParameter(parser, 'fp_level', 1, @isscalar);
             addParameter(parser, 'minimum_blob_area', 50, @isscalar);
             parse (parser, varargin{:});
             parsed = parser.Results;
             
+            BS.AdaptLearningRate = parsed.AdaptLearningRate;
+            BS.LearningRate = parsed.LearningRate;
             BS.fn_level = parsed.fn_level;
             BS.fp_level = parsed.fp_level;
 
-            BS.detector = vision.ForegroundDetector(...
-                   'NumTrainingFrames', parsed.num_training_frames, ...
-                   'InitialVariance', parsed.initial_variance^2);
+            if BS.AdaptLearningRate == true
+                BS.detector = vision.ForegroundDetector(...
+                       'AdaptLearningRate', true, ...
+                       'NumTrainingFrames', parsed.NumTrainingFrames, ...
+                       'LearningRate', parsed.LearningRate, ...
+                       'MinimumBackgroundRatio', parsed.MinimumBackgroundRatio, ...
+                       'NumGaussians', parsed.NumGaussians, ...
+                       'InitialVariance', parsed.InitialVariance);
+            else
+                BS.detector = vision.ForegroundDetector(...
+                       'AdaptLearningRate', false, ...
+                       'MinimumBackgroundRatio', parsed.MinimumBackgroundRatio, ...
+                       'NumGaussians', parsed.NumGaussians, ...
+                       'InitialVariance', parsed.InitialVariance);
+            end
+                
             BS.blob = vision.BlobAnalysis(...
                    'CentroidOutputPort', false, ...
                    'AreaOutputPort', false, ...
@@ -50,12 +73,16 @@ classdef BackgroundGMM < BackgroundInterface
             % parse and validate input
             parser = inputParser;
             addRequired(parser, 'image', @(x) ndims(x) == 3 && size(x,3) == 3);
-            addParameter(parser, 'denoise', true, @islogical);
+            addParameter(parser, 'denoise', false, @islogical);
             parse (parser, image, varargin{:});
             parsed = parser.Results;
 
             % actual subtraction
-            mask  = step(BS.detector, image);
+            if BS.AdaptLearningRate == true
+                mask = step(BS.detector, image);
+            else
+                mask = step(BS.detector, image, BS.LearningRate);
+            end
 
             if parsed.denoise
                 mask = denoiseMask(mask, BS.fn_level, BS.fp_level);

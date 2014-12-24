@@ -12,7 +12,7 @@
 
 classdef FrameWriterVideo < FrameWriter
     properties (Hidden)
-        FIG_NUM = 314159265; % random unlikely number
+        figure_h;
         
         layout = [1 1] % images grid in a frame. [nrows, ncols]
         video          % output
@@ -30,8 +30,8 @@ classdef FrameWriterVideo < FrameWriter
 
             % figure preparation
             if ~isscalar(layout) && layout(1) * layout(2) > 1
-                figure (FW.FIG_NUM);
-                set (FW.FIG_NUM,'units','normalized','outerposition',[0 0 1 1]);
+                FW.figure_h = figure;
+                set (FW.figure_h,'units','normalized','outerposition',[0 0 1 1]);
             end
         end
         
@@ -43,14 +43,7 @@ classdef FrameWriterVideo < FrameWriter
                 nrows = FW.layout(1);
                 ncols = FW.layout(2);
                 
-                % remember the current figure, if any
-                if ~isempty(findall(0,'Type','Figure'))
-                    currentFigure = gcf;
-                    figure (FW.FIG_NUM);
-                else
-                    currentFigure = figure (FW.FIG_NUM);
-                end
-                
+                figure(FW.figure_h);
                 for row = 1 : nrows
                     for col = 1 : ncols
                         i = (row-1) * ncols + col;
@@ -60,21 +53,17 @@ classdef FrameWriterVideo < FrameWriter
                 end
                 
                 frame = getframe(gcf);
-                
-                % switch back to the remembered figure
-                figure(currentFigure);
             else
                 frame = images;
             end
             
-            imshow(frame);
             writeVideo (FW.video, frame);
             
             FW.counter = FW.counter + 1;
         end
         
         function delete(FW)
-            if ishandle(FW.FIG_NUM), close(FW.FIG_NUM), end
+            if ishandle(FW.figure_h), close(FW.figure_h), end
             close (FW.video);
         end
 
