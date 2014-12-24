@@ -166,6 +166,21 @@ classdef GeometryEstimator < GeometryInterface
         computeCameraRoadMap(obj);
         
         % Computing the orientation mask for the road
-        computeOrientationMap(obj);            
+        computeOrientationMap(obj);  
+    end
+    
+    %% Static methods
+    methods (Static)
+        % Detecting the vanishingpoint, boundaries automatically
+        [vanishPoint, orientationMap] = detectVanishingPoint(grayImg,...
+                colorImg, norient, outputPath, numOfValidFiles, fileDump);
+        
+        % Detecting the extremes of the road    
+        [roadBinaryImage, displayImg] = detectRoadBoundary(grayImg,...
+        colorImg, vanishPoint, orientationMap, outputPath, numOfValidFiles, fileDump);                            
+    
+        % Estimate the vanishingpoint and extremes of the lane
+        % (based on several frames, offline processing)
+        [vanishPoint, boundaryLanes] = estimateRoad(frame, binaryImgPath, noFrames);
     end
 end
