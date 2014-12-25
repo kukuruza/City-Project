@@ -21,7 +21,7 @@ imagePath = [CITY_DATA_PATH '2-min/camera368/'];
 frameReader = FrameReaderImages(imagePath);
 
 % background
-background = Background();
+background = BackgroundGMM();
 return
 % geometry
 objectFile = '../GeometryObject_Camera_572.mat';
@@ -54,11 +54,11 @@ for t = 1 : 100
     gray = rgb2gray(frame);
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    %foregroundMask = background.subtractAndDenoise(gray);
+    %foregroundMask = background.subtract(frame, 'denoise', true);
 
     % geometry processing mask and bboxes
     %foregroundMask = foregroundMask & logical(roadCameraMap);
-    foregroundMask = background.subtract(gray) & logical(roadCameraMap);
+    foregroundMask = background.subtract(frame) & logical(roadCameraMap);
     
     % Debugging lane detection
     geom.generateRoadBelief(foregroundMask, frame);
