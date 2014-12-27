@@ -15,17 +15,22 @@ classdef FrameWriterImpairs < FrameWriter
     end % properties
     methods
         function FW = FrameWriterImpairs (imDir)
-            FW.imDir = imDir;
-            
-            if ~exist(imDir, 'file')
-                fprintf ('FrameWriterVideo(): imDir: %s\n', imDir);
-                error ('FrameWriterVideo(): imDir doesn''t exist');
-            end
+            % parse and validate input
+            parser = inputParser;
+            addRequired(parser, 'imDir', @(x) ischar(x) && exist(x, 'dir'));
+            parse(parser, imDir);
+            parsed = parser.Results;
+
+            FW.imDir = parsed.imDir;
         end
         
         % accepts image pair
         function writeNextFrame(FW, frame, frameName)
-            assert (~isempty(frame));
+            % parse and validate input
+            parser = inputParser;
+            addRequired(parser, 'frame', @(x) ~iscell(x) && (ismatrix(x) || ndims(x) == 3));
+            addRequired(parser, 'frameName', @ischar);
+            parse(parser, frame, frameName);
             
             % the very first frame
             if isempty(FW.prevFrame)
