@@ -20,12 +20,13 @@ inTimestampPath = [inVideoDir '15-mins.txt'];
 % output
 outBackgroundPath = [inVideoDir 'models/background.png'];
 outVideoPath = [inVideoDir 'models/backgroundTry.avi'];
+doWrite = false;
 
 
 % objects to detect background, to read video, and to write results video
 background = BackgroundGMM ('fn_level', 15, 'fp_level', 1);
 frameReader = FrameReaderVideo (inVideoPath, inTimestampPath);
-frameWriter = FrameWriterVideo (outVideoPath, 2, 1);
+if doWrite, frameWriter = FrameWriterVideo (outVideoPath, 2, 1); end
 
 for t = 1 : 10000
     
@@ -59,7 +60,7 @@ for t = 1 : 10000
     bBackImage(~mask) = bFrame(~mask);
     backImage = cat(3, rBackImage, gBackImage, bBackImage);
     
-    frameWriter.writeNextFrame(backImage);
+    if doWrite, frameWriter.writeNextFrame(backImage); end
 
     imshow(backImage);
     pause(0.3)
