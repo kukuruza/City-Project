@@ -13,8 +13,9 @@ run ../subdirPathsSetup.m;
 
 %% input
 
-verbose = 1;
-dowrite = false;
+verbose = 0;
+dowrite = true;
+dowriteFrames = true;
 dopause = 0.3;
 
 videoPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.avi'];
@@ -22,9 +23,16 @@ timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
 
 
 %% output
+outDir = [CITY_DATA_PATH 'learning/cam572-sparse2/'];
 
-outPatchesDir = [CITY_DATA_PATH 'testdata/learned/patches/'];
-outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
+if exist(outDir, 'dir')
+    rmdir(outDir, 's');
+end
+mkdir(outDir);
+mkdir([outDir 'cars/']);
+mkdir([outDir 'frames/']);
+mkdir([outDir 'goasts/']);
+mkdir([outDir 'patches/']);
 
 
 %% init
@@ -33,8 +41,10 @@ outCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
 frameReader = FrameReaderVideo (videoPath, timestampPath);
 
 % background
-background = BackgroundTrueback ([CITY_DATA_PATH '/data/camdata/cam572/10am/background1.png'], ...
-    'black_threshold', 30);
+load ([CITY_DATA_PATH, 'camdata/cam572/10am/models/backgroundGMM.mat']);
+
+% true background
+backImage = int32(imread([CITY_DATA_PATH, 'camdata/cam572/10am/background1.png']));
 
 % geometry
 cameraId = 572;
@@ -53,24 +63,22 @@ for t = 1 : 100000
     % read image
     [frame, ~] = frameReader.getNewFrame();
     if isempty(frame), break, end
-    gray = rgb2gray(frame);
     frame_out = frame;
     fprintf ('frame: %d\n', t);
 
-    
+    % get the trace of foreground. Cars will be learned from this.
+    frame_goast = backImage - int32(frame);
+
     % subtract background and return mask
-    % bboxes = N x [x1 y1 width height]
-    [foregroundMask, bboxes] = background.subtract(gray);
+    mask = background.subtract(frame);
+    bboxes = background.mask2bboxes(mask);
+    
     cars = Car.empty;
     for k = 1 : size(bboxes,1)
         cars(k) = Car(bboxes(k,:));
     end
-    foregroundMask = imerode (foregroundMask, strel('disk', 2));
-    foregroundMask = imdilate(foregroundMask, strel('disk', 2));
-    if verbose > 0
-        figure(2)
-        imshow(foregroundMask);
-    end
+%     mask = imerode (mask, strel('disk', 2));
+%     mask = imdilate(mask, strel('disk', 2));
     fprintf ('background cars: %d\n', length(cars));
     
     % assigning orientation
@@ -78,7 +86,6 @@ for t = 1 : 100000
         center = cars(j).getBottomCenter();
         cars(j).orientation = [orientationMap.yaw(center(1), center(2)) ...
                                orientationMap.pitch(center(1), center(2))];
-        cars(j).orientation
     end
 
     % filter: sizes (size is sqrt of area)
@@ -97,10 +104,14 @@ for t = 1 : 100000
     end
     cars = carsFilt;
     fprintf ('sized cars:      %d\n', length(cars));
-    
+
+    mask_out = cat(3, uint8(mask), uint8(mask), uint8(mask)) * 255;
+    for j = 1 : length(cars)
+        mask_out = cars(j).drawCar(mask_out, 'color', 'blue', 'tag', 'sized');
+    end
     
     % filter: bbox proportion
-    Heght2Width = [0.2 3];
+    Heght2Width = [0.5 1.2];
     counter = 1;
     carsFilt = Car.empty;
     for j = 1 : length(cars)
@@ -115,7 +126,7 @@ for t = 1 : 100000
     
     
     % filter: sparse in the image
-    SafeDistance = 2.0;
+    SafeDistance = 0.0;
     counter = 1;
     carsFilt = Car.empty;
     for j = 1 : length(cars)
@@ -123,7 +134,7 @@ for t = 1 : 100000
         expectedSize = roadCameraMap(center(1), center(2));
         isOk = true;
         for k = 1 : length(cars)
-            if dist(center, cars(k).getCenter()') < expectedSize * SafeDistance
+            if j ~= k && dist(center, cars(k).getCenter()') < expectedSize * SafeDistance
                 isOk = false;
             end
         end
@@ -147,7 +158,7 @@ for t = 1 : 100000
         center = cars(j).getCenter(); % [y x]
         expectedSize = roadCameraMap(center(1), center(2));
         roi = cars(j).getROI();
-        min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(2)])
+        %min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(2)])
         if min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(4)]) > DistToBorder
             carsFilt(counter) = cars(j);
             counter = counter + 1;
@@ -166,19 +177,37 @@ for t = 1 : 100000
     
     % output
     frame_out = frame;
+
     for j = 1 : length(cars)
-        frame_out = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
         car = cars(j);
-        car.patch = car.extractPatch(frame);
+        car.segmentMask = car.extractPatch(mask);
+        car.goast = car.extractPatch(frame_goast);
+        car.extractPatch(frame);
         namePrefix = ['f' sprintf('%03d',t) '-car' sprintf('%03d',j)];
         if dowrite
-            save ([outCarsDir namePrefix '.mat'], 'car');
-            imwrite(car.patch, [outPatchesDir namePrefix '.png']);
+            save ([outDir 'cars/' namePrefix '.mat'], 'car');
+            imwrite(car.patch, [outDir 'patches/' namePrefix '.png']);
+            imwrite(uint8(abs(car.goast)), [outDir 'goasts/' namePrefix '.png']);
         end
+    end
+    
+    frame_goast = uint8(abs(frame_goast));
+    for j = 1 : length(cars)
+        mask_out    = cars(j).drawCar(mask_out, 'color', 'yellow', 'tag', 'detected');
+        frame_out   = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
+        frame_goast = cars(j).drawCar(frame_goast, 'color', 'yellow', 'tag', 'detected');
+    end
+    if dowriteFrames
+        imwrite(frame,       [outDir 'frames/' sprintf('%03d',t) '-frame.jpg']);
+        imwrite(frame_out,   [outDir 'frames/' sprintf('%03d',t) '-out.jpg']);
+        imwrite(frame_goast, [outDir 'frames/' sprintf('%03d',t) '-goast.jpg']);
+        imwrite(mask_out,    [outDir 'frames/' sprintf('%03d',t) '-mask.jpg']);
     end
     if verbose > 0
         figure(1)
-        imshow(frame_out);
+        subplot(2,2,1), imshow(mask_out);
+        subplot(2,2,2), imshow(frame_goast);
+        subplot(2,2,3), imshow(frame_out);
         pause (max(0.1, dopause));
     end
 end

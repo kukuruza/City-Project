@@ -7,6 +7,7 @@ classdef Car < CarInterface
     properties
         bbox;  % [x1 y1 width height]
         patch = [];
+        goast = [];
         segmentMask;
         
         % parameters
@@ -29,7 +30,7 @@ classdef Car < CarInterface
             C.segmentMask = mask;
         end
         
-        function segmentWithBackgound
+        function adjustCenter(C)
             
         end
     end % Hidden
@@ -56,7 +57,7 @@ classdef Car < CarInterface
         function patch = extractPatch (C, image, varargin)
             % parse and validate input
             parser = inputParser;
-            addRequired (parser, 'image', @(x) ndims(x)==3 && size(x,3)==3);
+            addRequired (parser, 'image', @(x) ismatrix(x) || ndims(x)==3);
             expectedSegmentation = {'none', 'maxflow', 'background'};
             addParameter (parser, 'segment', 'none', ...
                           @(x) any(validatestring(x,expectedSegmentation)));
