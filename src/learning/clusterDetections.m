@@ -12,8 +12,8 @@ run ../subdirPathsSetup.m;
 
 %% input
 
-inPatchesDir = [CITY_DATA_PATH 'testdata/learned/patches/'];
-inCarsDir = [CITY_DATA_PATH 'testdata/learned/cars/'];
+inPatchesDir = [CITY_DATA_PATH 'learning/cam572-sparse/patches/'];
+inCarsDir = [CITY_DATA_PATH 'learning/cam572-sparse/cars/'];
 
 
 %% work with all cars
@@ -31,3 +31,15 @@ for i = 1 : length(carsList)
     sizes(i) = (car.bbox(3) + car.bbox(4)) / 2;
     orientations(i,:) = car.orientation;
 end
+
+figure(1);
+scatter (sizes, orientations(:,1));
+title ('car distribution');
+xlabel ('car size in pixels');
+ylabel ('car YAW orientation in degrees');
+
+figure(2);
+scatter (sizes, orientations(:,2));
+title ('car distribution');
+xlabel ('car size in pixels');
+ylabel ('car PITCH orientation in degrees');
