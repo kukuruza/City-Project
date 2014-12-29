@@ -14,25 +14,28 @@ run ../../rootPathsSetup.m;
 run ../../subdirPathsSetup.m;
 
 % input frames
+cameraId = 572;
 %videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
-imagePath = [CITY_DATA_PATH '2-min/camera368/'];
+imagePath = [CITY_DATA_PATH '2-min/camera', num2str(cameraId), '/'];
+%imagePath = [CITY_DATA_PATH '2-min/camera572/'];
 %timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
 %frameReader = FrameReaderVideo (videoPath, timesPath); 
 frameReader = FrameReaderImages(imagePath);
 
 % background
 background = BackgroundGMM();
-return
+
 % geometry
-objectFile = '../GeometryObject_Camera_572.mat';
+%objectFile = '../GeometryObject_Camera_572.mat';
+objectFile = sprintf('../GeometryObject_Camera_%d.mat', cameraId);
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
 
 roadCameraMap = geom.getCameraRoadMap();
 
 noFrames = 20;
-boundaryPath = [CITY_DATA_PATH, 'geometry/vpestimation/cam572/roadBinary/'];
-boundaryPath
+%boundaryPath = [CITY_DATA_PATH, 'geometry/cam572/roadBinary/'];
+boundaryPath = [CITY_DATA_PATH, 'geometry/cam', num2str(cameraId), '/roadBinary/'];
 
 % Get one frame to compare sizes and scale accordingly
 [frame, timeStamp] = frameReader.getNewFrame();
@@ -62,6 +65,7 @@ for t = 1 : 100
     
     % Debugging lane detection
     geom.generateRoadBelief(foregroundMask, frame);
+    pause(1)
     
     tCycle = toc;
     fprintf ('frame %d in %f sec\n', t, tCycle);

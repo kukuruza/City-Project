@@ -37,10 +37,10 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     pts1 = [pts1, [obj.imageSize(2)/2 - laneWidth; obj.imageSize(1)]];
     
     % Using the automatically detected left lanes
-    slope = tand(obj.boundaryLanes(1));
-    lineEq = [slope, obj.road.vanishPt(2) - slope * obj.road.vanishPt(1)];
+    %slope = tand(obj.boundaryLanes(1));
+    %lineEq = [slope, obj.road.vanishPt(2) - slope * obj.road.vanishPt(1)];
     
-    %lineEq = obj.road.lanes{1}.leftEq;
+    lineEq = obj.road.lanes{1}.leftEq;
     % Intercept with left border
     % Checking if within the frame
     if(lineEq(2) < obj.imageSize(1))
@@ -61,10 +61,10 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     pts1 = [pts1, [obj.imageSize(2)/2 + laneWidth; obj.imageSize(1)]];
 
     % Using the automatically detected left lanes
-    slope = tand(obj.boundaryLanes(2));
-    lineEq = [slope, obj.road.vanishPt(2) - slope * obj.road.vanishPt(1)];
+    %slope = tand(obj.boundaryLanes(2));
+    %lineEq = [slope, obj.road.vanishPt(2) - slope * obj.road.vanishPt(1)];
     
-    %lineEq = obj.road.lanes{end}.rightEq;
+    lineEq = obj.road.lanes{end}.rightEq;
     % Intercept with right border
     % Checking if within the frame
     rightIntercept = lineEq(1) * obj.imageSize(2) + lineEq(2);
@@ -90,14 +90,18 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     pts2 = [pts2, [pts2(:, 2) * (1-laneRatio) + obj.road.vanishPt * laneRatio]];
     pts1 = [pts1, [obj.imageSize(2)/2 + laneWidth; 10]];
     
+    % Reducing the image height based on the lane ratio
+    %pts1(2, 1:2) = floor(pts1(2, 1:2) * laneRatio);
+    
     % Compute H
     ipHomography = computeH(pts1, pts2);
 
     % Warp the image
-    warpedImg = warpH(image, ipHomography, obj.imageSize);
+    %warpedSize = floor([laneRatio, 1.0] .* size(image));
+    warpedImg = warpH(image, ipHomography, size(image));
     % Display image for visualization
     %figure; imshow(image)
-    %figure; imshow(warpedImg)
+    %figure(2); imshow(warpedImg)
     
     %obj.homography = H;
 end

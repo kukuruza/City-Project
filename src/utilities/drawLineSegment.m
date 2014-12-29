@@ -42,6 +42,7 @@ function[drawImage] = drawLineSegment(image, point1, point2, color)
     % Marking the image with the straight lines for each
     % channel RGB
     drawImage = image;
+    
     for channel = 1:3
         indices = sub2ind(size(image), floor(ySpan), floor(xSpan),...
                                                 channel*ones(size(ySpan)));
