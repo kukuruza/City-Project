@@ -1,4 +1,6 @@
 % Learn car appearance models from data
+%   If background detector sees a very distinct spot, it becomes a car
+%   Patch, goast, orientation, size of the car is extracted
 
 clear all
 
@@ -52,7 +54,7 @@ image = imread([CITY_SRC_PATH 'geometry/cam572.png']);
 matFile = [CITY_SRC_PATH 'geometry/' sprintf('Geometry_Camera_%d.mat', cameraId)];
 geom = GeometryEstimator(image, matFile);
 
-roadCameraMap = geom.getCameraRoadMap();
+sizeMap = geom.getCameraRoadMap();
 orientationMap = geom.getOrientationMap();
 
 
@@ -67,7 +69,7 @@ for t = 1 : 100000
     fprintf ('frame: %d\n', t);
 
     % get the trace of foreground. Cars will be learned from this.
-    frame_goast = backImage - int32(frame);
+    frame_goast = int32(frame) - backImage;
 
     % subtract background and return mask
     mask = background.subtract(frame);
@@ -94,7 +96,7 @@ for t = 1 : 100000
     carsFilt = Car.empty;
     for j = 1 : length(cars)
         center = cars(j).getBottomCenter(); % [y x]
-        expectedSize = roadCameraMap(center(1), center(2));
+        expectedSize = sizeMap(center(1), center(2));
         actualSize = sqrt(single(cars(j).bbox(3) * cars(j).bbox(4)));
         if actualSize > expectedSize / SizeTolerance && ...
            actualSize < expectedSize * SizeTolerance
@@ -131,7 +133,7 @@ for t = 1 : 100000
     carsFilt = Car.empty;
     for j = 1 : length(cars)
         center = cars(j).getCenter(); % [y x]
-        expectedSize = roadCameraMap(center(1), center(2));
+        expectedSize = sizeMap(center(1), center(2));
         isOk = true;
         for k = 1 : length(cars)
             if j ~= k && dist(center, cars(k).getCenter()') < expectedSize * SafeDistance
@@ -156,7 +158,7 @@ for t = 1 : 100000
     carsFilt = Car.empty;
     for j = 1 : length(cars)
         center = cars(j).getCenter(); % [y x]
-        expectedSize = roadCameraMap(center(1), center(2));
+        expectedSize = sizeMap(center(1), center(2));
         roi = cars(j).getROI();
         %min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(2)])
         if min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(4)]) > DistToBorder
