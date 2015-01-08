@@ -7,7 +7,7 @@ classdef Car < CarInterface
     properties
         bbox;  % [x1 y1 width height]
         patch = [];
-        goast = [];
+        ghost = [];
         segmentMask;
         
         % parameters

@@ -24,7 +24,10 @@ doWrite = false;
 
 
 % objects to detect background, to read video, and to write results video
-background = BackgroundGMM ('fn_level', 15, 'fp_level', 1);
+%background = BackgroundGMM ('fn_level', 15, 'fp_level', 1);
+load ('/Users/evg/projects/City-Project/data/camdata/cam572/5pm/models/backgroundGMM.mat')
+background.fp_level = 0;
+background.fn_level = 0;
 frameReader = FrameReaderVideo (inVideoPath, inTimestampPath);
 if doWrite, frameWriter = FrameWriterVideo (outVideoPath, 2, 1); end
 
@@ -39,7 +42,7 @@ for t = 1 : 10000
     mask = background.subtract(frame);
     
     % increase the mask size
-    DilateRadius = 2;
+    DilateRadius = 0;
     seDilate = strel('disk', DilateRadius);
     mask = imdilate(mask, seDilate);
     
@@ -55,15 +58,19 @@ for t = 1 : 10000
     rFrame = frame(:,:,1);
     gFrame = frame(:,:,2);
     bFrame = frame(:,:,3);
-    rBackImage(~mask) = rFrame(~mask);
-    gBackImage(~mask) = gFrame(~mask);
-    bBackImage(~mask) = bFrame(~mask);
+    kNew = 0.3;
+    rBackImage(~mask) = rFrame(~mask) * kNew + rBackImage(~mask) * (1 - kNew);
+    gBackImage(~mask) = gFrame(~mask) * kNew + gBackImage(~mask) * (1 - kNew);
+    bBackImage(~mask) = bFrame(~mask) * kNew + bBackImage(~mask) * (1 - kNew);
     backImage = cat(3, rBackImage, gBackImage, bBackImage);
     
     if doWrite, frameWriter.writeNextFrame(backImage); end
 
+    subplot(1,2,1);
+    imshow(mask);
+    subplot(1,2,2);
     imshow(backImage);
-    pause(0.3)
+    pause(0.1)
     
 end
     

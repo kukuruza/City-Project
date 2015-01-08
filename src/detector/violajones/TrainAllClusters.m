@@ -13,32 +13,25 @@ run '../../rootPathsSetup.m';
 
 %% input
 
-posList = [1, 2, 3, 4, 5, 6];
-negList = [1, 1, 3, 3, 5, 5];
+iclusters = [3];
 
 clustersPath = [CITY_DATA_PATH 'violajones/patches/clusters.mat'];
 load (clustersPath);
 
-imsizes = {};
-for i = 1 : length(clusters)
-    imsizes{i} = clusters(i).carsize;
-end
-assert (length(clusters) == length(posList));
-
 
 %% work
 
-for i = 1 : length(clusters)
-    fprintf('Training model for cluster %d...\n', i);
+for i = iclusters
+    fprintf('Training model for cluster %d\n', i);
 
     % patches dir
-    patchesPosDir = [CITY_DATA_PATH sprintf('violajones/patches/pos-%02d/',posList(i))];
-    patchesNegDir = [CITY_DATA_PATH sprintf('violajones/patches/neg-%02d/',negList(i))];
+    patchesPosDir = [CITY_DATA_PATH sprintf('violajones/patches/pos-%02d/',i)];
+    patchesNegDir = [CITY_DATA_PATH 'violajones/patches/neg/'];
 
-    imsize = imsizes{i};
+    imsize = clusters(i).carsize;
 
     % output model path
-    outModelPath = [CITY_DATA_PATH, sprintf('violajones/models/model-%02d.xml',i)];    
+    outModelPath = [CITY_DATA_PATH, sprintf('violajones/models/model-%02d-cr10.xml',i)];    
     
-    trainCascade (patchesPosDir, patchesNegDir, outModelPath, imsize);
+    trainCascade (patchesPosDir, patchesNegDir, outModelPath, imsize, 'crop', 0.1);
 end

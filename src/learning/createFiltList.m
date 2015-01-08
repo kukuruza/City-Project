@@ -16,7 +16,7 @@ run ../subdirPathsSetup.m;
 
 %% input
 
-inDir = [CITY_DATA_PATH 'learning/cam572-sparse/'];
+inDir = [CITY_DATA_PATH 'learning/cam572-sparse0/'];
 filtGoastsName = 'goasts1/';
 origGoastsName = 'goasts0/';
 

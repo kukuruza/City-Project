@@ -30,7 +30,6 @@ patchesDir = [CITY_DATA_PATH, 'violajones/patches/'];
 
 
 
-if true
 
 %% dislay size/oritenations of all cars
 
@@ -62,7 +61,6 @@ title ('car distribution');
 xlabel ('car size in pixels');
 ylabel ('car PITCH orientation in degrees');
 
-end
 
 %% cluster cars
 
@@ -97,7 +95,7 @@ for i = 1 : max(iclusters(:))
         clear car
         load ([inCarsDir carsList{indices(j)} '.mat']);
         goast = car.goast;
-        goast = imresize(goast, clusters(i).carsize);
+        goast = imresize(goast, clusters(i).carsize, 'lanczos3');
         
         imageName = sprintf('%05d.png', j);
         imwrite (uint8(-goast / 2 + 127), [patchesDir clusterName imageName]);

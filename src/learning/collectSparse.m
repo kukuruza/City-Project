@@ -1,6 +1,6 @@
 % Learn car appearance models from data
 %   If background detector sees a very distinct spot, it becomes a car
-%   Patch, goast, orientation, size of the car is extracted
+%   Patch, ghost, orientation, size of the car is extracted
 
 clear all
 
@@ -25,7 +25,7 @@ timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
 
 
 %% output
-outDir = [CITY_DATA_PATH 'learning/cam572-sparse2/'];
+outDir = [CITY_DATA_PATH 'learning/cam572-sparse/'];
 
 if exist(outDir, 'dir')
     rmdir(outDir, 's');
@@ -33,7 +33,7 @@ end
 mkdir(outDir);
 mkdir([outDir 'cars/']);
 mkdir([outDir 'frames/']);
-mkdir([outDir 'goasts/']);
+mkdir([outDir 'ghosts/']);
 mkdir([outDir 'patches/']);
 
 
@@ -69,7 +69,7 @@ for t = 1 : 100000
     fprintf ('frame: %d\n', t);
 
     % get the trace of foreground. Cars will be learned from this.
-    frame_goast = int32(frame) - backImage;
+    frame_ghost = uint8((int32(frame) - backImage) / 2 + 128);
 
     % subtract background and return mask
     mask = background.subtract(frame);
@@ -183,32 +183,30 @@ for t = 1 : 100000
     for j = 1 : length(cars)
         car = cars(j);
         car.segmentMask = car.extractPatch(mask);
-        car.goast = car.extractPatch(frame_goast);
+        car.ghost = car.extractPatch(frame_ghost);
         car.extractPatch(frame);
         namePrefix = ['f' sprintf('%03d',t) '-car' sprintf('%03d',j)];
         if dowrite
             save ([outDir 'cars/' namePrefix '.mat'], 'car');
             imwrite(car.patch, [outDir 'patches/' namePrefix '.png']);
-            imwrite(uint8(abs(car.goast)), [outDir 'goasts/' namePrefix '.png']);
+            imwrite(uint8(abs(car.ghost)), [outDir 'ghosts/' namePrefix '.png']);
         end
     end
     
-    frame_goast = uint8(abs(frame_goast));
     for j = 1 : length(cars)
         mask_out    = cars(j).drawCar(mask_out, 'color', 'yellow', 'tag', 'detected');
         frame_out   = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
-        frame_goast = cars(j).drawCar(frame_goast, 'color', 'yellow', 'tag', 'detected');
     end
     if dowriteFrames
         imwrite(frame,       [outDir 'frames/' sprintf('%03d',t) '-frame.jpg']);
         imwrite(frame_out,   [outDir 'frames/' sprintf('%03d',t) '-out.jpg']);
-        imwrite(frame_goast, [outDir 'frames/' sprintf('%03d',t) '-goast.jpg']);
+        imwrite(frame_ghost, [outDir 'frames/' sprintf('%03d',t) '-ghosts.jpg']);
         imwrite(mask_out,    [outDir 'frames/' sprintf('%03d',t) '-mask.jpg']);
     end
     if verbose > 0
         figure(1)
         subplot(2,2,1), imshow(mask_out);
-        subplot(2,2,2), imshow(frame_goast);
+        subplot(2,2,2), imshow(frame_ghost);
         subplot(2,2,3), imshow(frame_out);
         pause (max(0.1, dopause));
     end

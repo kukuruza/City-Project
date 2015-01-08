@@ -31,12 +31,12 @@ clustersPath = [CITY_DATA_PATH 'violajones/patches/clusters.mat'];
 
 
 
-clusters(1) = struct('minyaw', -180, 'maxyaw', -90, 'minsize', 0, 'maxsize', 32, 'carsize', [24 32]);
-clusters(2) = struct('minyaw', -90,  'maxyaw', 0, 'minsize', 0, 'maxsize', 32, 'carsize', [24 32]);
-clusters(3) = struct('minyaw', -180, 'maxyaw', -90, 'minsize', 32, 'maxsize', 100, 'carsize', [60 80]);
-clusters(4) = struct('minyaw', -90,  'maxyaw', 0, 'minsize', 32, 'maxsize', 100, 'carsize', [60 80]);
-clusters(5) = struct('minyaw', -180, 'maxyaw', -90, 'minsize', 100, 'maxsize', 1000, 'carsize', [150 200]);
-clusters(6) = struct('minyaw', -90,  'maxyaw', 0, 'minsize', 100, 'maxsize', 1000, 'carsize', [150 200]);
+clusters(1) = struct('minyaw', -180, 'maxyaw', -90, 'minsize', 20, 'maxsize', 40, 'carsize', [15 20]);
+clusters(2) = struct('minyaw', -90,  'maxyaw', 0, 'minsize', 20, 'maxsize', 40, 'carsize', [15 20]);
+clusters(3) = struct('minyaw', -180, 'maxyaw', -90, 'minsize', 40, 'maxsize', 100, 'carsize', [30 40]);
+clusters(4) = struct('minyaw', -90,  'maxyaw', 0, 'minsize', 40, 'maxsize', 100, 'carsize', [30 40]);
+clusters(5) = struct('minyaw', -180, 'maxyaw', -90, 'minsize', 100, 'maxsize', 1000, 'carsize', [75 100]);
+clusters(6) = struct('minyaw', -90,  'maxyaw', 0, 'minsize', 100, 'maxsize', 1000, 'carsize', [75 100]);
 
 minsizeTolerance = 0.9;
 maxsizeTolerance = 1;

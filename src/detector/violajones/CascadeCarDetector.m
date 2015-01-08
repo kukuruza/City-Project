@@ -4,33 +4,46 @@ classdef CascadeCarDetector < CarDetectorInterface
     properties (Hidden)
         
         geometry;
-        orientationMap;
         
         % applicability of the model
-        minsize = [15 20];
-        maxsize = [150 200];
-        modelOrientation = [];
-        modelMask = [];
+        minsize;
+        maxsize;
         
-        detector; % vision.CascadeObjectDetector
+        grayThreshold;
+        
+        % vision.CascadeObjectDetector
+        detector; 
+        
     end % properties
     methods
-        function CD = CascadeCarDetector (modelPath, geometry, sizemap, orientation)
-            CD.detector = vision.CascadeObjectDetector(modelPath, ...
-                'MinSize', CD.minsize, 'MaxSize', CD.maxsize, ...
-                'MergeThreshold', 3);
+        function CD = CascadeCarDetector (modelPath, geometry, varargin)
+            parser = inputParser;
+            addRequired(parser, 'modelPath', @(x) ischar(x) && exist(x, 'file'));
+            addRequired(parser, 'geometry', @(x) isa(x, 'GeometryInterface'));
+            addParameter(parser, 'minsize', [15 20], @(x) isvector(x) && length(x) == 2);
+            addParameter(parser, 'maxsize', [150 200], @(x) isvector(x) && length(x) == 2);
+            addParameter(parser, 'scaleFactor', 1.1, @isscalar);
+            addParameter(parser, 'mergeThreshold', 3, @isscalar);
+%            addParameter(parser, 'grayThreshold', 0, @isscalar);
+            parse (parser, modelPath, geometry, varargin{:});
+            parsed = parser.Results;
             
-            CD.geometry = geometry;
-            %CD.orientationMap = CD.geometry.getOrientationMap();
-
-            if nargin > 3
-                CD.modelMask = (sizemap > mean(CD.minsize) | sizemap < mean(CD.maxsize));
-            end
-            if nargin > 2
-                CD.modelOrientation = orientation;
-            end
+            CD.geometry = parsed.geometry;
+            CD.minsize = parsed.minsize;
+            CD.maxsize = parsed.maxsize;
+%            CD.grayThreshold = parsed.grayThreshold;
+            
+            CD.detector = vision.CascadeObjectDetector(parsed.modelPath, ...
+                'MinSize', CD.minsize, ...
+                'MaxSize', CD.maxsize, ...
+                'ScaleFactor', parsed.scaleFactor, ...
+                'MergeThreshold', parsed.mergeThreshold);
+            
         end
         function cars = detect (CD, img)
+            orientationMap = CD.geometry.getOrientationMap();
+            sizeMap = CD.geometry.getCameraRoadMap();
+
             bboxes = step(CD.detector, img);
             cars = [];
             for i = 1 : size(bboxes,1)
@@ -38,13 +51,11 @@ classdef CascadeCarDetector < CarDetectorInterface
                 pos = car.getBottomCenter();
                 
                 % assign orientation to the car
-                if ~isempty(CD.geometry)
-                    %car.orientation = CD.orientationMap(pos(1), pos(2));
-                end
+                car.orientation = [orientationMap.yaw(pos(1), pos(2)), ...
+                                   orientationMap.pitch(pos(1), pos(2))];
                 
                 % filter based on size 
-                % TODO: and based on orientation
-                if isempty(CD.modelMask) || CD.modelMask(pos(1), pos(2))
+                if sizeMap(pos(1), pos(2))
                     cars = [cars; car];
                 end
             end

@@ -9,11 +9,11 @@ cd (fileparts(mfilename('fullpath')));
 run '../../rootPathsSetup.m';
 
 % patches dir
-patchesPosDirIn = [CITY_DATA_PATH, 'violajones/patches/positive/'];
-patchesNegDirIn = [CITY_DATA_PATH, 'violajones/patches/negative/'];
+patchesPosDirIn = [CITY_DATA_PATH, 'violajones/patches/pos-01/'];
+patchesNegDirIn = [CITY_DATA_PATH, 'violajones/patches/neg-t7/'];
 
 % output model path
-outModelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
+outModelPath = [CITY_DATA_PATH, 'violajones/models/model-01-t7.xml'];
 [~, modelName, ext] = fileparts(outModelPath);
 modelName = [modelName ext];
 
