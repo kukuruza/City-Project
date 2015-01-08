@@ -63,38 +63,11 @@ function[debugFrame, lanes] = generateRoadBelief(obj, foreground, frame)
         debugFrame = drawLineSegment(debugFrame, obj.road.vanishPt, imgPts(:, i));
     end
     
-    debug = false;
+    debug = true;
     if(debug)
         % Warping the frame for debugging
         warpedFrame = warpH(frame, ipHomography, size(frame));
-    
-        % Getting the edge image and hough transformation
-        grayFrame = rgb2gray(warpedFrame);
-        edgeFrame = edge(grayFrame, 'canny');
-        [houghFrame, theta, rho] = hough(edgeFrame);
-        
-        % Detecting the lines
-        peaks = houghpeaks(houghFrame, 20);
-        lines = houghlines(edgeFrame, theta, rho, peaks, 'FillGap', 1, 'MinLength', 1);
-         
-        figure, imshow(warpedFrame), hold on
-
-        max_len = 0;
-        for k = 1:length(lines)
-           xy = [lines(k).point1; lines(k).point2];
-           plot(xy(:,1),xy(:,2),'LineWidth',2,'Color','green');
-
-           % Plot beginnings and ends of lines
-           plot(xy(1,1),xy(1,2),'x','LineWidth',2,'Color','yellow');
-           plot(xy(2,1),xy(2,2),'x','LineWidth',2,'Color','red');
-
-           % Determine the endpoints of the longest line segment
-           len = norm(lines(k).point1 - lines(k).point2);
-           if ( len > max_len)
-              max_len = len;
-              xy_long = xy;
-           end
-        end
+        computeHoughLanes(warpedFrame);
         
         %figure(3); imshow(debugFrame)
         %figure(4); plot(smoothBelief)
