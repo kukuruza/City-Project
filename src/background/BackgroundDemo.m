@@ -19,7 +19,7 @@ run ../subdirPathsSetup.m
 imagesDir = [CITY_DATA_PATH 'camdata/cam572/2-hours/'];
 outPath = [CITY_DATA_PATH 'testdata/background/demo/cam572-2-hours.avi'];
 
-doWrite = true;
+doWrite = false;
 
 
 %% test

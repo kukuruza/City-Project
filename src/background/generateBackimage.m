@@ -18,14 +18,14 @@ inVideoPath = [inVideoDir '15-mins.avi'];
 inTimestampPath = [inVideoDir '15-mins.txt'];
 
 % output
-outBackgroundPath = [inVideoDir 'models/background.png'];
+outBackgroundPath = [inVideoDir 'models/refBackground.png'];
 outVideoPath = [inVideoDir 'models/backgroundTry.avi'];
 doWrite = false;
-
+refBackground = imread(outBackgroundPath);
 
 % objects to detect background, to read video, and to write results video
 %background = BackgroundGMM ('fn_level', 15, 'fp_level', 1);
-load ('/Users/evg/projects/City-Project/data/camdata/cam572/5pm/models/backgroundGMM.mat')
+load ([CITY_DATA_PATH 'camdata/cam572/5pm/models/backgroundGMM.mat']);
 background.fp_level = 0;
 background.fn_level = 0;
 frameReader = FrameReaderVideo (inVideoPath, inTimestampPath);
@@ -47,7 +47,8 @@ for t = 1 : 10000
     mask = imdilate(mask, seDilate);
     
     if ~exist('backImage', 'var')
-        backImage = uint8(zeros(size(frame)));
+        %backImage = uint8(zeros(size(frame)));
+        backImage = frame;
     end
     
     rBackImage = backImage(:,:,1);
@@ -66,11 +67,15 @@ for t = 1 : 10000
     
     if doWrite, frameWriter.writeNextFrame(backImage); end
 
-    subplot(1,2,1);
-    imshow(mask);
-    subplot(1,2,2);
-    imshow(backImage);
-    pause(0.1)
+    %subplot(1,2,1);
+    %imshow(mask);
+    %subplot(1,2,2);
+    %imshow(backImage);
+    %imshow([backImage, 255 * mask(:, :, [1 1 1])])
+    
+    curBackground = generateCleanBackground(refBackground, backImage);
+    
+    pause(0.5)
     
 end
     
