@@ -14,6 +14,9 @@ classdef Car < CarInterface
         timeStamp; % time of the frame. [yyyy mm dd hh mm ss]. sec. is float
         orientation; % [yaw pitch]
         
+        % for output
+        name = 'car';
+        
     end % propertioes
     methods (Hidden)
         function segmentMaxflow (C)
@@ -87,24 +90,26 @@ classdef Car < CarInterface
         end
         
         
+        function addOffset (C, offset)
+            assert (isvector(offset) && length(offset) == 2);
+            C.bbox(1) = C.bbox(1) + int32(offset(2));  % x
+            C.bbox(2) = C.bbox(2) + int32(offset(1));  % y
+        end
+
+        
         function im = drawCar (C, im, varargin)
             % parse and validate input
             parser = inputParser;
             addRequired (parser, 'im', @(x) ndims(x)==3 && size(x,3) == 3);
             addParameter(parser, 'color', 'yellow');
-            addParameter(parser, 'tag', 'car', @ischar);
             addParameter(parser, 'boxOpacity', 0.6, @(x) isnumeric(x) && isscalar(x));
             parse (parser, im, varargin{:});
             parsed = parser.Results;
 
-            if parsed.boxOpacity > 0.5
-                textColor = 'black';
-            else
-                textColor = 'white';
-            end
+            if parsed.boxOpacity > 0.5, textColor = 'black'; else textColor = 'white'; end
             %color = 128 + rand(1,3) * 127;
             im = insertObjectAnnotation(im, 'rectangle', C.bbox, ...
-                parsed.tag, 'Color', parsed.color, ...
+                C.name, 'Color', parsed.color, ...
                 'TextBoxOpacity', parsed.boxOpacity, 'TextColor', textColor, ...
                 'FontSize', 12);
         end

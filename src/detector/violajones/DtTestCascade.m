@@ -12,13 +12,15 @@ run ../../subdirPathsSetup.m;
 
 % test images dir
 %imagesDir = [CITY_DATA_PATH, 'violajones/testdata/images/'];
-modelPath = [CITY_DATA_PATH, 'violajones/models/model-03-cr10.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model01-cr10.xml'];
 
 % load model
 detector = vision.CascadeObjectDetector(modelPath);
 
 % detect
-imPath = [CITY_DATA_PATH 'learning/cam572-sparse/frames/1153-ghosts.jpg'];
+
+imPath = 'testdata/smallCars.png';
+%imPath = [CITY_DATA_PATH 'learning/cam572-sparse/frames/1153-ghosts.jpg'];
 img = imread(imPath);
 
 % % threshold noise

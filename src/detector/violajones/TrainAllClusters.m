@@ -35,3 +35,4 @@ for i = iclusters
     
     trainCascade (patchesPosDir, patchesNegDir, outModelPath, imsize, 'crop', 0.1);
 end
+

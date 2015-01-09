@@ -21,7 +21,7 @@ load (clustersPath);
 
 modelTemplate = [CITY_DATA_PATH, 'violajones/models/model%02d-cr10.xml'];
 
-imPath = [CITY_DATA_PATH, 'testdata/detector/064-ghosts.jpg'];
+imPath = '../testdata/064.jpg';
 img0 = imread(imPath);
 
 
@@ -39,7 +39,8 @@ for i = iclusters
     usedClusters(counter) = clusters(i);
     
     modelPath = sprintf(modelTemplate, i);
-    detectors(counter) = CascadeCarDetector(modelPath, geom);
+    detectors(counter) = CascadeCarDetector(modelPath, geom, ...
+        'minsize', clusters(i).carsize);
     
     counter = counter + 1;
 end
@@ -53,7 +54,7 @@ toc
 
 img = img0;
 for i = 1 : length(cars)
-    img = insertObjectAnnotation(img, 'rectangle', cars(i).bbox, 'car');
+    img = cars(i).drawCar(img);
 end
 figure (1);
 imshow(img);

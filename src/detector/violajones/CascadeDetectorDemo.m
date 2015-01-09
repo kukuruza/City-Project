@@ -5,23 +5,17 @@ clear all
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
 
-run '../rootPathsSetup.m';
-run '../subdirPathsSetup.m'
+run '../../rootPathsSetup.m';
+run '../../subdirPathsSetup.m'
 
 
 
 %% input
 
-imPath = [CITY_DATA_PATH, 'testdata/detector/img000.jpg'];
+imPath = '../testdata/064.jpg';
 img0 = imread(imPath);
 
-
-
-%% ground truth
-
-trueBboxes = dlmread([CITY_DATA_PATH, 'testdata/detector/img000.txt']);
-
-
+verbose = 0;
 
 
 %% detect and refine
@@ -32,7 +26,7 @@ load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.getCameraRoadMap();
 
-modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model03-cr10.xml'];
 
 detector = CascadeCarDetector(modelPath, geom);
 
@@ -42,10 +36,8 @@ toc
 
 img = img0;
 for i = 1 : length(cars)
-    img = insertObjectAnnotation(img, 'rectangle', cars(i).bbox, 'car');
+    img = cars(i).drawCar(img, 'color', 'blue');
 end
-figure (1);
-imshow(img);
 
 
 % filtering cars based on sizes
@@ -63,14 +55,23 @@ for k = 1 : length(cars)
         counter = counter + 1;
     end
 end
+fprintf ('kept %d out of %d cars.\n', length(carsFilt), length(cars));
 cars = carsFilt;    
 
 
-img = img0;
-for i = 1 : length(carsFilt)
-    img = insertObjectAnnotation(img, 'rectangle', carsFilt(i).bbox, 'car');
+for i = 1 : length(cars)
+    img = carsFilt(i).drawCar(img);
 end
-figure (2);
+
+% show detector's mask
+if verbose
+    bbox = roi2bbox(mask2roi(detector.sizeMap > 0));
+    img = insertObjectAnnotation(img, 'rectangle', bbox, 'sizeMap bbox', 'Color', 'blue');
+    figure(2)
+    imagesc(detector.sizeMap);
+end
+
+figure(1)
 imshow(img);
 
 

@@ -19,27 +19,21 @@ classdef MultimodelDetector < CarDetectorInterface
 
             CD.clusters = parsed.clusters;
             CD.detectors = parsed.detectors;
+            for i = 1 : length(clusters)
+                CD.detectors(i).mask = CD.clusters(i).recallMask;
+            end
 
         end
         
         function cars = detect (CD, img)
 
             cars = [];
-
             for icluster = 1 : length(CD.clusters)
-                cluster = CD.clusters(icluster);
-                mask = cluster.recallMask;
-                
-                % TODO: crop image to the bbox of the mask
-
                 cars_cluster = CD.detectors(icluster).detect(img);
                 for icar = 1 : length(cars_cluster)
                     car = cars_cluster(icar);
-                    center = car.getBottomCenter();
-                    if mask(center(1), center(2)) && ...
-                       car.bbox(3) > cluster.minsize && car.bbox(4) <= cluster.maxsize
-                          cars = [cars; car];
-                    end
+                    car.name = CD.clusters(icluster).name; 
+                    cars = [cars, car];
                 end
             end
 
