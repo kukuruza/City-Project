@@ -30,6 +30,7 @@ trueBboxes = dlmread([CITY_DATA_PATH, 'testdata/detector/img000.txt']);
 objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
+roadCameraMap = geom.getCameraRoadMap();
 
 modelPath = [CITY_DATA_PATH, 'violajones/models/model1.xml'];
 
@@ -45,12 +46,6 @@ for i = 1 : length(cars)
 end
 figure (1);
 imshow(img);
-
-% geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf ('Have read the Geometry object from file\n');
-roadCameraMap = geom.getCameraRoadMap();
 
 
 % filtering cars based on sizes

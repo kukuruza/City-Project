@@ -12,7 +12,7 @@ run ../../subdirPathsSetup.m;
 
 % test images dir
 %imagesDir = [CITY_DATA_PATH, 'violajones/testdata/images/'];
-modelPath = [CITY_DATA_PATH, 'violajones/models/model-01-cr10.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model-03-cr10.xml'];
 
 % load model
 detector = vision.CascadeObjectDetector(modelPath);

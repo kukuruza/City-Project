@@ -9,29 +9,32 @@ classdef MultimodelDetector < CarDetectorInterface
     end % properties
     methods
         function CD = MultimodelDetector (clusters, detectors)
-
             % parse and validate input
             parser = inputParser;
-            addRequired(parser, 'cargroups', @(x) ~isempty(x) && );
-            addRequired(parser, 'detectors', @isscalar);
+            addRequired(parser, 'clusters', @(x) ~isempty(x));
+            addRequired(parser, 'detectors', @(x) isa(x, 'CarDetectorInterface'));
             parse (parser, clusters, detectors);
             parsed = parser.Results;
-            assert (length(parser.clusters) == length(parser.detectors));
+            assert (length(parsed.clusters) == length(parsed.detectors));
 
             CD.clusters = parsed.clusters;
             CD.detectors = parsed.detectors;
 
         end
+        
         function cars = detect (CD, img)
 
             cars = [];
 
-            for icluster = 1 : length(clusters)
-                cluster = clusters{icluster};
-                mask = cluster.mask;
+            for icluster = 1 : length(CD.clusters)
+                cluster = CD.clusters(icluster);
+                mask = cluster.recallMask;
+                
+                % TODO: crop image to the bbox of the mask
 
-                cars_cluster = CD.detector.detect(img);
-                for car = cars_cluster
+                cars_cluster = CD.detectors(icluster).detect(img);
+                for icar = 1 : length(cars_cluster)
+                    car = cars_cluster(icar);
                     center = car.getBottomCenter();
                     if mask(center(1), center(2)) && ...
                        car.bbox(3) > cluster.minsize && car.bbox(4) <= cluster.maxsize
