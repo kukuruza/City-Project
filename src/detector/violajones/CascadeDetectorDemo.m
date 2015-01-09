@@ -27,8 +27,9 @@ fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.getCameraRoadMap();
 
 modelPath = [CITY_DATA_PATH, 'violajones/models/model03-cr10.xml'];
+minsize = [30 40];
 
-detector = CascadeCarDetector(modelPath, geom);
+detector = CascadeCarDetector(modelPath, geom, 'minsize', minsize);
 
 tic
 cars = detector.detect(img0);

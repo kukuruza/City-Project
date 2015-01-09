@@ -24,6 +24,17 @@ classdef MultimodelDetector < CarDetectorInterface
             end
 
         end
+
+        
+        function mask = getMask(CD)
+            assert (~isempty(CD.detectors));
+            % do OR for detectors masks
+            mask = CD.detectors(1).getMask();
+            for i = 2 : length(CD.detectors)
+                 mask = mask | CD.detectors(i).getMask();
+            end
+        end
+
         
         function cars = detect (CD, img)
 

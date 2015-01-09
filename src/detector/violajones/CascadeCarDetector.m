@@ -50,6 +50,13 @@ classdef CascadeCarDetector < CarDetectorInterface
                 'MergeThreshold', parsed.mergeThreshold);
             
         end
+        
+        
+        function mask = getMask(CD)
+            mask = CD.mask;
+        end
+        
+        
         function cars = detect (CD, img)
             orientationMap = CD.geometry.getOrientationMap();
 
