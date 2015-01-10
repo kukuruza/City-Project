@@ -19,9 +19,9 @@ inTimestampPath = [inVideoDir '15-mins.txt'];
 
 % output
 outBackgroundPath = [inVideoDir 'models/refBackground.png'];
-outVideoPath = [inVideoDir 'models/backgroundTry.avi'];
+outVideoPath = [inVideoDir 'models/adjBackground.avi'];
 doWrite = false;
-refBackground = imread(outBackgroundPath);
+refBackImage = imread(outBackgroundPath);
 
 % objects to detect background, to read video, and to write results video
 %background = BackgroundGMM ('fn_level', 15, 'fp_level', 1);
@@ -47,37 +47,28 @@ for t = 1 : 10000
     mask = imdilate(mask, seDilate);
     
     if ~exist('backImage', 'var')
-        %backImage = uint8(zeros(size(frame)));
         backImage = frame;
     end
     
-    rBackImage = backImage(:,:,1);
-    gBackImage = backImage(:,:,2);
-    bBackImage = backImage(:,:,3);
-    
     % paint the unmasked part of the image
-    rFrame = frame(:,:,1);
-    gFrame = frame(:,:,2);
-    bFrame = frame(:,:,3);
     kNew = 0.3;
-    rBackImage(~mask) = rFrame(~mask) * kNew + rBackImage(~mask) * (1 - kNew);
-    gBackImage(~mask) = gFrame(~mask) * kNew + gBackImage(~mask) * (1 - kNew);
-    bBackImage(~mask) = bFrame(~mask) * kNew + bBackImage(~mask) * (1 - kNew);
-    backImage = cat(3, rBackImage, gBackImage, bBackImage);
+    maskColor = mask(:,:,[1,1,1]);
+    backImage(~maskColor) = frame(~maskColor) * kNew + backImage(~maskColor) * (1 - kNew);
     
-    if doWrite, frameWriter.writeNextFrame(backImage); end
+    % adjust the reference background with backImage
+    adjBackImage = generateCleanBackground(refBackImage, backImage, ...
+        'fgThreshold', 40, 'verbose', 1);
+    
+    if doWrite, frameWriter.writeNextFrame(adjBackImage); end
 
     %subplot(1,2,1);
     %imshow(mask);
     %subplot(1,2,2);
     %imshow(backImage);
-    %imshow([backImage, 255 * mask(:, :, [1 1 1])])
-    
-    curBackground = generateCleanBackground(refBackground, backImage);
-    
-    pause(0.5)
+    %imshow([backImage, 255 * mask(:,:,[1 1 1])])
+    %pause(0.5)
     
 end
-    
+
 % need to clear frameWriter to complete writing video file
 clear frameReader frameWriter
