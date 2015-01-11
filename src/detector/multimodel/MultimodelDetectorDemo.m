@@ -14,14 +14,14 @@ run '../../subdirPathsSetup.m'
 
 %% input
 
-iclusters = [1 3];
+iclusters = [1 2 3 4];
 
 clustersPath = [CITY_DATA_PATH 'violajones/patches/clusters.mat'];
 load (clustersPath);
 
 modelTemplate = [CITY_DATA_PATH, 'violajones/models/model%02d-cr10.xml'];
 
-imPath = '../testdata/064.jpg';
+imPath = '../testdata/10am-064.jpg';
 img0 = imread(imPath);
 
 
@@ -56,8 +56,8 @@ img = img0;
 for i = 1 : length(cars)
     img = cars(i).drawCar(img);
 end
+
 figure (1);
+img = img + uint8(multiDetector.getMask('colormask', true) * 20);
 imshow(img);
-
-
 

@@ -12,8 +12,14 @@ run '../../subdirPathsSetup.m'
 
 %% input
 
-imPath = '../testdata/064.jpg';
-img0 = imread(imPath);
+%imPath = '../testdata/10am-064.jpg';
+imPath = '../testdata/5pm-018.png';
+img = imread(imPath);
+thresh = 2;
+mask = abs(img(:,:,1) - 128) < thresh & ...
+       abs(img(:,:,2) - 128) < thresh & ...
+       abs(img(:,:,3) - 128) < thresh;
+img(mask(:,:,[1 1 1])) = 128;
 
 verbose = 0;
 
@@ -32,10 +38,9 @@ minsize = [30 40];
 detector = CascadeCarDetector(modelPath, geom, 'minsize', minsize);
 
 tic
-cars = detector.detect(img0);
+cars = detector.detect(img);
 toc
 
-img = img0;
 for i = 1 : length(cars)
     img = cars(i).drawCar(img, 'color', 'blue');
 end
@@ -46,7 +51,7 @@ SizeTolerance = 1.5;
 counter = 1;
 carsFilt = Car.empty;
 for k = 1 : length(cars)
-    center = cars(k).getCenter(); % [y x]
+    center = cars(k).getBottomCenter(); % [y x]
     expectedSize = roadCameraMap(center(1), center(2));
     fprintf('expectedSize: %f ', expectedSize);
     fprintf('actualSize: %f\n', cars(k).bbox(3));
@@ -68,8 +73,8 @@ end
 if verbose
     bbox = roi2bbox(mask2roi(detector.sizeMap > 0));
     img = insertObjectAnnotation(img, 'rectangle', bbox, 'sizeMap bbox', 'Color', 'blue');
-    figure(2)
-    imagesc(detector.sizeMap);
+    mask = detector.sizeMap > 0;
+    img = img + 50 * uint8(mask(:,:,[1 1 1]));
 end
 
 figure(1)

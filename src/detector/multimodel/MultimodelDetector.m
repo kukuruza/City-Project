@@ -26,7 +26,7 @@ classdef MultimodelDetector < CarDetectorInterface
             
             % intersection case
             areaInters = (inters(3) - inters(1) + 1) * (inters(4) - inters(2) + 1);
-            if 2 * areaInters / (bbox1(3)*bbox1(4) + bbox2(3)*bbox2(4)) > threshold
+            if areaInters / min(bbox1(3)*bbox1(4), bbox2(3)*bbox2(4)) > threshold
                 result = true;
             end
         end
@@ -42,20 +42,21 @@ classdef MultimodelDetector < CarDetectorInterface
                 end
             end
             cars1(toTrash) = [];
-            if CD.verbose, fprintf ('combineClustersCars removed %d cars\n', ...
-                    m - length(cars2) - length(cars1)); end
+            if CD.verbose, fprintf ('removed %d cars\n', m - length(cars2) - length(cars1)); end
         end
         
         function carsByCluster = combineClustersCars(CD, carsByCluster)
             % parse and validate input
             parser = inputParser;
-            addRequired(parser, 'carsByCluster', @(x) iscell(x) && isa(x{1}, 'Car'));
+            addRequired(parser, 'carsByCluster', @(x) iscell(x) && (isempty(x{1}) || isa(x{1}, 'Car')));
             parse (parser, carsByCluster);
 
             for i = 1 : CD.N
                 for j = i + 1 : CD.N
                     if nnz(CD.detectors(i).mask & CD.detectors(j).mask)
-                        if CD.verbose, fprintf('combining detectors %d and %d\n', i, j); end 
+                        if CD.verbose
+                            fprintf('MultimodelDetector: combining clusters %d and %d... ', i, j);
+                        end 
                         [carsByCluster{i}, carsByCluster{j}] = ...
                             CD.combineTwoClusters (carsByCluster{i}, carsByCluster{j});
                     end
@@ -86,12 +87,30 @@ classdef MultimodelDetector < CarDetectorInterface
         end
 
         
-        function mask = getMask(CD)
+        function mask = getMask(CD, varargin)
+            % parse and validate input
+            parser = inputParser;
+            addParameter(parser, 'colormask', false, @islogical);
+            parse (parser, varargin{:});
+            parsed = parser.Results;
+
             assert (~isempty(CD.detectors));
-            % do OR for detectors masks
-            mask = CD.detectors(1).getMask();
-            for i = 2 : CD.N
-                 mask = mask | CD.detectors(i).getMask();
+            
+            if (parsed.colormask)
+                % sum up the individual masks in colors
+                cmap = colormap('lines');
+                m = CD.detectors(1).getMask();
+                mask = double(zeros(size(m,1), size(m,2), 3));
+                for i = 1 : CD.N
+                    m = double(CD.detectors(i).getMask());
+                    mask = mask + cat(3, m * cmap(i,1), m * cmap(i,2), m * cmap(i,3));
+                end
+            else
+                % do OR for detectors masks
+                mask = CD.detectors(1).getMask();
+                for i = 2 : CD.N
+                     mask = mask | CD.detectors(i).getMask();
+                end
             end
         end
 

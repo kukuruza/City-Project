@@ -13,7 +13,7 @@ run '../../rootPathsSetup.m';
 
 %% input
 
-iclusters = [3];
+iclusters = [2 4];
 
 clustersPath = [CITY_DATA_PATH 'violajones/patches/clusters.mat'];
 load (clustersPath);
@@ -31,7 +31,7 @@ for i = iclusters
     imsize = clusters(i).carsize;
 
     % output model path
-    outModelPath = [CITY_DATA_PATH, sprintf('violajones/models/model-%02d-cr10.xml',i)];    
+    outModelPath = [CITY_DATA_PATH, sprintf('violajones/models/model%02d-cr10.xml',i)];    
     
     trainCascade (patchesPosDir, patchesNegDir, outModelPath, imsize, 'crop', 0.1);
 end
