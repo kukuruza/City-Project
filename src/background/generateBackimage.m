@@ -20,7 +20,8 @@ inTimestampPath = [inVideoDir '15-mins.txt'];
 % output
 outBackgroundPath = [inVideoDir 'models/refBackground.png'];
 outVideoPath = [inVideoDir 'models/adjBackground.avi'];
-doWrite = false;
+outBackimage = [inVideoDir 'models/backimage.png'];
+doWrite = true;
 refBackImage = imread(outBackgroundPath);
 
 % objects to detect background, to read video, and to write results video
@@ -57,7 +58,7 @@ for t = 1 : 10000
     
     % adjust the reference background with backImage
     adjBackImage = generateCleanBackground(refBackImage, backImage, ...
-        'fgThreshold', 40, 'verbose', 1);
+        'fgThreshold', 40, 'verbose', 0);
     
     if doWrite, frameWriter.writeNextFrame(adjBackImage); end
 
@@ -69,6 +70,8 @@ for t = 1 : 10000
     %pause(0.5)
     
 end
+
+if doWrite, imwrite (adjBackImage, outBackimage); end
 
 % need to clear frameWriter to complete writing video file
 clear frameReader frameWriter

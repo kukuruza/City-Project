@@ -101,16 +101,19 @@ classdef Car < CarInterface
             % parse and validate input
             parser = inputParser;
             addRequired (parser, 'im', @(x) ndims(x)==3 && size(x,3) == 3);
-            addParameter(parser, 'color', 'yellow');
-            addParameter(parser, 'boxOpacity', 0.6, @(x) isnumeric(x) && isscalar(x));
+            addParameter (parser, 'color', 'yellow');
+            addParameter (parser, 'tag', '', @ischar);
+            addParameter (parser, 'boxOpacity', 0.6, @(x) isnumeric(x) && isscalar(x));
             parse (parser, im, varargin{:});
             parsed = parser.Results;
 
             if parsed.boxOpacity > 0.5, textColor = 'black'; else textColor = 'white'; end
             %color = 128 + rand(1,3) * 127;
-            im = insertObjectAnnotation(im, 'rectangle', C.bbox, ...
-                C.name, 'Color', parsed.color, ...
-                'TextBoxOpacity', parsed.boxOpacity, 'TextColor', textColor, ...
+            if isempty(parsed.tag), tag = C.name; else tag = parsed.tag; end
+            im = insertObjectAnnotation(im, 'rectangle', C.bbox, tag, ...
+                'Color', parsed.color, ...
+                'TextBoxOpacity', parsed.boxOpacity, ...
+                'TextColor', textColor, ...
                 'FontSize', 12);
         end
         
