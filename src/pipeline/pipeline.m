@@ -14,8 +14,9 @@ run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
 % input frames
-videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
-timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
+videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
+videoPath = [videoDir '15-mins.avi'];
+timesPath = [videoDir '15-mins.txt'];
 frameReader = FrameReaderVideo (videoPath, timesPath); 
 
 % geometry
@@ -26,9 +27,10 @@ roadCameraMap = geom.getCameraRoadMap();
 
 % background
 background = BackgroundGMM();
+backimage = imread([videoDir 'models/backimage.png']);
 
 % detector
-modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
+modelPath = [CITY_DATA_PATH, 'violajones/models/model01.xml'];
 detector = CascadeCarDetector (modelPath, geom);
 
 % probabilistic model
@@ -49,7 +51,7 @@ for t = 1 : 100
     % read image
     [frame, timestamp] = frameReader.getNewFrame();
     if isempty(frame), break, end
-    gray = rgb2gray(frame);
+    frame_ghost = uint8(int32(frame) - int32(backimage) + 128);
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
@@ -59,7 +61,7 @@ for t = 1 : 100
     foregroundMask = foregroundMask & logical(roadCameraMap);
     
     % actually detect cars
-    cars = detector.detect(frame); % orientations(j));
+    cars = detector.detect(frame_ghost);
     
     % assign timestamps to cars
     for i = 1 : length(cars)
@@ -114,7 +116,8 @@ for t = 1 : 100
     end
     
     frame_out = drawCarTransitions(seenCars, cars, transitionMatrix, frame_out);
-    figure(1); imshow(frame_out);
+    figure(1); imshow([uint8(abs(int32(frame_ghost) - 128)) ...
+                       frame_out]);
     %frameWriter.writeNextFrame(frame_out);
     
     seenCars = cars;
