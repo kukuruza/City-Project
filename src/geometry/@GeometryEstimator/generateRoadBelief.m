@@ -43,7 +43,7 @@ function[debugFrame, lanes] = generateRoadBelief(obj, foreground, frame)
                 
     % Re-projecting it back to the image, for drawing the lanes
     imgPts = ipHomography \ [laneEdges; ...
-                            obj.imageSize(1) * ones(1, length(laneEdges));...
+                            size(warpedBackground, 1) * ones(1, length(laneEdges));...
                             ones(1, length(laneEdges))];
     
     % Converting from homogeneous to non-homogeneous
@@ -66,10 +66,11 @@ function[debugFrame, lanes] = generateRoadBelief(obj, foreground, frame)
     debug = true;
     if(debug)
         % Warping the frame for debugging
-        warpedFrame = warpH(frame, ipHomography, size(frame));
-        computeHoughLanes(warpedFrame);
+        warpedFrame = warpH(frame, ipHomography, ...
+                            [laneRatio, 1.0, 1.0] .* size(frame));
+        %computeHoughLanes(warpedFrame);
         
-        %figure(3); imshow(debugFrame)
+        figure(3); imshow(debugFrame)
         %figure(4); plot(smoothBelief)
         %figure(5); imshow(warpedFrame)
         %figure(6); imshow(grayFrame)
