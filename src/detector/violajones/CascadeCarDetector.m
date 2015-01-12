@@ -69,7 +69,7 @@ classdef CascadeCarDetector < CarDetectorInterface
                 car = Car(bboxes(i,:));
                 
                 % compensate for the crop
-                car.addOffset (CD.roi(1:2));
+                car.addOffset (CD.roi(1:2) - 1);
 
                 pos = car.getBottomCenter();
 
