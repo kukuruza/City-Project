@@ -47,20 +47,24 @@ classdef GeometryEstimator < GeometryInterface
             obj.imageSize = [size(initImage, 1), size(initImage, 2)];
             
             % Identifying the car lanes for the given image and given lanes
-            obj.computeRoadMask();
+            %obj.computeRoadMask();
             
             % Computing the homography
-            obj.computeHomography();
+            %obj.computeHomography();
             
             % Creating map of expected car sizes at different locations on
             % the image - should also include the orientation extension
             % because of the orientations
-            obj.computeCameraRoadMap();
+            %obj.computeCameraRoadMap();
             %obj.computeCameraRoadMapWithH();   
             
+            % Dealing with a single camera; take into account the curved
+            % road; read it from the files
+            obj.roadMask = imread('curvedRoadMask572.png');
+            obj.cameraRoadMap = imread('curvedCameraRoadMap572.png');
+       
             % Creating the orientation map
             obj.computeOrientationMap();
-            
         end
         
         %% Method to calculate confidence maps to detect various geometries

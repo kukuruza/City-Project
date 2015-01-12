@@ -40,6 +40,7 @@ orientationMap = geom.getOrientationMap();
 figure; imagesc(orientationMap.yaw)
 figure; imagesc(orientationMap.pitch)
 
+return
 % Displaying the inverse perspective transformation
 laneRatio = 0.75;
 laneWidth = size(image, 2) * 0.25;

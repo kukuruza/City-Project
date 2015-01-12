@@ -10,6 +10,7 @@ run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
 cameraNumber = [360, 368, 572];
+
 for i = 1:3
     cameraStr = num2str(cameraNumber(i));
     imageDir = [CITY_DATA_PATH strcat('2-min/camera', cameraStr)];
