@@ -57,7 +57,6 @@ for i = 1 : length(cars)
     img = cars(i).drawCar(img);
 end
 
-figure (1);
 img = img + uint8(multiDetector.getMask('colormask', true) * 20);
 imshow(img);
 

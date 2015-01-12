@@ -85,7 +85,8 @@ classdef Car < CarInterface
         
         
         function center = getBottomCenter (C) % [y x]
-            center = [int32(C.bbox(2) + C.bbox(4) - 1), ...
+            HeightRatio = 0.75;
+            center = [int32(C.bbox(2) + C.bbox(4) * HeightRatio - 1), ...
                       int32(C.bbox(1) + C.bbox(3) / 2)];
         end
         

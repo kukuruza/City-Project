@@ -69,7 +69,7 @@ for t = 1 : 100000
     fprintf ('frame: %d\n', t);
 
     % get the trace of foreground. Cars will be learned from this.
-    frame_ghost = uint8((int32(frame) - backImage) / 2 + 128);
+    frame_ghost = uint8((int32(frame) - int32(backImage)) / 2 + 128);
 
     % subtract background and return mask
     mask = background.subtract(frame);

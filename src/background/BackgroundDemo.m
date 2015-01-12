@@ -16,15 +16,17 @@ run ../subdirPathsSetup.m
 
 
 %% input and ground truth
-imagesDir = [CITY_DATA_PATH 'camdata/cam572/2-hours/'];
-outPath = [CITY_DATA_PATH 'testdata/background/demo/cam572-2-hours.avi'];
+videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
+videoPath = [videoDir '15-mins.avi'];
+videoTxt = [videoDir '15-mins.txt'];
+outPath = [CITY_DATA_PATH 'testdata/background/demo/cam572-5pm.avi'];
 
 doWrite = false;
 
 
 %% test
 
-frameReader = FrameReaderImages (imagesDir);
+frameReader = FrameReaderVideo (videoPath, videoTxt);
 frameWriter = FrameWriterVideo (outPath, 2, [1 2]);
 
 background = BackgroundGMM('AdaptLearningRate', true, ...
@@ -46,7 +48,7 @@ for t = 0 : 10000
     subplot(1,2,2), imshow(mask);
     imname = sprintf('result%d.png', t);
     if doWrite, frameWriter.writeNextFrame({frame, mask}); end
-    %pause(0.5);
+    pause(0.5);
 end
 
 clear frameWriter frameReader

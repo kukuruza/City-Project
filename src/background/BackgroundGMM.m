@@ -118,6 +118,20 @@ classdef BackgroundGMM < BackgroundInterface
              certainty = 1;
          end
          
+         
+         % saving vision.ForegroundDetector is not trivial
+%          function save (BS, path)
+%             % parse and validate input
+%             parser = inputParser;
+%             addRequired(parser, 'path', @(x) exist(fileparts(x), 'dir'));
+%             parse (parser, path);
+%             
+%             feature('SystemObjectsFullSaveLoad',1);
+%             BS.
+% 
+%          end
+             
+         
      end % methods
 
 end
