@@ -9,15 +9,15 @@ clear all
 run '../rootPathsSetup.m';
 
 % image sources
-frameReader1 = FrameReaderImages ([CITY_DATA_PATH, '2-min/camera360/']);
-frameReader2 = FrameReaderImages ([CITY_DATA_PATH, '2-min/camera368/']);
+frameReader1 = FrameReaderImages ([CITY_DATA_PATH, 'camdata/2-min/camera360/']);
+frameReader2 = FrameReaderImages ([CITY_DATA_PATH, 'camdata/2-min/camera368/']);
 
 
-%outDir = fullfile(CITY_DATA_PATH, 'testdata', 'FrameWriterImages');
-%frameWriter = FrameWriterImages (outDir, [2, 1], '.jpg');
+outDir = [CITY_DATA_PATH, 'testdata/io/FrameWriterImages/'];
+frameWriter = FrameWriterImages (outDir, [1, 2], '.jpg');
 
-outPath = fullfile(CITY_DATA_PATH, 'testdata/io/FrameWriterVideo/test.avi');
-frameWriter = FrameWriterVideo (outPath, 2, 1);
+%outPath = [CITY_DATA_PATH, 'testdata/io/FrameWriterVideo/test.avi'];
+%frameWriter = FrameWriterVideo (outPath, 2, 1);
 
 %outDir = fullfile(CITY_DATA_PATH, 'testdata', 'FrameWriterImpairs');
 %frameWriter = FrameWriterImpairs (outputDir);
@@ -28,9 +28,7 @@ for i = 1 : 10
     if isempty(frame1), break, end
     
     % test FrameWriterImages and FrameWriterVideo
-    cellframes{1} = frame1;
-    cellframes{2} = frame2;
-    frameWriter.writeNextFrame(frame1);
+    frameWriter.writeNextFrame({frame1, frame2});
     
     % test FrameWriterImpair
     %frameWriter.writeNextFrame (frame1, sprintf('%02d', i));

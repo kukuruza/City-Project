@@ -12,8 +12,6 @@
 
 classdef FrameWriterImages < FrameWriter
     properties (Hidden)
-        FIG_NUM = 314159265; % random unlikely number
-        
         ext = '.jpg';
         layout = [1 1] % images grid in a frame. [nrows, ncols]
         imDir          % output
@@ -23,61 +21,49 @@ classdef FrameWriterImages < FrameWriter
     methods
         
         function FW = FrameWriterImages (imDir, layout, ext)
-            if ~exist(imDir, 'file') % TODO: add: or it is not a folder
+            if ~exist(imDir, 'dir')
                 fprintf ('FrameWriterImages: imDir: %s\n', imDir);
                 error ('FrameWriterImages: imDir does not exist');
             end
             FW.imDir = imDir;
             FW.layout = layout;
             FW.ext = ext;
-            
-            % figure preparation
-            addpath export_fig
-            figure (FW.FIG_NUM);
-            set (FW.FIG_NUM,'units','normalized','outerposition',[0 0 1 1]);
         end
         
         % accepts one image (if layout == 1) or cell array of images
         function writeNextFrame(FW, images)
-            assert (~isempty(images));
-            if iscell(images)
-                assert (length(images) == FW.layout(1) * FW.layout(2));
-                nrows = FW.layout(1);
-                ncols = FW.layout(2);
-                
-                % remember the current figure, if any
-                if ~isempty(findall(0,'Type','Figure'))
-                    currentFigure = gcf;
-                    figure (FW.FIG_NUM);
-                else
-                    currentFigure = figure (FW.FIG_NUM);
-                end
-                
-                for row = 1 : nrows
-                    for col = 1 : ncols
-                        i = (row-1) * ncols + col;
-                        subplot(nrows, ncols, i);
-                        imshow(images{i});
-                    end
-                end
-                
-                imPath = fullfile(FW.imDir, [sprintf('%06d', FW.counter) FW.ext]);
-                export_fig(imPath, gcf);
-                
-                % switch back to the remembered figure
-                figure(currentFigure);
-            else
+            % parse and validate input
+            parser = inputParser;
+            addRequired(parser, 'images', @(x) iscell(x) || ismatrix(x) || ndims(x) == 3 && size(x,3) == 3); % TODO: replace with iscolorimage when merged backDetector
+            parse (parser, images);
+            assert (~iscell(images) || length(images) == FW.layout(1) * FW.layout(2));
+
+            nrows = FW.layout(1);
+            ncols = FW.layout(2);
+            if ~iscell(images)
                 frame = images;
-                imPath = fullfile(FW.imDir, [sprintf('%06d', FW.counter) FW.ext]);
-                imwrite(frame, imPath);
+            elseif nrows == 1 && ncols == 1
+                frame = images{1};
+            elseif nrows == 2 && ncols == 1
+                frame = [images{1}; images{2}];
+            elseif nrows == 1 && ncols == 2
+                frame = [images{1}, images{2}];
+            elseif nrows == 1 && ncols == 3
+                frame = [images{1}, images{2}, images{3}];
+            elseif nrows == 3 && ncols == 1
+                frame = [images{1}; images{2}; images{3}];
+            elseif nrows == 2 && ncols == 2
+                frame = [images{1}, images{2}; images{3}, images{4}];
+            else
+                assert (0);
             end
+
+            imPath = fullfile(FW.imDir, [sprintf('%06d', FW.counter) FW.ext]);
+            imwrite(frame, imPath);
+
             FW.counter = FW.counter + 1;
         end
         
-        function delete(FW)
-            if ishandle(FW.FIG_NUM), close(FW.FIG_NUM), end
-        end
-
     end % methods
 end
 
