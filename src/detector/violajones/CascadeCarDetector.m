@@ -29,7 +29,7 @@ classdef CascadeCarDetector < CarDetectorInterface
             parse (parser, modelPath, geometry, varargin{:});
             parsed = parser.Results;
             
-            CD.geometry = parsed.geometry;
+            CD.geometry = geometry;
             CD.sizeMap = CD.geometry.getCameraRoadMap();
 %            CD.grayThreshold = parsed.grayThreshold;
             if ~isempty(parsed.mask)
@@ -43,7 +43,7 @@ classdef CascadeCarDetector < CarDetectorInterface
             CD.roi = mask2roi (CD.sizeMap > 0 & CD.mask);
             assert (~isempty(CD.roi));
             
-            CD.detector = vision.CascadeObjectDetector(parsed.modelPath, ...
+            CD.detector = vision.CascadeObjectDetector(modelPath, ...
                 'MinSize', parsed.minsize, ...
                 'MaxSize', parsed.maxsize, ...
                 'ScaleFactor', parsed.scaleFactor, ...

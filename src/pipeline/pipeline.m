@@ -139,7 +139,7 @@ for t = 1 : 100
     tCycle = toc;
     fprintf ('frame %d in %f sec \n \n', t, tCycle);
     
-    pause
+    %pause
 end
 
 clear frameWriter frameReader
