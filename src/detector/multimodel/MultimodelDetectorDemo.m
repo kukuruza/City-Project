@@ -91,5 +91,5 @@ for i = 1 : length(cars)
 end
 
 img = img + uint8(multiDetector.getMask('colormask', true) * 20);
-imshow([img0, img; mask2rgb(background.result), uint8(abs(img0 - 255))]);
+imshow([img0, img; mask2rgb(background.result), uint8(abs(int32(img0) - 127))]);
 

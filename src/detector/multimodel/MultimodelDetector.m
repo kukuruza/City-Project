@@ -51,8 +51,8 @@ classdef MultimodelDetector < CarDetectorInterface
             addRequired(parser, 'carsByCluster', @(x) iscell(x) && (isempty(x{1}) || isa(x{1}, 'Car')));
             parse (parser, carsByCluster);
 
-            for i = 1 : CD.N
-                for j = i + 1 : CD.N
+            for i = CD.N : -1 : 1
+                for j = i : CD.N
                     if nnz(CD.detectors{i}.mask & CD.detectors{j}.mask)
                         if CD.verbose
                             fprintf('MultimodelDetector: combining clusters %d and %d... ', i, j);
