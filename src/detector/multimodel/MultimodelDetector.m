@@ -53,7 +53,7 @@ classdef MultimodelDetector < CarDetectorInterface
 
             for i = 1 : CD.N
                 for j = i + 1 : CD.N
-                    if nnz(CD.detectors(i).mask & CD.detectors(j).mask)
+                    if nnz(CD.detectors{i}.mask & CD.detectors{j}.mask)
                         if CD.verbose
                             fprintf('MultimodelDetector: combining clusters %d and %d... ', i, j);
                         end 
@@ -71,19 +71,17 @@ classdef MultimodelDetector < CarDetectorInterface
             % parse and validate input
             parser = inputParser;
             addRequired(parser, 'clusters', @(x) ~isempty(x));
-            addRequired(parser, 'detectors', @(x) isa(x, 'CarDetectorInterface'));
+            addRequired(parser, 'detectors', @(x) ~isempty(x) && iscell(x));
             addParameter(parser, 'mergeThreshold', 0.5, @isscalar);
             parse (parser, clusters, detectors);
             parsed = parser.Results;
             assert (length(parsed.clusters) == length(parsed.detectors));
+            for i = 1 : length(detectors), assert(isa(detectors{i}, 'CarDetectorInterface')); end
 
             CD.clusters = parsed.clusters;
             CD.detectors = parsed.detectors;
             CD.N = length(parsed.clusters);
             CD.mergeThreshold = parsed.mergeThreshold;
-            for i = 1 : CD.N
-                CD.detectors(i).mask = CD.clusters(i).recallMask;
-            end
         end
 
         
@@ -99,17 +97,17 @@ classdef MultimodelDetector < CarDetectorInterface
             if (parsed.colormask)
                 % sum up the individual masks in colors
                 cmap = colormap('lines');
-                m = CD.detectors(1).getMask();
+                m = CD.detectors{1}.getMask();
                 mask = double(zeros(size(m,1), size(m,2), 3));
                 for i = 1 : CD.N
-                    m = double(CD.detectors(i).getMask());
+                    m = double(CD.detectors{i}.getMask());
                     mask = mask + cat(3, m * cmap(i,1), m * cmap(i,2), m * cmap(i,3));
                 end
             else
                 % do OR for detectors masks
-                mask = CD.detectors(1).getMask();
+                mask = CD.detectors{1}.getMask();
                 for i = 2 : CD.N
-                     mask = mask | CD.detectors(i).getMask();
+                     mask = mask | CD.detectors{i}.getMask();
                 end
             end
         end
@@ -120,7 +118,7 @@ classdef MultimodelDetector < CarDetectorInterface
             % detect cars from every cluster
             carsByCluster = {[]};
             for i = 1 : CD.N
-                carsCluster = CD.detectors(i).detect(img);
+                carsCluster = CD.detectors{i}.detect(img);
                 for icar = 1 : length(carsCluster)
                     carsCluster(icar).name = CD.clusters(i).name; 
                 end

@@ -1,12 +1,10 @@
 % A thin wrapper around vision.ForegroundDetector and vision.BlobAnalysis
 
 classdef BackgroundGMM < BackgroundInterface
-     properties (Hidden)
+     properties
          detector;
          blob;
          shapeInserter;
-     end
-     properties (Hidden)  % constants
 
          % one of two modes
          AdaptLearningRate;
@@ -15,6 +13,9 @@ classdef BackgroundGMM < BackgroundInterface
          % mask refinement
          fn_level = 22;
          fp_level = 1;
+         
+         % store result after every step
+         result = [];
 
      end % properties
      
@@ -87,6 +88,9 @@ classdef BackgroundGMM < BackgroundInterface
             if parsed.denoise
                 mask = denoiseMask(mask, BS.fn_level, BS.fp_level);
             end
+            
+            % store result
+            BS.result = mask;
          end
          
          
@@ -100,24 +104,7 @@ classdef BackgroundGMM < BackgroundInterface
              bboxes = [bboxes(:,1), bboxes(:,2), bboxes(:,3), bboxes(:,4)];
              im_out = step(BS.shapeInserter, image, bboxes);
          end
-         
-         
-         % If there is just one car in the image detect it
-         % Returns [] if there is not exactly one car
-         function [bbox, certainty] = getSingleCar (BS, image)
-             % default is failure
-             bbox = [];
-             certainty = 0;
-             
-             % get with the usual subtract
-             [~, bboxes] = subtract (BS, image);
-             if size(bboxes,1) ~= 1, return, end
-             
-             % TODO: get more advanced accuracy
-             bbox = bboxes;
-             certainty = 1;
-         end
-         
+
          
          % saving vision.ForegroundDetector is not trivial
 %          function save (BS, path)
