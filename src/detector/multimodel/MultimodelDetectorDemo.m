@@ -34,22 +34,14 @@ fprintf ('Have read the Geometry object from file\n');
 
 % background - load parameters and learn
 % workaround problem with saving/loading BackgroundDetector - learn now
-load ([CITY_DATA_PATH 'camdata/cam572/10am/models/backgroundGMM.mat']);
+load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
+pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
-videoPath = [videoDir '15-mins.avi'];
-timesPath = [videoDir '15-mins.txt'];
-frameReader = FrameReaderVideo (videoPath, timesPath); 
-backimage = imread([videoDir 'models/backimage.png']);
-for t = 1 : 100
-    [img, ~] = frameReader.getNewFrame();
-    img = uint8(int32(img) - int32(backimage) + 128);
-    background.subtract(img, 'denoise', false);
-end
-clear frameReader
 
 % from-background detector
 cluster_fromback = struct('minyaw', -180, 'maxyaw', 180, 'minsize', 20, 'maxsize', 500, 'carsize', [20 15]);
-cluster_fromback.recallMask = logical(ones(size(img,1), size(img,2)));
+sz = size(geom.getCameraRoadMap());
+cluster_fromback.recallMask = logical(ones(sz));
 cluster_fromback.name = 'foregr.';
 frombackDetector = FrombackDetector(geom, background);
 frombackDetector.mask = cluster_fromback.recallMask;
@@ -72,9 +64,13 @@ end
 usedClusters(counter) = cluster_fromback;
 detectors{counter} = frombackDetector;
 
-
 % multimodel detector
 multiDetector = MultimodelDetector(usedClusters, detectors);
+
+% save multiDetector under name 'detector'
+detector = multiDetector; 
+save ([CITY_DATA_PATH 'models/cam572/multiDetector.mat'], 'detector');
+clear detector;
 
 img0 = imread(imPath);
 img = img0;

@@ -27,26 +27,11 @@ roadCameraMap = geom.getCameraRoadMap();
 
 % background
 background = BackgroundGMM();
+pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 backimage = imread([videoDir 'models/backimage.png']);
 
 % detector
-%modelPath = [CITY_DATA_PATH, 'violajones/models/model01.xml'];
-%detector = CascadeCarDetector (modelPath, geom);
-clustersPath = [CITY_DATA_PATH 'violajones/patches/clusters.mat'];
-load (clustersPath);
-modelTemplate = [CITY_DATA_PATH, 'violajones/models/model%02d-cr10.xml'];
-% arrays of clusters and detectors
-counter = 1;
-for i = [1 2 3 4]
-    usedClusters(counter) = clusters(i);
-    modelPath = sprintf(modelTemplate, i);
-    detectors(counter) = CascadeCarDetector(modelPath, geom, ...
-        'minsize', clusters(i).carsize);
-    counter = counter + 1;
-end
-% multimodel detector
-detector = MultimodelDetector(usedClusters, detectors);
-
+load ([CITY_DATA_PATH 'models/cam572/multiDetector.mat']);
 
 % probabilistic model
 counting = MetricLearner(geom);
@@ -131,15 +116,15 @@ for t = 1 : 100
     end
     
     frame_out = drawCarTransitions(seenCars, cars, transitionMatrix, frame_out);
-    figure(1); imshow([frame_ghost ... % [uint8(abs(int32(frame_ghost) - 128)) ...
-                       frame_out]);
+    imshow([frame_ghost ... % [uint8(abs(int32(frame_ghost) - 128)) ...
+            frame_out]);
     %frameWriter.writeNextFrame(frame_out);
     
     seenCars = cars;
     tCycle = toc;
     fprintf ('frame %d in %f sec \n \n', t, tCycle);
     
-    %pause
+    pause
 end
 
 clear frameWriter frameReader
