@@ -116,7 +116,7 @@ for t = 1 : 100
     end
     
     frame_out = drawCarTransitions(seenCars, cars, transitionMatrix, frame_out);
-    imshow([frame_ghost ... % [uint8(abs(int32(frame_ghost) - 128)) ...
+    imshow([frame_ghost ... % gray2darkghost(frame_ghost) ...
             frame_out]);
     %frameWriter.writeNextFrame(frame_out);
     
