@@ -23,7 +23,7 @@ modelTemplate = [CITY_DATA_PATH, 'violajones/models/model%02d-cr10.xml'];
 
 %imPath = '../testdata/10am-064.jpg';
 imPath = '../testdata/5pm-018.png';
-
+imSrcPath = '../testdata/5pm-018-src.png';
 
 %% init
 
@@ -82,8 +82,12 @@ tic
 cars = multiDetector.detect(img);
 toc
 
+img0 = imread(imSrcPath);
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img);
+    img = img0;
+    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
+    imshow(img);
+    pause
 end
 
 img = img + uint8(multiDetector.getMask('colormask', true) * 20);

@@ -103,19 +103,20 @@ classdef Car < CarInterface
             parser = inputParser;
             addRequired (parser, 'im', @(x) ndims(x)==3 && size(x,3) == 3);
             addParameter (parser, 'color', 'yellow');
+            addParameter (parser, 'fontsize', 12);
             addParameter (parser, 'tag', '', @ischar);
             addParameter (parser, 'boxOpacity', 0.6, @(x) isnumeric(x) && isscalar(x));
             parse (parser, im, varargin{:});
             parsed = parser.Results;
 
-            if parsed.boxOpacity > 0.5, textColor = 'black'; else textColor = 'white'; end
+            if parsed.boxOpacity > 0.5, textColor = 'black'; else textColor = 'yellow'; end
             %color = 128 + rand(1,3) * 127;
             if isempty(parsed.tag), tag = C.name; else tag = parsed.tag; end
             im = insertObjectAnnotation(im, 'rectangle', C.bbox, tag, ...
                 'Color', parsed.color, ...
                 'TextBoxOpacity', parsed.boxOpacity, ...
                 'TextColor', textColor, ...
-                'FontSize', 12);
+                'FontSize', parsed.fontsize);
         end
         
     end % methods

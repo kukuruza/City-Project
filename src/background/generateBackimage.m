@@ -16,17 +16,21 @@ run ../subdirPathsSetup.m;
 inVideoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
 inVideoPath = [inVideoDir '15-mins.avi'];
 inTimestampPath = [inVideoDir '15-mins.txt'];
+% inVideoDir = [CITY_DATA_PATH 'camdata/cam572/10am/'];
+% inVideoPath = [inVideoDir 'shadows.avi'];
+% inTimestampPath = [inVideoDir '2-hours.txt'];
 
 % output
-outBackgroundPath = [inVideoDir 'models/refBackground.png'];
+outBackgroundPath = [CITY_DATA_PATH 'camdata/cam572/5pm/models/refBackground.png'];
 outVideoPath = [inVideoDir 'models/adjBackground.avi'];
 outBackimage = [inVideoDir 'models/backimage.png'];
-doWrite = true;
 refBackImage = imread(outBackgroundPath);
 
+doWrite = true;
+
+
 % objects to detect background, to read video, and to write results video
-%background = BackgroundGMM ('fn_level', 15, 'fp_level', 1);
-load ([CITY_DATA_PATH 'camdata/cam572/5pm/models/backgroundGMM.mat']);
+load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
 background.fp_level = 0;
 background.fn_level = 0;
 frameReader = FrameReaderVideo (inVideoPath, inTimestampPath);
@@ -58,16 +62,12 @@ for t = 1 : 10000
     
     % adjust the reference background with backImage
     adjBackImage = generateCleanBackground(refBackImage, backImage, ...
-        'fgThreshold', 40, 'verbose', 0);
+        'verbose', 0);
     
     if doWrite, frameWriter.writeNextFrame(adjBackImage); end
 
-    %subplot(1,2,1);
-    %imshow(mask);
-    %subplot(1,2,2);
-    %imshow(backImage);
-    %imshow([backImage, 255 * mask(:,:,[1 1 1])])
-    %pause(0.5)
+    imshow([frame, adjBackImage]);
+    pause (0.1);
     
 end
 

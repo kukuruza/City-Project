@@ -17,6 +17,6 @@ classdef BackgroundInterface < handle
          
          % draw provided boxes in the provided image
          im_out = drawboxes (BS, image, bboxes)
-         
+
     end % methods
 end
