@@ -23,7 +23,7 @@ modelTemplate = [CITY_DATA_PATH, 'violajones/models/model%02d-cr10.xml'];
 
 %imPath = '../testdata/10am-064.jpg';
 imPath = '../testdata/5pm-018.png';
-
+imSrcPath = '../testdata/5pm-018-src.png';
 
 %% init
 
@@ -34,7 +34,7 @@ fprintf ('Have read the Geometry object from file\n');
 
 % background - load parameters and learn
 % workaround problem with saving/loading BackgroundDetector - learn now
-load ([CITY_DATA_PATH 'camdata/cam572/10am/models/backgroundGMM.mat']);
+load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
 videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
 videoPath = [videoDir '15-mins.avi'];
 timesPath = [videoDir '15-mins.txt'];
@@ -72,6 +72,11 @@ end
 usedClusters(counter) = cluster_fromback;
 detectors{counter} = frombackDetector;
 
+usedClusters(1).name = 1;
+usedClusters(2).name = 2;
+usedClusters(3).name = 3;
+usedClusters(4).name = 4;
+usedClusters(5).name = 5;
 
 % multimodel detector
 multiDetector = MultimodelDetector(usedClusters, detectors);
@@ -86,10 +91,14 @@ tic
 cars = multiDetector.detect(img);
 toc
 
+img0 = imread(imSrcPath);
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img);
+    img = img0;
+    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
+    imshow(img);
+    pause
 end
 
-img = img + uint8(multiDetector.getMask('colormask', true) * 20);
-imshow([img0, img; mask2rgb(background.result), uint8(abs(int32(img0) - 127))]);
-
+%img = img + uint8(multiDetector.getMask('colormask', true) * 20);
+%imshow([img0, img; mask2rgb(background.result), uint8(abs(int32(img0) - 127))]);
+imshow(img);

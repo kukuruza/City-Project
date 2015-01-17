@@ -78,7 +78,12 @@ classdef CascadeCarDetector < CarDetectorInterface
                                    orientationMap.pitch(pos(1), pos(2))];
                 
                 % filter based on size 
-                if CD.sizeMap(pos(1), pos(2)) && CD.mask(pos(1), pos(2))
+                sz = (car.bbox(3) + car.bbox(4)) / 2;
+                if sz < CD.sizeMap(pos(1), pos(2)) * 0.8 || ...
+                   sz > CD.sizeMap(pos(1), pos(2)) * 1.7
+                    continue
+                end
+                if CD.mask(pos(1), pos(2))
                     cars = [cars; car];
                 end
             end
