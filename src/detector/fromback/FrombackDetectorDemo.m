@@ -31,7 +31,7 @@ pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 
 % detector
 frombackDetector = FrombackDetector(geom, background);
-
+frombackDetector.noFilter = true;
 
 
 %% work 

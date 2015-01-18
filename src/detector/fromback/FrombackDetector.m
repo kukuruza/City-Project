@@ -17,7 +17,6 @@ classdef FrombackDetector < CarDetectorInterface
         background;
         sizeMap;
 
-        SizeLimits = [0.7 1.7];
         Heght2WidthLimits = [0.5 1.2];
         SparseDist = 0.0;
         DistToBorder = 20;
@@ -32,24 +31,6 @@ classdef FrombackDetector < CarDetectorInterface
         
         function indices = filterByStatus (~, statuses, name)
             indices = find(cellfun('isempty', strfind(statuses, name)));
-        end
-        
-        
-        % filter by sizes (size is sqrt of area)
-        function statuses = filterBySize (CD, cars, statuses)
-            for i = 1 : length(cars)
-                if ~strcmp(statuses{i}, 'ok'), continue, end
-                center = cars(i).getBottomCenter(); % [y x]
-                expectedSize = CD.sizeMap(center(1), center(2));
-                actualSize = sqrt(single(cars(i).bbox(3) * cars(i).bbox(4)));
-                if actualSize < expectedSize * CD.SizeLimits(1) || ...
-                   actualSize > expectedSize * CD.SizeLimits(2)
-                    if CD.verbose > 1
-                        fprintf ('    car %d - bad size %f, expect %f\n', i, actualSize, expectedSize); 
-                    end
-                    statuses{i} = 'bad size';
-                end
-            end
         end
         
         
@@ -153,7 +134,6 @@ classdef FrombackDetector < CarDetectorInterface
             %     mask = imerode (mask, strel('disk', 2));
             %     mask = imdilate(mask, strel('disk', 2));
 
-            statuses = CD.filterBySize (cars, statuses);
             statuses = CD.filterByProportion (cars, statuses);
             statuses = CD.filterBySparsity (cars, statuses);
             %statuses = CD.filterByBorder (cars, statuses);
@@ -182,6 +162,10 @@ classdef FrombackDetector < CarDetectorInterface
                 cars (CD.filterByStatus(statuses, 'ok')) = [];
             end 
     
+            % filter by size
+            if ~CD.noFilter
+                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', 2);
+            end
         end
 
     end % methods

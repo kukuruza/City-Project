@@ -82,6 +82,13 @@ tic
 cars = multiDetector.detect(img);
 toc
 
+for i = 1 : length(cars)
+    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
+end
+img = img + uint8(multiDetector.getMask('colormask', true) * 30);
+imshow([img0, img; mask2rgb(background.result), gray2darkghost(img0)]);
+pause
+
 img0 = imread(imSrcPath);
 for i = 1 : length(cars)
     img = img0;
@@ -89,7 +96,4 @@ for i = 1 : length(cars)
     imshow(img);
     pause
 end
-
-img = img + uint8(multiDetector.getMask('colormask', true) * 20);
-imshow([img0, img; mask2rgb(background.result), gray2darkghost(img0)]);
 
