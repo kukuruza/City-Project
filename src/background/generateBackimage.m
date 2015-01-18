@@ -13,13 +13,16 @@ run ../subdirPathsSetup.m;
 
 
 % input
-inVideoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
+inVideoDir = [CITY_DATA_PATH 'camdata/cam572/dusk/'];
 inVideoPath = [inVideoDir '15-mins.avi'];
 inTimestampPath = [inVideoDir '15-mins.txt'];
 % inVideoDir = [CITY_DATA_PATH 'camdata/cam572/10am/'];
 % inVideoPath = [inVideoDir 'shadows.avi'];
 % inTimestampPath = [inVideoDir '2-hours.txt'];
 
+inVideoPath = [inVideoDir '5-hours.avi'];
+inTimestampPath = [inVideoDir '5-hours.txt'];
+inVideoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
 % output
 outBackgroundPath = [CITY_DATA_PATH 'camdata/cam572/5pm/models/refBackground.png'];
 outVideoPath = [inVideoDir 'models/adjBackground.avi'];
@@ -64,6 +67,7 @@ for t = 1 : 10000
     adjBackImage = generateCleanBackground(refBackImage, backImage, ...
         'verbose', 0);
     
+    figure(1); imshow(adjBackImage)
     if doWrite, frameWriter.writeNextFrame(adjBackImage); end
 
     imshow([frame, adjBackImage]);
