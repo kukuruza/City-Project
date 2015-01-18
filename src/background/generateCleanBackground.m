@@ -18,7 +18,7 @@ function[adjBackground] = generateCleanBackground( refBackground, curBackground,
     addRequired(parser,  'curBackground',      @(x) ndims(x) == 3 && size(x,3) == 3);
     addParameter(parser, 'diffType',     0,    @(x) x == 0 || x == 1 || x == 2);
     addParameter(parser, 'filterSigma',  50.0, @isscalar);
-    addParameter(parser, 'fgThreshold',  20.0, @isscalar);
+    addParameter(parser, 'fgThreshold',  40.0, @isscalar);
     addParameter(parser, 'verbose',      0,    @isscalar);
     parse (parser, refBackground, curBackground, varargin{:});
     parsed = parser.Results;
@@ -65,8 +65,8 @@ function[adjBackground] = generateCleanBackground( refBackground, curBackground,
     adjBackground = uint8(double(refBackground) + (blurBack - blurRef));
     
     if parsed.verbose
-        figure(1); imshow([refBackground, adjBackground; ...
-                           curBackground, 255*uint8(fgMask(:,:,[1 1 1]))]);
+        imshow([refBackground, adjBackground; ...
+                curBackground, 255*uint8(fgMask(:,:,[1 1 1]))]);
         pause(0.1);
     end
 end

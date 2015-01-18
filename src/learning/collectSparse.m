@@ -25,7 +25,7 @@ timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
 
 
 %% output
-outDir = [CITY_DATA_PATH 'learning/cam572-sparse/'];
+outDir = [CITY_DATA_PATH 'learning/cam572-sparse3/'];
 
 if exist(outDir, 'dir')
     rmdir(outDir, 's');
@@ -49,11 +49,7 @@ load ([CITY_DATA_PATH, 'camdata/cam572/10am/models/backgroundGMM.mat']);
 backImage = int32(imread([CITY_DATA_PATH, 'camdata/cam572/10am/background1.png']));
 
 % geometry
-cameraId = 572;
-image = imread([CITY_SRC_PATH 'geometry/cam572.png']);
-matFile = [CITY_SRC_PATH 'geometry/' sprintf('Geometry_Camera_%d.mat', cameraId)];
-geom = GeometryEstimator(image, matFile);
-
+load('GeometryObject_Camera_572.mat');
 sizeMap = geom.getCameraRoadMap();
 orientationMap = geom.getOrientationMap();
 
@@ -69,7 +65,7 @@ for t = 1 : 100000
     fprintf ('frame: %d\n', t);
 
     % get the trace of foreground. Cars will be learned from this.
-    frame_ghost = uint8((int32(frame) - backImage) / 2 + 128);
+    frame_ghost = uint8((int32(frame) - int32(backImage)) / 2 + 128);
 
     % subtract background and return mask
     mask = background.subtract(frame);

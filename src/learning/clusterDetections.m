@@ -15,18 +15,14 @@ run ../subdirPathsSetup.m;
 inPatchesDir = [CITY_DATA_PATH 'learning/cam572-sparse/patches/'];
 inCarsDir = [CITY_DATA_PATH 'learning/cam572-sparse/cars/'];
 goodListPath = [CITY_DATA_PATH 'learning/cam572-sparse/oneCarList.txt'];
+carsList = readList (goodListPath);
 
 clustersPath = [CITY_DATA_PATH 'violajones/patches/clusters.mat'];
 load(clustersPath);
 
-
-% read goodList
-carsList = readList (goodListPath);
-
-
-%% output
-
 patchesDir = [CITY_DATA_PATH, 'violajones/patches/'];
+
+dowrite = false;
 
 
 
@@ -50,16 +46,9 @@ for i = 1 : length(carsList)
 end
 
 figure(1);
-scatter (sizes, yaw);
-title ('car distribution');
-xlabel ('car size in pixels');
-ylabel ('car YAW orientation in degrees');
-
-figure(2);
-scatter (sizes, pitch);
-title ('car distribution');
-xlabel ('car size in pixels');
-ylabel ('car PITCH orientation in degrees');
+scatter (sizes, yaw + 90);
+xlabel ('size, pixels');
+ylabel ('orientation, degrees');
 
 
 %% cluster cars
@@ -80,25 +69,25 @@ for i = 1 : length(carsList)
 end
 
 % write down patches
+if dowrite
+    for i = 1 : max(iclusters(:))
+        % make dirs
+        clusterName = sprintf('pos-%02d/', i);
+        if exist([patchesDir clusterName], 'dir')
+            rmdir ([patchesDir clusterName], 's');
+        end
+        mkdir ([patchesDir clusterName])
 
-for i = 1 : max(iclusters(:))
-    % make dirs
-    clusterName = sprintf('pos-%02d/', i);
-    if exist([patchesDir clusterName], 'dir')
-        rmdir ([patchesDir clusterName], 's');
-    end
-    mkdir ([patchesDir clusterName])
-    
-    % write patches to dirs
-    indices = find (iclusters == i);
-    for j = 1 : length(indices)
-        clear car
-        load ([inCarsDir carsList{indices(j)} '.mat']);
-        goast = car.goast;
-        goast = imresize(goast, clusters(i).carsize, 'lanczos3');
-        
-        imageName = sprintf('%05d.png', j);
-        imwrite (uint8(-goast / 2 + 127), [patchesDir clusterName imageName]);
+        % write patches to dirs
+        indices = find (iclusters == i);
+        for j = 1 : length(indices)
+            clear car
+            load ([inCarsDir carsList{indices(j)} '.mat']);
+            goast = car.goast;
+            goast = imresize(goast, clusters(i).carsize, 'lanczos3');
+
+            imageName = sprintf('%05d.png', j);
+            imwrite (uint8(-goast / 2 + 127), [patchesDir clusterName imageName]);
+        end
     end
 end
-

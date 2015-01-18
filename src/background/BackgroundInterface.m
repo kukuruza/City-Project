@@ -17,10 +17,6 @@ classdef BackgroundInterface < handle
          
          % draw provided boxes in the provided image
          im_out = drawboxes (BS, image, bboxes)
-         
-         % if there is just one car in the image detect it.
-         % returns [] if there is more than one car
-         [bbox, certainty] = getSingleCar (BS, image)
 
     end % methods
 end

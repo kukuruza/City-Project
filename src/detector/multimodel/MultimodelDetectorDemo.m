@@ -21,10 +21,9 @@ load (clustersPath);
 
 modelTemplate = [CITY_DATA_PATH, 'violajones/models/model%02d-cr10.xml'];
 
-imPath = '../testdata/10am-064.jpg';
-img0 = imread(imPath);
-
-
+%imPath = '../testdata/10am-064.jpg';
+imPath = '../testdata/5pm-018.png';
+imSrcPath = '../testdata/5pm-018-src.png';
 
 %% init
 
@@ -33,31 +32,68 @@ objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
 
-% arrays of clusters and detectors
+% background - load parameters and learn
+% workaround problem with saving/loading BackgroundDetector - learn now
+load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
+pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
+videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
+
+% from-background detector
+cluster_fromback = struct('minyaw', -180, 'maxyaw', 180, 'minsize', 20, 'maxsize', 500, 'carsize', [20 15]);
+sz = size(geom.getCameraRoadMap());
+cluster_fromback.recallMask = logical(ones(sz));
+cluster_fromback.name = 'foregr.';
+frombackDetector = FrombackDetector(geom, background);
+frombackDetector.mask = cluster_fromback.recallMask;
+
+
+% arrays of viola-jones clusters and detectors
 counter = 1;
 for i = iclusters
     usedClusters(counter) = clusters(i);
     
     modelPath = sprintf(modelTemplate, i);
-    detectors(counter) = CascadeCarDetector(modelPath, geom, ...
+    detectors{counter} = CascadeCarDetector(modelPath, geom, ...
         'minsize', clusters(i).carsize);
-    
+    detectors{counter}.mask = clusters(i).recallMask;
+
     counter = counter + 1;
 end
+
+% add fromback_detector
+usedClusters(counter) = cluster_fromback;
+detectors{counter} = frombackDetector;
 
 % multimodel detector
 multiDetector = MultimodelDetector(usedClusters, detectors);
 
+% save multiDetector under name 'detector'
+detector = multiDetector; 
+save ([CITY_DATA_PATH 'models/cam572/multiDetector.mat'], 'detector');
+clear detector;
+
+img0 = imread(imPath);
+img = img0;
+
+% necessary for FrombackDetector
+background.subtract(img, 'denoise', false);
+
 tic
-cars = multiDetector.detect(img0);
+cars = multiDetector.detect(img);
 toc
 
-img = img0;
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img);
+    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
 end
+img = img + uint8(multiDetector.getMask('colormask', true) * 30);
+imshow([img0, img; mask2rgb(background.result), gray2darkghost(img0)]);
+pause
 
-figure (1);
-img = img + uint8(multiDetector.getMask('colormask', true) * 20);
-imshow(img);
+img0 = imread(imSrcPath);
+for i = 1 : length(cars)
+    img = img0;
+    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
+    imshow(img);
+    pause
+end
 
