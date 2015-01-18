@@ -5,7 +5,7 @@
 %   about how to get frames from there, that duplicate frames should be
 %   avoided and further on.
 
-classdef FrameReaderInternet < FrameReader
+classdef GenericFrameReaderInternet
     properties (Hidden)
         % url of the web-viewer
         urlViewerPart = 'http://nyctmc.org/google_popup.php?cid=';
@@ -18,10 +18,13 @@ classdef FrameReaderInternet < FrameReader
         camNum            % number of the camera, given in constructor
         lastFrame = [];   % to compare against a new one. If same then wait
         lastCall = tic;   % time of the last call. If too close then wait
+        
+        % valid camera flag
+        validCamera = false;
     end % properties
     
     methods
-        function FR = FrameReaderInternet (camNum)
+        function FR = GenericFrameReaderInternet (camNum)
             
             % open the viewer and read the html
             urlViewer = [FR.urlViewerPart num2str(camNum)];
@@ -30,13 +33,22 @@ classdef FrameReaderInternet < FrameReader
             % find the camera number in the html
             match = regexp(content, 'http://207.251.86.238/cctv\d+', 'match');
             
-            % 
-            assert (~isempty(match));
+            % If camera not found
+            %assert (~isempty(match));
+            if(~isempty(match))
+                FR.validCamera = true;
             
             % set the camera number and image url
             FR.camNum = str2num( match{1}(27:end) );
             FR.url = [FR.urlPart1 num2str(FR.camNum) FR.urlPart2];
+            end
         end
+        
+        % Checking if its a valid camera
+        function isCameraValid = checkCameraValidity(FR)
+            isCameraValid = FR.validCamera;
+        end
+        
         function [frame, timeinterval] = getNewFrame(FR)
             % wait until new image is there
             while true

@@ -26,6 +26,8 @@ classdef GeometryEstimator < GeometryInterface
         vanishPoint;
         boundaryLanes;
         
+        sumWarpedBackground = [];
+        
     end
     methods
         %% Constructor
@@ -190,6 +192,6 @@ classdef GeometryEstimator < GeometryInterface
     
         % Estimate the vanishingpoint and extremes of the lane
         % (based on several frames, offline processing)
-        [vanishPoint, boundaryLanes] = estimateRoad(frame, binaryImgPath, noFrames);
+        [vanishPoint, boundaryLanes, mask] = estimateRoad(frame, binaryImgPath, noFrames);
     end
 end

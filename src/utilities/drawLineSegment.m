@@ -16,35 +16,27 @@ function[drawImage] = drawLineSegment(image, point1, point2, color)
     if(nargin < 4)
         color = uint8([255, 0, 0]);
     end
-
-    % Clip the line segment to draw if one/two of the points is outside the
-    % frame    
-    % Checking for point 1
-    if(point1) 
-        a
-    end
     
-    xDiff = abs(point1(1) - point2(1));ww
+    xDiff = abs(point1(1) - point2(1));
     yDiff = abs(point1(2) - point2(2));
     % Drawing based on x-coordinate
     if(xDiff > yDiff)
         xSpan = min(point1(1), point2(1)) : max(point1(1), point2(1));
+        
         ySpan = point1(2) + (xSpan - point1(1)) * ...
                 (point1(2) - point2(2))/ (point1(1) - point2(1));
-
-        % Pruning xSpan and correspondingly ySpan
-        toRemove = (ySpan < 1);
     else
     % Drawing based on y-coordinate
         ySpan = min(point1(2), point2(2)) : max(point1(2), point2(2));
+        
         xSpan = point1(1) + (ySpan - point1(2)) * ...
                 (point1(1) - point2(1))/ (point1(2) - point2(2));
-
-        % Pruning xSpan and correspondingly ySpan
-        toRemove = (xSpan < 1);
     end
     
     % Pruning xSpan and correspondingly ySpan
+    toRemove = (ySpan < 1) | (ySpan > size(image, 1)) | ...
+                (xSpan < 1) | (xSpan > size(image, 2)) ;
+    
     xSpan(toRemove) = [];
     ySpan(toRemove) = [];
     

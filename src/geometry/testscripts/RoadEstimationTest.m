@@ -65,7 +65,15 @@ for t = 1 : 100
     
     % Debugging lane detection
     geom.generateRoadBelief(foregroundMask, frame);
-    pause(1)
+    if(t == 35)
+        
+        break;
+    end
+    %pause()
+    %pause(0.5);
+    %if(input == 'w')
+    %    pause();
+    %end
     
     tCycle = toc;
     fprintf ('frame %d in %f sec\n', t, tCycle);

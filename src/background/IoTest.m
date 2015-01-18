@@ -13,5 +13,9 @@ save('testdata/ioTest-detector.mat', 'detector');
 clear all
 load('testdata/ioTest-detector.mat');
 
-image = imread ('testdata/ioTest-fr0.png');
-mask = step(detector, image);
+anotherDetector = clone(detector);
+anotherDetector.isLocked()
+
+%image = imread ('testdata/ioTest-fr0.png');
+bimage = imread('../geometry/cam572.png');
+%mask = step(detector, image);

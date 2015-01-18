@@ -97,7 +97,7 @@ function [ipHomography, warpedImg] = computeIPTransform(obj, image, laneRatio, l
     ipHomography = computeH(pts1, pts2);
 
     % Warp the image, with size proportional to the lane size
-    warpedSize = floor([laneRatio, 1.0] .* size(image));
+    warpedSize = floor([2.5*laneRatio, 1.0] .* size(image));
     warpedImg = warpH(image, ipHomography, warpedSize);
     
     %obj.homography = H;
