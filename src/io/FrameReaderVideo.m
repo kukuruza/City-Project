@@ -8,6 +8,7 @@ classdef FrameReaderVideo < FrameReader
         videoSource
         timesTable
         counter = 1;
+        eof = false;
     end % properties
     methods
         function FR = FrameReaderVideo (videoPath, timeStampPath)
@@ -26,12 +27,16 @@ classdef FrameReaderVideo < FrameReader
                 'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 
         end
         function [frame, timeStamp] = getNewFrame(FR)
-            [frame, EOF] = step(FR.videoSource);
-            if EOF == true
-                frame = [];
+            if ~FR.eof
+                [frame, FR.eof] = step(FR.videoSource);
             end
-            timeStamp = FR.timesTable(FR.counter, :);
-            FR.counter = FR.counter + 1;
+            if FR.eof
+                frame = [];
+                timeStamp = [];
+            else
+                timeStamp = FR.timesTable(FR.counter, :);
+                FR.counter = FR.counter + 1;
+            end
         end
     end % methods
 

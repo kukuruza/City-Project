@@ -17,12 +17,12 @@ frameReader = FrameReaderVideo ([videoDir '15-mins.avi'], [videoDir '15-mins.txt
 
 numFramesSkip = 100;
 numFramesWrite = 100;
-intervalFrames = 5;
+intervalFrames = 3;
 
 
 % output
 outDir = [videoDir 'amazon/frames/'];
-frameWriter = FrameWriterImages (outDir, 1, '.jpg');
+frameWriter = FrameWriterImages (outDir, [1 1], '.jpg');
 
 % skip first N frames
 for i = 1 : numFramesSkip
