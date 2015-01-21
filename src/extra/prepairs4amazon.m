@@ -16,7 +16,7 @@ videoDir = [CITY_DATA_PATH, 'camdata/cam572/5pm/'];
 frameReader = FrameReaderVideo ([videoDir '15-mins.avi'], [videoDir '15-mins.txt']);
 
 % output
-outDir = [videoDir 'amazon/src/'];
+outDir = [videoDir 'amazon/pairs/'];
 frameWriter = FrameWriterImpairs (outDir);
 
 for i = 1 : 100
