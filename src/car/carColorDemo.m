@@ -31,6 +31,7 @@ for i = 1 : length(lines)
     clear car;
     carPath = [imagesDir '/' name '.mat'];
     load (carPath);
+    
     estimatedColor = carColor(car)
     
     % display image
