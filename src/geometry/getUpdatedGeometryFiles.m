@@ -9,9 +9,10 @@ clear all
 run ../rootPathsSetup.m
 run ../subdirPathsSetup.m
 
-cameraNumber = [368, 572];
+cameraNumber = [572];
+%cameraNumber = [368, 572];
 
-for i = 1:2
+for i = 1:length(cameraNumber)
     cameraStr = num2str(cameraNumber(i));
     imageDir = [CITY_DATA_PATH strcat('2-min/camera', cameraStr)];
     imageName = 'image0000.jpg';

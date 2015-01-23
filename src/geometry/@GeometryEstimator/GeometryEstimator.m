@@ -107,7 +107,7 @@ classdef GeometryEstimator < GeometryInterface
         dist3D = computeDistance3D(obj, point1, point2);
         
         % Function to get a belief about the road using foreground (binary)
-        generateRoadBelief(obj, foreground, image);
+        [lanes, debugImage] = generateRoadBelief(obj, foreground, image);
         
         % Computing the camera road map, for cannonical system using
         % homography estimated before
