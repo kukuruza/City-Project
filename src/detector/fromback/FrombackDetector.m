@@ -6,8 +6,11 @@ classdef FrombackDetector < CarDetectorInterface
     end
     properties
         
-        % debugging - disable removing cars after filtering
+        % debugging
+        %disable removing cars after filtering
         noFilter = false;
+        % make sure that mask is actually updated. See subtract() function
+        maskDebug = [];
         
         % verbose = 0  no info
         %         = 1  how many filtered
@@ -188,6 +191,14 @@ classdef FrombackDetector < CarDetectorInterface
             foregroundMask = CD.background.result;
             bboxes = CD.background.mask2bboxes(foregroundMask);
 
+            % debug: background has to be attached to a frombackDetector,
+            %        otherwise the it will always return the same mask.
+            %        Make sure the mask is different
+            assert (isempty(CD.maskDebug) || any(foregroundMask(:) ~= CD.maskDebug(:)));
+            CD.maskDebug = foregroundMask;
+            %imshow(foregroundMask);
+            %pause;
+                     
             N = size(bboxes,1);
             cars = Car.empty;
             statuses = cell(N,1);

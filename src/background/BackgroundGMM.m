@@ -85,12 +85,12 @@ classdef BackgroundGMM < BackgroundInterface
                 mask = step(BS.detector, image, BS.LearningRate);
             end
 
+            % store result
+            BS.result = mask;
+
             if parsed.denoise
                 mask = denoiseMask(mask, BS.fn_level, BS.fp_level);
             end
-            
-            % store result
-            BS.result = mask;
          end
          
          

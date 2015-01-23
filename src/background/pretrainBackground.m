@@ -1,5 +1,5 @@
 function pretrainBackground (background, videoDir)
-% train the background model from video
+% train the background model from video using GHOST frames.
 %   it is a workaround for the Matlab bug in saving / loading background
 %   Hopefully, will find a solution to save the trained background
 

@@ -23,7 +23,7 @@ for i = 1 : 100
     frame = frameReader.getNewFrame();
     if isempty(frame), break, end
     
-    frameWriter.writeNextFrame(frame, sprintf('%d', i));
+    frameWriter.writeNextFrame(frame, sprintf('%03d', i));
 end
 
 clear frameReader frameWriter

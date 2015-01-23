@@ -26,12 +26,13 @@ fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.getCameraRoadMap();
 
 % background
-background = BackgroundGMM();
+load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
 pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 backimage = imread([videoDir 'models/backimage.png']);
 
 % detector
 load ([CITY_DATA_PATH 'models/cam572/multiDetector.mat']);
+detector.detectors{5}.background = background;
 
 % probabilistic model
 counting = MetricLearner(geom);
@@ -55,10 +56,10 @@ for t = 1 : 100
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = background.subtract(frame, 'denoise', true);
+    foregroundMask = background.subtract(frame_ghost, 'denoise', true);
 
     % geometry processing mask and bboxes
-    foregroundMask = foregroundMask & logical(roadCameraMap);
+    %foregroundMask = foregroundMask & logical(roadCameraMap);
     
     % actually detect cars
     cars = detector.detect(frame_ghost);

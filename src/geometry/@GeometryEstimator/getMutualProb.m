@@ -9,13 +9,23 @@ function prob = getMutualProb (obj, carOrPoint1, carOrPoint2, frameDiff)
 
     % Checking if the given argument is an object / double
     if(isobject(carOrPoint1))
-        point1 = floor([carOrPoint1.bbox(1) + carOrPoint1.bbox(3)/2 ; carOrPoint1.bbox(2) + carOrPoint1.bbox(4)]);
+        % evg: should it be center or bottom center?
+        %center = carOrPoint1.getCenter();
+        center = carOrPoint1.getBottomCenter();
+        point1 = [center(2); center(1)];
+        % evg: there was crash at a border before
+        %point1 = floor([carOrPoint1.bbox(1) + carOrPoint1.bbox(3)/2 ; carOrPoint1.bbox(2) + carOrPoint1.bbox(4)]);
     else
         point1 = floor(carOrPoint1);
     end
 
     if(isobject(carOrPoint2))
-        point2 = floor([carOrPoint2.bbox(1) + carOrPoint2.bbox(3)/2 ; carOrPoint2.bbox(2) + carOrPoint2.bbox(4)]);
+        % evg: should it be center or bottom center?
+        %center = carOrPoint2.getCenter();
+        center = carOrPoint2.getBottomCenter();
+        point2 = [center(2); center(1)];
+        % evg: there was crash at a border before
+        %point2 = floor([carOrPoint2.bbox(1) + carOrPoint2.bbox(3)/2 ; carOrPoint2.bbox(2) + carOrPoint2.bbox(4)]);
     else
         point2 = floor(carOrPoint2);
     end

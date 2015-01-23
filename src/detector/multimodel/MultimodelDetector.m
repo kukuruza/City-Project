@@ -1,7 +1,10 @@
 % implementation of CarDetectorInterface that allows different detectors for clusters
 
 classdef MultimodelDetector < CarDetectorInterface
-    properties (Hidden)
+    properties
+        
+        % do not combine detections from different detectors
+        noMerge = false;
         
         clusters   % descriptions of car clusters
         detectors  % detectors for each of the groups
@@ -126,7 +129,9 @@ classdef MultimodelDetector < CarDetectorInterface
             end
             
             % remove duplicates
-            carsByCluster = CD.combineClustersCars(carsByCluster);
+            if ~CD.noMerge
+                carsByCluster = CD.combineClustersCars(carsByCluster);
+            end
             
             % put into one array
             cars = Car.empty();

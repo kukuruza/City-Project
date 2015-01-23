@@ -14,29 +14,30 @@ run ../rootPathsSetup.m;
 run ../subdirPathsSetup.m;
 
 % input frames
-videoPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.avi'];
-timesPath = [CITY_DATA_PATH 'camdata/cam572/5pm/15-mins.txt'];
+videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
+videoPath = [videoDir '15-mins.avi'];
+timesPath = [videoDir '15-mins.txt'];
 frameReader = FrameReaderVideo (videoPath, timesPath); 
 
 % geometry
-cameraId = 572;
-image = imread([CITY_SRC_PATH 'geometry/cam572.png']);
-matFile = [CITY_SRC_PATH 'geometry/' sprintf('Geometry_Camera_%d.mat', cameraId)];
-geom = GeometryEstimator(image, matFile);
-
+objectFile = 'GeometryObject_Camera_572.mat';
+load(objectFile);
+fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.getCameraRoadMap();
 orientationMap = geom.getOrientationMap();
 
-
 % background
-background = Background();
+load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
+pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
+backimage = imread([videoDir 'models/backimage.png']);
 
 % detector
-modelPath = [CITY_DATA_PATH, 'violajones/models/model3.xml'];
-detector = CascadeCarDetector (modelPath, geom);
+load ([CITY_DATA_PATH 'models/cam572/multiDetector.mat']);
+detector.noMerge = true;
+detector.detectors{5}.background = background;
 
 % exported detections
-outputDir = [CITY_DATA_PATH, 'testdata/learning/detections/'];
+outputDir = [CITY_DATA_PATH, 'testdata/detector/detections/'];
 
 for t = 1 : 100
     fprintf('frame %d\n', t);
@@ -44,7 +45,7 @@ for t = 1 : 100
     % read frame
     [frame, timestamp] = frameReader.getNewFrame();
     if isempty(frame), break, end
-    gray = rgb2gray(frame);
+    frame_ghost = uint8(int32(frame) - int32(backimage) + 128);
     
     % write frame as image
     frameName = [sprintf('%03d', t) '-clear.png'];
@@ -52,18 +53,18 @@ for t = 1 : 100
 
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = background.subtractAndDenoise(gray);
+    foregroundMask = background.subtract(frame_ghost, 'denoise', true);
 
     % geometry processing mask and bboxes
     foregroundMask = foregroundMask & logical(roadCameraMap);
     
     % actually detect cars
-    cars = detector.detect(frame);
+    cars = detector.detect(frame_ghost);
     
     % assign timestamps to cars
     for i = 1 : length(cars)
         cars(i).timeStamp = timestamp;
-        center = cars(i).getCenter();
+        center = cars(i).getBottomCenter();
         cars(i).orientation = [orientationMap.yaw(center(1), center(2)), ...
                                orientationMap.pitch(center(1), center(2))];
     end
@@ -114,7 +115,7 @@ for t = 1 : 100
     end
     % export frame
     frameOutName = [sprintf('%03d', t) '-detections.png'];
-    %imwrite (frame_out, [outputDir frameOutName]);
+    imwrite (frame_out, [outputDir frameOutName]);
     
 end
 
