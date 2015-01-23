@@ -1,4 +1,5 @@
-function[vanishPoint, boundaryLanes, regionMask] = estimateRoad(frame, binaryImgPath, noFrames)
+function[vanishPoint, boundaryLanes, regionMask, debugImage] = ...
+                        estimateRoad(frame, binaryImgPath, noFrames)
     % Reading the binary images from the path, reading the vanishing point
     % and boundary lanes, taking an average / RANSAC estimate for better
     % estimate
@@ -18,7 +19,6 @@ function[vanishPoint, boundaryLanes, regionMask] = estimateRoad(frame, binaryImg
     vanishPoint = zeros(noImages, 2);
     leftBoundary = zeros(noImages, 1); 
     rightBoundary = zeros(noImages, 1); 
-    mask = zeros(size(frame, 1), size(frame, 2));
     
     for i = 1:noImages
        image = imread(fullfile(binaryImgPath, imagePaths(i).name));
@@ -92,12 +92,9 @@ function[vanishPoint, boundaryLanes, regionMask] = estimateRoad(frame, binaryImg
     rightBoundary = mean(rightBoundary(maxInliers));
     boundaryLanes = [leftBoundary, rightBoundary];
     
-    % Debug, draw on the frame for display
-    debug = true;
-    if(debug)
-        [~, regionMask] = printDebugImage(frame, vanishPoint, leftBoundary,...
-                                                            rightBoundary);
-    end
+    % Getting the debug frame and region mask
+    [debugImage, regionMask] = printDebugImage(frame, vanishPoint, leftBoundary,...
+                                                        rightBoundary);
 end
 
 % Generating the debug image i.e. Drawing the roads and road extent on the
@@ -109,10 +106,13 @@ function [debugImage, regionMask] = printDebugImage(frame, vanishPoint, ...
         drawBoundaries = true;
         drawVanishPoint = true;
         
-        % Properties
-        patchColor = [40, 40, 40]; % Highlighting the patch of road
-        roadThickness = 5;  % thickness of the road ( dilating kernel size)
-        roadColor = [0 0 255]; % color of the lanes of the boundary
+        % Properties (colors reshaped to match the 3-channel structure)
+        % Highlighting the patch of road
+        patchColor = reshape(uint8([40, 40, 40]), [1 1 3]); 
+        % thickness of the road ( dilating kernel size)
+        roadThickness = 5;  
+        % color of the lanes of the boundary
+        roadColor = reshape(uint8([0 0 255]), [1 1 3]); 
         
         % Pre-defining to avoid break down
         debugImage = frame;
@@ -141,7 +141,7 @@ function [debugImage, regionMask] = printDebugImage(frame, vanishPoint, ...
             % Checking for the bottom intercept 
             bottomIntercept = (imageSize(1) - vanishPoint(2) + m*vanishPoint(1))...
                             / m;
-            extremes(2, :) = [vanishPoint, bottomIntercept, imageSize(1)];
+            extremes(1, :) = [vanishPoint, bottomIntercept, imageSize(1)];
         end
         
         % Checking if right intercepts left frame or bottom frame
@@ -180,9 +180,9 @@ function [debugImage, regionMask] = printDebugImage(frame, vanishPoint, ...
         rightAll = false;
         for i = uint32(vanishPoint(2)):imageSize(1)
             % Road must diverge
-            if(abs(endCol(i) - startCol(i)) < 5 && ...
+            if(abs(endCol(i) - startCol(i)) < 3 && ...
                 (leftAll && rightAll) == false && ...
-                i > vanishPoint(2) + 30)
+                i > vanishPoint(2) + 10)
                 % Checking if the end points reached frame ends
                 if(startCol(i) > size(frame, 2)/2)
                     leftAll = true;
@@ -205,13 +205,13 @@ function [debugImage, regionMask] = printDebugImage(frame, vanishPoint, ...
         % Drawing the region with white patch
         if(drawRegion)
             debugImage = debugImage + ...
-                    bsxfun(@times, regionMask(:, :, [1 1 1]), patchColor);  
+                    bsxfun(@times, uint8(regionMask(:, :, [1 1 1])), patchColor);  
         end
         
         % Drawing the boundaries
         if(drawBoundaries)
             % Thickness of the boundary lines
-            boundaryImage = imdilate(regionMask >0, ones(roadThickness));
+            boundaryImage = uint8(imdilate(regionMask >0, ones(roadThickness)));
             debugImage = debugImage + ...
                     bsxfun(@times, boundaryImage(:, :, [1 1 1]), roadColor); 
         end
