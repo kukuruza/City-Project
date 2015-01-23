@@ -4,6 +4,10 @@
 % This class knows everything about cameras in NY,
 %   about how to get frames from there, that duplicate frames should be
 %   avoided and further on.
+% Differs from the original FrameReaderInternet class by storing the
+% availability of camera
+% If the camera by current index is not available, stores this in
+% validCamera attribute
 
 classdef GenericFrameReaderInternet
     properties (Hidden)

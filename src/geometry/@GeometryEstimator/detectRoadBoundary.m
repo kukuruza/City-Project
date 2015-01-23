@@ -5,7 +5,11 @@ function[roadBinaryImage, displayImg] = detectRoadBoundary(...
     if(nargin < 7)
         fileDump = false;
     end
-                            
+    % Default output parameters
+    roadBinaryImage = uint8(zeros(size(colorImg, 1), size(colorImg, 2)));
+    displayImg = colorImg;
+    
+    
     % Initializing the size
     [imageH, imageW] = size(grayImg);
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -661,9 +665,6 @@ function[roadBinaryImage, displayImg] = detectRoadBoundary(...
 
     end
 
-    tmpVal1;
-    sbswRatio;
-
     sbswRatio = sbswRatio/(max(sbswRatio));
     finalS = sbswRatio.*(tmpVal((largestCluster-10)/5)/max(tmpVal((largestCluster-10)/5))); %%.*tmpVal1;
     maxFinalS = max(finalS);
@@ -1024,9 +1025,10 @@ function[roadBinaryImage, displayImg] = detectRoadBoundary(...
         end
     end
     end
-    %%%% update the votingArea 
-    imwrite(uint8(doim), [outputPath,int2str(numOfValidFiles),'vp1Map_Temp1.jpg'], 'jpg'); 
-
+    if(fileDump)
+        %%%% update the votingArea 
+        imwrite(uint8(doim), [outputPath,int2str(numOfValidFiles),'vp1Map_Temp1.jpg'], 'jpg'); 
+    end
 
 
 

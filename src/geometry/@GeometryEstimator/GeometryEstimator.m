@@ -22,10 +22,10 @@ classdef GeometryEstimator < GeometryInterface
         roadBelief; 
         
         % Belief build using automatic lane marking and vanishingpoint 
-        % detection
+        % detection, using homography and inverse perspective map
         vanishPoint;
         boundaryLanes;
-        
+        warpSize = [];
         sumWarpedBackground = [];
         
     end
@@ -153,7 +153,7 @@ classdef GeometryEstimator < GeometryInterface
         
         % Compute the inverse perspective transformation to get zenith view
         % of the road
-        [homography, warpedImg] = computeIPTransform(obj, image, laneRatio, laneWidth);
+        homography = computeIPTransform(obj, image, laneRatio, laneWidth);
         
         % Computes the corresponding, opposite point on other side of the 
         % road for the cannonical configuration

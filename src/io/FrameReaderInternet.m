@@ -56,10 +56,15 @@ classdef FrameReaderInternet < FrameReader
                     timeinterval = -1;
                     FR.lastFrame = frame;
                     break
-                elseif nnz(FR.lastFrame - frame) ~= 0
-                    timeinterval = toc(FR.lastCall);
-                    FR.lastFrame = frame;
-                    break
+                else
+                    if(ndims(FR.lastFrame) ~= ndims(frame))
+                        continue;
+                    end
+                    if nnz(FR.lastFrame - frame) ~= 0
+                        timeinterval = toc(FR.lastCall);
+                        FR.lastFrame = frame;
+                        break
+                    end
                 end
                 %if ~isempty(FR.lastFrame), nnz(FR.lastFrame - frame), end
                 

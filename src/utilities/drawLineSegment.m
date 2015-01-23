@@ -26,7 +26,8 @@ function[drawImage] = drawLineSegment(image, point1, point2, color)
         ySpan = point1(2) + (xSpan - point1(1)) * ...
                 (point1(2) - point2(2))/ (point1(1) - point2(1));
     else
-    % Drawing based on y-coordinate
+        
+        % Drawing based on y-coordinate
         ySpan = min(point1(2), point2(2)) : max(point1(2), point2(2));
         
         xSpan = point1(1) + (ySpan - point1(2)) * ...
