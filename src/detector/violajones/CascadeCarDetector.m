@@ -1,10 +1,12 @@
 % Matlab Viola-Jones implementation of CarDetectorInterface
 
-classdef CascadeCarDetector < CarDetectorInterface
+classdef CascadeCarDetector < CarDetectorBase
     properties (Hidden)
         
-        % debugging - disable removing cars after filtering
-        noFilter = true;
+        verbose;
+        
+        % debugging - filtering by size
+        noFilter = false;
         
         geometry;
         roi;   % roi in an image for the detector
@@ -26,16 +28,16 @@ classdef CascadeCarDetector < CarDetectorInterface
             addParameter(parser, 'minsize', [15 20], @(x) isvector(x) && length(x) == 2);
             addParameter(parser, 'maxsize', [150 200], @(x) isvector(x) && length(x) == 2);
             addParameter(parser, 'scaleFactor', 1.1, @isscalar);
-            addParameter(parser, 'sizeLimits', [0.7 1.5], @(x) isvector(x) && length(x) == 2);
             addParameter(parser, 'mergeThreshold', 3, @isscalar);
             addParameter(parser, 'mask', [], @ismatrix);
+            addParameter(parser, 'verbose', 0, @isscalar);
 %            addParameter(parser, 'grayThreshold', 0, @isscalar);
             parse (parser, modelPath, geometry, varargin{:});
             parsed = parser.Results;
             
+            CD.verbose = parsed.verbose;
             CD.geometry = geometry;
             CD.sizeMap = CD.geometry.getCameraRoadMap();
-            CD.sizeLimits = parsed.sizeLimits;
 %            CD.grayThreshold = parsed.grayThreshold;
             if ~isempty(parsed.mask)
                 assert (all(size(parsed.mask) == size(CD.sizeMap)));
@@ -61,8 +63,15 @@ classdef CascadeCarDetector < CarDetectorInterface
             mask = CD.mask;
         end
         
+ 
+        function setVerbosity (CD, verbose)
+            CD.verbose = verbose;
+        end
         
+
         function cars = detect (CD, img)
+            if CD.verbose > 1, fprintf ('CascadeCarDetector\n'); end
+
             orientationMap = CD.geometry.getOrientationMap();
 
             % crop the image to the non-masked area for a cluster
@@ -89,7 +98,7 @@ classdef CascadeCarDetector < CarDetectorInterface
             
             % filter by size
             if ~CD.noFilter
-                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', 2);
+                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', CD.verbose);
             end
         end
     end % methods

@@ -36,12 +36,11 @@ fprintf ('Have read the Geometry object from file\n');
 % workaround problem with saving/loading BackgroundDetector - learn now
 load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
 pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
-videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
 
 % from-background detector
 cluster_fromback = struct('minyaw', -180, 'maxyaw', 180, 'minsize', 20, 'maxsize', 500, 'carsize', [20 15]);
 sz = size(geom.getCameraRoadMap());
-cluster_fromback.recallMask = logical(ones(sz));
+cluster_fromback.recallMask = true(sz);
 cluster_fromback.name = 'foregr.';
 frombackDetector = FrombackDetector(geom, background);
 frombackDetector.mask = cluster_fromback.recallMask;
@@ -65,7 +64,7 @@ usedClusters(counter) = cluster_fromback;
 detectors{counter} = frombackDetector;
 
 % multimodel detector
-multiDetector = MultimodelDetector(usedClusters, detectors);
+multiDetector = MultimodelDetector(usedClusters, detectors, 'verbose', 3);
 
 % save multiDetector under name 'detector'
 detector = multiDetector; 
@@ -82,17 +81,21 @@ tic
 cars = multiDetector.detect(img);
 toc
 
+cmap = colormap('Autumn');
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
+    colorindex = floor(cars(i).score * size(cmap,1)) + 1;
+    color = cmap (colorindex, :) * 255;
+    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20, 'color', color );
 end
 img = img + uint8(multiDetector.getMask('colormask', true) * 30);
 imshow([img0, img; mask2rgb(background.result), gray2darkghost(img0)]);
+error('stop here');
 pause
 
 img0 = imread(imSrcPath);
 for i = 1 : length(cars)
     img = img0;
-    img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20);
+    img = cars(i).drawCar( img, 'boxOpacity', 0.0, 'FontSize', 20);
     imshow(img);
     pause
 end

@@ -1,21 +1,21 @@
 % implementation of CarDetectorInterface that allows different detectors for clusters
 
-classdef FrombackDetector < CarDetectorInterface
+classdef FrombackDetector < CarDetectorBase
     properties % required for all detetors
         mask;
     end
     properties
+        
+        % verbose = 0  no info
+        %         = 1  how many filtered
+        %         = 2  assign car indices to names, print indices at filter
+        verbose;
         
         % debugging
         %disable removing cars after filtering
         noFilter = false;
         % make sure that mask is actually updated. See subtract() function
         maskDebug = [];
-        
-        % verbose = 0  no info
-        %         = 1  how many filtered
-        %         = 2  assign car indices to names, print indices at filter
-        verbose = 2;
         
         background;
         sizeMap;
@@ -162,13 +162,15 @@ classdef FrombackDetector < CarDetectorInterface
     end
     methods
         
-        function CD = FrombackDetector (geometry, background)
+        function CD = FrombackDetector (geometry, background, varargin)
             parser = inputParser;
             addRequired(parser, 'geometry', @(x) isa(x, 'GeometryInterface'));
             addRequired(parser, 'background', @(x) isa(x, 'BackgroundGMM'));
-            parse (parser, geometry, background);
-            %parsed = parser.Results;
+            addParameter(parser, 'verbose', 0, @isscalar);
+            parse (parser, geometry, background, varargin{:});
+            parsed = parser.Results;
             
+            CD.verbose = parsed.verbose;
             CD.sizeMap = geometry.getCameraRoadMap();
             CD.background = background;
             
@@ -181,11 +183,18 @@ classdef FrombackDetector < CarDetectorInterface
         end
 
         
+        function setVerbosity (CD, verbose)
+            CD.verbose = verbose;
+        end
+
+        
         function cars = detect (CD, img)
             parser = inputParser;
             addRequired(parser, 'img', @iscolorimage);
             parse (parser, img);
-            
+
+            if CD.verbose > 1, fprintf ('FrombackDetector\n'); end
+
             % ASSUME that background already processed this frame
             % TODO: remove this assumption somehow
             foregroundMask = CD.background.result;
@@ -219,7 +228,7 @@ classdef FrombackDetector < CarDetectorInterface
             
             % filter by size
             if ~CD.noFilter
-                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', 2);
+                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', CD.verbose);
             end
             
             % filters specific for backimagedetector
