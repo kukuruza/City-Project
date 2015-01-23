@@ -1,4 +1,4 @@
-function[vanishPoint, boundaryLanes, mask] = estimateRoad(frame, binaryImgPath, noFrames)
+function[vanishPoint, boundaryLanes, regionMask] = estimateRoad(frame, binaryImgPath, noFrames)
     % Reading the binary images from the path, reading the vanishing point
     % and boundary lanes, taking an average / RANSAC estimate for better
     % estimate
@@ -18,7 +18,8 @@ function[vanishPoint, boundaryLanes, mask] = estimateRoad(frame, binaryImgPath, 
     vanishPoint = zeros(noImages, 2);
     leftBoundary = zeros(noImages, 1); 
     rightBoundary = zeros(noImages, 1); 
-
+    mask = zeros(size(frame, 1), size(frame, 2));
+    
     for i = 1:noImages
        image = imread(fullfile(binaryImgPath, imagePaths(i).name));
        image = imresize(image, [size(frame, 1), size(frame, 2)]);
@@ -93,184 +94,130 @@ function[vanishPoint, boundaryLanes, mask] = estimateRoad(frame, binaryImgPath, 
     
     % Debug, draw on the frame for display
     debug = true;
-    debugImg = frame;
-    
     if(debug)
+        [~, regionMask] = printDebugImage(frame, vanishPoint, leftBoundary,...
+                                                            rightBoundary);
+    end
+end
+
+% Generating the debug image i.e. Drawing the roads and road extent on the
+% frame
+function [debugImage, regionMask] = printDebugImage(frame, vanishPoint, ...
+                        leftBoundary, rightBoundary)
+        % What all to draw on the debug image (in the below order)
+        drawRegion = true;
+        drawBoundaries = true;
+        drawVanishPoint = true;
+        
+        % Properties
+        patchColor = [40, 40, 40]; % Highlighting the patch of road
+        roadThickness = 5;  % thickness of the road ( dilating kernel size)
+        roadColor = [0 0 255]; % color of the lanes of the boundary
+        
+        % Pre-defining to avoid break down
+        debugImage = frame;
+        imageSize = size(frame);
+        regionMask = uint8(zeros(size(frame)));
+        
         % Draw the vanishingpoint
-        redColor = uint8([220 0 0]);  % [R G B]; class of red must match class of I
-        yellowColor = uint8([255 255 0]);  % [R G B]; class of red must match class of I
         greenColor = uint8([0 240 0]);  % [R G B]; class of red must match class of I
         vpMarker = vision.MarkerInserter('Shape','Circle', 'Fill', true, ...
             'Size', 10, 'FillColor','Custom','CustomFillColor',greenColor, 'Opacity', 1.0);
         
-        blankImg = uint8(zeros(size(frame)));
         
-        % Drawing the line segments
-        linesToDraw = [];
-        % Drawing the left boundary
+        % Finding the extremes of the right and left images
+        extremes = zeros(2, 4);
         % Checking if it intercepts left frame or bottom frame
         m = tand(leftBoundary); % Slope of the line
-        
         % Replacing 90 deg slope with 89 / -90 with -89
-        if(abs(m) > 100)
-            m = sign(m) * 100;
+        if(abs(m) > 100) 
+            m = sign(m) * 100; 
         end
         
         leftIntercept = m + vanishPoint(2) - m * vanishPoint(1);
-        if(leftIntercept < size(frame, 1))
-            debugImg = drawLineSegment(debugImg, vanishPoint, [1, leftIntercept]);
-            blankImg = drawLineSegment(blankImg, vanishPoint, [1, leftIntercept]);
-            %linesToDraw = [linesToDraw; uint32([vanishPoint, 1, leftIntercept])];
+        if(leftIntercept < imageSize(1))
+            extremes(1, :) = [vanishPoint, 1, leftIntercept];
         else
             % Checking for the bottom intercept 
-            bottomIntercept = (size(frame, 1) - vanishPoint(2) + m*vanishPoint(1))...
+            bottomIntercept = (imageSize(1) - vanishPoint(2) + m*vanishPoint(1))...
                             / m;
-            debugImg = drawLineSegment(debugImg, vanishPoint, ...
-                                        [bottomIntercept, size(frame, 1)]);
-            blankImg = drawLineSegment(blankImg, vanishPoint, ...
-                                        [bottomIntercept, size(frame, 1)]);
-            %linesToDraw = [linesToDraw; uint32([vanishPoint, ...
-            %                                bottomIntercept, size(frame, 1)])];
+            extremes(2, :) = [vanishPoint, bottomIntercept, imageSize(1)];
         end
         
-        % Drawing the line segments
-        %lanePen = vision.ShapeInserter('Shape','Lines','BorderColor',...
-        %'Custom','CustomBorderColor', uint8([0 0 220]), 'Antialiasing', false, ...
-        %'LineWidth', 10, 'Opacity', 1.0);
-        
-        % Drawing the right boundary
-        % Checking if it intercepts left frame or bottom frame
+        % Checking if right intercepts left frame or bottom frame
         m = tand(rightBoundary); % Slope of the line
-        
         % Replacing 90 deg slope with 89 / -90 with -89
         if(abs(m) > 100)
             m = sign(m) * 100;
         end
         
-        rightIntercept = m * size(frame, 2) + vanishPoint(2) - m * vanishPoint(1);
-        if(rightIntercept < size(frame, 1))
-            debugImg = drawLineSegment(debugImg, vanishPoint, ...
-                                        [size(frame, 2), rightIntercept]);
-            blankImg = drawLineSegment(blankImg, vanishPoint, ...
-                                        [size(frame, 2), rightIntercept]);
-            % Also drawing on a plane black image
-            linesToDraw = [linesToDraw; uint32([vanishPoint, ...
-                                            size(frame, 2), rightIntercept]), ];
+        rightIntercept = m * imageSize(2) + vanishPoint(2) - m * vanishPoint(1);
+        if(rightIntercept < imageSize(1))
+            extremes(2, :) = [vanishPoint, imageSize(2), rightIntercept];
         else
             % Checking for the bottom intercept 
-            bottomIntercept = (size(frame, 1) - vanishPoint(2) + m*vanishPoint(1))...
+            bottomIntercept = (imageSize(1) - vanishPoint(2) + m*vanishPoint(1))...
                             / m;
-            debugImg = drawLineSegment(debugImg, vanishPoint, ...
-                                        [bottomIntercept, size(frame, 1)]);
-            blankImg = drawLineSegment(blankImg, vanishPoint, ...
-                                        [bottomIntercept, size(frame, 1)]);
-            %linesToDraw = [linesToDraw; uint32([...
-            %                                bottomIntercept, size(frame, 1)]), vanishPoint];
+            extremes(2, :) = [vanishPoint, bottomIntercept, imageSize(1)];
         end
         
-        % Drawing the vanishing point
-        %debugImg = step(vpMarker, debugImg, uint32(vanishPoint));
+        % Computing the regionMask
+        regionMask = drawLineSegment(regionMask, extremes(1, 1:2), extremes(1, 3:4));
+        regionMask = drawLineSegment(regionMask, extremes(2, 1:2), extremes(2, 3:4));
         
-        % Drawing a transparent color filling of white in between the two
-        % extremes
-        %lanePen = vision.ShapeInserter('Shape','Lines','BorderColor',...
-        %'Custom','CustomBorderColor', uint8([0 0 220]), ...
-        %'Antialiasing', true, 'LineWidth', 1);
-        
-        %blankImg = uint8(zeros(size(frame)));
-        %blankImg = step(lanePen, blankImg, linesToDraw);
         % Detecting the boundaries and applying a white transparent shade
-        redChannel = blankImg(:, :, 1) > 0;
-        [~, startCol]= max(redChannel, [], 2);
+        [~, startCol]= max(regionMask, [], 2);
 
         % Flipping and finding the other end of the max
-        flipped = flip(redChannel, 2);
+        flipped = flip(regionMask, 2);
         [~, endCol] = max(flipped, [], 2);
         
         % Adjusting the end column
         endCol = size(frame, 2) + 1 - endCol;
-
-        mask = zeros(size(frame, 1), size(frame, 2));
+        
+        regionMask = zeros(imageSize(1:2));
         leftAll = false;
         rightAll = false;
-        
-        for i = uint32(vanishPoint(2)):size(mask, 1)
+        for i = uint32(vanishPoint(2)):imageSize(1)
             % Road must diverge
             if(abs(endCol(i) - startCol(i)) < 5 && ...
                 (leftAll && rightAll) == false && ...
                 i > vanishPoint(2) + 30)
-                
                 % Checking if the end points reached frame ends
                 if(startCol(i) > size(frame, 2)/2)
                     leftAll = true;
                 end
-                
                 if(endCol(i) < size(frame, 2)/2)
                     rightAll = true;
                 end
             end
             
-            if(leftAll)
-                startCol(i) = 1;
+            if(leftAll) 
+                startCol(i) = 1; 
             end
-            
             if(rightAll)
-                endCol(i) = size(frame, 2);
+                endCol(i) = size(frame, 2); 
             end
-            %if(i > vanishPoint(2) && ...
-            %     abs(endCol(i) - startCol(i)) < abs(endCol(i-1) - startCol(i-1)) && ...
-            %     fillAll == false)
-            %    fillAll = true;
-            %end
-
-            %if(fillAll)
-            %    startCol(i) = 1;
-            %    endCol(i) = size(mask, 2);
-            %end
-            
-            %fprintf('%d %d %d\n', i, startCol(i), endCol(i));
-            mask(i, startCol(i) : endCol(i)) = 1;
+           
+            regionMask(i, startCol(i) : endCol(i)) = 1;
         end
         
-        %error('Returned')
-        % Reading the picture for hte paper and drawing the expanse on it
-        %canFrame = imread('paper-figures/basic-frame20.png');
+        % Drawing the region with white patch
+        if(drawRegion)
+            debugImage = debugImage + ...
+                    bsxfun(@times, regionMask(:, :, [1 1 1]), patchColor);  
+        end
         
-        %zeroImg = zeros(size(mask));
-        %addMask = cat(3, mask, zeroImg, zeroImg);
-        %debugImg = canFrame + uint8(addMask) * 100;
-        %debugImg = step(lanePen, debugImg, linesToDraw);
+        % Drawing the boundaries
+        if(drawBoundaries)
+            % Thickness of the boundary lines
+            boundaryImage = imdilate(regionMask >0, ones(roadThickness));
+            debugImage = debugImage + ...
+                    bsxfun(@times, boundaryImage(:, :, [1 1 1]), roadColor); 
+        end
         
-        %blankImg = uint8(zeros(size(frame)));
-        %blankImg = step(lanePen, blankImg, linesToDraw);
-        
-        %linesToDraw = uint32(linesToDraw);
-        %if(size(linesToDraw, 1) > 0)
-        %    debugFrame = step(lanePen, debugFrame, linesToDraw(1,:));
-        %end
-        % Dilate to get thick lines
-        %se = strel('ball',5,);
-        %blankImg = imdilate(blankImg(:, :, 3)>0, ones(7));
-        %darkImg = uint8(zeros(size(blankImg)));
-        %darkMask = cat(3, darkImg, darkImg, 255*blankImg);
-        
-        %debugImg = debugImg + darkMask;
-        %debugImg = step(vpMarker, debugImg, uint32(vanishPoint)');
-        %imwrite(debugImg, 'paper-figures/vanish-point.png');
-        %figure(1) ;imshow(debugImg)
-        %darkImg = zeros(size(blankImg));
-        %mask = cat(3, blankImg, darkImg, darkImg);
-        %debugImage = frame + 255 * uint8(mask);
-        
-        %figure(1); imshow(debugImg)
-        %imwrite(debugImg, 'paper-figures/vanish-point.png');
-        %error('Halt the program');
-        %figure(1); imshow(mask)
-        %figure(2); imshow(blueChannel)
-        %figure(1); imshow(debugImg)
-        %imwrite(debugImg, 'paper-figures/vanish-point.jpg');
-        %figure(2); imshow(blankImg)
-       
-        %figure(1); imshow(mask)
-    end
+        % Drawing the vanishing point
+        if(drawVanishPoint)
+            debugImage = step(vpMarker, debugImage, uint32(vanishPoint));
+        end
 end

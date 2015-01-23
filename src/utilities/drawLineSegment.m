@@ -45,9 +45,20 @@ function[drawImage] = drawLineSegment(image, point1, point2, color)
     % channel RGB
     drawImage = image;
 
-    for channel = 1:3
-        indices = sub2ind(size(image), floor(ySpan), floor(xSpan),...
-                                                channel*ones(size(ySpan)));
-        drawImage(indices) = color(channel);
+    % If the given image is 3-channel image
+    if(ndims(image) == 3 && size(image, 3) == 3)
+        for channel = 1:3
+            indices = sub2ind(size(image), floor(ySpan), floor(xSpan),...
+                                                    channel*ones(size(ySpan)));
+            drawImage(indices) = color(channel);
+        end
+    else
+    % If the given image is 1-channel image
+        indices = sub2ind(size(image), floor(ySpan), floor(xSpan));
+        if(isscalar(color))
+            drawImage(indices) = color;
+        else
+            drawImage(indices) = 255; % If color is not a scalar, white!
+        end
     end
 end
