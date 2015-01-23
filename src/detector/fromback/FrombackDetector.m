@@ -18,7 +18,9 @@ classdef FrombackDetector < CarDetectorInterface
         sizeMap;
 
         Heght2WidthLimits = [0.5 1.2];
-        SparseDist = 0.0;
+        %SparseDist = 0.0;
+        DensitySigma = 0.7;
+        DensityRatio = 2.0;
         DistToBorder = 20;
         ExpandPerc = 0.0;
 
@@ -47,23 +49,88 @@ classdef FrombackDetector < CarDetectorInterface
                 end
             end
         end
+
         
+        function result = filterOnce (~, mask, center, sz, kernel)
+            assert (ismatrix(mask));
+            mask = double(mask);
+            kernel = kernel (max(1, sz-center(1)+2) : min(sz*2+1, sz+1+size(mask,1)-center(1)), ...
+                             max(1, sz-center(2)+2) : min(sz*2+1, sz+1+size(mask,2)-center(2)));
+            mask = mask (max(1, center(1)-sz) : min(center(1)+sz, size(mask,1)), ...
+                         max(1, center(2)-sz) : min(center(2)+sz, size(mask,2)));
+            result = mask .* kernel;
+            %imagesc(result);
+            %colormap('gray')
+            %pause;
+            result = sum(result(:));
+        end
+
         
-        % filter too dense cars in the image
-        function statuses = filterBySparsity (CD, cars, statuses)
+        function statuses = filterBySparsity (CD, mask, cars, statuses)
+            parser = inputParser;
+            addRequired(parser, 'mask', @(x) islogical(x) && ismatrix(x));
+            addRequired(parser, 'cars', @(x) isempty(x) || isa(x, 'Car'));
+            addRequired(parser, 'statuses', @(x) isvector(x));
+            parse (parser, mask, cars, statuses);
+
+            whites = ones(size(mask,1),size(mask,2));
             for i = 1 : length(cars)
-                center = cars(i).getCenter(); % [y x]
-                expectedSize = CD.sizeMap(center(1), center(2));
-                for k = 1 : length(cars)
-                    if ~strcmp(statuses{i}, 'ok'), continue, end
-                    if i ~= k && dist(center, cars(k).getCenter()') < expectedSize * CD.SparseDist
-                        if CD.verbose > 1, fprintf ('    car %d - too dense\n', i); end
-                        statuses{i} = 'too dense'; 
-                        break
+                center = cars(i).getCenter();
+                sigma = (cars(i).bbox(3) + cars(i).bbox(4)) / 2 * CD.DensitySigma;
+                sz = floor(sigma * 2.5);
+                gaussKernel = fspecial('gaussian', sz * 2 + 1, sigma);
+                
+                roi = cars(i).getROI();
+                maskInside = zeros (size(mask,1), size(mask,2));
+                maskInside(roi(1):roi(3), roi(2):roi(4)) = mask(roi(1):roi(3), roi(2):roi(4));
+                insideResponse = CD.filterOnce (maskInside, center, sz, gaussKernel);
+                whitesInside = zeros (size(whites,1), size(whites,2));
+                whitesInside(roi(1):roi(3), roi(2):roi(4)) = 1;
+                insideNorm = CD.filterOnce (whitesInside, center, sz, gaussKernel);
+                assert (insideNorm ~= 0);
+                insideDensity = insideResponse / insideNorm;
+                %fprintf ('insideDensity %f, insideNorm %f\n', insideDensity, insideNorm);
+
+                roi = cars(i).getROI();
+                maskOutside = mask;
+                maskOutside(roi(1):roi(3), roi(2):roi(4)) = 0;
+                outsideResponse = CD.filterOnce (maskOutside, center, sz, gaussKernel);
+                whitesOutside = whites;
+                whitesOutside(roi(1):roi(3), roi(2):roi(4)) = 0;
+                outsideNorm = CD.filterOnce (whitesOutside, center, sz, gaussKernel);
+                assert (outsideNorm ~= 0);
+                outsideDensity = outsideResponse / outsideNorm;
+                %fprintf ('outsideDensity %f, outsideNorm %f\n', outsideDensity, outsideNorm);
+                
+                density = insideDensity / outsideDensity;
+%                 if CD.verbose > 1
+%                     fprintf ('    car %d - density %f\n', i, density); 
+%                 end
+                if density < CD.DensityRatio
+                    if CD.verbose > 1
+                        fprintf ('    car %d - density %f\n', i, density); 
                     end
+                    statuses{i} = 'too dense';
                 end
             end
         end
+        
+        
+%         % filter too dense cars in the image
+%         function statuses = filterBySparsity (CD, cars, statuses)
+%             for i = 1 : length(cars)
+%                 center = cars(i).getCenter(); % [y x]
+%                 expectedSize = CD.sizeMap(center(1), center(2));
+%                 for k = 1 : length(cars)
+%                     if ~strcmp(statuses{i}, 'ok'), continue, end
+%                     if i ~= k && dist(center, cars(k).getCenter()') < expectedSize * CD.SparseDist
+%                         if CD.verbose > 1, fprintf ('    car %d - too dense\n', i); end
+%                         statuses{i} = 'too dense'; 
+%                         break
+%                     end
+%                 end
+%             end
+%         end
         
         
         % filter too dense cars in the image
@@ -134,13 +201,21 @@ classdef FrombackDetector < CarDetectorInterface
             %     mask = imerode (mask, strel('disk', 2));
             %     mask = imdilate(mask, strel('disk', 2));
 
-            statuses = CD.filterByProportion (cars, statuses);
-            statuses = CD.filterBySparsity (cars, statuses);
-            %statuses = CD.filterByBorder (cars, statuses);
-            
-            % expand boxes
+             % expand boxes
             for i = 1 : N
                 cars(i).bbox = expandBboxes (cars(i).bbox, CD.ExpandPerc, img);
+            end
+            
+            % filter by size
+            if ~CD.noFilter
+                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', 2);
+            end
+            
+            % filters specific for backimagedetector
+            if ~CD.noFilter
+                statuses = CD.filterByProportion (cars, statuses);
+                statuses = CD.filterBySparsity (foregroundMask, cars, statuses);
+                %statuses = CD.filterByBorder (cars, statuses);
             end
             
             if CD.verbose
@@ -158,14 +233,7 @@ classdef FrombackDetector < CarDetectorInterface
             end
 
             % filter bad cars
-            if ~CD.noFilter
-                cars (CD.filterByStatus(statuses, 'ok')) = [];
-            end 
-    
-            % filter by size
-            if ~CD.noFilter
-                cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', 2);
-            end
+            cars (CD.filterByStatus(statuses, 'ok')) = [];
         end
 
     end % methods

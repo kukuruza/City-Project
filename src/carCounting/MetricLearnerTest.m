@@ -105,6 +105,8 @@ corresp{3} = ...
 % Geometry object can be simply loaded using the object file
 % The object geom will be directly loaded. However, newer functionalities
 % might need this object to be created again
+
+
 objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
