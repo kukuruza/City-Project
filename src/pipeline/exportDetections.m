@@ -34,6 +34,7 @@ backimage = imread([videoDir 'models/backimage.png']);
 % detector
 load ([CITY_DATA_PATH 'models/cam572/multiDetector.mat']);
 detector.noMerge = true;
+detector.setVerbosity(0);
 detector.detectors{5}.background = background;
 
 % exported detections
@@ -95,7 +96,7 @@ for t = 1 : 100
         end
     end
     cars = carsFilt;
-    fprintf ('pipeline: filtered detections: %d\n', length(cars));
+    fprintf ('pipeline: left good detections: %d\n', length(cars));
     
     % output
     frame_out = frame;
@@ -109,7 +110,10 @@ for t = 1 : 100
         %imwrite (car.patch, [outputDir namePrefix '.png']);
         
         % draw patch on image
-        frame_out = cars(i).drawCar(frame_out, 'color', 'yellow', ...
+        cmap = colormap('Autumn');
+        colorindex = floor(cars(i).score * size(cmap,1)) + 1;
+        color = cmap (colorindex, :) * 255;
+        frame_out = cars(i).drawCar(frame_out, 'color', color, ...
                                     'tag', num2str(i), 'boxOpacity', 0.1);
         
     end

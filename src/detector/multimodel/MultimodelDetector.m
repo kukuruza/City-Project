@@ -1,7 +1,9 @@
 % implementation of CarDetectorInterface that allows different detectors for clusters
 
-classdef MultimodelDetector < CarDetectorInterface
+classdef MultimodelDetector < CarDetectorBase
     properties
+        
+        verbose;
         
         % do not combine detections from different detectors
         noMerge = false;
@@ -11,8 +13,6 @@ classdef MultimodelDetector < CarDetectorInterface
         N          % number of both clusters and detectors
         
         mergeThreshold;
-        
-        verbose = 1;
         
     end % properties
     methods (Hidden)
@@ -70,13 +70,14 @@ classdef MultimodelDetector < CarDetectorInterface
     end
     methods
         
-        function CD = MultimodelDetector (clusters, detectors)
+        function CD = MultimodelDetector (clusters, detectors, varargin)
             % parse and validate input
             parser = inputParser;
             addRequired(parser, 'clusters', @(x) ~isempty(x));
             addRequired(parser, 'detectors', @(x) ~isempty(x) && iscell(x));
             addParameter(parser, 'mergeThreshold', 0.5, @isscalar);
-            parse (parser, clusters, detectors);
+            addParameter(parser, 'verbose', 0, @isscalar);
+            parse (parser, clusters, detectors, varargin{:});
             parsed = parser.Results;
             assert (length(parsed.clusters) == length(parsed.detectors));
             for i = 1 : length(detectors), assert(isa(detectors{i}, 'CarDetectorInterface')); end
@@ -85,8 +86,15 @@ classdef MultimodelDetector < CarDetectorInterface
             CD.detectors = parsed.detectors;
             CD.N = length(parsed.clusters);
             CD.mergeThreshold = parsed.mergeThreshold;
+            CD.setVerbosity(parsed.verbose);
         end
 
+        
+        function setVerbosity (CD, verbose)
+            CD.verbose = verbose;
+            for i = 1 : length(CD.detectors), CD.detectors{i}.setVerbosity(verbose); end
+        end
+        
         
         function mask = getMask(CD, varargin)
             % parse and validate input

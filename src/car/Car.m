@@ -16,6 +16,8 @@ classdef Car < CarInterface
         
         % for output
         name = 'car';
+        % detection score
+        score = -1;
         
     end % propertioes
     methods (Hidden)
