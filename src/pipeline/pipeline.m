@@ -32,6 +32,7 @@ backimage = imread([videoDir 'models/backimage.png']);
 
 % detector
 load ([CITY_DATA_PATH 'models/cam572/multiDetector.mat']);
+
 detector.detectors{5}.background = background;
 
 % probabilistic model
