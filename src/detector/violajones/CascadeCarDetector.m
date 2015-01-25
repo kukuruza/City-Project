@@ -1,7 +1,7 @@
 % Matlab Viola-Jones implementation of CarDetectorInterface
 
 classdef CascadeCarDetector < CarDetectorBase
-    properties (Hidden)
+    properties %(Hidden)
         
         verbose;
         
@@ -18,12 +18,15 @@ classdef CascadeCarDetector < CarDetectorBase
         
         % vision.CascadeObjectDetector
         detector;
+        modelPath;
         
     end % properties
     methods
         function CD = CascadeCarDetector (modelPath, geometry, varargin)
+            global CITY_DATA_PATH;
+            assert (~isempty(CITY_DATA_PATH));
             parser = inputParser;
-            addRequired(parser, 'modelPath', @(x) ischar(x) && exist(x, 'file'));
+            addRequired(parser, 'modelPath', @(x) ischar(x) && exist([CITY_DATA_PATH x], 'file'));
             addRequired(parser, 'geometry', @(x) isa(x, 'GeometryInterface'));
             addParameter(parser, 'minsize', [15 20], @(x) isvector(x) && length(x) == 2);
             addParameter(parser, 'maxsize', [150 200], @(x) isvector(x) && length(x) == 2);
@@ -50,7 +53,8 @@ classdef CascadeCarDetector < CarDetectorBase
             CD.roi = mask2roi (CD.sizeMap > 0 & CD.mask);
             assert (~isempty(CD.roi));
             
-            CD.detector = vision.CascadeObjectDetector(modelPath, ...
+            CD.modelPath = modelPath;
+            CD.detector = vision.CascadeObjectDetector([CITY_DATA_PATH modelPath], ...
                 'MinSize', parsed.minsize, ...
                 'MaxSize', parsed.maxsize, ...
                 'ScaleFactor', parsed.scaleFactor, ...
@@ -101,5 +105,15 @@ classdef CascadeCarDetector < CarDetectorBase
                 cars = CD.filterCarsBySize (cars, CD.sizeMap, 'verbose', CD.verbose);
             end
         end
-    end % methods
+        
+        
+    end % methods 
+    methods (Static)
+        function obj = loadobj(obj)
+            % make detector model path user independent
+            global CITY_DATA_PATH;
+            assert (~isempty(CITY_DATA_PATH));
+            obj.detector.ClassificationModel = [CITY_DATA_PATH, obj.modelPath];
+        end
+    end
 end
