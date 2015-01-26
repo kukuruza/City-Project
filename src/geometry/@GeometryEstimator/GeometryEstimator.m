@@ -38,8 +38,6 @@ classdef GeometryEstimator < GeometryInterface
             %Relative to geometry Path
             %obj.classifierPath = '../data/classifiers_08_22_2005.mat';
            
-            addpath('.');
-            
             % Initializing the belief about the road
             %obj.roadBelief = zeros(size(initImage));
             
@@ -62,6 +60,8 @@ classdef GeometryEstimator < GeometryInterface
             
             % Dealing with a single camera; take into account the curved
             % road; read it from the files
+            
+            % Extremely adhoc way to read the curved road from models 
             obj.roadMask = imread('curvedRoadMask572.png');
             obj.cameraRoadMap = imread('curvedCameraRoadMap572.png');
        

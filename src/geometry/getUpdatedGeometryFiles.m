@@ -11,6 +11,7 @@ run ../subdirPathsSetup.m
 
 cameraNumber = [572];
 %cameraNumber = [368, 572];
+modelPath = fullfile(CITY_DATA_PATH, 'models/cam%d/');
 
 for i = 1:length(cameraNumber)
     cameraStr = num2str(cameraNumber(i));
@@ -21,11 +22,15 @@ for i = 1:length(cameraNumber)
     %Reading the image and marking points
     image = imread(filePath);
     
-    figure(1); imshow(image)
     % Loading the road properties that were manually marked (Pts for the lanes)
-    matFile = strcat('Geometry_Camera_', cameraStr, '.mat');
+    matFile = sprintf(fullfile(modelPath, 'Geometry_Camera_%d.mat'), ...
+                    cameraNumber(i), cameraNumber(i));
+    
     geom = GeometryEstimator(image, matFile);
     fprintf ('GeometryEstimator for camera %s: constructor finished\n', cameraStr);
     
-    save(strcat('GeometryObject_Camera_', cameraStr, '.mat'), 'geom');
+    matFile = sprintf(fullfile(modelPath, 'Geometry_Camera_%d.mat'), ...
+                    cameraNumber(i), cameraNumber(i));
+    
+    save(matFile, 'geom');
 end
