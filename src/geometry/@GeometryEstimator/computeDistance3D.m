@@ -2,7 +2,10 @@
 function dist3D = computeDistance3D(obj, point1, point2)
     % Check for lower y-coordinate point
     yRatio = double(point1(2) - obj.road.vanishPt(2)) / (point2(2) - obj.road.vanishPt(2));
-
+    
+    % Re-casting as double
+    yRatio = double(yRatio);
+    
     % Check for points to be on the road
     assert(point1(2) > obj.road.vanishPt(2) || point2(2) > obj.road.vanishPt(2));
 

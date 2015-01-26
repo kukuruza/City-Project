@@ -20,7 +20,8 @@ timesPath = [videoDir '15-mins.txt'];
 frameReader = FrameReaderVideo (videoPath, timesPath); 
 
 % geometry
-objectFile = 'GeometryObject_Camera_572.mat';
+objectFile = fullfile(CITY_DATA_PATH, 'models/cam572', ...
+                                'GeometryObject_Camera_572.mat');
 load(objectFile);
 fprintf ('Have read the Geometry object from file\n');
 roadCameraMap = geom.getCameraRoadMap();

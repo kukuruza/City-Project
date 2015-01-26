@@ -26,10 +26,11 @@ for i = 1:length(cameraNumber)
     matFile = sprintf(fullfile(modelPath, 'Geometry_Camera_%d.mat'), ...
                     cameraNumber(i), cameraNumber(i));
     
+    % Creating the geometry object from the files
     geom = GeometryEstimator(image, matFile);
     fprintf ('GeometryEstimator for camera %s: constructor finished\n', cameraStr);
     
-    matFile = sprintf(fullfile(modelPath, 'Geometry_Camera_%d.mat'), ...
+    matFile = sprintf(fullfile(modelPath, 'GeometryObject_Camera_%d.mat'), ...
                     cameraNumber(i), cameraNumber(i));
     
     save(matFile, 'geom');
