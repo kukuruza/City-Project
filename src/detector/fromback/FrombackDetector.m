@@ -17,7 +17,6 @@ classdef FrombackDetector < CarDetectorBase
         % make sure that mask is actually updated. See subtract() function
         maskDebug = [];
         
-        background;
         sizeMap;
 
         Heght2WidthLimits = [0.5 1.2];
@@ -28,6 +27,12 @@ classdef FrombackDetector < CarDetectorBase
         ExpandPerc = 0.0;
 
     end % properties
+    properties (Transient) % that are not saved to mat file
+        
+        background;
+        
+    end % properties
+    
     methods (Hidden)
         
         function indices = findByStatus (~, statuses, name)

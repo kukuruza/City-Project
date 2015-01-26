@@ -30,10 +30,10 @@ verbose = 0;
 load('GeometryObject_Camera_572.mat');
 roadCameraMap = geom.getCameraRoadMap();
 
-modelPath = [CITY_DATA_PATH, 'violajones/models/model03-cr10.xml'];
+modelPath = 'violajones/models/model03-cr10.xml';
 minsize = [30 40];
 
-detector = CascadeCarDetector(modelPath, geom, 'minsize', minsize, 'sizeLimits', [0.7 1.5]);
+detector = CascadeCarDetector(modelPath, geom, 'minsize', minsize);
 
 tic
 cars = detector.detect(img);
