@@ -178,6 +178,9 @@ classdef GeometryEstimator < GeometryInterface
         
         % Computing the orientation mask for the road
         computeOrientationMap(obj);  
+        
+        % Computing the hough lines for the given frame
+        computeHoughLanes(obj, frame);
     end
     
     %% Static methods

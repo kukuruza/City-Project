@@ -1,11 +1,17 @@
-function [ verticalLines ] = computeHoughLanes(warpedFrame)
+function [ verticalLines ] = computeHoughLanes(obj, frame)
     % Function to generate the lanes using hough transform
     % 
     % Usage:
-    % computeHoughLanes();
+    % GeometryObject.computeHoughLanes(frame);
+    % Frame of the original image 
+    % 
+    % Might need optional arguments
+    
+    % Assinging the outputs to avoid function errors
+    verticalLines = [];
     
     % Getting the edge image and hough transformation
-    grayFrame = rgb2gray(warpedFrame);
+    grayFrame = rgb2gray(frame);
     edgeFrame = edge(grayFrame, 'canny');
     [houghFrame, theta, rho] = hough(edgeFrame);
     
@@ -14,6 +20,20 @@ function [ verticalLines ] = computeHoughLanes(warpedFrame)
     peaks = houghpeaks(houghFrame, 20);
     lines = houghlines(edgeFrame, theta, rho, peaks, 'FillGap', 10, 'MinLength', 10);
     
+    warpedFrame = warpH(frame, obj.ipHomography, obj.warpSize);
+    
+    % Comparing warped edges and edges of warped frame
+    warpedEdges = warpH(edgeFrame, obj.ipHomography, obj.warpSize);
+    edgeWarp = edge(rgb2gray(warpedFrame), 'canny');
+        
+    
+    figure(1); imagesc(warpedEdges)
+    figure(2); imagesc(edgeWarp)
+    
+    %figure(2); imagesc(edgeFrame)
+    %figure(3); imshow(warpedFrame)
+    
+    if(false)
     vertlines = [];
     for i = numel(lines):-1:1        
         if(abs(lines(i).theta - 0) < 5)
@@ -43,5 +63,16 @@ function [ verticalLines ] = computeHoughLanes(warpedFrame)
               xy_long = xy;
            end
         end
+    end
+    end
+end
+
+% Drawing the lines detected by hough transform
+function debugImage = drawHoughLines(frame, lines)
+    % Debug image is the frame itself to begin with
+    debugImage = frame;
+    
+    for i = 1 :length(lines)
+        
     end
 end

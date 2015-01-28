@@ -5,13 +5,13 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%% Parameters for the method
     imageSize = size(frame);
-    laneRatio = 0.5;
-    laneWidth = imageSize(2) * 0.25;
+    laneRatio = 0.25;
+    laneWidth = imageSize(2) * 0.3;
     
     % Smoothing kernel size
-    windowSize = 7;
+    windowSize = 15;
     % Minima window size
-    minimaRange = 5;
+    minimaRange = 11;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Computing the inverse perspective transform, for the first time
@@ -29,8 +29,8 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Valid range for histogram
-    minCol = obj.imageSize(2)/2 - laneWidth;
-    maxCol = obj.imageSize(2)/2 + laneWidth;
+    minCol = floor(obj.imageSize(2)/2 - laneWidth);
+    maxCol = floor(obj.imageSize(2)/2 + laneWidth);
     
     % Warping the foreground
     warpedBackground = warpH(foreground, obj.ipHomography, obj.warpSize);
