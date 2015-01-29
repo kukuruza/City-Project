@@ -28,10 +28,10 @@ roi   = [y1 x1 y2 x2]
 ```
 
 ### Recommendations for function interface and parsing of input
-This is a minimal example
+`inputParser` standard Matlab class is recommended (http://www.mathworks.com/help/matlab/ref/inputparser-class.html). `addParameter` is preferred to `addOptional`. Here is a minimal example
 
 ```Matlab
-% varargin - are just other options, they can be skipped
+% varargin - are just other options, they can be skipped by a user
 function result = func (important1, varargin) 
     parser = inputParser;
     addRequired(parser, 'important1', @(x) isa(x, 'ClassName'));
@@ -39,8 +39,12 @@ function result = func (important1, varargin)
     parse (parser, important1, varargin{:});
     parsed = parser.Results;
 
-    % retrive the parsed values
+    % retrieve the parsed values
     import1 = parsed.important1;
     opt1 = parsed.option1;
 end
 ```
+
+### Tests vs examples
+
+Matlab unit tests http://www.mathworks.com/help/matlab/matlab-unit-test-framework.html?refresh=true should have names `MyClassTest.m`. Examples that illustrate how a unit works, and may also be used for testing should have name `MyClassDemo.m`.
