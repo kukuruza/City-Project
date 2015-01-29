@@ -4,7 +4,7 @@
 %   as if they were coming real-time.
 %
 
-clear all
+%clear all
 
 % change dir to the directory of this script
 cd (fileparts(mfilename('fullpath')));
@@ -57,14 +57,17 @@ for t = 1 : 100
 
     % geometry processing mask and bboxes
     foregroundMask = background.subtract(frame);
-    %foregroundMask = foregroundMask & logical(roadCameraMap);
+    foregroundMask = foregroundMask & logical(roadCameraMap);
     
     % Geometry processing goes here (independent of the pipeline)
-    figure(1); imshow(foregroundMask)
+    geom.generateRoadBelief(foregroundMask, frame);
+    
+    % Using the lane markers
+    geom.computeHoughLanes(frame);
     
     tCycle = toc;
     fprintf ('frame %d in %f sec \n \n', t, tCycle);    
-    pause(0.1)
+    pause(0.3)
 end
 
 clear frameWriter frameReader

@@ -11,7 +11,7 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     % Smoothing kernel size
     windowSize = 15;
     % Minima window size
-    minimaRange = 11;
+    minimaRange = 5;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Computing the inverse perspective transform, for the first time
@@ -92,7 +92,7 @@ end
 function debugImage = printDebugImage(frame, vanishPoint, lanePoints)
     debugImage = frame;
     % Setting up the color and thickness
-    laneThickness = 1;
+    laneThickness = 2;
     laneColor = uint8(reshape([255, 0, 0], [1 1 3]));
     
     blankImage= zeros(size(frame, 1), size(frame, 2));

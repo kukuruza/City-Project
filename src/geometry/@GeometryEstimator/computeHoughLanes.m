@@ -30,18 +30,17 @@ function [ verticalLines ] = computeHoughLanes(obj, frame)
     % Detecting the lines
     peaks = houghpeaks(houghFrame, 100);
     lines = houghlines(edgeFrame, theta, rho, peaks, 'FillGap', 10, 'MinLength', 5);
-    
-    length(lines)
+        
     % Removing the lines if orientation is not vertical / nearly vertical
     for i = length(lines):-1:1
         if(abs(lines(i).theta - 0) > 5)
             lines(i) = [];
         end
     end
-    length(lines)
     
     debugImage = drawHoughLines(warpedFrame, lines);
-    %figure(2); imshow(debugImage)
+    figure(2); imshow(debugImage)
+    figure(3); imshow(edgeFrame)
     % Comparing warped edges and edges of warped frame
     %warpedEdges = warpH(edgeFrame, obj.ipHomography, obj.warpSize);
     %edgeWarp = edge(rgb2gray(warpedFrame), 'canny');
