@@ -4,7 +4,9 @@ City-Project
 Analyze traffic given a set of optical cameras in urban areas
 
 
-### Referring to data
+## Conventions
+
+#### Referring to data
 The goal is to allow to use the same code at different machines. The global variable `CITY_DATA_PATH` is set individually by everyone according to the locations of data on their computers. It is set in file `rootPathsSetup.m`, which is not in Git.
 
 ```Matlab
@@ -19,7 +21,7 @@ myDirectory = 'myDir/mySubdir';
 myDataPath = [CITY_DATA_PATH myDirectory];
 ```
 
-### Naming conventions
+#### Meaning of common variables
 
 ```Matlab
 point = [y x]
@@ -27,7 +29,7 @@ bbox  = [x1 y1 width height]
 roi   = [y1 x1 y2 x2]
 ```
 
-### Recommendations for function interface and parsing of input
+#### Recommendations for function interface and parsing of input
 `inputParser` standard Matlab class is recommended (http://www.mathworks.com/help/matlab/ref/inputparser-class.html). `addParameter` is preferred to `addOptional`. Here is a minimal example
 
 ```Matlab
@@ -45,6 +47,10 @@ function result = func (important1, varargin)
 end
 ```
 
-### Tests vs examples
+#### Names of files
 
-Matlab unit tests http://www.mathworks.com/help/matlab/matlab-unit-test-framework.html?refresh=true should have names `MyClassTest.m`. Examples that illustrate how a unit works, and may also be used for testing should have name `MyClassDemo.m`.
+__Tests vs Examples.__ Matlab unit tests http://www.mathworks.com/help/matlab/matlab-unit-test-framework.html?refresh=true should have names `MyClassTest.m`. Examples that illustrate how a unit works, and may also be used for testing should have name `MyClassDemo.m`.
+
+__Scripts, Classes, functions.__ Names of scripts and classes should be capitalized, names of functions should start with lower-case.
+
+
