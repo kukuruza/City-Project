@@ -41,7 +41,7 @@ roadCameraMap = cameraMask;
 
 % background
 load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
-pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
+pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/'], 'ghost', false);
 
 for t = 1 : 100
     fprintf('frame %d\n', t);

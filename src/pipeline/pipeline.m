@@ -58,8 +58,11 @@ for t = 1 : 100
     
     % subtract backgroubd and return mask
     % bboxes = N x [x1 y1 width height]
-    foregroundMask = background.subtract(frame_ghost, 'denoise', true);
+    foregroundMask = background.subtract(frame_ghost, 'denoise', false);
 
+    %imshow(foregroundMask);
+    %pause;
+    
     % geometry processing mask and bboxes
     %foregroundMask = foregroundMask & logical(roadCameraMap);
     
@@ -72,16 +75,16 @@ for t = 1 : 100
     end
     
     % filter detected cars based on foreground mask
-    counter = 1;
-    carsFilt = Car.empty;
-    for i = 1 : length(cars)
-        center = cars(i).getCenter(); % [y x]
-        if foregroundMask(center(1), center(2))
-            carsFilt(counter) = cars(i);
-            counter = counter + 1;
-        end
-    end
-    cars = carsFilt;
+%     counter = 1;
+%     carsFilt = Car.empty;
+%     for i = 1 : length(cars)
+%         center = cars(i).getCenter(); % [y x]
+%         if foregroundMask(center(1), center(2))
+%             carsFilt(counter) = cars(i);
+%             counter = counter + 1;
+%         end
+%     end
+%     cars = carsFilt;
     
     % filtering cars based on sizes
     SizeTolerance = 1.5;
