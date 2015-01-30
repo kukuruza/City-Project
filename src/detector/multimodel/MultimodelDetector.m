@@ -12,62 +12,9 @@ classdef MultimodelDetector < CarDetectorBase
         detectors  % detectors for each of the groups
         N          % number of both clusters and detectors
         
-        mergeThreshold;
+        mergeOverlap;
         
     end % properties
-    methods (Hidden)
-        
-        function result = areClose (~, bbox1, bbox2, threshold)
-            result = false;
-
-            roi1 = bbox2roi(bbox1);
-            roi2 = bbox2roi(bbox2);
-            inters = [max(roi1(1:2), roi2(1:2)), min(roi1(3:4), roi2(3:4))];
-            
-            % no intersection case
-            if inters(1) > inters(3) || inters(2) > inters(4), return, end
-            
-            % intersection case
-            areaInters = (inters(3) - inters(1) + 1) * (inters(4) - inters(2) + 1);
-            if areaInters / min(bbox1(3)*bbox1(4), bbox2(3)*bbox2(4)) > threshold
-                result = true;
-            end
-        end
-        
-        function [cars1, cars2] = combineTwoClusters(CD, cars1, cars2)
-            m = length(cars1) + length(cars2);
-            toTrash = [];
-            for i1 = 1 : length(cars1)
-                for i2 = 1 : length(cars2)
-                    if CD.areClose (cars1(i1).bbox, cars2(i2).bbox, CD.mergeThreshold)
-                        toTrash = [toTrash i1];
-                    end
-                end
-            end
-            cars1(toTrash) = [];
-            if CD.verbose, fprintf ('removed %d cars\n', m - length(cars2) - length(cars1)); end
-        end
-        
-        function carsByCluster = combineClustersCars(CD, carsByCluster)
-            % parse and validate input
-            parser = inputParser;
-            addRequired(parser, 'carsByCluster', @(x) iscell(x) && (isempty(x{1}) || isa(x{1}, 'Car')));
-            parse (parser, carsByCluster);
-
-            for i = CD.N : -1 : 1
-                for j = i : CD.N
-                    if nnz(CD.detectors{i}.mask & CD.detectors{j}.mask)
-                        if CD.verbose
-                            fprintf('MultimodelDetector: combining clusters %d and %d... ', i, j);
-                        end 
-                        [carsByCluster{i}, carsByCluster{j}] = ...
-                            CD.combineTwoClusters (carsByCluster{i}, carsByCluster{j});
-                    end
-                end
-            end
-        end
-        
-    end
     methods
         
         function CD = MultimodelDetector (clusters, detectors, varargin)
@@ -75,7 +22,7 @@ classdef MultimodelDetector < CarDetectorBase
             parser = inputParser;
             addRequired(parser, 'clusters', @(x) ~isempty(x));
             addRequired(parser, 'detectors', @(x) ~isempty(x) && iscell(x));
-            addParameter(parser, 'mergeThreshold', 0.5, @isscalar);
+            addParameter(parser, 'mergeOverlap', 0.8, @isscalar);
             addParameter(parser, 'verbose', 0, @isscalar);
             parse (parser, clusters, detectors, varargin{:});
             parsed = parser.Results;
@@ -85,7 +32,7 @@ classdef MultimodelDetector < CarDetectorBase
             CD.clusters = parsed.clusters;
             CD.detectors = parsed.detectors;
             CD.N = length(parsed.clusters);
-            CD.mergeThreshold = parsed.mergeThreshold;
+            CD.mergeOverlap = parsed.mergeOverlap;
             CD.setVerbosity(parsed.verbose);
         end
 
@@ -136,16 +83,14 @@ classdef MultimodelDetector < CarDetectorBase
                 carsByCluster{i} = carsCluster;
             end
             
-            % remove duplicates
-            if ~CD.noMerge
-                carsByCluster = CD.combineClustersCars(carsByCluster);
-            end
-            
             % put into one array
             cars = Car.empty();
             for i = 1 : CD.N
                 cars = [cars; carsByCluster{i}];
             end
+            
+            % combine detections
+            cars = mergeCars (cars, 'overlap', CD.mergeOverlap);
         end
 
     end % methods

@@ -27,7 +27,7 @@ verbose = 0;
 %% detect and refine
 
 % geometry
-load('GeometryObject_Camera_572.mat');
+load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
 roadCameraMap = geom.getCameraRoadMap();
 
 modelPath = 'violajones/models/model03-cr10.xml';
@@ -39,8 +39,11 @@ tic
 cars = detector.detect(img);
 toc
 
+cmap = colormap('Autumn');
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img);
+    colorindex = floor(cars(i).score * size(cmap,1)) + 1;
+    color = cmap (colorindex, :) * 255;
+    img = cars(i).drawCar(img, 'color', color);
 end
 
 % show detector's mask
