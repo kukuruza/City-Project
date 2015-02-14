@@ -304,10 +304,18 @@ class PairAnalyzer (BaseAnalyzer):
 if __name__ == '__main__':
     ''' Demo '''
 
-    labelme_data_path = '/Users/evg/projects/City-Project/data/labelme'
-    backimage_path = '/Users/evg/projects/City-Project/data/camdata/cam572/5pm/models/backimage.png'
+    if os.environ.get('CITY_DATA_PATH') is None:
+        print 'First please set the environmental variable CITY_DATA_PATH'
+        sys.exit
+    else:
+        CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
 
-    analyzer = FrameAnalyzer (labelme_data_path, backimage_path)
+    labelme_data_path = OP.join(CITY_DATA_PATH, 'labelme')
+    backimage_path = OP.join(CITY_DATA_PATH, 'camdata/cam572/5pm/models/backimage.png')
+    geom_maps_dir = OP.join(CITY_DATA_PATH, 'models/cam572/')
+
+    analyzer = FrameAnalyzer()
+    analyzer.setPaths (labelme_data_path, backimage_path, geom_maps_dir)
     cars = analyzer.processImage('cam572-bright-frames', '000000.xml')
 
     

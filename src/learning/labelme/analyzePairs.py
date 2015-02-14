@@ -1,8 +1,9 @@
 # Parse labelme vstacked images into car-matches between frames
 #
 # Script takes a 'folder' name. 
-# The folders /Images/folder and /Annotations/folder are the results of the labelme,
-#   Each image is two vertically stacked frames, with labelme annotations signifying matches
+# /Images/folder and /Annotations/folder are the results of the labelme,
+#   Each image is two vertically stacked frames
+#   Labelme annotations signify matches between frames
 #
 # The output is a number of files with names like f000-001-N.mat, 
 #   which keeps the match of car N between frames 0 and 1 as {car1, car2}
@@ -20,7 +21,7 @@ from analyzers import PairAnalyzer
 from carmodule import Car, saveMatCars
 
 
-def analyzeFolder (labelme_data_path, folder, backimage_path, geom_maps_dir):
+def analyzeFolder (folder, labelme_data_path, backimage_path, geom_maps_dir):
 
     analyzer = PairAnalyzer()
     analyzer.setPaths (labelme_data_path, backimage_path, geom_maps_dir)
@@ -49,17 +50,25 @@ def analyzeFolder (labelme_data_path, folder, backimage_path, geom_maps_dir):
 if __name__ == '__main__':
     ''' Demo '''
 
-    __location__ = OP.realpath (OP.join(os.getcwd(), OP.dirname(__file__)))
+    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
+        print 'First set the environmental variable CITY_PATH, CITY_DATA_PATH'
+        sys.exit()
+    else:
+        CITY_PATH = os.getenv('CITY_PATH')
+        CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
+
     FORMAT = '%(asctime)s %(levelname)s: \t%(message)s'
-    log_path = OP.join (__location__, 'logs.txt')
+    log_path = OP.join (CITY_PATH, 'src/learning/labelme/log/analyzePairs.txt')
     logging.basicConfig (format=FORMAT, filename=log_path, level=logging.INFO)
 
-    labelme_data_path = '/Users/evg/projects/City-Project/data/labelme'
     folder = 'cam572-5pm-pairs'
-    backimage_path = '/Users/evg/projects/City-Project/data/camdata/cam572/5pm/models/backimage.png'
-    geom_maps_dir = '/Users/evg/projects/City-Project/data/models/cam572/'
+    labelme_data_path = OP.join (CITY_DATA_PATH, 'labelme')
+    backimage_path = OP.join (CITY_DATA_PATH, 'camdata/cam572/5pm/models/backimage.png')
+    geom_maps_dir = OP.join (CITY_DATA_PATH, 'models/cam572/')
 
-    cars = analyzeFolder (labelme_data_path, folder, backimage_path=backimage_path,
-        geom_maps_dir=geom_maps_dir)
+    cars = analyzeFolder (folder, 
+                          labelme_data_path=labelme_data_path,
+                          backimage_path=backimage_path,
+                          geom_maps_dir=geom_maps_dir)
     
 
