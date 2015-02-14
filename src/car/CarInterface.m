@@ -4,7 +4,10 @@ classdef CarInterface < handle
     methods (Abstract)
         
         % constructor
-        % Car(bbox, timestamp = [0 0 0 0 0 0]);
+        % Car(bbox = [], timestamp = [0 0 0 0 0 0]);
+ 
+        % check if a car is valid. Sometimes invalid cars are necessary
+        ok = isOk (C);
         
         % compute ROI from car bbox
         roi = getROI (C);  % [y1, x1, y2, x2]

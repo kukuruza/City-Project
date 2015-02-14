@@ -1,0 +1,53 @@
+{
+    "name": "object", "known": true, "children":
+    [
+        {
+            "name": "example", "known": false, "children": 
+            [ 
+                { "name": "spelling",        "known": false, "children": [] },
+                { "name": "LazyLynna",       "known": false, "children": [] },
+                { "name": "ShinyShanghang",  "known": false, "children": [] },
+                { "name": "SatisfiedSatwik", "known": false, "children": [] }
+            ]
+        },
+        {
+            "name": "vehicle", "known": false, "children": 
+            [
+                {
+                    "name": "car", "known": true, "children": 
+                    [ 
+                        { "name": "",          "known": false, "children": [] },
+                        { "name": "minivan",   "known": false, "children": [] },
+                        { "name": "sedan",     "known": false, "children": [] }, 
+                        { "name": "hatchback", "known": false, "children": [] },
+                        { "name": "taxi",      "known": true,  "children": [] }
+                    ]
+                },
+                {
+                    "name": "bus", "known": true, "children": 
+                    [
+                        { "name": "schoolbus", "known": false, "children": [] }
+                    ]
+                },
+                { "name": "truck", "known": true, "children": [] },
+                { "name": "van", "known": true, "children": [] },
+                { "name": "suv", "known": true, "children": [] }
+            ]
+        },
+        {
+            "name": "pedestrian", "known": false, "children":
+            [
+                { "name": "man",    "known": false, "children": [] },
+                { "name": "woman",  "known": false, "children": [] },
+                { "name": "person", "known": false, "children": [] },
+                { "name": "human",  "known": false, "children": [] }
+            ]
+        },
+        {
+            "name": "bike", "known": false, "children":
+            [
+                { "name": "bicycle", "known": false, "children": [] }
+            ]
+        }
+    ]
+}

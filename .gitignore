@@ -2,26 +2,24 @@
 rootPathsSetup.m
 
 # ignore all the videos, etc.
-!src/objectsInPerspective/cvpr06src/data/*
-!src/objectsInPerspective/GeometricContext/data/*
 data/
 results/
 build/
 bin/
-src/vlfeat
 amazon/
+3rd-party/
 
 # temporary from Matlab
+##################
 *.asv
 
-# temporary from gedit
+# temporary from gedit and Matlab
 ##################
 *~
 
-# xcode files
+# python compiled files
 ##################
-*.xcodeproj
-*.1
+*.pyc
 
 # Compiled source #
 ###################
