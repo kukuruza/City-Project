@@ -7,21 +7,21 @@ clear all
 cd (fileparts(mfilename('fullpath')));
 
 % add all scripts to matlab pathdef
-run ../rootPathsSetup.m;
-run ../subdirPathsSetup.m;
+run ../../rootPathsSetup.m;
+run ../../subdirPathsSetup.m;
 
 
 % input
-videoDir = [CITY_DATA_PATH, 'camdata/cam572/5pm/'];
-frameReader = FrameReaderVideo ([videoDir '15-mins.avi'], [videoDir '15-mins.txt']);
+videoDir = [CITY_DATA_PATH, 'camdata/cam578/'];
+frameReader = FrameReaderVideo ([videoDir 'Jan22-14h-sunny.avi'], [videoDir 'Jan22-14h-sunny.txt']);
 
-numFramesSkip = 100;
-numFramesWrite = 100;
-intervalFrames = 3;
+numFramesSkip = 0;
+numFramesWrite = 200;
+intervalFrames = 1;
 
 
 % output
-outDir = [videoDir 'amazon/frames/'];
+outDir = [CITY_DATA_PATH 'labelme/Images/cam578-Jan22-14h/'];
 frameWriter = FrameWriterImages (outDir, [1 1], '.jpg');
 
 % skip first N frames

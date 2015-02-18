@@ -51,7 +51,8 @@ class SpellingCorrector:
 if __name__ == '__main__':
     ''' Demo '''
     corrector = SpellingCorrector()
-    corrector.train('data/sherlock.txt');
+    corrector.train('dictionary.json')
+    #corrector.train('data/sherlock.txt');
     while True:
         word = raw_input()
         if word == '': break

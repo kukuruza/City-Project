@@ -4,10 +4,10 @@
         {
             "name": "example", "known": false, "children": 
             [ 
-                { "name": "spelling",        "known": false, "children": [] },
-                { "name": "LazyLynna",       "known": false, "children": [] },
-                { "name": "ShinyShanghang",  "known": false, "children": [] },
-                { "name": "SatisfiedSatwik", "known": false, "children": [] }
+                { "name": "spelling",   "known": false, "children": [] },
+                { "name": "Lynna",      "known": false, "children": [] },
+                { "name": "Shanghang",  "known": false, "children": [] },
+                { "name": "Satwik",     "known": false, "children": [] }
             ]
         },
         {

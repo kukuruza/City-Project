@@ -18,6 +18,9 @@ end
 videoPath = fullfile([outFileTemplate, '.avi']);
 intervalsPath = fullfile([outFileTemplate,'.txt']);
 
+fprintf ('Will write video to %s\n', videoPath);
+fprintf ('Will write subtitles to %s\n', intervalsPath);
+
 frameReader = FrameReaderInternet (camNum);
 frameWriter = FrameWriterVideo (videoPath, 2, 1);
 fid = fopen(intervalsPath, 'w');

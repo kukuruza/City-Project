@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     FORMAT = '%(asctime)s %(levelname)s: \t%(message)s'
     log_path = OP.join (CITY_PATH, 'src/learning/labelme/log/analyzeFrames.txt')
-    logging.basicConfig (format=FORMAT, filename=log_path, level=logging.CRITICAL)
+    logging.basicConfig (format=FORMAT, filename=log_path, level=logging.INFO)
 
     folder = 'cam572-bright-frames'
     labelme_data_path = OP.join (CITY_DATA_PATH, 'labelme')

@@ -15,9 +15,9 @@ fulldatabase = LMdatabase(REMOTE_ANNOTATIONS);
 
 HOME_IMAGES = '/Users/evg/projects/City-Project/data/labelme/Images';
 HOME_ANNOTATIONS = '/Users/evg/projects/City-Project/data/labelme/Annotations';
-HOME_CARS = '/Users/evg/projects/City-Project/data/labelme/Cars';
 
 
 
-LMinstall_parser (HOME_IMAGES, HOME_ANNOTATIONS, 'D', D, 'webpageimg', REMOTE_IMAGES, 'webpageanno', REMOTE_ANNOTATIONS);
+LMinstall_parser (HOME_IMAGES, HOME_ANNOTATIONS, 'D', D, 'webpageimg', ...
+    REMOTE_IMAGES, 'webpageanno', REMOTE_ANNOTATIONS);
 
