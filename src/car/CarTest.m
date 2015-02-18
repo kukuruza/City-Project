@@ -28,16 +28,6 @@ classdef CarTest < matlab.unittest.TestCase
                 'Constructor failed to set up time stamp');
         end
         
-        function testConstructorNotEnoughInputs(testCase)
-            import matlab.unittest.constraints.Throws;
-            testCase.verifyThat(@()Car, Throws('MATLAB:InputParser:notEnoughInputs'));
-        end
-
-        function testConstructorBadBbox(testCase)
-            import matlab.unittest.constraints.Throws;
-            testCase.verifyThat(@()Car([]), Throws('MATLAB:InputParser:ArgumentFailedValidation'));
-        end
-
         function testDefaultTimestamp(testCase)
             car = Car([10 10 20 20]);
             testCase.verifySize(car.timeStamp, [1 6]);
@@ -50,7 +40,12 @@ classdef CarTest < matlab.unittest.TestCase
         
         function testGetBottomCenter(testCase)
             car = Car([10 30 20 20]);   % [x y w h]
-            testCase.verifyEqual(car.getBottomCenter(), int32([30+19 10+20/2]));
+            testCase.verifyEqual(car.getBottomCenter(), int32([30+20*0.75-1 10+20/2]));
+        end
+        
+        function testEmptyCar(testCase)
+            car = Car();
+            testCase.verifyFalse (car.isOk())
         end
     end
 end

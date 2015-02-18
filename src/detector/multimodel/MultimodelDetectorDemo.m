@@ -21,15 +21,18 @@ load (clustersPath);
 
 modelTemplate = 'violajones/models/model%02d-cr10.xml';
 
-%imPath = '../testdata/10am-064.jpg';
-imPath = '../testdata/5pm-018.png';
-imSrcPath = '../testdata/5pm-018-src.png';
+imSrcPath = '../testdata/081-clear.png';
+backimagePath = '../testdata/backimage.png';
+%imSrcPath = '../testdata/5pm-018-src.png';
+
+imSrc = imread (imSrcPath);
+backimage = imread (backimagePath);
+img0 = uint8( int32(imSrc) - int32(backimage) + 128 );
 
 %% init
 
 % geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
+load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
 fprintf ('Have read the Geometry object from file\n');
 
 % background - load parameters and learn
@@ -65,13 +68,14 @@ detectors{counter} = frombackDetector;
 
 % multimodel detector
 multiDetector = MultimodelDetector(usedClusters, detectors, 'verbose', 3);
+multiDetector.noMerge = true;
+
 
 % save multiDetector under name 'detector'
 detector = multiDetector; 
 save ([CITY_DATA_PATH 'models/cam572/multiDetector.mat'], 'detector');
 clear detector;
 
-img0 = imread(imPath);
 img = img0;
 
 % necessary for FrombackDetector
@@ -88,13 +92,13 @@ for i = 1 : length(cars)
     img = cars(i).drawCar(img, 'boxOpacity', 0.0, 'FontSize', 20, 'color', color );
 end
 img = img + uint8(multiDetector.getMask('colormask', true) * 30);
-imshow([img0, img; mask2rgb(background.result), gray2darkghost(img0)]);
+%imshow([img0, img; mask2rgb(background.result), gray2darkghost(img0)]);
+imshow(img);
 error('stop here');
 pause
 
-img0 = imread(imSrcPath);
 for i = 1 : length(cars)
-    img = img0;
+    img = imSrc;
     img = cars(i).drawCar( img, 'boxOpacity', 0.0, 'FontSize', 20);
     imshow(img);
     pause

@@ -5,7 +5,7 @@
 
 classdef Car < CarInterface
     properties
-        bbox;  % [x1 y1 width height]
+        bbox = [];  % [x1 y1 width height]
         patch = [];
         ghost = [];
         segmentMask;
@@ -44,13 +44,18 @@ classdef Car < CarInterface
         function C = Car(varargin) % see interface
             % parse and validate input
             parser = inputParser;
-            addRequired (parser, 'bbox', @(x) isvector(x) && length(x) == 4);
+            addOptional (parser, 'bbox', [], @(x) isempty(x) || isvector(x) && length(x) == 4);
             addOptional (parser, 'timestamp', [0 0 0 0 0 0], ...
                                          @(x) isvector(x) && length(x) == 6);
             parse (parser, varargin{:});
 
             C.bbox = parser.Results.bbox;
             C.timeStamp = parser.Results.timestamp;
+        end
+        
+        
+        function ok = isOk (C)
+            ok = ~isempty(C.bbox);
         end
         
         
@@ -89,7 +94,7 @@ classdef Car < CarInterface
         function center = getBottomCenter (C) % [y x]
             HeightRatio = 0.75;
             center = [int32(C.bbox(2) + C.bbox(4) * HeightRatio - 1), ...
-                      int32(C.bbox(1) + C.bbox(3) / 2)];
+                      int32(C.bbox(1) + C.bbox(3) / 2)];  % why is it -1 ???
         end
         
         

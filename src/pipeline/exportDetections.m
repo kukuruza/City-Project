@@ -20,9 +20,7 @@ timesPath = [videoDir '15-mins.txt'];
 frameReader = FrameReaderVideo (videoPath, timesPath); 
 
 % geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
-fprintf ('Have read the Geometry object from file\n');
+load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
 roadCameraMap = geom.getCameraRoadMap();
 orientationMap = geom.getOrientationMap();
 
@@ -33,7 +31,7 @@ backimage = imread([videoDir 'models/backimage.png']);
 
 % detector
 load ([CITY_DATA_PATH 'models/cam572/multiDetector.mat']);
-detector.noMerge = true;
+detector.noMerge = false;
 detector.setVerbosity(0);
 detector.detectors{5}.background = background;
 

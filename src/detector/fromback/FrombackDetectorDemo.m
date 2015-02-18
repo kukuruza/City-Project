@@ -21,8 +21,7 @@ imgPath = '../testdata/5pm-018.png';
 %% init
 
 % geometry
-objectFile = 'GeometryObject_Camera_572.mat';
-load(objectFile);
+load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
 fprintf ('Have read the Geometry object from file\n');
 
 % load background
@@ -44,8 +43,11 @@ tic
 cars = frombackDetector.detect(img);
 toc
 
+cmap = colormap('Autumn');
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img);
+    colorindex = floor(cars(i).score * size(cmap,1)) + 1;
+    color = cmap (colorindex, :) * 255;
+    img = cars(i).drawCar(img, 'color', color);
 end
 imshow([mask2rgb(mask), img]);
 
