@@ -63,11 +63,11 @@ for t = 1 : 100
     geom.generateRoadBelief(foregroundMask, frame);
     
     % Using the lane markers
-    geom.computeHoughLanes(frame);
-    
+    %geom.computeHoughLanes(frame);
+    figure(1); imshow(frame & uint8(~foregroundMask(:, :, [1 1 1])))
     tCycle = toc;
     fprintf ('frame %d in %f sec \n \n', t, tCycle);    
-    pause(0.3)
+    pause()
 end
 
 clear frameWriter frameReader

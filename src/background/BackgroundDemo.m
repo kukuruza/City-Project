@@ -19,7 +19,7 @@ run ../subdirPathsSetup.m
 videoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
 videoPath = [videoDir '15-mins.avi'];
 videoTxt = [videoDir '15-mins.txt'];
-outPath = [CITY_DATA_PATH 'testdata/background/demo/cam572-5pm.avi'];
+%outPath = [CITY_DATA_PATH 'testdata/background/demo/cam572-5pm.avi'];
 
 doWrite = false;
 

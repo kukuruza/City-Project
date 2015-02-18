@@ -65,3 +65,4 @@ Thumbs.db
 # Geometry module specific
 src/geometry/testscripts/local*
 src/geometry/local*
+src/background/local*
