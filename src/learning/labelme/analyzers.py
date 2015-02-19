@@ -5,10 +5,17 @@ import os, sys
 import collections
 import logging
 import os.path as OP
-sys.path.insert(0, os.path.abspath('annotations'))
 
+sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
-from carmodule import Car
+
+if not os.environ.get('CITY_PATH'):
+    print 'First set the environmental variable CITY_PATH'
+    sys.exit()
+else:
+    sys.path.insert(0, OP.join(os.getenv('CITY_PATH'), 'src'))
+from pycar.pycar import Car
+
 
 
 def roi2bbox (roi):
@@ -309,6 +316,9 @@ if __name__ == '__main__':
         sys.exit
     else:
         CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
+
+    FORMAT = '%(asctime)s %(levelname)s: \t%(message)s'
+    logging.basicConfig (format=FORMAT, level=logging.INFO)
 
     labelme_data_path = OP.join(CITY_DATA_PATH, 'labelme')
     backimage_path = OP.join(CITY_DATA_PATH, 'camdata/cam572/5pm/models/backimage.png')

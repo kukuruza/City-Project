@@ -1,0 +1,10 @@
+[
+    {
+        "filter": "cluster1",
+        "name": "test car"
+    },
+    {
+        "filter": "cluster2",
+        "name": "bus"
+    }
+]

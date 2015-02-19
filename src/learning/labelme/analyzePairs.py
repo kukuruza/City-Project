@@ -12,13 +12,18 @@
 import glob
 import logging
 import logging.handlers
-import os
+import os, sys
 import os.path as OP
-import sys
 import shutil
 import cv2
 from analyzers import PairAnalyzer
-from carmodule import Car, saveMatCars
+
+if not os.environ.get('CITY_PATH'):
+    print 'First set the environmental variable CITY_PATH'
+    sys.exit()
+else:
+    sys.path.insert(0, OP.join(os.getenv('CITY_PATH'), 'src'))
+from pycar.pycar import Car, saveMatCars
 
 
 def analyzeFolder (folder, labelme_data_path, backimage_path, geom_maps_dir):
@@ -58,7 +63,7 @@ if __name__ == '__main__':
         CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
 
     FORMAT = '%(asctime)s %(levelname)s: \t%(message)s'
-    log_path = OP.join (CITY_PATH, 'src/learning/labelme/log/analyzePairs.txt')
+    log_path = OP.join (CITY_PATH, 'log/learning/labelme/analyzePairs.log')
     logging.basicConfig (format=FORMAT, filename=log_path, level=logging.INFO)
 
     folder = 'cam572-5pm-pairs'

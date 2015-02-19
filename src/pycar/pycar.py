@@ -1,5 +1,7 @@
+
 import numpy as np
 import scipy.io as sio
+import logging
 
 
 
@@ -56,7 +58,9 @@ def saveMatCar (filepath, car):
     sio.savemat (filepath, {'car': car.toDict()})
 
 def saveMatCars (filepath, cars, caption = None):
-    assert not cars or isinstance(cars, list) and cars[0] is None or isinstance(cars[0], Car)
+    assert not cars or \
+           isinstance(cars, list) and cars[0] is None or \
+           isinstance(cars[0], Car)
     cars_dict = [];
     for car in cars:
         if car is None: car = Car()
@@ -67,4 +71,37 @@ def saveMatCars (filepath, cars, caption = None):
         sio.savemat (filepath, {'cars': cars_dict, 'caption': caption})
 
 def loadMatCars (filepath):
-    return sio.loadmat(filepath)
+    logging.debug ('loadMatCars is parsing file: ' + filepath)
+    contents = sio.loadmat(filepath)
+    if 'cars' not in contents.keys():
+        raise Exception('There is no cars in: ' + filepath)
+    N = contents['cars'].shape[1]
+
+    cars = []
+    for i in range(N):
+        carContents = contents['cars'][0,i][0,0]
+        assert carContents.dtype == [('ghost', 'O'), ('name', 'O'), 
+               ('yaw', 'O'), ('patch', 'O'), ('bbox', 'O'), ('pitch', 'O')]
+        car = Car()
+
+        # empty car is found by the empty bbox
+        if len(carContents[4]) != 0:
+            car.ghost =      carContents[0]
+            car.name  =  str(carContents[1][0])
+            car.yaw   =      carContents[2][0,0]
+            car.patch =      carContents[3]
+            car.bbox  = list(carContents[4][0])
+            car.pitch =      carContents[5][0,0]
+        cars.append(car)
+
+    return cars
+
+#def numMatCars (filepath):
+#    ''' return the number of cars in mat file or 0 if not cars there '''
+#    contents = sio.whosmat(filepath)
+#    # sio.whosmat always returns 
+#    assert len(contents[0]) == 3
+#    if contents[0] not in ['cars', 'car']: return 0
+#     (1, 2), 'cell')]
+
+
