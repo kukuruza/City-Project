@@ -45,11 +45,10 @@ def parseFilterName (filter_name):
     # check operations
     filter_key = filter_parts[0]
     filter_op = filter_parts[1]
-    if filter_op not in ['min', 'max', 'equal']:
+    if filter_op not in ['min', 'max', 'equal', 'to']:
         raise Exception('operation of filter "' + filter_name + '" is unknown')
 
     return (filter_key, filter_op)
-
 
 
 def queryCars (data_paths_list, filters={}):
@@ -63,9 +62,10 @@ def queryCars (data_paths_list, filters={}):
     filters_operations = {'min' : {}, 'max' : {}, 'equal' : {}}
     for filter_name, filter_value in filters.iteritems():
         (filter_key, filter_op) = parseFilterName (filter_name)
-        filters_operations[filter_op][filter_key] = filter_value
-        logging.debug ('filter on ' + filter_op + '(' + str(filter_key) + \
-                       ') = ' + str(filter_value))
+        if filter_op in filters_operations.keys():
+            filters_operations[filter_op][filter_key] = filter_value
+            logging.debug ('filter on ' + filter_op + '(' + str(filter_key) + \
+                           ') = ' + str(filter_value))
 
     response = [];
 
@@ -76,15 +76,20 @@ def queryCars (data_paths_list, filters={}):
         # the list probably contains wildcards
         data_paths = glob.glob (data_path_template)
         logging.info ('queryCars found ' + str(len(data_paths)) + \
-            ' cars at template path: ' + data_path_template)
+            ' objects at template path: ' + data_path_template)
         for data_path in data_paths:
-            logging.debug ('query for cars in: ' + data_path)
+            logging.debug ('query for objects in: ' + data_path)
 
             cars = loadMatCars (data_path)
             take_indices = []
             for i in range(len(cars)):
                 car = cars[i]
                 carDict = car.toDict()
+                # custom properties for our objects
+                (height, width, channels) = carDict['patch'].shape
+                carDict['width'] = width
+                carDict['height'] = height
+                carDict['size'] = (width + height) / 2
 
                 will_take = True
                 for key, value in filters_operations['min'].iteritems():
@@ -104,6 +109,7 @@ def queryCars (data_paths_list, filters={}):
                 response.append ((data_path, take_indices))
 
     return response
+
 
 
 
@@ -144,7 +150,14 @@ def clusterCarsIntoGhosts (data_list, filters_path, out_dir):
             for car in cars:
                 filename = "%06d" % counter + IMAGE_EXT
                 filepath = OP.join(cluster_dir, filename)
-                cv2.imwrite(filepath, car.ghost)
+
+                ghost = car.ghost
+                if 'size.to' in filter_.keys():
+                    assert (type(filter_['size.to']) == list)
+                    assert (len(filter_['size.to']) == 2)
+                    ghost = cv2.resize(ghost, tuple(filter_['size.to']))
+
+                cv2.imwrite(filepath, ghost)
                 counter += 1
 
         counter_by_cluster[filter_['filter']] = counter

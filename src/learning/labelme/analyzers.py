@@ -18,6 +18,12 @@ from pycar.pycar import Car
 
 
 
+#
+# roi - all inclusive, like in Matlab
+# crop = im[roi[0]:roi[2]+1, roi[1]:roi[3]+1] (differs from Matlab)
+#
+
+
 def roi2bbox (roi):
     assert (isinstance(roi, list) and len(roi) == 4)
     return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
@@ -30,6 +36,7 @@ class BaseAnalyzer:
 
     border_thresh_perc = 0.03
     expand_perc = 0.1
+    ratio = 0.75
 
     def setPaths (self, labelme_data_path, backimage_path, geom_maps_dir):        
         if not OP.exists (backimage_path):
@@ -81,15 +88,64 @@ class BaseAnalyzer:
         return num_too_close >= 2
 
 
-    def expandRoi (self, roi, width, height):
-        deltay = (roi[2] - roi[0]) * self.expand_perc
-        deltax = (roi[3] - roi[1]) * self.expand_perc
+    def expandRoi (self, roi, imwidth, imheight):
+        deltay = (roi[2] - roi[0]) * self.expand_perc / 2
+        deltax = (roi[3] - roi[1]) * self.expand_perc / 2
         roi[0] = max(roi[0] - deltay, 0)
         roi[1] = max(roi[1] - deltax, 0)
-        roi[2] = min(roi[2] + deltay, height - 1)
-        roi[3] = min(roi[3] + deltax, width - 1)
+        roi[2] = min(roi[2] + deltay, imheight - 1)
+        roi[3] = min(roi[3] + deltax, imwidth - 1)
         roi = [int(x) for x in roi]
         assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
+        return roi
+
+    
+    def expandRoiFloat (self, roi, (imheight, imwidth), (perc_y, perc_x)):
+        ''' Expand each side by given perc, float to stay within borders '''
+        half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
+        half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
+        # expand each side
+        roi[0] -= half_delta_y
+        roi[1] -= half_delta_x
+        roi[2] += half_delta_y
+        roi[3] += half_delta_x
+        # make integer
+        roi = [int(x) for x in roi]
+        # move to clip into borders
+        if roi[0] < 0:
+            roi[2] += abs(roi[0])
+            roi[0] = 0
+        if roi[1] < 0:
+            roi[3] += abs(roi[1])
+            roi[1] = 0
+        if roi[2] > imheight-1:
+            roi[0] -= abs((imheight-1) - roi[2])
+            roi[2] = imheight-1
+        if roi[3] > imwidth-1:
+            roi[1] -= abs((imwidth-1) - roi[3])
+            roi[3] = imwidth-1
+        # check that now averything is within borders (bbox is not too big)
+        assert (roi[0] >= 0 and roi[1] >= 0)
+        assert (roi[2] <= imheight-1 and roi[3] <= imwidth-1)
+        return roi
+
+
+    def expandRoiToRatio (self, roi, (imheight, imwidth)):
+        ''' Match ratio height to width. 
+            The biggest side may not be increased '''
+        # adjust width and height to ratio
+        height = float(roi[2] + 1 - roi[0])
+        width  = float(roi[3] + 1 - roi[1])
+        if height / width < self.ratio:
+           perc = self.ratio * width / height - 1
+           roi = self.expandRoiFloat (roi, (imheight, imwidth), (perc, 0))
+        else:
+           perc = height / width / self.ratio - 1
+           roi = self.expandRoiFloat (roi, (imheight, imwidth), (0, perc))
+        # additional expansion
+        perc = self.expand_perc - perc
+        if perc > 0:
+            roi = self.expandRoiFloat (roi, (imheight, imwidth), (perc, perc))
         return roi
 
 
@@ -143,7 +199,7 @@ class FrameAnalyzer (BaseAnalyzer):
 
             # expand bbox
             roi = [min(ys), min(xs), max(ys), max(xs)]
-            roi = self.expandRoi (roi, width, height)
+            roi = self.expandRoiToRatio (roi, (height, width))
             assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
 
             # extract patch
@@ -155,6 +211,7 @@ class FrameAnalyzer (BaseAnalyzer):
             car.patch = patch
             car.ghost = ghost
             car.name = cartype
+            #car.source = folder  # dataset source
             car = self.assignOrientation(car)
             cars.append (car)
 
@@ -263,7 +320,7 @@ class PairAnalyzer (BaseAnalyzer):
                 img = img_b
                 ghostimage = ghostimage_b
 
-            roi = self.expandRoi (roi, width, halfheight)
+            roi = self.expandRoiToRatio (roi, (halfheight, width))
             assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
 
             # extract patch

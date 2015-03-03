@@ -73,6 +73,10 @@ class FrameParser (BaseParser):
     def parse (self, phrase):
         words = self.to_bag_of_words(phrase)
 
+        # if there are no words, only a single number, it's a car
+        if len(words) == 1 and words[0].isdigit():
+            words = ['car']
+
         # remove all numbers
         words = [word for word in words if not word.isdigit()]
 
@@ -106,6 +110,9 @@ class FrameParser (BaseParser):
 class PairParser (BaseParser):
     ''' logic for processing frame pairs '''
 
+    # static counter
+    counter = 1000
+
     def parse (self, phrase):
         words = self.to_bag_of_words(phrase)
 
@@ -124,11 +131,10 @@ class PairParser (BaseParser):
             if 'object' in names: names.remove('object')
 
         # unique ids
-        counter = 1000
         if not numbers:
-            logging.debug ('added id ' + str(counter) + ' to: "' + phrase + '"')
-            numbers.append(counter)
-            counter += 1
+            logging.debug ('added id ' + str(self.counter) + ' to: "' + phrase + '"')
+            numbers.append(self.counter)
+            self.counter += 1
 
         # 'car' can be skipped
         if not names:
@@ -138,6 +144,7 @@ class PairParser (BaseParser):
         if len(names) == 1 and len(numbers) == 1:
             return names[0], numbers[0]
         else:
+            logging.warning ('num != 1 for either words or numbers in ' + phrase)
             return None, None
 
 
@@ -146,6 +153,7 @@ class PairParser (BaseParser):
 if __name__ == '__main__':
     ''' Demo '''
     parser = FrameParser ()
-    print (parser.parse ('555 6 \%~~--: =%^ '))
-    print (parser.parse ('LazyLinna   sleeps 10hours !!!!!11 '))
-    print (parser.parse ('LazyLinna   sleeps 10hours in a bus or car !!!!!11 '))
+    while True:
+        word = raw_input()
+        if word == '': break
+        print ('-> ' +  parser.parse(word))

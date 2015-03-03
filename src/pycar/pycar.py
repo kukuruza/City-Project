@@ -13,6 +13,10 @@ class Car:
         self.ghost = np.empty((0,0,0))
         self.yaw = 0
         self.pitch = 0
+        self.width = 0
+        self.height = 0
+        self.size = 0
+        #self.source = ''
 
     def check (self):
         (height, width, depth) = self.patch.shape
@@ -52,6 +56,9 @@ class Car:
                 'yaw': self.yaw,
                 'pitch': self.pitch}
 
+    def isOk (self):
+        return self.bbox
+
 
 
 def saveMatCar (filepath, car):
@@ -88,10 +95,16 @@ def loadMatCars (filepath):
         if len(carContents[4]) != 0:
             car.ghost =      carContents[0]
             car.name  =  str(carContents[1][0])
-            car.yaw   =      carContents[2][0,0]
+            car.yaw   =      float(carContents[2][0,0])
             car.patch =      carContents[3]
             car.bbox  = list(carContents[4][0])
-            car.pitch =      carContents[5][0,0]
+            car.pitch =      float(carContents[5][0,0])
+
+            # logic of transferring width/height to size is here
+            (car.height, car.width, channels) = car.patch.shape
+            car.size = int((car.width + car.height) / 2)
+        
+        
         cars.append(car)
 
     return cars
