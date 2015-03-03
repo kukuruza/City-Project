@@ -1,4 +1,4 @@
-function [ lanes ] = computeHoughLanes(obj, frame)
+function laneEdges = computeHoughLanes(obj, frame)
     % Function to generate the lanes using hough transform
     % 
     % Usage:
@@ -6,13 +6,6 @@ function [ lanes ] = computeHoughLanes(obj, frame)
     % Frame of the original image 
     % 
     % Might need optional arguments
-    
-    % Assinging the outputs to avoid function errors
-    lanes = [];
-    
-    %lines = findHoughLines(frame);    
-    %debugImage = drawHoughLines(frame, lines);
-    %figure(1); imshow(debugImage)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     warpedFrame = warpH(frame, obj.ipHomography, obj.warpSize);
     
@@ -23,21 +16,21 @@ function [ lanes ] = computeHoughLanes(obj, frame)
             lines(i) = [];
         end
     end
-    debugImage = drawHoughLines(warpedFrame, lines);
-    figure(1); imshow(debugImage)
-    % Comparing warped edges and edges of warped frame
-    %warpedEdges = warpH(edgeFrame, obj.ipHomography, obj.warpSize);
-    %edgeWarp = edge(rgb2gray(warpedFrame), 'canny');
     
-    %figure(1); imagesc(warpedEdges)
-    %figure(2); imagesc(edgeWarp)
+    % Debugging
+    %debugImage = drawHoughLines(warpedFrame, lines);
+    %figure(1); imshow(debugImage)
     
-    %figure(2); imagesc(edgeFrame)
-    %figure(3); imshow(warpedFrame)
+    % Getting the x co-ordinates of the line segments
+    laneEdges = zeros(1, length(lines));
+    for i = 1:length(lines)
+        laneEdges(i) = mean(lines(i).point1(1), lines(i).point2(2));
+    end
     
     % Debug image for visualization
     debug = false;
     if(debug)
+        %debugImage = printDebugImage(frame, obj.road.vanishPt, imgPts);
         debugImage = drawHoughLines(frame, lines);
     end
 end
@@ -65,7 +58,24 @@ function [houghLines, houghImage] = findHoughLines(image)
     peaks = houghpeaks(houghImage, 100, 'Threshold', 0.2*max(houghImage(:)));
     houghLines = houghlines(edgeFrame, theta, rho, peaks, 'FillGap', 10, 'MinLength', 5);
     
-    %debugImage = drawHoughLines(image, houghLines);
-    %figure(1); imshow(debugImage)
-    figure(2); imshow(edgeFrame)
+    % debugImage = drawHoughLines(image, houghLines);
+    % figure(1); imshow(debugImage)
+    % figure(2); imshow(edgeFrame)
+end
+
+% Generating the debug image i.e. Drawing the lane boundaries
+function debugImage = printDebugImage(frame, vanishPoint, lanePoints)
+    debugImage = frame;
+    % Setting up the color and thickness
+    laneThickness = 2;
+    laneColor = uint8(reshape([255, 0, 0], [1 1 3]));
+    
+    blankImage= zeros(size(frame, 1), size(frame, 2));
+    for i = 1:size(lanePoints, 2)
+        blankImage = drawLineSegment(blankImage, vanishPoint, lanePoints(:, i));
+    end
+    blankImage = uint8(imdilate(blankImage > 0, ones(laneThickness)));
+    
+    debugImage = debugImage + ...
+                    bsxfun(@times, blankImage, laneColor); 
 end

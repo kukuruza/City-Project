@@ -180,7 +180,7 @@ classdef GeometryEstimator < GeometryInterface
         computeOrientationMap(obj);  
         
         % Computing the hough lines for the given frame
-        computeHoughLanes(obj, frame);
+        laneEdges = computeHoughLanes(obj, frame);
     end
     
     %% Static methods

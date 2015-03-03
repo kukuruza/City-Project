@@ -56,44 +56,103 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     
     % Finding transitions and locations of lane edges
     transitions = [0, ...
-       ((localMinima(2:end-1) ~= localMinima(1:end-2))|(localMinima(2:end-1) ~= localMinima(3:end))) ...
+       ((localMinima(2:end-1) ~= localMinima(1:end-2))|...
+       (localMinima(2:end-1) ~= localMinima(3:end))) ...
        & localMinima(2:end-1), ...
                    0];
                
     % Adding all the offsets
     laneEdges = find(transitions == 1) + minimaRange + minCol;
     
+    % Getting the points using hough transform
+    houghEdges = obj.computeHoughLanes(frame);
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Taking the best out of both the hough and already present edges
+    laneEdges = union(houghEdges, laneEdges);
+    
+    % pruning the lanes
+    proxThreshold = 0.01 * imageSize(2); % Setting threshold proportionally
+    laneEdges = pruneLaneEdges(laneEdges, proxThreshold);    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
     % Re-projecting it back to the image, for drawing the lanes
-    imgPts = obj.ipHomography \ [laneEdges; ...
-                            %size(warpedBackground, 1) * ones(1, length(laneEdges));...
-                            0.90 * obj.imageSize(1) * ones(1, length(laneEdges));...
-                            ones(1, length(laneEdges))];
+    imgPts = obj.ipHomography\ [laneEdges; ...
+                    %size(warpedBackground, 1) * ones(1, length(laneEdges));...
+                    0.50 * imageSize(1) * ones(1, length(laneEdges));...
+                    ones(1, length(laneEdges))];
+
+    % Showing the warped background
+    %figure(2); imshow([reImg, frame])
+    %figure(2); imshow(warpH(frame, obj.ipHomography, obj.warpSize))
+    %figure(3); plot(smoothBelief)
     
     % Converting from homogeneous to non-homogeneous
     imgPts = [imgPts(1, :) ./ imgPts(3, :); imgPts(2, :) ./ imgPts(3, :)]; 
-    
+    noPts = size(imgPts, 2);
     lanes = zeros(size(imgPts));
     % Creating the equations for the lanes
-    for i = 1:length(imgPts)    
+    for i = 1:noPts
         lanes(1, i) = (imgPts(2, i) - obj.road.vanishPt(2)) /...
                         (imgPts(1, i) - obj.road.vanishPt(1));
         lanes(2, i) = obj.road.vanishPt(2) - lanes(1, i) * obj.road.vanishPt(1);
     end
     
-    debug = false;
+    debug = true;
     if(debug) 
         debugImage = printDebugImage(frame, obj.road.vanishPt, imgPts);
     else 
         debugImage = frame;
     end
+    
+    figure(1); imshow(debugImage)
+end
+
+% Pruning the edges for consensus
+function prunedLanes = pruneLaneEdges(laneEdges, proxThreshold)
+    % Setting the default values for proximal threshold
+    if(nargin < 2)
+        % Default of 5 pixels
+        proxThreshold = 5;
+    end
+    
+    % Do nothing, return
+    if(length(laneEdges) < 2)
+        prunedLanes = laneEdges;
+        return
+    end
+    
+    prunedLanes = [];
+    % Sum and number of members in the current bundle
+    sumBundle = laneEdges(1); noBundle = 1; meanBundle = laneEdges(1);
+    for i = 2:length(laneEdges)
+        % If close, merge into the bundle
+        %if(abs(laneEdges(i)-meanBundle) <= proxThreshold)
+        if(abs(laneEdges(i)-meanBundle) <= proxThreshold)
+            sumBundle = sumBundle + laneEdges(i);
+            noBundle = noBundle + 1;
+            meanBundle = sumBundle / noBundle;
+        else
+            prunedLanes = [prunedLanes, meanBundle];
+            sumBundle = laneEdges(i); noBundle = 1;
+            meanBundle = laneEdges(i);
+        end
+    end
+    
+    % Performing RANSAC over the lines to get the best separating distance
+    % Considering two points to define
+    
 end
 
 % Generating the debug image i.e. Drawing the lane boundaries
-function debugImage = printDebugImage(frame, vanishPoint, lanePoints)
+function debugImage = printDebugImage(frame, vanishPoint, lanePoints, laneColor)
     debugImage = frame;
+    
     % Setting up the color and thickness
+    if(nargin < 4)
+        laneColor = uint8(reshape([255, 0, 0], [1 1 3]));
+    end
     laneThickness = 2;
-    laneColor = uint8(reshape([255, 0, 0], [1 1 3]));
     
     blankImage= zeros(size(frame, 1), size(frame, 2));
     for i = 1:size(lanePoints, 2)

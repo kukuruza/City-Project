@@ -47,8 +47,9 @@ function ipHomography  = computeIPTransform(obj, image, laneRatio, laneWidth)
     if(lineEq(2) < imageSize(1))
         pts2 = [pts2, [1; lineEq(2)]];
     else
-        % If not check intercept with bottom
+        % If not, check intercept with bottom
         bottomIntercept = -1 * lineEq(2)/lineEq(1);
+        [bottomIntercept, imageSize(2)]
         if(bottomIntercept < 0 || bottomIntercept > imageSize(2))
             % Error possibly
             error('Error in finding homography');
