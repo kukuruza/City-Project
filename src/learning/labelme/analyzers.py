@@ -1,3 +1,5 @@
+#!/bin/python
+
 import numpy as np
 import cv2
 import xml.etree.ElementTree as ET
@@ -17,7 +19,6 @@ else:
 from pycar.pycar import Car
 
 
-
 #
 # roi - all inclusive, like in Matlab
 # crop = im[roi[0]:roi[2]+1, roi[1]:roi[3]+1] (differs from Matlab)
@@ -28,6 +29,61 @@ def roi2bbox (roi):
 
 def image2ghost (image, backimage):
     return np.uint8((np.int32(image) - np.int32(backimage)) / 2 + 128)
+
+
+#
+# expandRoiFloat expands a ROI, and clips it within borders
+#
+def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
+    half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
+    half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
+    # expand each side
+    roi[0] -= half_delta_y
+    roi[1] -= half_delta_x
+    roi[2] += half_delta_y
+    roi[3] += half_delta_x
+    # make integer
+    roi = [int(x) for x in roi]
+    # move to clip into borders
+    if roi[0] < 0:
+        roi[2] += abs(roi[0])
+        roi[0] = 0
+    if roi[1] < 0:
+        roi[3] += abs(roi[1])
+        roi[1] = 0
+    if roi[2] > imheight-1:
+        roi[0] -= abs((imheight-1) - roi[2])
+        roi[2] = imheight-1
+    if roi[3] > imwidth-1:
+        roi[1] -= abs((imwidth-1) - roi[3])
+        roi[3] = imwidth-1
+    # check that now averything is within borders (bbox is not too big)
+    assert (roi[0] >= 0 and roi[1] >= 0)
+    assert (roi[2] <= imheight-1 and roi[3] <= imwidth-1)
+    return roi
+
+
+#
+# expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
+#
+def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
+    # adjust width and height to ratio
+    height = float(roi[2] + 1 - roi[0])
+    width  = float(roi[3] + 1 - roi[1])
+    if height / width < ratio:
+       perc = ratio * width / height - 1
+       roi = expandRoiFloat (roi, (imheight, imwidth), (perc, 0))
+    else:
+       perc = height / width / ratio - 1
+       roi = expandRoiFloat (roi, (imheight, imwidth), (0, perc))
+    # additional expansion
+    perc = expand_perc - perc
+    if perc > 0:
+        roi = expandRoiFloat (roi, (imheight, imwidth), (perc, perc))
+    return roi
+
+
+
 
 
 class BaseAnalyzer:
@@ -88,55 +144,6 @@ class BaseAnalyzer:
         return num_too_close >= 2
 
 
-    def expandRoiFloat (self, roi, (imheight, imwidth), (perc_y, perc_x)):
-        ''' Expand each side by given perc, float to stay within borders '''
-        half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
-        half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
-        # expand each side
-        roi[0] -= half_delta_y
-        roi[1] -= half_delta_x
-        roi[2] += half_delta_y
-        roi[3] += half_delta_x
-        # make integer
-        roi = [int(x) for x in roi]
-        # move to clip into borders
-        if roi[0] < 0:
-            roi[2] += abs(roi[0])
-            roi[0] = 0
-        if roi[1] < 0:
-            roi[3] += abs(roi[1])
-            roi[1] = 0
-        if roi[2] > imheight-1:
-            roi[0] -= abs((imheight-1) - roi[2])
-            roi[2] = imheight-1
-        if roi[3] > imwidth-1:
-            roi[1] -= abs((imwidth-1) - roi[3])
-            roi[3] = imwidth-1
-        # check that now averything is within borders (bbox is not too big)
-        assert (roi[0] >= 0 and roi[1] >= 0)
-        assert (roi[2] <= imheight-1 and roi[3] <= imwidth-1)
-        return roi
-
-
-    def expandRoiToRatio (self, roi, (imheight, imwidth), expand_perc, ratio):
-        ''' Match ratio height to width. 
-            The biggest side may not be increased '''
-        # adjust width and height to ratio
-        height = float(roi[2] + 1 - roi[0])
-        width  = float(roi[3] + 1 - roi[1])
-        if height / width < ratio:
-           perc = ratio * width / height - 1
-           roi = self.expandRoiFloat (roi, (imheight, imwidth), (perc, 0))
-        else:
-           perc = height / width / ratio - 1
-           roi = self.expandRoiFloat (roi, (imheight, imwidth), (0, perc))
-        # additional expansion
-        perc = expand_perc - perc
-        if perc > 0:
-            roi = self.expandRoiFloat (roi, (imheight, imwidth), (perc, perc))
-        return roi
-
-
     def assignOrientation (self, car):
         bc = car.getBottomCenter()
         car.yaw   = self.yaw_map   [bc[0], bc[1]]
@@ -188,11 +195,11 @@ class FrameAnalyzer (BaseAnalyzer):
             # expand bbox
             roi = [min(ys), min(xs), max(ys), max(xs)]
             if self.keep_ratio:
-                roi = self.expandRoiToRatio (roi, (height, width), 
-                                             self.expand_perc, self.ratio)
+                roi = expandRoiToRatio (roi, (height, width), 
+                                        self.expand_perc, self.ratio)
             else:
-                roi = self.expandRoiFloat (roi, (height, width), 
-                                           (self.expand_perc, self.expand_perc))
+                roi = expandRoiFloat (roi, (height, width), 
+                                      (self.expand_perc, self.expand_perc))
             assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
 
             # extract patch
@@ -314,11 +321,11 @@ class PairAnalyzer (BaseAnalyzer):
                 ghostimage = ghostimage_b
 
             if self.keep_ratio:
-                roi = self.expandRoiToRatio (roi, (halfheight, width), 
-                                             self.expand_perc, self.ratio)
+                roi = expandRoiToRatio (roi, (halfheight, width), 
+                                        self.expand_perc, self.ratio)
             else:
-                roi = self.expandRoiFloat (roi, (halfheight, width), 
-                                           (self.expand_perc, self.expand_perc))
+                roi = expandRoiFloat (roi, (halfheight, width), 
+                                      (self.expand_perc, self.expand_perc))
             assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
 
             # extract patch
