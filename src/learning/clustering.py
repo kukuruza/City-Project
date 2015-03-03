@@ -45,7 +45,7 @@ def parseFilterName (filter_name):
     # check operations
     filter_key = filter_parts[0]
     filter_op = filter_parts[1]
-    if filter_op not in ['min', 'max', 'equal', 'to']:
+    if filter_op not in ['min', 'max', 'equal']:
         raise Exception('operation of filter "' + filter_name + '" is unknown')
 
     return (filter_key, filter_op)
@@ -62,10 +62,9 @@ def queryCars (data_paths_list, filters={}):
     filters_operations = {'min' : {}, 'max' : {}, 'equal' : {}}
     for filter_name, filter_value in filters.iteritems():
         (filter_key, filter_op) = parseFilterName (filter_name)
-        if filter_op in filters_operations.keys():
-            filters_operations[filter_op][filter_key] = filter_value
-            logging.debug ('filter on ' + filter_op + '(' + str(filter_key) + \
-                           ') = ' + str(filter_value))
+        filters_operations[filter_op][filter_key] = filter_value
+        logging.debug ('filter on ' + filter_op + '(' + str(filter_key) + \
+                       ') = ' + str(filter_value))
 
     response = [];
 
@@ -152,10 +151,10 @@ def clusterCarsIntoGhosts (data_list, filters_path, out_dir):
                 filepath = OP.join(cluster_dir, filename)
 
                 ghost = car.ghost
-                if 'size.to' in filter_.keys():
-                    assert (type(filter_['size.to']) == list)
-                    assert (len(filter_['size.to']) == 2)
-                    ghost = cv2.resize(ghost, tuple(filter_['size.to']))
+                if 'resize' in filter_.keys():
+                    assert (type(filter_['resize']) == list)
+                    assert (len(filter_['resize']) == 2)
+                    ghost = cv2.resize(ghost, tuple(filter_['resize']))
 
                 cv2.imwrite(filepath, ghost)
                 counter += 1
@@ -195,5 +194,5 @@ if __name__ == '__main__':
     data_list = [OP.join(CITY_DATA_PATH, x) for x in data_list]
 
     clusterCarsIntoGhosts (data_list,
-                           OP.join (clusters_root, 'by_name/clusters.json'), 
-                           OP.join (clusters_root, 'by_name'))
+                           OP.join (clusters_root, 'cars_by_size/clusters.json'), 
+                           OP.join (clusters_root, 'cars_by_size'))

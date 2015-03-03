@@ -22,8 +22,6 @@ from pycar.pycar import Car
 # roi - all inclusive, like in Matlab
 # crop = im[roi[0]:roi[2]+1, roi[1]:roi[3]+1] (differs from Matlab)
 #
-
-
 def roi2bbox (roi):
     assert (isinstance(roi, list) and len(roi) == 4)
     return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
@@ -37,6 +35,8 @@ class BaseAnalyzer:
     border_thresh_perc = 0.03
     expand_perc = 0.1
     ratio = 0.75
+    keep_ratio = False
+
 
     def setPaths (self, labelme_data_path, backimage_path, geom_maps_dir):        
         if not OP.exists (backimage_path):
@@ -88,18 +88,6 @@ class BaseAnalyzer:
         return num_too_close >= 2
 
 
-    def expandRoi (self, roi, imwidth, imheight):
-        deltay = (roi[2] - roi[0]) * self.expand_perc / 2
-        deltax = (roi[3] - roi[1]) * self.expand_perc / 2
-        roi[0] = max(roi[0] - deltay, 0)
-        roi[1] = max(roi[1] - deltax, 0)
-        roi[2] = min(roi[2] + deltay, imheight - 1)
-        roi[3] = min(roi[3] + deltax, imwidth - 1)
-        roi = [int(x) for x in roi]
-        assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
-        return roi
-
-    
     def expandRoiFloat (self, roi, (imheight, imwidth), (perc_y, perc_x)):
         ''' Expand each side by given perc, float to stay within borders '''
         half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
@@ -130,20 +118,20 @@ class BaseAnalyzer:
         return roi
 
 
-    def expandRoiToRatio (self, roi, (imheight, imwidth)):
+    def expandRoiToRatio (self, roi, (imheight, imwidth), expand_perc, ratio):
         ''' Match ratio height to width. 
             The biggest side may not be increased '''
         # adjust width and height to ratio
         height = float(roi[2] + 1 - roi[0])
         width  = float(roi[3] + 1 - roi[1])
-        if height / width < self.ratio:
-           perc = self.ratio * width / height - 1
+        if height / width < ratio:
+           perc = ratio * width / height - 1
            roi = self.expandRoiFloat (roi, (imheight, imwidth), (perc, 0))
         else:
-           perc = height / width / self.ratio - 1
+           perc = height / width / ratio - 1
            roi = self.expandRoiFloat (roi, (imheight, imwidth), (0, perc))
         # additional expansion
-        perc = self.expand_perc - perc
+        perc = expand_perc - perc
         if perc > 0:
             roi = self.expandRoiFloat (roi, (imheight, imwidth), (perc, perc))
         return roi
@@ -199,7 +187,12 @@ class FrameAnalyzer (BaseAnalyzer):
 
             # expand bbox
             roi = [min(ys), min(xs), max(ys), max(xs)]
-            roi = self.expandRoiToRatio (roi, (height, width))
+            if self.keep_ratio:
+                roi = self.expandRoiToRatio (roi, (height, width), 
+                                             self.expand_perc, self.ratio)
+            else:
+                roi = self.expandRoiFloat (roi, (height, width), 
+                                           (self.expand_perc, self.expand_perc))
             assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
 
             # extract patch
@@ -320,7 +313,12 @@ class PairAnalyzer (BaseAnalyzer):
                 img = img_b
                 ghostimage = ghostimage_b
 
-            roi = self.expandRoiToRatio (roi, (halfheight, width))
+            if self.keep_ratio:
+                roi = self.expandRoiToRatio (roi, (halfheight, width), 
+                                             self.expand_perc, self.ratio)
+            else:
+                roi = self.expandRoiFloat (roi, (halfheight, width), 
+                                           (self.expand_perc, self.expand_perc))
             assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
 
             # extract patch
