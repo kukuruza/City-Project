@@ -11,6 +11,8 @@ import glob
 import shutil
 import sqlite3
 
+sys.path.insert(0, os.path.abspath('..'))
+from dbInterface import createDb, deleteAll4imagefile
 
 sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
@@ -215,31 +217,9 @@ class FrameAnalyzer (BaseAnalyzer):
 
         self.parser = FrameParser()
 
+        createDb (db_path)
         self.conn = sqlite3.connect (db_path)
         self.cursor = self.conn.cursor()
-
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS cars
-                             (id INTEGER PRIMARY KEY,
-                              imagefile TEXT, 
-                              name TEXT, 
-                              x1 INTEGER,
-                              y1 INTEGER,
-                              width INTEGER, 
-                              height INTEGER,
-                              offsetx INTEGER,
-                              offsety INTEGER,
-                              yaw REAL,
-                              pitch REAL
-                              );''')
-
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
-                             (id INTEGER PRIMARY KEY,
-                              carid TEXT, 
-                              x INTEGER,
-                              y INTEGER
-                              );''')
-        
-        self.conn.commit()
 
 
     def __enter__(self):
@@ -260,15 +240,7 @@ class FrameAnalyzer (BaseAnalyzer):
         img = cv2.imread(imagepath)
         height, width, depth = img.shape
 
-        # delete cars from this imagefile from all tables
-        self.cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
-        carids = self.cursor.fetchall()
-        carids = [str(carid[0]) for carid in carids]
-        carids_str = '(' + ','.join(carids) + ')'
-        self.cursor.execute('DELETE FROM cars     WHERE id IN ' + carids_str);
-        self.cursor.execute('DELETE FROM polygons WHERE carid IN ' + carids_str);
-        #sself.cursor.execute('DELETE FROM matches  WHERE carid IN ' + carids_str);
-        logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
+        deleteAll4imagefile (self.cursor, imagefile)
 
         img_show = img if self.debug_show else None
 
@@ -355,37 +327,9 @@ class PairAnalyzer (BaseAnalyzer):
 
         self.parser = PairParser()
 
+        createDb (db_path)
         self.conn = sqlite3.connect (db_path)
         self.cursor = self.conn.cursor()
-
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS cars
-                             (id INTEGER PRIMARY KEY,
-                              imagefile TEXT, 
-                              name TEXT, 
-                              x1 INTEGER,
-                              y1 INTEGER,
-                              width INTEGER, 
-                              height INTEGER,
-                              offsetx INTEGER,
-                              offsety INTEGER,
-                              yaw REAL,
-                              pitch REAL
-                              );''')
-
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
-                             (id INTEGER PRIMARY KEY,
-                              carid TEXT, 
-                              x INTEGER,
-                              y INTEGER
-                              );''')
-        
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS matches
-                             (id INTEGER PRIMARY KEY,
-                              match INTEGER,
-                              carid INTEGER
-                              );''')
-
-        self.conn.commit()
 
 
     def __enter__(self):
@@ -458,19 +402,7 @@ class PairAnalyzer (BaseAnalyzer):
         cars_t = []
         cars_b = []
 
-        # delete cars from this imagefile from all tables
-        self.cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
-        carids = self.cursor.fetchall()
-        carids = [str(carid[0]) for carid in carids]
-        carids_str = '(' + ','.join(carids) + ')'
-        self.cursor.execute('DELETE FROM cars     WHERE id IN ' + carids_str);
-        self.cursor.execute('DELETE FROM polygons WHERE carid IN ' + carids_str);
-        self.cursor.execute('SELECT match FROM matches WHERE carid IN ' + carids_str);
-        matches = self.cursor.fetchall()
-        matches = [str(match[0]) for match in matches]
-        matches_str = '(' + ','.join(matches) + ')'
-        self.cursor.execute('DELETE FROM matches  WHERE match IN ' + matches_str);
-        logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
+        deleteAll4imagefile (self.cursor, imagefile)
 
         # collect captions and assign statuses accordingly
         for object_ in objects:

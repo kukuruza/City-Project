@@ -1,11 +1,65 @@
 import logging
-import os, sys
-import os.path as OP
-import shutil
-import glob
 import json
-import numpy as np, cv2
 import sqlite3
+
+
+def createDb (db_path):
+    conn = sqlite3.connect (db_path)
+    cursor = conn.cursor()
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS cars
+                     (id INTEGER PRIMARY KEY,
+                      imagefile TEXT, 
+                      name TEXT, 
+                      x1 INTEGER,
+                      y1 INTEGER,
+                      width INTEGER, 
+                      height INTEGER,
+                      offsetx INTEGER,
+                      offsety INTEGER,
+                      yaw REAL,
+                      pitch REAL
+                      );''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
+                     (id INTEGER PRIMARY KEY,
+                      carid TEXT, 
+                      x INTEGER,
+                      y INTEGER
+                      );''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS matches
+                     (id INTEGER PRIMARY KEY,
+                      match INTEGER,
+                      carid INTEGER
+                      );''')
+    conn.commit()
+    conn.close()
+
+
+
+#
+# delete everything associated with an imagefile from the db
+#
+def deleteAll4imagefile (cursor, imagefile):
+    #
+    # find and delete cars
+    cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
+    carids = cursor.fetchall()
+    carids = [str(carid[0]) for carid in carids]
+    carids_str = '(' + ','.join(carids) + ')'
+    cursor.execute('DELETE FROM cars     WHERE id IN ' + carids_str);
+    #
+    # delete polygons for cars
+    cursor.execute('DELETE FROM polygons WHERE carid IN ' + carids_str);
+    #
+    # find and delete the matches
+    cursor.execute('SELECT match FROM matches WHERE carid IN ' + carids_str);
+    matches = cursor.fetchall()
+    matches = [str(match[0]) for match in matches]
+    matches_str = '(' + ','.join(matches) + ')'
+    cursor.execute('DELETE FROM matches  WHERE match IN ' + matches_str);
+    #
+    logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
+
 
 
 #
@@ -24,37 +78,6 @@ def queryField (car_entry, field):
     if field == 'yaw':       return car_entry[9]
     if field == 'pitch':     return car_entry[10]
     return None
-
-
-
-def image2ghost (image, backimage):
-    assert (image is not None)
-    assert (backimage is not None)
-    return np.uint8((np.int32(image) - np.int32(backimage)) / 2 + 128)
-
-
-
-def getGhost (labelme_dir, car_entry, backimage):
-    assert (car_entry is not None)
-    #print (car_entry)
-
-    carid = queryField (car_entry, 'id')
-    imagefile = queryField (car_entry, 'imagefile')
-    width = queryField (car_entry, 'width')
-    height = queryField (car_entry, 'height')
-    offsetx = queryField (car_entry, 'offsetx')
-    offsety = queryField (car_entry, 'offsety')
-    x1 = offsetx + queryField (car_entry, 'x1')
-    y1 = offsety + queryField (car_entry, 'y1')
-
-    imagepath = OP.join (labelme_dir, 'Images', imagefile)
-    if not OP.exists (imagepath):
-        raise Exception ('imagepath does not exist: ' + imagepath)
-    image = cv2.imread(imagepath)
-    ghostimage = image2ghost (image, backimage)
-
-    ghost = ghostimage [y1:y1+height, x1:x1+width]
-    return (carid, imagefile, ghost)
 
 
 

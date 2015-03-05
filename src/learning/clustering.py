@@ -22,7 +22,7 @@ import shutil
 import glob
 import json
 import numpy as np, cv2
-from dbInterface import queryCars, getGhost, queryField
+from dbInterface import queryCars, queryField
 
 
 
@@ -30,6 +30,30 @@ def image2ghost (image, backimage):
     assert (image is not None)
     assert (backimage is not None)
     return np.uint8((np.int32(image) - np.int32(backimage)) / 2 + 128)
+
+
+
+def getGhost (labelme_dir, car_entry, backimage):
+    assert (car_entry is not None)
+    #print (car_entry)
+
+    carid = queryField (car_entry, 'id')
+    imagefile = queryField (car_entry, 'imagefile')
+    width = queryField (car_entry, 'width')
+    height = queryField (car_entry, 'height')
+    offsetx = queryField (car_entry, 'offsetx')
+    offsety = queryField (car_entry, 'offsety')
+    x1 = offsetx + queryField (car_entry, 'x1')
+    y1 = offsety + queryField (car_entry, 'y1')
+
+    imagepath = OP.join (labelme_dir, 'Images', imagefile)
+    if not OP.exists (imagepath):
+        raise Exception ('imagepath does not exist: ' + imagepath)
+    image = cv2.imread(imagepath)
+    ghostimage = image2ghost (image, backimage)
+
+    ghost = ghostimage [y1:y1+height, x1:x1+width]
+    return (carid, imagefile, ghost)
 
 
 
