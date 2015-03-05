@@ -87,10 +87,23 @@ class BaseAnalyzer:
     ratio = 0.75
     keep_ratio = False
 
-
-    def setPaths (self, labelme_data_path, geom_maps_dir):        
-        self.loadMaps(geom_maps_dir)
-        self.labelme_data_path = labelme_data_path
+    def __init__(self, params):
+        if 'border_thresh_perc' in params.keys(): 
+            self.border_thresh_perc = params['border_thresh_perc']
+        if 'expand_perc' in params.keys(): 
+            self.expand_perc = params['expand_perc']
+        if 'ratio' in params.keys(): 
+            self.ratio = params['ratio']
+        if 'keep_ratio' in params.keys(): 
+            self.keep_ratio = params['keep_ratio']
+        if 'geom_maps_dir' in params.keys():
+            self.loadMaps (params['geom_maps_dir'])
+        else:
+            raise Exception ('BaseAnalyzer: geom_maps_dir is not given in params')
+        if 'labelme_data_path' in params.keys():
+            self.labelme_data_path = params['labelme_data_path']
+        else:
+            raise Exception ('BaseAnalyzer: labelme_data_path is not given in params')
 
 
     # this function knows all about size- and orientation- maps
@@ -147,7 +160,9 @@ class BaseAnalyzer:
 
 class FrameAnalyzer (BaseAnalyzer):
 
-    def __init__(self, db_path):
+    def __init__(self, db_path, params):
+        BaseAnalyzer.__init__(self, params)
+
         self.parser = FrameParser()
 
         self.conn = sqlite3.connect (db_path)
@@ -254,7 +269,9 @@ class FrameAnalyzer (BaseAnalyzer):
 #
 class PairAnalyzer (BaseAnalyzer):
 
-    def __init__(self, db_path):
+    def __init__(self, db_path, params):
+        BaseAnalyzer.__init__(self, params)
+
         self.parser = PairParser()
 
         self.conn = sqlite3.connect (db_path)
@@ -446,13 +463,12 @@ class PairAnalyzer (BaseAnalyzer):
 
 
 
-def folder2frames (folder, labelme_data_path, geom_maps_dir, db_path):
+def folder2frames (folder, db_path, params):
 
+    labelme_data_path = params['labelme_data_path']
     pathlist = glob.glob (OP.join(labelme_data_path, 'Annotations', folder, '*.xml'))
 
-    with FrameAnalyzer (db_path) as analyzer:
-        analyzer.setPaths (labelme_data_path, geom_maps_dir)
-
+    with FrameAnalyzer (db_path, params) as analyzer:
         for path in pathlist:
             logging.debug ('processing file ' + OP.basename(path))
             analyzer.processImage(folder, OP.basename(path))
@@ -460,13 +476,12 @@ def folder2frames (folder, labelme_data_path, geom_maps_dir, db_path):
 
 
 
-def folder2pairs (folder, labelme_data_path, geom_maps_dir, db_path):
+def folder2pairs (folder, db_path, params):
 
+    labelme_data_path = params['labelme_data_path']
     pathlist = glob.glob (OP.join(labelme_data_path, 'Annotations', folder, '*.xml'))
 
-    with PairAnalyzer (db_path) as analyzer:
-        analyzer.setPaths (labelme_data_path, geom_maps_dir)
-
+    with PairAnalyzer (db_path, params) as analyzer:
         for path in pathlist:
             logging.debug ('processing file ' + OP.basename(path))
             analyzer.processImage(folder, OP.basename(path))
