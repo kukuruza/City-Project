@@ -232,12 +232,12 @@ class FrameAnalyzer (BaseAnalyzer):
                               pitch REAL
                               );''')
 
-        #self.cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
-        #                     (id INTEGER PRIMARY KEY,
-        #                      carid TEXT, 
-        #                      x INTEGER,
-        #                      y INTEGER,
-        #                      );''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
+                             (id INTEGER PRIMARY KEY,
+                              carid TEXT, 
+                              x INTEGER,
+                              y INTEGER
+                              );''')
         
         self.conn.commit()
 
@@ -260,7 +260,15 @@ class FrameAnalyzer (BaseAnalyzer):
         img = cv2.imread(imagepath)
         height, width, depth = img.shape
 
-        self.cursor.execute('DELETE FROM cars WHERE imagefile=(?);', (imagefile,));
+        # delete cars from this imagefile from all tables
+        self.cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
+        carids = self.cursor.fetchall()
+        carids = [str(carid[0]) for carid in carids]
+        carids_str = '(' + ','.join(carids) + ')'
+        self.cursor.execute('DELETE FROM cars     WHERE id IN ' + carids_str);
+        self.cursor.execute('DELETE FROM polygons WHERE carid IN ' + carids_str);
+        #sself.cursor.execute('DELETE FROM matches  WHERE carid IN ' + carids_str);
+        logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
 
         img_show = img if self.debug_show else None
 
@@ -324,6 +332,10 @@ class FrameAnalyzer (BaseAnalyzer):
             # write to db
             self.cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch) 
                                    VALUES (?,?,?,?,?,?,?,?,?,?);''', entry)
+            carid = self.cursor.lastrowid
+            for i in range(len(xs)):
+                self.cursor.execute('''INSERT INTO polygons(carid,x,y) 
+                                       VALUES (?,?,?);''', (carid,xs[i],ys[i]))
         self.conn.commit()
 
         if self.debug_show: 
@@ -360,6 +372,13 @@ class PairAnalyzer (BaseAnalyzer):
                               pitch REAL
                               );''')
 
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
+                             (id INTEGER PRIMARY KEY,
+                              carid TEXT, 
+                              x INTEGER,
+                              y INTEGER
+                              );''')
+        
         self.cursor.execute('''CREATE TABLE IF NOT EXISTS matches
                              (id INTEGER PRIMARY KEY,
                               match INTEGER,
@@ -439,14 +458,19 @@ class PairAnalyzer (BaseAnalyzer):
         cars_t = []
         cars_b = []
 
+        # delete cars from this imagefile from all tables
         self.cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
         carids = self.cursor.fetchall()
         carids = [str(carid[0]) for carid in carids]
-        self.cursor.execute('DELETE FROM matches WHERE carid IN (' + ','.join(carids) + ')');
-        self.cursor.execute('DELETE FROM cars WHERE imagefile=(?);', (imagefile,));
-
-        logging.info ('delete matches from table: ' + ','.join(carids))
-        logging.info ('delete cars from table with imagefile: ' + imagefile)
+        carids_str = '(' + ','.join(carids) + ')'
+        self.cursor.execute('DELETE FROM cars     WHERE id IN ' + carids_str);
+        self.cursor.execute('DELETE FROM polygons WHERE carid IN ' + carids_str);
+        self.cursor.execute('SELECT match FROM matches WHERE carid IN ' + carids_str);
+        matches = self.cursor.fetchall()
+        matches = [str(match[0]) for match in matches]
+        matches_str = '(' + ','.join(matches) + ')'
+        self.cursor.execute('DELETE FROM matches  WHERE match IN ' + matches_str);
+        logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
 
         # collect captions and assign statuses accordingly
         for object_ in objects:
@@ -454,12 +478,13 @@ class PairAnalyzer (BaseAnalyzer):
             # get all the points
             xs, ys = self.pointsOfPolygon(object_)
 
-            # get bbox
+            # get bbox and offset ys
             is_top = np.mean(np.mean(ys)) < halfheight
             if is_top:
                 roi = [min(ys), min(xs), max(ys), max(xs)]
             else:
                 roi = [min(ys)-halfheight, min(xs), max(ys)-halfheight, max(xs)]
+                ys = [y-halfheight for y in ys]
 
             # filter bad ones (the border polygons are NOT filtered)
             if self.isDegeneratePolygon(xs, ys): 
@@ -501,14 +526,18 @@ class PairAnalyzer (BaseAnalyzer):
             # write car to db
             self.cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch) 
                                    VALUES (?,?,?,?,?,?,?,?,?,?);''', entry)
+            carid = self.cursor.lastrowid
+            for i in range(len(xs)):
+                self.cursor.execute('''INSERT INTO polygons(carid,x,y) 
+                                       VALUES (?,?,?);''', (carid,xs[i],ys[i]))
         
             # write to either top or bottom stack
             if is_top:
                 captions_t.append((name, number))
-                cars_t.append (self.cursor.lastrowid)
+                cars_t.append (carid)
             else:
                 captions_b.append((name, number))
-                cars_b.append (self.cursor.lastrowid)
+                cars_b.append (carid)
 
         pairs = self.__bypartiteMatch (captions_t, captions_b, cars_t, cars_b, annotation_file)
 

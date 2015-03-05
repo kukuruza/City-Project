@@ -22,12 +22,14 @@ out_dir = [CITY_DATA_PATH 'labelme/Cars/all-wratio/'];
 backimage = imread(backimage_path);
 backimage = [backimage; backimage];  % two rows
 
-if ~exist(out_dir, 'dir')
-    mkdir(out_dir)
+if exist(out_dir, 'dir')
+    rmdir(out_dir, 's')    
 end
+mkdir(out_dir)
 
 % no filters now
 
+% TODO: make a query func separate (abstract out the sqlite3 package)
 
 sqlite3.open(db_path);
 
@@ -39,7 +41,7 @@ for i = 1 : length(matches)
     match = matches(i).match;
     query_str = sprintf('SELECT carid FROM matches WHERE match = %d', match);
     carids = sqlite3.execute (query_str);
-    assert (~isempty(carids));
+    assert (length(carids) == 2);
     
     cars = Car.empty();
     for j = 1 : length(carids)
@@ -58,9 +60,24 @@ for i = 1 : length(matches)
             if ~exist(impath, 'file')
                 error ('file doesn''t exist: "%s"', impath);
             end
-            im = imread(impath);
+            % sequential cars are expected to be from the same image
+            if ~exist('impath_prev', 'var') || ~strcmp(impath_prev, impath)
+                im = imread(impath);
+            end
+            impath_prev = impath;
 
             ghost = uint8(int32(im) - int32(backimage) + 128);
+
+            % get its polygon
+            query_str = sprintf('SELECT x,y FROM polygons WHERE carid = %d', carid);
+            polygon = sqlite3.execute (query_str);
+            xs = zeros(length(polygon),1);
+            ys = zeros(length(polygon),1);
+            for k = 1 : length(polygon)
+                xs(k) = polygon(k).x;
+                ys(k) = polygon(k).y;
+            end
+            mask = poly2mask (xs-entry.x1,ys-entry.y1, entry.height, entry.width);
 
             roi = 1 + [entry.y1 + entry.offsety, ...
                        entry.x1 + entry.offsetx, ...
@@ -68,20 +85,23 @@ for i = 1 : length(matches)
                        entry.x1 + entry.offsetx + entry.width - 1];
             patch = im (roi(1):roi(3), roi(2):roi(4), :);
             ghost_patch = ghost (roi(1):roi(3), roi(2):roi(4), :);
-            imshow ([patch, ghost_patch])
-            pause (0.2)
+            %imshow ([patch, ghost_patch, uint8(mask(:,:,[1,1,1]))*255])
+            %pause (0.5)
 
             roi = [entry.y1, entry.x1, entry.y1+entry.height-1, entry.x1+entry.width-1] + 1;
             car.bbox = roi2bbox(roi);
             car.name = entry.name;
             car.patch = patch;
             car.ghost = ghost_patch;
+            car.segmentMask = mask;
             car.orientation = [entry.yaw, entry.pitch];
         end
         
         cars = [cars, car];
-        [~, framepair, ~] = fileparts (entry.imagefile);
-        save ([out_dir sprintf('%s-%06d.mat', framepair, match)], 'cars');
     end
     
+    [~, framepair, ~] = fileparts (entry.imagefile);
+    save ([out_dir sprintf('%s-%06d.mat', framepair, match)], 'cars');
 end
+
+sqlite3.close();
