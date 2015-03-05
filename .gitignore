@@ -9,6 +9,8 @@ bin/
 amazon/
 3rd-party/
 log/
+src/learning/scripts/
+
 
 # temporary from Matlab
 ##################

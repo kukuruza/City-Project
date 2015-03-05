@@ -4,32 +4,15 @@
 #   It can talk to the database made by cars2db
 #
 
-import sqlite3
 import logging
 import os, sys
 import os.path as OP
 import shutil
 import glob
 import json
-import numpy, cv2
+import numpy
 import Gnuplot, Gnuplot.funcutils, Gnuplot.PlotItems
-
-
-if not os.environ.get('CITY_PATH'):
-    print 'First set the environmental variable CITY_PATH'
-    sys.exit()
-else:
-    sys.path.insert(0, OP.join(os.getenv('CITY_PATH'), 'src'))
-
-from pycar.pycar import Car, loadMatCars
-
-
-
-def queryDb (db_path, query_string):
-
-    conn = sqlite3.connect (db_path)
-    c = conn.cursor()
-    return c.execute(query_string)
+from dbInterface import directQuery
 
 
 if __name__ == '__main__':
@@ -46,17 +29,15 @@ if __name__ == '__main__':
     log_path = OP.join (CITY_PATH, 'log/learning/getDistribution.log')
     logging.basicConfig (format=FORMAT, filename=log_path, level=logging.DEBUG)
 
-    clusters_root = OP.join (CITY_DATA_PATH, 'clustering')
-
-    db_path = OP.join (clusters_root, 'attributes.db')
-
     if len(sys.argv) <= 1:
         print 'Please pass a query string as an argument'
         sys.exit()
 
+    db_path = OP.join (CITY_DATA_PATH, 'labelme/Databases/test.db')
+
     query_string = ' '.join(sys.argv[1:])
     print ('querying ' + query_string)
-    response = queryDb(db_path, query_string)
+    response = directQuery (db_path, query_string)
     data = [list(row) for row in response]
 
     # prase query string for labels

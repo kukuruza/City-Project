@@ -7,16 +7,13 @@ import os, sys
 import collections
 import logging
 import os.path as OP
+import glob
+import shutil
+import sqlite3
+
 
 sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
-
-if not os.environ.get('CITY_PATH'):
-    print 'First set the environmental variable CITY_PATH'
-    sys.exit()
-else:
-    sys.path.insert(0, OP.join(os.getenv('CITY_PATH'), 'src'))
-from pycar.pycar import Car
 
 
 #
@@ -26,9 +23,6 @@ from pycar.pycar import Car
 def roi2bbox (roi):
     assert (isinstance(roi, list) and len(roi) == 4)
     return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
-
-def image2ghost (image, backimage):
-    return np.uint8((np.int32(image) - np.int32(backimage)) / 2 + 128)
 
 
 #
@@ -94,12 +88,8 @@ class BaseAnalyzer:
     keep_ratio = False
 
 
-    def setPaths (self, labelme_data_path, backimage_path, geom_maps_dir):        
-        if not OP.exists (backimage_path):
-            raise Exception ('no backimage at path ' + backimage_path)
-        self.backimage = cv2.imread(backimage_path)
+    def setPaths (self, labelme_data_path, geom_maps_dir):        
         self.loadMaps(geom_maps_dir)
-
         self.labelme_data_path = labelme_data_path
 
 
@@ -113,16 +103,16 @@ class BaseAnalyzer:
         self.yaw_map   = cv2.imread (yaw_map_path, -1).astype(np.float32)
         self.yaw_map   = cv2.add (self.yaw_map, -360)
 
-    
-    def imageOfAnnotation (self, annotation):
+
+    def imagefileOfAnnotation (self, annotation):
         folder = annotation.find('folder').text
         imagename = annotation.find('filename').text
         imagepath = OP.join (self.labelme_data_path, 'Images', folder, imagename)
         if not OP.exists (imagepath):
             raise Exception ('no image at path ' + imagepath)
-        return cv2.imread(imagepath)
+        return OP.join (folder, imagename)
 
-
+    
     def pointsOfPolygon (self, annotation):
         pts = annotation.find('polygon').findall('pt')
         xs = []
@@ -144,40 +134,78 @@ class BaseAnalyzer:
         return num_too_close >= 2
 
 
-    def assignOrientation (self, car):
-        bc = car.getBottomCenter()
-        car.yaw   = self.yaw_map   [bc[0], bc[1]]
-        car.pitch = self.pitch_map [bc[0], bc[1]]
-        return car
+    def assignOrientation (self, roi):
+        # formula for bottom-center
+        bc = (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
+        # get corresponding yaw-pitch
+        yaw   = self.yaw_map   [bc[0], bc[1]]
+        pitch = self.pitch_map [bc[0], bc[1]]
+        return (float(yaw), float(pitch))
 
 
 
 
 class FrameAnalyzer (BaseAnalyzer):
 
-    def __init__(self):
+    def __init__(self, db_path):
         self.parser = FrameParser()
+
+        self.conn = sqlite3.connect (db_path)
+        self.cursor = self.conn.cursor()
+
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS cars
+                             (id INTEGER PRIMARY KEY,
+                              imagefile TEXT, 
+                              name TEXT, 
+                              x1 INTEGER,
+                              y1 INTEGER,
+                              width INTEGER, 
+                              height INTEGER,
+                              offsetx INTEGER,
+                              offsety INTEGER,
+                              yaw REAL,
+                              pitch REAL
+                              );''')
+
+        #self.cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
+        #                     (id INTEGER PRIMARY KEY,
+        #                      carid TEXT, 
+        #                      x INTEGER,
+        #                      y INTEGER,
+        #                      );''')
+        
+        self.conn.commit()
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.conn.close()
+
+
 
     def processImage (self, folder, annotation_file):
 
         tree = ET.parse(OP.join(self.labelme_data_path, 'Annotations', folder, annotation_file))
 
         # image, backimage, and ghost
-        img = self.imageOfAnnotation (tree.getroot())
-        assert (img.shape == self.backimage.shape)
-        ghostimage = image2ghost (img, self.backimage)
+        imagefile = self.imagefileOfAnnotation (tree.getroot());
+        imagepath = OP.join (self.labelme_data_path, 'Images', imagefile)
+        img = cv2.imread(imagepath)
         height, width, depth = img.shape
 
-        cars = []
+        self.cursor.execute('DELETE FROM cars WHERE imagefile=(?);', (imagefile,));
+
 
         for object_ in tree.getroot().findall('object'):
 
             # find the name of object. Filter all generic objects
-            cartype = self.parser.parse(object_.find('name').text)
-            if cartype == 'object':
+            name = self.parser.parse(object_.find('name').text)
+            if name == 'object':
                 logging.info('skipped an "object"')
                 continue
-            if cartype is None:
+            if name is None:
                 logging.info('skipped a None')
                 continue
 
@@ -192,36 +220,31 @@ class FrameAnalyzer (BaseAnalyzer):
                 logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
                 continue
 
-            # expand bbox
+            # make and expand bbox
             roi = [min(ys), min(xs), max(ys), max(xs)]
             if self.keep_ratio:
-                roi = expandRoiToRatio (roi, (height, width), 
-                                        self.expand_perc, self.ratio)
+                roi = expandRoiToRatio (roi, (height, width), self.expand_perc, self.ratio)
             else:
-                roi = expandRoiFloat (roi, (height, width), 
-                                      (self.expand_perc, self.expand_perc))
-            assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
+                roi = expandRoiFloat (roi, (height, width), (self.expand_perc, self.expand_perc))
 
-            # extract patch
-            patch = img [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
-            ghost = ghostimage [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+            # make an entry for database
+            bbox = roi2bbox (roi)
+            (yaw, pitch) = self.assignOrientation (roi)
+            entry = (imagefile,
+                     name, 
+                     bbox[0],
+                     bbox[1],
+                     bbox[2],
+                     bbox[3],
+                     0,
+                     0,
+                     yaw,
+                     pitch)
 
-            # make and add car object to cars
-            car = Car (roi2bbox(roi))
-            car.patch = patch
-            car.ghost = ghost
-            car.name = cartype
-            #car.source = folder  # dataset source
-            car = self.assignOrientation(car)
-            cars.append (car)
-
-            # display
-            #cv2.imshow('patch', patch)
-            #cv2.imshow('ghost', ghost)
-            #cv2.waitKey()
-
-        if not cars: logging.warning ('file has no valid polygons: ' + annotation_file)
-        return cars
+            # write to db
+            self.cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch) 
+                                   VALUES (?,?,?,?,?,?,?,?,?,?);''', entry)
+        self.conn.commit()
 
 
 
@@ -231,8 +254,43 @@ class FrameAnalyzer (BaseAnalyzer):
 #
 class PairAnalyzer (BaseAnalyzer):
 
-    def __init__(self):
+    def __init__(self, db_path):
         self.parser = PairParser()
+
+        self.conn = sqlite3.connect (db_path)
+        self.cursor = self.conn.cursor()
+
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS cars
+                             (id INTEGER PRIMARY KEY,
+                              imagefile TEXT, 
+                              name TEXT, 
+                              x1 INTEGER,
+                              y1 INTEGER,
+                              width INTEGER, 
+                              height INTEGER,
+                              offsetx INTEGER,
+                              offsety INTEGER,
+                              yaw REAL,
+                              pitch REAL
+                              );''')
+
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS matches
+                             (id INTEGER PRIMARY KEY,
+                              match INTEGER,
+                              carid INTEGER
+                              );''')
+
+        self.conn.commit()
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.conn.close()
+
+
+
 
     def __bypartiteMatch (self, captions_t, captions_b, cars_t, cars_b, file_name):
         pairs = []
@@ -283,20 +341,26 @@ class PairAnalyzer (BaseAnalyzer):
         tree = ET.parse(OP.join(self.labelme_data_path, 'Annotations', folder, annotation_file))
 
         # image, backimage, and ghost
-        halfheight, width, depth = self.backimage.shape
-        img = self.imageOfAnnotation (tree.getroot())
-        img_t = img[:halfheight, :]
-        img_b = img[halfheight:, :]
-        assert (img_t.shape == (halfheight, width, depth))
-        assert (img_b.shape == (halfheight, width, depth))
-        ghostimage_t = image2ghost (img_t, self.backimage)
-        ghostimage_b = image2ghost (img_b, self.backimage)
+        imagefile = self.imagefileOfAnnotation (tree.getroot());
+        imagepath = OP.join (self.labelme_data_path, 'Images', imagefile)
+        img = cv2.imread(imagepath)
+        height, width, depth = img.shape
+        halfheight = height / 2
 
         objects = tree.getroot().findall('object')
         captions_t = []
         captions_b = []
         cars_t = []
         cars_b = []
+
+        self.cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
+        carids = self.cursor.fetchall()
+        carids = [str(carid[0]) for carid in carids]
+        self.cursor.execute('DELETE FROM matches WHERE carid IN (' + ','.join(carids) + ')');
+        self.cursor.execute('DELETE FROM cars WHERE imagefile=(?);', (imagefile,));
+
+        logging.info ('delete matches from table: ' + ','.join(carids))
+        logging.info ('delete cars from table with imagefile: ' + imagefile)
 
         # collect captions and assign statuses accordingly
         for object_ in objects:
@@ -313,24 +377,14 @@ class PairAnalyzer (BaseAnalyzer):
             is_top = np.mean(np.mean(ys)) < halfheight
             if is_top:
                 roi = [min(ys), min(xs), max(ys), max(xs)]
-                img = img_t
-                ghostimage = ghostimage_t
             else:
                 roi = [min(ys)-halfheight, min(xs), max(ys)-halfheight, max(xs)]
-                img = img_b
-                ghostimage = ghostimage_b
 
+            # expand bbox
             if self.keep_ratio:
-                roi = expandRoiToRatio (roi, (halfheight, width), 
-                                        self.expand_perc, self.ratio)
+                roi = expandRoiToRatio (roi, (halfheight, width), self.expand_perc, self.ratio)
             else:
-                roi = expandRoiFloat (roi, (halfheight, width), 
-                                      (self.expand_perc, self.expand_perc))
-            assert (roi[2] - roi[0] > 1 and roi[3] - roi[1] > 1)
-
-            # extract patch
-            patch = img [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
-            ghost = ghostimage [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+                roi = expandRoiFloat (roi, (halfheight, width), (self.expand_perc, self.expand_perc))
 
             # find the name of object. Filter all generic objects
             (name, number) = self.parser.parse(object_.find('name').text)
@@ -338,56 +392,85 @@ class PairAnalyzer (BaseAnalyzer):
                 logging.info('skipped a None')
                 continue
 
-            # make a car
-            car = Car (roi2bbox(roi))
-            car.patch = patch
-            car.ghost = ghost
-            car.name = name # name from the captions
-            car = self.assignOrientation(car)
+            # make an entry for database
+            bbox = roi2bbox (roi)
+            (yaw, pitch) = self.assignOrientation (roi)
+            entry = (imagefile,
+                     name, 
+                     bbox[0],
+                     bbox[1],
+                     bbox[2],
+                     bbox[3],
+                     0,
+                     0 if is_top else halfheight,
+                     yaw,
+                     pitch)
 
+            # write car to db
+            self.cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch) 
+                                   VALUES (?,?,?,?,?,?,?,?,?,?);''', entry)
+        
             # write to either top or bottom stack
             if is_top:
                 captions_t.append((name, number))
-                cars_t.append (car)
+                cars_t.append (self.cursor.lastrowid)
             else:
                 captions_b.append((name, number))
-                cars_b.append (car)
-
-            # display
-            #cv2.imshow('patch', patch)
-            #cv2.imshow('ghost', ghost)
-            #cv2.waitKey()
+                cars_b.append (self.cursor.lastrowid)
 
         pairs = self.__bypartiteMatch (captions_t, captions_b, cars_t, cars_b, annotation_file)
 
+        # write matches to db
+        for pair in pairs:
+            # take the largest 'match' number
+            self.cursor.execute('SELECT MAX(match) FROM matches')
+            match = self.cursor.fetchone()[0]
+            # logic to process None. The start index in SQL database is 1, not 0
+            match = 1 if match is None else match + 1
+            # insert
+            if pair[0] and not pair[1]:
+                self.cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[0]))
+                self.cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,0)) # dummy
+            elif pair[1] and not pair[0]:
+                self.cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,0)) # dummy
+                self.cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[1]))
+            elif pair[0] and pair[1]:
+                self.cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[0]))
+                self.cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[1]))
+
+
         if not pairs: logging.warning ('file has no valid polygons: ' + annotation_file)
-        return pairs
+
+        self.conn.commit()
 
 
 
 
+def folder2frames (folder, labelme_data_path, geom_maps_dir, db_path):
+
+    pathlist = glob.glob (OP.join(labelme_data_path, 'Annotations', folder, '*.xml'))
+
+    with FrameAnalyzer (db_path) as analyzer:
+        analyzer.setPaths (labelme_data_path, geom_maps_dir)
+
+        for path in pathlist:
+            logging.debug ('processing file ' + OP.basename(path))
+            analyzer.processImage(folder, OP.basename(path))
 
 
 
 
-if __name__ == '__main__':
-    ''' Demo '''
+def folder2pairs (folder, labelme_data_path, geom_maps_dir, db_path):
 
-    if os.environ.get('CITY_DATA_PATH') is None:
-        print 'First please set the environmental variable CITY_DATA_PATH'
-        sys.exit
-    else:
-        CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
+    pathlist = glob.glob (OP.join(labelme_data_path, 'Annotations', folder, '*.xml'))
 
-    FORMAT = '%(asctime)s %(levelname)s: \t%(message)s'
-    logging.basicConfig (format=FORMAT, level=logging.INFO)
+    with PairAnalyzer (db_path) as analyzer:
+        analyzer.setPaths (labelme_data_path, geom_maps_dir)
 
-    labelme_data_path = OP.join(CITY_DATA_PATH, 'labelme')
-    backimage_path = OP.join(CITY_DATA_PATH, 'camdata/cam572/5pm/models/backimage.png')
-    geom_maps_dir = OP.join(CITY_DATA_PATH, 'models/cam572/')
+        for path in pathlist:
+            logging.debug ('processing file ' + OP.basename(path))
+            analyzer.processImage(folder, OP.basename(path))
 
-    analyzer = FrameAnalyzer()
-    analyzer.setPaths (labelme_data_path, backimage_path, geom_maps_dir)
-    cars = analyzer.processImage('cam572-bright-frames', '000000.xml')
+
 
     

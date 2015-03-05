@@ -21,178 +21,139 @@ import os.path as OP
 import shutil
 import glob
 import json
-import numpy, cv2
-
-if not os.environ.get('CITY_PATH'):
-    print 'First set the environmental variable CITY_PATH'
-    sys.exit()
-else:
-    sys.path.insert(0, OP.join(os.getenv('CITY_PATH'), 'src'))
-
-from pycar.pycar import Car, loadMatCars
-
-
-def parseFilterName (filter_name):
-    # lack of dot means 'equal'
-    numdots = filter_name.count('.')
-    if numdots == 0: 
-        filter_name = filter_name + '.equal'
-    elif numdots > 1:
-        raise Exception('filter "' + filter_name + '" has more than one dot')
-    filter_parts = filter_name.split('.')
-    assert len(filter_parts) == 2
-
-    # check operations
-    filter_key = filter_parts[0]
-    filter_op = filter_parts[1]
-    if filter_op not in ['min', 'max', 'equal']:
-        raise Exception('operation of filter "' + filter_name + '" is unknown')
-
-    return (filter_key, filter_op)
-
-
-def queryCars (data_paths_list, filters={}):
-    '''Finds objects in specified locations based on specified filters, 
-       and returns an index of all suitable objects
-
-       'filters' is a dictionary. E.g. 
-          {'pitch.min' : -90, 'pitch.max' : -45, 'name' : 'car'} '''
-
-    # parse filters to operations
-    filters_operations = {'min' : {}, 'max' : {}, 'equal' : {}}
-    for filter_name, filter_value in filters.iteritems():
-        (filter_key, filter_op) = parseFilterName (filter_name)
-        filters_operations[filter_op][filter_key] = filter_value
-        logging.debug ('filter on ' + filter_op + '(' + str(filter_key) + \
-                       ') = ' + str(filter_value))
-
-    response = [];
-
-    # go through directories one by one
-    for data_path_template in data_paths_list:
-        logging.debug ('query for template: ' + data_path_template)
-
-        # the list probably contains wildcards
-        data_paths = glob.glob (data_path_template)
-        logging.info ('queryCars found ' + str(len(data_paths)) + \
-            ' objects at template path: ' + data_path_template)
-        for data_path in data_paths:
-            logging.debug ('query for objects in: ' + data_path)
-
-            cars = loadMatCars (data_path)
-            take_indices = []
-            for i in range(len(cars)):
-                car = cars[i]
-                carDict = car.toDict()
-                # custom properties for our objects
-                (height, width, channels) = carDict['patch'].shape
-                carDict['width'] = width
-                carDict['height'] = height
-                carDict['size'] = (width + height) / 2
-
-                will_take = True
-                for key, value in filters_operations['min'].iteritems():
-                    if key in carDict.keys() and value > carDict[key]:
-                        will_take = False
-                for key, value in filters_operations['max'].iteritems():
-                    if key in carDict.keys() and value < carDict[key]:
-                        will_take = False
-                for key, value in filters_operations['equal'].iteritems():
-                    if key in carDict.keys() and value != carDict[key]:
-                        will_take = False
-
-                if will_take:
-                    take_indices.append(i)
-            
-            if take_indices:
-                response.append ((data_path, take_indices))
-
-    return response
+import numpy as np, cv2
+from dbInterface import queryCars, getGhost, queryField
 
 
 
+def image2ghost (image, backimage):
+    assert (image is not None)
+    assert (backimage is not None)
+    return np.uint8((np.int32(image) - np.int32(backimage)) / 2 + 128)
 
-def clusterCarsIntoGhosts (data_list, filters_path, out_dir):
+
+
+def collectGhosts (db_path, filters_path, labelme_dir, backimage_path, out_dir):
     '''Cluster cars and save the patches by cluster
 
        Find cars in paths specified in data_list_path,
        use filters to cluster and transform,
        and save the ghosts '''
 
+    # load backimage
+    if not OP.exists (backimage_path):
+        raise Exception ('no backimage at path ' + backimage_path)
+    backimage = cv2.imread(backimage_path)
+
     # load clusters
     if not OP.exists(filters_path):
         raise Exception('filters_path does not exist: ' + filters_path)
     filters_file = open(filters_path)
-    filters = json.load(filters_file)
+    filters_groups = json.load(filters_file)
     filters_file.close()
 
     counter_by_cluster = {}
 
-    for filter_ in filters:
-        assert ('filter' in filter_)
-        cluster_dir = OP.join (out_dir, filter_['filter'])
+    for filter_group in filters_groups:
+        assert ('filter' in filter_group)
+        cluster_dir = OP.join (out_dir, filter_group['filter'])
 
         # delete 'cluster_dir' dir, and recreate it
         if OP.exists (cluster_dir):
             shutil.rmtree (cluster_dir)
         os.makedirs (cluster_dir)
 
-        counter = 0
+        # get db entries
+        car_entries = queryCars (db_path, filter_group)
+        counter_by_cluster[filter_group['filter']] = len(car_entries)
 
-        entries = queryCars (data_list, filter_)
-        for (cars_path, car_indices) in entries:
+        # write ghosts for each entry
+        for car_entry in car_entries:
+            carid, filename, ghost = getGhost (labelme_dir, car_entry, backimage)
 
-            assert OP.exists(cars_path)
-            cars = loadMatCars(cars_path)
-            cars = [cars[i] for i in car_indices]
+            filename = "%08d" % carid + IMAGE_EXT
+            filepath = OP.join(cluster_dir, filename)
 
-            for car in cars:
-                filename = "%06d" % counter + IMAGE_EXT
-                filepath = OP.join(cluster_dir, filename)
+            if 'resize' in filter_group.keys():
+                assert (type(filter_group['resize']) == list)
+                assert (len(filter_group['resize']) == 2)
+                ghost = cv2.resize(ghost, tuple(filter_group['resize']))
 
-                ghost = car.ghost
-                if 'resize' in filter_.keys():
-                    assert (type(filter_['resize']) == list)
-                    assert (len(filter_['resize']) == 2)
-                    ghost = cv2.resize(ghost, tuple(filter_['resize']))
-
-                cv2.imwrite(filepath, ghost)
-                counter += 1
-
-        counter_by_cluster[filter_['filter']] = counter
+            cv2.imwrite(filepath, ghost)
 
     return counter_by_cluster
 
 
 
 
-if __name__ == '__main__':
-    ''' Demo '''
+#
+# Collect negative patches around car patches
+#
+def collectNegatives (db_path, filters_path, labelme_dir, backimage_path, 
+                      out_dir, options={}):
 
-    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
-        print 'First set the environmental variable CITY_PATH, CITY_DATA_PATH'
-        sys.exit()
-    else:
-        CITY_PATH = os.getenv('CITY_PATH')
-        CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
+    # options
+    #mult_samples = options['mult_samples'] if 'mult_samples' in options.keys else 5
 
-    FORMAT = '%(asctime)s %(levelname)s: \t%(message)s'
-    log_path = OP.join (CITY_PATH, 'log/learning/clustering.log')
-    logging.basicConfig (format=FORMAT, filename=log_path, level=logging.DEBUG)
+    # load backimage
+    if not OP.exists (backimage_path):
+        raise Exception ('no backimage at path ' + backimage_path)
+    backimage = cv2.imread(backimage_path)
 
-    clusters_root = OP.join (CITY_DATA_PATH, 'clustering')
+    # load clusters
+    if not OP.exists(filters_path):
+        raise Exception('filters_path does not exist: ' + filters_path)
+    filters_file = open(filters_path)
+    filters_groups = json.load(filters_file)
+    filters_file.close()
 
-    data_list_path = OP.join (clusters_root, 'data.list')
-    if not os.path.exists(data_list_path):
-        raise Exception('data_list_path does not exist: ' + data_list_path)
-    data_list_file = open(data_list_path, 'r')
-    data_list = data_list_file.read().split('\n')
-    data_list_file.close()
-    # remove empty lines
-    data_list = filter(None, data_list)
-    # make it relative to the data_list_path
-    data_list = [OP.join(CITY_DATA_PATH, x) for x in data_list]
+    counter_by_cluster = {}
 
-    clusterCarsIntoGhosts (data_list,
-                           OP.join (clusters_root, 'cars_by_size/clusters.json'), 
-                           OP.join (clusters_root, 'cars_by_size'))
+    for filter_group in filters_groups:
+        assert ('filter' in filter_group)
+        cluster_dir = OP.join (out_dir, filter_group['filter'])
+
+        # delete 'cluster_dir' dir, and recreate it
+        if OP.exists (cluster_dir):
+            shutil.rmtree (cluster_dir)
+        os.makedirs (cluster_dir)
+
+        # get names of image file
+        imagefiles = queryCars (db_path, filter_group, ['DISTINCT imagefile'])
+        logging.debug ('got ' + str(len(imagefiles)) + ' imagefiles')
+
+        for imagefile in imagefiles:
+            imagefile = imagefile[0]
+
+            # get cars inside this file
+            filter_group_file = filter_group
+            filter_group['imagefile'] = imagefile
+            car_entries = queryCars (db_path, filter_group)
+            logging.info ('for imagefile ' + OP.basename(imagefile) + 
+                           ' got ' + str(len(car_entries)) + ' cars')
+
+            # load the image and get the ghost
+            image = cv2.imread(OP.join(labelme_dir, 'Images', imagefile))
+            (height, width, depth) = image.shape
+            ghost = image2ghost (image, backimage)
+
+            # put a circle inside every car
+            for car in car_entries:
+                print (car)
+                x1 = queryField(car,'x1')
+                y1 = queryField(car,'y1')
+                halfh = queryField(car,'height') / 2
+                halfw = queryField(car,'width') / 2
+                center = (y1 + halfh, x1 + halfw)
+                #cv2.ellipse (ghost, center, (halfh,halfw), 0,0,360,(255,0,0),-1)
+                cv2.rectangle (ghost, (x1, y1), (x1+halfw*2, y1+halfh*2), (255,0,0))
+
+            cv2.imshow ('test', ghost)
+            cv2.waitKey(-1)
+
+
+
+
+
+
+
