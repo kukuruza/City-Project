@@ -27,7 +27,7 @@ classdef GeometryEstimator < GeometryInterface
         boundaryLanes;
         warpSize = [];
         sumWarpedBackground = [];
-        
+        unionLanes = zeros(0, 1);
     end
     methods
         %% Constructor

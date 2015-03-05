@@ -3,7 +3,7 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     % inverse perspective map of the road
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%% Parameters for the method
+    %%%%%%%%%%%%%%%%%%%% Parameters for the method %%%%%%%%%%%%%%%%%%%%
     imageSize = size(frame);
     laneRatio = 0.25;
     laneWidth = imageSize(2) * 0.3;
@@ -69,26 +69,36 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Taking the best out of both the hough and already present edges
-    laneEdges = union(houghEdges, laneEdges);
+    unionEdges = union(houghEdges, laneEdges);
     
     % pruning the lanes
-    proxThreshold = 0.01 * imageSize(2); % Setting threshold proportionally
-    laneEdges = pruneLaneEdges(laneEdges, proxThreshold);    
+    proxThreshold = 0.02 * imageSize(2); % Setting threshold proportionally
+    %laneEdges = pruneLaneEdges(laneEdges, proxThreshold);    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Drawing the hough lines only
+    %debug1 = printDebugImage(frame, obj.road.vanishPt, houghEdges, ...
+    %                                    obj.ipHomography, uint8([0, 255, 0]));
     
-    % Re-projecting it back to the image, for drawing the lanes
-    imgPts = obj.ipHomography\ [laneEdges; ...
-                    %size(warpedBackground, 1) * ones(1, length(laneEdges));...
-                    0.50 * imageSize(1) * ones(1, length(laneEdges));...
-                    ones(1, length(laneEdges))];
-
-    % Showing the warped background
-    %figure(2); imshow([reImg, frame])
-    %figure(2); imshow(warpH(frame, obj.ipHomography, obj.warpSize))
-    %figure(3); plot(smoothBelief)
+    % Drawing the background lines
+    %debug2 = printDebugImage(frame, obj.road.vanishPt, laneEdges, ...
+    %                                    obj.ipHomography);
     
-    % Converting from homogeneous to non-homogeneous
-    imgPts = [imgPts(1, :) ./ imgPts(3, :); imgPts(2, :) ./ imgPts(3, :)]; 
+    %laneEdges = pruneLaneEdges(houghEdges, proxThreshold);    
+    %debug3 = printDebugImage(frame, obj.road.vanishPt, laneEdges, ...
+    %                                    obj.ipHomography);
+    
+    %obj.unionLanes = union(unionEdges, obj.unionLanes);
+    unionEdges = pruneLaneEdges(unionEdges, proxThreshold);
+    
+    % Getting edges from the previous frames
+    debug4 = printDebugImage(frame, obj.road.vanishPt, unionEdges, ...
+                                        obj.ipHomography, uint8([0, 255, 0]));
+    
+    %figure(1); imshow([debug1, debug2; debug3, debug4])
+    figure(1); imshow(debug4)
+    lanes = [];
+    return
+    
     noPts = size(imgPts, 2);
     lanes = zeros(size(imgPts));
     % Creating the equations for the lanes
@@ -139,27 +149,75 @@ function prunedLanes = pruneLaneEdges(laneEdges, proxThreshold)
         end
     end
     
-    % Performing RANSAC over the lines to get the best separating distance
-    % Considering two points to define
+    % Adding the last bundle (lane)
+    prunedLanes = [prunedLanes, meanBundle];
     
+    RANSAC = false;
+    if(RANSAC)
+        % Performing RANSAC over the lines to get the best separating distance
+        % Considering two points to define
+
+        % Selecting the two points for RANSAC
+        noPoints = length(prunedLanes);
+        noIters = 100;
+        threshold = 0.2;
+
+        maxScore = 0;
+        for i = 1:noIters
+            curInd = sort(randperm(noPoints, 2));
+            curDist = prunedLanes(curInd(2)) - prunedLanes(curInd(1));
+
+            % Finding the consensus
+            distances = abs((prunedLanes - prunedLanes(curInd(1))) / curDist);
+            curInliers = (distances - floor(distances)) < threshold;
+            curScore = sum(curInliers);
+
+            if(curScore > maxScore)
+                maxScore = curScore;
+                maxInliers = curInliers;
+            end
+        end
+        prunedLanes = prunedLanes(maxInliers);
+    end
 end
 
 % Generating the debug image i.e. Drawing the lane boundaries
-function debugImage = printDebugImage(frame, vanishPoint, lanePoints, laneColor)
-    debugImage = frame;
-    
-    % Setting up the color and thickness
-    if(nargin < 4)
-        laneColor = uint8(reshape([255, 0, 0], [1 1 3]));
-    end
+function debugImage = printDebugImage(frame, vanishPoint, lanePoints, ...
+                                                        homography, color)
+    % Setting up the color and thickness (optional argument)
     laneThickness = 2;
+    if(nargin < 5)
+        laneColor = uint8(reshape([255, 0, 0], [1 1 3]));
+    else
+        laneColor = uint8(reshape(color, [1 1 3]));
+    end
     
+    debugImage = frame;
+    imageSize = size(frame);
+    % Getting the other extreme of the road
+    % Re-projecting it back to the image, for drawing the lanes
+    noPoints = length(lanePoints);
+    
+    if isrow(lanePoints)
+        imgPts = homography\ [lanePoints; ...
+                        0.50 * imageSize(1) * ones(1, noPoints);...
+                        ones(1, noPoints)];
+    else
+        imgPts = homography\ [lanePoints'; ...
+                            0.50 * imageSize(1) * ones(1, noPoints);...
+                            ones(1, noPoints)];
+    end
+    
+    % Converting from homogeneous to non-homogeneous
+    imgPts = [imgPts(1, :) ./ imgPts(3, :); imgPts(2, :) ./ imgPts(3, :)];
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     blankImage= zeros(size(frame, 1), size(frame, 2));
     for i = 1:size(lanePoints, 2)
-        blankImage = drawLineSegment(blankImage, vanishPoint, lanePoints(:, i));
+        blankImage = drawLineSegment(blankImage, vanishPoint, imgPts(:, i));
     end
     blankImage = uint8(imdilate(blankImage > 0, ones(laneThickness)));
     
     debugImage = debugImage + ...
-                    bsxfun(@times, blankImage, laneColor); 
+                    bsxfun(@times, blankImage, laneColor);
 end
