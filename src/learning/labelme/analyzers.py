@@ -25,6 +25,11 @@ def roi2bbox (roi):
     return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
 
 
+# formula for bottom-center
+def bottomCenter (roi):
+    return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
+
+
 #
 # expandRoiFloat expands a ROI, and clips it within borders
 #
@@ -84,18 +89,24 @@ class BaseAnalyzer:
 
     border_thresh_perc = 0.03
     expand_perc = 0.1
-    ratio = 0.75
+    target_ratio = 0.75   # width / height
     keep_ratio = False
+    size_acceptance = (0.5, 2)
+    ratio_acceptance = 2
+    debug_show = False
 
     def __init__(self, params):
         if 'border_thresh_perc' in params.keys(): 
             self.border_thresh_perc = params['border_thresh_perc']
         if 'expand_perc' in params.keys(): 
             self.expand_perc = params['expand_perc']
-        if 'ratio' in params.keys(): 
-            self.ratio = params['ratio']
+        if 'target_ratio' in params.keys(): 
+            self.target_ratio = params['target_ratio']
         if 'keep_ratio' in params.keys(): 
             self.keep_ratio = params['keep_ratio']
+        if 'debug_show' in params.keys():
+            self.debug_show = params['debug_show']
+
         if 'geom_maps_dir' in params.keys():
             self.loadMaps (params['geom_maps_dir'])
         else:
@@ -147,13 +158,31 @@ class BaseAnalyzer:
         return num_too_close >= 2
 
 
+    def isWrongSize (self, roi):
+        bc = bottomCenter(roi)
+        # whatever definition of size
+        size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
+        return self.size_map [bc[0], bc[1]] * self.size_acceptance[0] > size or \
+               self.size_map [bc[0], bc[1]] * self.size_acceptance[1] < size
+
+
+    def isBadRatio (self, roi):
+        ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
+        return self.target_ratio / self.ratio_acceptance > ratio or \
+               self.target_ratio * self.ratio_acceptance < ratio
+
+
     def assignOrientation (self, roi):
-        # formula for bottom-center
-        bc = (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
+        bc = bottomCenter(roi)
         # get corresponding yaw-pitch
         yaw   = self.yaw_map   [bc[0], bc[1]]
         pitch = self.pitch_map [bc[0], bc[1]]
         return (float(yaw), float(pitch))
+
+
+    def debugShowAddRoi (self, img, roi, color):
+        if self.debug_show: 
+            cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color)
 
 
 
@@ -212,6 +241,7 @@ class FrameAnalyzer (BaseAnalyzer):
 
         self.cursor.execute('DELETE FROM cars WHERE imagefile=(?);', (imagefile,));
 
+        img_show = img if self.debug_show else None
 
         for object_ in tree.getroot().findall('object'):
 
@@ -227,20 +257,34 @@ class FrameAnalyzer (BaseAnalyzer):
             # get all the points
             xs, ys = self.pointsOfPolygon(object_)
 
+            # make bbox
+            roi = [min(ys), min(xs), max(ys), max(xs)]
+
             # filter bad ones
             if self.isDegeneratePolygon(xs, ys): 
                 logging.info ('degenerate polygon ' + str(xs) + ', ' + str(ys))
+                self.debugShowAddRoi (img_show, roi, (0,0,255))
                 continue
             if self.isPolygonAtBorder(xs, ys, width, height): 
                 logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
+                self.debugShowAddRoi (img_show, roi, (0,0,255))
+                continue
+            if self.isWrongSize(roi):
+                logging.info ('wrong size of polygon ' + str(xs) + ', ' + str(ys))
+                self.debugShowAddRoi (img_show, roi, (0,0,255))
+                continue
+            if self.isBadRatio(roi):
+                logging.info ('bad ratio of polygon ' + str(xs) + ', ' + str(ys))
+                self.debugShowAddRoi (img_show, roi, (0,0,255))
                 continue
 
-            # make and expand bbox
-            roi = [min(ys), min(xs), max(ys), max(xs)]
+            # expand bbox
             if self.keep_ratio:
-                roi = expandRoiToRatio (roi, (height, width), self.expand_perc, self.ratio)
+                roi = expandRoiToRatio (roi, (height, width), self.expand_perc, self.target_ratio)
             else:
                 roi = expandRoiFloat (roi, (height, width), (self.expand_perc, self.expand_perc))
+
+            self.debugShowAddRoi (img_show, roi, (255,0,0))
 
             # make an entry for database
             bbox = roi2bbox (roi)
@@ -260,6 +304,10 @@ class FrameAnalyzer (BaseAnalyzer):
             self.cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch) 
                                    VALUES (?,?,?,?,?,?,?,?,?,?);''', entry)
         self.conn.commit()
+
+        if self.debug_show: 
+            cv2.imshow('debug_show', img_show)
+            cv2.waitKey(-1)
 
 
 
@@ -385,21 +433,27 @@ class PairAnalyzer (BaseAnalyzer):
             # get all the points
             xs, ys = self.pointsOfPolygon(object_)
 
-            # filter bad ones
-            if self.isDegeneratePolygon(xs, ys): 
-                logging.info ('degenerate polygon ' + str(xs) + ', ' + str(ys))
-                continue
-
-            # bbox operations
+            # get bbox
             is_top = np.mean(np.mean(ys)) < halfheight
             if is_top:
                 roi = [min(ys), min(xs), max(ys), max(xs)]
             else:
                 roi = [min(ys)-halfheight, min(xs), max(ys)-halfheight, max(xs)]
 
+            # filter bad ones (the border polygons are NOT filtered)
+            if self.isDegeneratePolygon(xs, ys): 
+                logging.info ('degenerate polygon ' + str(xs) + ', ' + str(ys))
+                continue
+            if self.isWrongSize(roi):
+                logging.info ('wrong size of polygon ' + str(xs) + ', ' + str(ys))
+                continue
+            if self.isBadRatio(roi):
+                logging.info ('bad ratio of polygon ' + str(xs) + ', ' + str(ys))
+                continue
+
             # expand bbox
             if self.keep_ratio:
-                roi = expandRoiToRatio (roi, (halfheight, width), self.expand_perc, self.ratio)
+                roi = expandRoiToRatio (roi, (halfheight, width), self.expand_perc, self.target_ratio)
             else:
                 roi = expandRoiFloat (roi, (halfheight, width), (self.expand_perc, self.expand_perc))
 
