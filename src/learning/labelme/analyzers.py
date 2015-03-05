@@ -91,8 +91,9 @@ class BaseAnalyzer:
     expand_perc = 0.1
     target_ratio = 0.75   # width / height
     keep_ratio = False
-    size_acceptance = (0.5, 2)
+    size_acceptance = (0.4, 2)
     ratio_acceptance = 2
+    sizemap_dilate = 21
     debug_show = False
 
     def __init__(self, params):
@@ -104,8 +105,16 @@ class BaseAnalyzer:
             self.target_ratio = params['target_ratio']
         if 'keep_ratio' in params.keys(): 
             self.keep_ratio = params['keep_ratio']
+        if 'size_acceptance' in params.keys(): 
+            self.size_acceptance = params['size_acceptance']
+        if 'ratio_acceptance' in params.keys(): 
+            self.ratio_acceptance = params['ratio_acceptance']
+        if 'sizemap_dilate' in params.keys(): 
+            self.sizemap_dilate = params['sizemap_dilate']
         if 'debug_show' in params.keys():
             self.debug_show = params['debug_show']
+        if 'debug_sizemap' in params.keys(): debug_sizemap = params['debug_sizemap']
+        else: debug_sizemap = False
 
         if 'geom_maps_dir' in params.keys():
             self.loadMaps (params['geom_maps_dir'])
@@ -115,6 +124,18 @@ class BaseAnalyzer:
             self.labelme_data_path = params['labelme_data_path']
         else:
             raise Exception ('BaseAnalyzer: labelme_data_path is not given in params')
+
+        if debug_sizemap:
+            cv2.imshow ('size_map original', self.size_map)
+
+        # dilate size_map
+        kernel = np.ones ((self.sizemap_dilate, self.sizemap_dilate), 'uint8')
+        self.size_map = cv2.dilate (self.size_map, kernel)
+
+        if debug_sizemap:
+            cv2.imshow ('size_map dilated', self.size_map)
+            cv2.waitKey(-1)
+
 
 
     # this function knows all about size- and orientation- maps
