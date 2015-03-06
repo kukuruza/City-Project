@@ -7,9 +7,15 @@ def createDb (db_path):
     conn = sqlite3.connect (db_path)
     cursor = conn.cursor()
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS images
+                     (imagefile TEXT PRIMARY KEY, 
+                      src TEXT, 
+                      width INTEGER, 
+                      height INTEGER
+                      );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS cars
                      (id INTEGER PRIMARY KEY,
-                      imagefile TEXT, 
+                      imagefile INTEGER, 
                       name TEXT, 
                       x1 INTEGER,
                       y1 INTEGER,
@@ -40,6 +46,9 @@ def createDb (db_path):
 # delete everything associated with an imagefile from the db
 #
 def deleteAll4imagefile (cursor, imagefile):
+    #
+    # find and delete image file
+    cursor.execute('DELETE FROM images WHERE imagefile=(?)', (imagefile,));
     #
     # find and delete cars
     cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));

@@ -242,6 +242,11 @@ class FrameAnalyzer (BaseAnalyzer):
 
         deleteAll4imagefile (self.cursor, imagefile)
 
+        # insert the image into the database
+        entry = (imagefile, OP.basename(folder), width, height)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
+                               VALUES (?,?,?,?);''', entry)
+
         img_show = img if self.debug_show else None
 
         for object_ in tree.getroot().findall('object'):
@@ -403,6 +408,12 @@ class PairAnalyzer (BaseAnalyzer):
         cars_b = []
 
         deleteAll4imagefile (self.cursor, imagefile)
+
+        # insert the image into the database
+        entry = (imagefile, OP.basename(folder), width, height)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
+                               VALUES (?,?,?,?);''', entry)
+        imageid = self.cursor.lastrowid
 
         # collect captions and assign statuses accordingly
         for object_ in objects:
