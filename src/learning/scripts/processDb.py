@@ -13,7 +13,7 @@ if __name__ == '__main__':
     log = logging.getLogger('')
     log.setLevel (logging.WARNING)
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
-    log_path = op.join (os.getenv('CITY_PATH'), 'log/learning/labelme/process.log')
+    log_path = op.join (os.getenv('CITY_PATH'), 'log/learning/processDb.log')
     fh = logging.handlers.RotatingFileHandler(log_path, mode='w')
     fh.setFormatter(formatter)
     log.addHandler(fh)

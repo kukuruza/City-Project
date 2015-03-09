@@ -121,9 +121,3 @@ class Clusterer:
 
         return counter_by_cluster
 
-
-
-
-
-
-
