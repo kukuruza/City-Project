@@ -5,6 +5,7 @@
             "name": "example", "known": false, "children": 
             [ 
                 { "name": "spelling",   "known": false, "children": [] },
+                { "name": "Evgeny",     "known": false, "children": [] },
                 { "name": "Lynna",      "known": false, "children": [] },
                 { "name": "Shanghang",  "known": false, "children": [] },
                 { "name": "Satwik",     "known": false, "children": [] }
@@ -20,7 +21,12 @@
                         { "name": "minivan",   "known": false, "children": [] },
                         { "name": "sedan",     "known": false, "children": [] }, 
                         { "name": "hatchback", "known": false, "children": [] },
-                        { "name": "taxi",      "known": true,  "children": [] }
+                        { 
+                            "name": "taxi",    "known": true,  "children": 
+                            [
+                                { "name": "cab", "known": false, "children": [] }
+                            ] 
+                        }
                     ]
                 },
                 {
@@ -31,7 +37,8 @@
                 },
                 { "name": "truck", "known": true, "children": [] },
                 { "name": "van", "known": true, "children": [] },
-                { "name": "suv", "known": true, "children": [] }
+                { "name": "suv", "known": true, "children": [] },
+                { "name": "pickup", "known": false, "children": [] }
             ]
         },
         {
