@@ -11,7 +11,8 @@ def createDb (db_path):
                      (imagefile TEXT PRIMARY KEY, 
                       src TEXT, 
                       width INTEGER, 
-                      height INTEGER
+                      height INTEGER,
+                      backimage TEXT
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS cars
                      (id INTEGER PRIMARY KEY,
@@ -134,18 +135,23 @@ def checkDb (db_path):
 #
 # all knowledge about 'cars' table is here
 #
-def queryField (car_entry, field):
-    if field == 'id':        return car_entry[0]
-    if field == 'imagefile': return car_entry[1] 
-    if field == 'name':      return car_entry[2] 
-    if field == 'x1':        return car_entry[3]
-    if field == 'y1':        return car_entry[4]
-    if field == 'width':     return car_entry[5]
-    if field == 'height':    return car_entry[6]
-    if field == 'offsetx':   return car_entry[7]
-    if field == 'offsety':   return car_entry[8]
-    if field == 'yaw':       return car_entry[9]
-    if field == 'pitch':     return car_entry[10]
+def queryField (car, field):
+    if field == 'id':        return car[0]
+    if field == 'imagefile': return car[1] 
+    if field == 'name':      return car[2] 
+    if field == 'x1':        return car[3]
+    if field == 'y1':        return car[4]
+    if field == 'width':     return car[5]
+    if field == 'height':    return car[6]
+    if field == 'offsetx':   return car[7]
+    if field == 'offsety':   return car[8]
+    if field == 'yaw':       return car[9]
+    if field == 'pitch':     return car[10]
+
+    if field == 'bbox':      
+        return list(car[3:7])
+    if field == 'bbox-w-offset': 
+        return [car[3]+car[7], car[4]+car[8], car[5], car[6]]
     return None
 
 
@@ -157,14 +163,7 @@ def parseFilterName (filter_name):
         filter_name = filter_name + '.equal'
     elif numdots > 1:
         raise Exception (str('filter "' + filter_name + '" has more than one dot'))
-    filter_parts = filter_name.split('.')
-    assert len(filter_parts) == 2
-
-    # check operations
-    filter_key = filter_parts[0]
-    filter_op = filter_parts[1]
-    if filter_op not in ['min', 'max', 'equal']:
-        raise Exception ('operation of filter "' + filter_name + '" is unknown')
+    (filter_key, filter_op) = filter_name.split('.')
 
     # substitute operation with SQL operation
     if filter_op == 'min':
@@ -173,23 +172,18 @@ def parseFilterName (filter_name):
         filter_op = '<='
     elif filter_op == 'equal':
         filter_op = '='
+    elif filter_op == 'not':
+        filter_op = '<>'
+    elif filter_op == 'in':
+        filter_op = 'in'
+    else:
+        raise Exception ('operation of filter "' + filter_name + '" is unknown')
 
     return (filter_key, filter_op)
 
 
 
-def directQuery (db_path, query_str):
-    # send the query and return the response
-    conn = sqlite3.connect (db_path)
-    cursor = conn.cursor()
-    cursor.execute(query_str)
-    response = cursor.fetchall()
-    conn.close()
-    return response
-
-
-
-def queryCars (db_path, filters={}, fields=['*']):
+def queryCars (cursor, filters={}, fields=['*']):
     '''Finds objects in specified locations based on specified filters, 
        and returns an index of all suitable objects
 
@@ -215,5 +209,6 @@ def queryCars (db_path, filters={}, fields=['*']):
 
     # actual query
     logging.debug ('querying cars with: ' + query_str)
-    return directQuery (db_path, query_str)
+    cursor.execute(query_str)
+    return cursor.fetchall()
 

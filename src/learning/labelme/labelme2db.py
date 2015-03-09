@@ -13,19 +13,10 @@ import sqlite3
 
 sys.path.insert(0, os.path.abspath('..'))
 from dbInterface import createDb, deleteAll4imagefile
+from utilities import roi2bbox
 
 sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
-
-
-#
-# roi - all inclusive, like in Matlab
-# crop = im[roi[0]:roi[2]+1, roi[1]:roi[3]+1] (differs from Matlab)
-#
-def roi2bbox (roi):
-    assert (isinstance(roi, list) and len(roi) == 4)
-    return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
-
 
 
 class BaseConverter:
@@ -39,6 +30,13 @@ class BaseConverter:
             self.debug_show = params['debug_show']
         if 'labelme_dir' in params.keys():
             self.labelme_dir = params['labelme_dir']
+
+        if 'backimage_file' in params.keys():
+            self.backimage_file = params['backimage_file']
+        else:
+            raise Exception ('backimage_file is not given in params')
+        if not op.exists (op.join(os.getenv('CITY_DATA_PATH'), self.backimage_file)):
+            raise Exception ('backimage_file does not exist: ' + self.backimage_file)
 
         createDb (db_path)
         self.conn = sqlite3.connect (db_path)
@@ -103,9 +101,9 @@ class FrameConverter (BaseConverter):
         deleteAll4imagefile (self.cursor, imagepath)
 
         # insert the image into the database
-        entry = (imagepath, op.basename(folder), width, height)
-        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
-                               VALUES (?,?,?,?);''', entry)
+        entry = (imagepath, op.basename(folder), width, height, self.backimage_file)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height,backimage) 
+                               VALUES (?,?,?,?,?);''', entry)
 
         img_show = img if self.debug_show else None
 
@@ -227,9 +225,9 @@ class PairConverter (BaseConverter):
         deleteAll4imagefile (self.cursor, imagepath)
 
         # insert the image into the database
-        entry = (imagepath, op.basename(folder), width, height)
-        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
-                               VALUES (?,?,?,?);''', entry)
+        entry = (imagepath, op.basename(folder), width, height, self.backimage_file)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height,backimage) 
+                               VALUES (?,?,?,?,?);''', entry)
 
         objects = tree.getroot().findall('object')
         captions_t = []

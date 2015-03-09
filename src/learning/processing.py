@@ -10,25 +10,7 @@ import glob
 import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField
-
-
-#
-# roi - all inclusive, like in Matlab
-# crop = im[roi[0]:roi[2]+1, roi[1]:roi[3]+1] (differs from Matlab)
-#
-def roi2bbox (roi):
-    assert (isinstance(roi, list) and len(roi) == 4)
-    return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
-
-
-def bbox2roi (bbox):
-    assert (isinstance(bbox, list) and len(bbox) == 4)
-    return [bbox[1], bbox[0], bbox[3]+bbox[1]-1, bbox[2]+bbox[0]-1]
-
-
-# formula for bottom-center
-def bottomCenter (roi):
-    return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
+from utilities import bbox2roi, roi2bbox, bottomCenter
 
 
 #
@@ -90,10 +72,10 @@ class Processor:
 
     border_thresh_perc = 0.03
     expand_perc = 0.1
-    target_ratio = 0.75   # width / height
+    target_ratio = 0.75   # height / width
     keep_ratio = False
     size_acceptance = (0.4, 2)
-    ratio_acceptance = 2
+    ratio_acceptance = (0.4, 1.5)
     sizemap_dilate = 21
     debug_show = False
 
@@ -163,8 +145,7 @@ class Processor:
 
     def isBadRatio (self, roi):
         ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
-        return self.target_ratio / self.ratio_acceptance > ratio or \
-               self.target_ratio * self.ratio_acceptance < ratio
+        return ratio < self.ratio_acceptance[0] or ratio > self.ratio_acceptance[1]
 
 
     def assignOrientation (self, roi):
@@ -196,11 +177,7 @@ class Processor:
     def processCar (self, car_entry):
 
         carid = queryField(car_entry, 'id')
-        bbox  = [queryField(car_entry, 'x1'),
-                 queryField(car_entry, 'y1'),
-                 queryField(car_entry, 'width'),
-                 queryField(car_entry, 'height')]
-        roi = bbox2roi(bbox)
+        roi = bbox2roi (queryField(car_entry, 'bbox'))
         imagefile = queryField(car_entry, 'imagefile')
         offsetx   = queryField(car_entry, 'offsetx')
         offsety   = queryField(car_entry, 'offsety')
@@ -258,6 +235,13 @@ class Processor:
         # copy input database into the output one
         shutil.copyfile(db_in_path, db_out_path)
 
+        if not op.exists (db_in_path):
+            raise Exception ('db does not exist: ' + db_in_path)
+
+        if op.exists (db_out_path):
+            logging.warning ('deleting existing db_out_path')
+            os.remove (db_out_path)
+
         self.conn = sqlite3.connect (db_out_path)
         self.cursor = self.conn.cursor()
 
@@ -284,7 +268,5 @@ class Processor:
 
         self.conn.commit()
         self.conn.close()
-
-
 
 
