@@ -2,7 +2,7 @@ import random
 import unittest
 
 import logging
-from analyzers import expandRoiFloat, expandRoiToRatio
+from processing import expandRoiFloat, expandRoiToRatio
 
 
 class TestFunctions (unittest.TestCase):

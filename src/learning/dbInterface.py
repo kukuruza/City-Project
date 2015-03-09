@@ -41,6 +41,25 @@ def createDb (db_path):
     conn.close()
 
 
+#
+# delete one car keeping db consistancy
+#
+def deleteCar (cursor, carid):
+    cursor.execute('DELETE FROM cars WHERE id=?;', (carid,));
+    cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
+    cursor.execute('SELECT match FROM matches WHERE carid=?;', (carid,));
+    match = cursor.fetchone()
+    if match:
+        cursor.execute('UPDATE matches SET carid=0 WHERE carid=?', (carid,))
+        # if all cars are 0 for a match, delete it
+        cursor.execute('SELECT carid FROM matches WHERE match=?;', (match[0],));
+        carids = cursor.fetchall()
+        if (all(carid[0] == 0 for carid in carids)):
+            cursor.execute('DELETE FROM matches WHERE match=?;', (match[0],));
+
+
+
+
 
 #
 # delete everything associated with an imagefile from the db
@@ -69,6 +88,47 @@ def deleteAll4imagefile (cursor, imagefile):
     #
     logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
 
+
+
+#
+# check that db follows the rules
+#
+def checkTableExists (cursor, name):
+    cursor.execute('''SELECT count(*) FROM sqlite_master 
+                      WHERE name=? AND type='table';''', (name,))
+    if cursor.fetchone()[0] == 0:
+        raise Exception ('table ' + name + ' does not exist')
+
+def checkEntryExists (cursor, table, field, value):
+    cursor.execute('SELECT count(*) FROM ? WHERE ? = ?', (table,field,value))
+    if cursor.fetchone()[0] == 0:
+        raise Exception ('table ' + table + ' does not have ' + field + '=' + value)
+
+
+def checkDb (db_path):
+    conn = sqlite3.connect (db_path)
+    cursor = conn.cursor()
+
+    checkTableExists (cursor, 'cars')
+    checkTableExists (cursor, 'images')
+    checkTableExists (cursor, 'matches')
+    checkTableExists (cursor, 'polygons')
+
+    cursor.execute('SELECT * FROM cars')
+    cars = cursor.fetchall()
+    for car in cars:
+        # check image
+        checkEntryExists (cursor, 'images','imagefile', queryField(car,'imagefile'))
+        # check polygons
+        carid = queryField(car, 'carid')
+        cursor.execute('SELECT count(*) FROM polygons WHERE carid=?;', (carid,))
+        if cursor.fetchone()[0] == 1 or cursor.fetchone()[0] == 2:
+            raise Exception ('there are just 1 or 2 polygons for car ' + str(carid))
+
+    
+    conn.close()
+
+    sys.exit()
 
 
 #
