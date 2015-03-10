@@ -61,6 +61,7 @@ classdef CascadeCarDetector < CarDetectorBase
                 'MergeThreshold', parsed.mergeThreshold);
             
         end
+<<<<<<< Updated upstream
         
         
         function mask = getMask(CD)
@@ -81,6 +82,11 @@ classdef CascadeCarDetector < CarDetectorBase
             % crop the image to the non-masked area for a cluster
             img = img(CD.roi(1) : CD.roi(3), CD.roi(2) : CD.roi(4));
 
+=======
+        function cars = detect (CD, img, sz)
+            CD.detector.MinSize = int32([sz / 1.5, sz / 1.5]);
+            CD.detector.MaxSize = int32([sz * 1.5, sz * 1.5]);
+>>>>>>> Stashed changes
             bboxes = step(CD.detector, img);
             cars = [];
             for i = 1 : size(bboxes,1)
