@@ -1,5 +1,3 @@
-#!/bin/python
-
 import numpy as np
 import cv2
 import xml.etree.ElementTree as ET
@@ -163,9 +161,17 @@ class FrameConverter (BaseConverter):
 
 
 
+# Parse labelme vstacked images into car-matches between frames
 #
-# returns an array of tuples of form (car, car), or (car, None), or (None, car)
+# Script takes a 'folder' name. 
+# /Images/folder and /Annotations/folder are the results of the labelme,
+#   Each image is two vertically stacked frames
+#   Labelme annotations signify matches between frames
 #
+# The output is a number of files with names like f000-001-N.mat, 
+#   which keeps the match of car N between frames 0 and 1 as {car1, car2}
+#
+
 class PairConverter (BaseConverter):
 
     def __init__(self, db_path, params):

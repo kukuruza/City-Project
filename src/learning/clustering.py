@@ -17,7 +17,7 @@ IMAGE_EXT = '.png'
 
 import logging
 import os, sys
-import os.path as OP
+import os.path as op
 import shutil
 import glob
 import json
@@ -51,53 +51,52 @@ class Clusterer:
            use filters to cluster and transform,
            and save the ghosts '''
 
-        if not OP.exists (db_path):
+        # open db
+        if not op.exists (db_path):
             raise Exception ('db does not exist: ' + db_path)
-
         conn = sqlite3.connect (db_path)
         cursor = conn.cursor()
 
         # load clusters
-        if not OP.exists(filters_path):
+        if not op.exists(filters_path):
             raise Exception('filters_path does not exist: ' + filters_path)
         filters_file = open(filters_path)
         filters_groups = json.load(filters_file)
         filters_file.close()
 
-        counter_by_cluster = {}
+        # delete 'out_dir' dir, and recreate it
+        logging.warning ('will delete existing out dir: ' + out_dir)
+        if op.exists (out_dir):
+            shutil.rmtree (out_dir)
+        os.makedirs (out_dir)
 
         for filter_group in filters_groups:
             assert ('filter' in filter_group)
             logging.info ('filter group ' + filter_group['filter'])
 
-            # delete 'cluster_dir' dir, and recreate it
-            cluster_dir = OP.join (out_dir, filter_group['filter'])
-            if OP.exists (cluster_dir):
-                logging.warning ('will delete existing cluster dir: ' + cluster_dir)
-                shutil.rmtree (cluster_dir)
+            cluster_dir = op.join (out_dir, filter_group['filter'])
             os.makedirs (cluster_dir)
 
             # get db entries
             car_entries = queryCars (cursor, filter_group)
-            counter_by_cluster[filter_group['filter']] = len(car_entries)
 
             # write ghosts for each entry
             for car_entry in car_entries:
 
                 # update imagefile and image
                 imagefile = queryField (car_entry, 'imagefile')
-                imagepath = OP.join (os.getenv('CITY_DATA_PATH'), imagefile)
+                imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
                 if not hasattr(self, 'imagefile') or self.imagefile != imagefile:
                     logging.debug ('update image from ' + imagefile)
                     self.imagefile = imagefile
-                    if not OP.exists (imagepath):
+                    if not op.exists (imagepath):
                         raise Exception ('imagepath does not exist: ' + imagepath)
                     self.image = cv2.imread(imagepath)
 
                 carid, ghost = self.getGhost (car_entry, self.image)
 
                 filename = "%08d" % carid + IMAGE_EXT
-                filepath = OP.join(cluster_dir, filename)
+                filepath = op.join(cluster_dir, filename)
 
                 if 'resize' in filter_group.keys():
                     assert (type(filter_group['resize']) == list)
@@ -108,5 +107,52 @@ class Clusterer:
 
         conn.close()
 
-        return counter_by_cluster
+
+
+    def writeInfoFile (self, db_path, filters_path, out_dir):
+
+        # open db
+        if not op.exists (db_path):
+            raise Exception ('db does not exist: ' + db_path)
+        conn = sqlite3.connect (db_path)
+        cursor = conn.cursor()
+
+        # load clusters
+        if not op.exists(filters_path):
+            raise Exception('filters_path does not exist: ' + filters_path)
+        filters_file = open(filters_path)
+        filters_groups = json.load(filters_file)
+        filters_file.close()
+
+        # delete 'out_dir' dir, and recreate it
+        logging.warning ('will delete existing out dir: ' + out_dir)
+        if op.exists (out_dir):
+            shutil.rmtree (out_dir)
+        os.makedirs (out_dir)
+
+        for filter_group in filters_groups:
+            assert ('filter' in filter_group)
+
+            info_file = open(op.join(out_dir, filter_group['filter'] + '.info'), 'w')
+
+            cursor.execute('SELECT imagefile FROM images')
+            imagefiles = cursor.fetchall()
+
+            for (imagefile,) in imagefiles:
+
+                # get db entries
+                filter_group['imagefile'] = imagefile
+                car_entries = queryCars (cursor, filter_group)
+
+                info_file.write (imagefile + ' ' + str(len(car_entries)))
+
+                for car_entry in car_entries:
+                    bbox = queryField(car_entry, 'bbox-w-offset')
+                    info_file.write ('   ' + ' '.join(str(e) for e in bbox))
+
+                info_file.write('\n')
+
+        info_file.close()
+        conn.close()
+
 

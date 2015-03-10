@@ -1,4 +1,9 @@
-#!/bin/python
+#
+# This script collects negative training samples from images
+# It uses clusters.json file for information about filters
+#
+# Assumptions are: 1) all cars are labelled in each image (maybe several times)
+#
 
 import numpy as np
 import cv2
