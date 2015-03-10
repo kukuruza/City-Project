@@ -3,18 +3,17 @@ import sys, os
 import logging, logging.handlers
 
 
-def setupLogging (filename, slevel=logging.INFO, flevel=logging.DEBUG, filemode='w'):
+def setupLogging (filename, level=logging.INFO, filemode='w'):
     log = logging.getLogger('')
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
+    log.setLevel(level)
 
     log_path = os.path.join (os.getenv('CITY_PATH'), filename)
     fh = logging.handlers.RotatingFileHandler(log_path, mode=filemode)
-    fh.setLevel(flevel)
     fh.setFormatter(formatter)
     log.addHandler(fh)
 
     sh = logging.StreamHandler(sys.stdout)
-    sh.setLevel(slevel)
     sh.setFormatter(formatter)
     log.addHandler(sh)
 

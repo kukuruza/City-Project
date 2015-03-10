@@ -133,7 +133,7 @@ class Clusterer:
         for filter_group in filters_groups:
             assert ('filter' in filter_group)
 
-            info_file = open(op.join(out_dir, filter_group['filter'] + '.info'), 'w')
+            info_file = open(op.join(out_dir, filter_group['filter'] + '.dat'), 'w')
 
             cursor.execute('SELECT imagefile FROM images')
             imagefiles = cursor.fetchall()
@@ -144,7 +144,9 @@ class Clusterer:
                 filter_group['imagefile'] = imagefile
                 car_entries = queryCars (cursor, filter_group)
 
-                info_file.write (imagefile + ' ' + str(len(car_entries)))
+                imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+                info_file.write (op.relpath(imagepath, out_dir))
+                info_file.write (' ' + str(len(car_entries)))
 
                 for car_entry in car_entries:
                     bbox = queryField(car_entry, 'bbox-w-offset')
