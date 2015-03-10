@@ -11,29 +11,18 @@ import glob
 import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField, queryCars
-from utilities import bbox2roi, image2ghost, getCenter
+from utilities import bbox2roi, getCenter
 
 
 
 class NegativesGrayspots:
 
-    def processImage (self, (imagefile, backfile), filter_group, out_dir):
+    def processImage (self, (imagefile,), filter_group, out_dir):
 
         imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
         if not op.exists (imagepath):
             raise Exception ('image does not exist: ' + imagepath)
         img = cv2.imread(imagepath)
-
-        # update backpath and backimage
-        backpath = op.join (os.getenv('CITY_DATA_PATH'), backfile)
-        if not hasattr(self, 'backimage') or self.backpath != backpath:
-            logging.debug ('update backimage from ' + backfile)
-            self.backpath = backpath
-            if not op.exists (backpath):
-                raise Exception ('backimage does not exist: ' + backfile)
-            self.backimage = cv2.imread(self.backpath).astype(np.int32)
-
-        img = image2ghost (img, self.backimage)
 
         filter_group['imagefile'] = imagefile
         car_entries = queryCars (self.cursor, filter_group)
@@ -75,17 +64,18 @@ class NegativesGrayspots:
             assert ('filter' in filter_group)
             logging.info ('filter group ' + filter_group['filter'])
 
-            # create a dir for cluster
+            # delete and re-create a dir for a cluster
             cluster_dir = op.join (out_dir, filter_group['filter'])
             if op.exists (cluster_dir):
+                logging.warning ('will delete existing cluster dir: ' + cluster_dir)
                 shutil.rmtree (cluster_dir)
             os.makedirs (cluster_dir)
 
-            self.cursor.execute('SELECT imagefile,backimage FROM images')
-            image_entries = self.cursor.fetchall()
+            self.cursor.execute('SELECT imagefile FROM images')
+            imagefiles = self.cursor.fetchall()
 
-            for image_entry in image_entries:
-                self.processImage (image_entry, filter_group, cluster_dir)
+            for imagefile in imagefiles:
+                self.processImage (imagefile, filter_group, cluster_dir)
 
         self.conn.close()
 

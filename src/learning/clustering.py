@@ -24,13 +24,13 @@ import json
 import sqlite3
 import numpy as np, cv2
 from dbInterface import queryCars, queryField
-from utilities import bbox2roi, image2ghost
+from utilities import bbox2roi
 
 
 
 class Clusterer:
 
-    def getGhost (self, car_entry, image, backimage):
+    def getGhost (self, car_entry, image):
         assert (car_entry is not None)
 
         carid = queryField (car_entry, 'id')
@@ -40,9 +40,7 @@ class Clusterer:
         if roi[2] > height and roi[3] > width:
             raise Exception ('bad roi for ' + queryField(car_entry, 'imagefile'))
 
-        ghostimage = image2ghost (image, backimage)
-
-        ghost = ghostimage [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+        ghost = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
         return (carid, ghost)
 
 
@@ -75,6 +73,7 @@ class Clusterer:
             # delete 'cluster_dir' dir, and recreate it
             cluster_dir = OP.join (out_dir, filter_group['filter'])
             if OP.exists (cluster_dir):
+                logging.warning ('will delete existing cluster dir: ' + cluster_dir)
                 shutil.rmtree (cluster_dir)
             os.makedirs (cluster_dir)
 
@@ -95,18 +94,7 @@ class Clusterer:
                         raise Exception ('imagepath does not exist: ' + imagepath)
                     self.image = cv2.imread(imagepath)
 
-                # update backpath and backimage
-                cursor.execute('SELECT backimage FROM images WHERE imagefile=?', (imagefile,))
-                (backfile,) = cursor.fetchone()
-                backpath = OP.join (os.getenv('CITY_DATA_PATH'), backfile)
-                if not hasattr(self, 'backpath') or self.backpath != backpath:
-                    logging.debug ('update backimage from ' + backfile)
-                    self.backpath = backpath
-                    if not OP.exists (backpath):
-                        raise Exception ('backimage does not exist: ' + backfile)
-                    self.backimage = cv2.imread(self.backpath).astype(np.int32)
-
-                carid, ghost = self.getGhost (car_entry, self.image, self.backimage)
+                carid, ghost = self.getGhost (car_entry, self.image)
 
                 filename = "%08d" % carid + IMAGE_EXT
                 filepath = OP.join(cluster_dir, filename)

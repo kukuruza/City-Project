@@ -236,7 +236,7 @@ class Processor:
             raise Exception ('db does not exist: ' + db_in_path)
 
         if op.exists (db_out_path):
-            logging.warning ('deleting existing db_out_path')
+            logging.warning ('will delete existing db_out_path')
             os.remove (db_out_path)
 
         # copy input database into the output one
@@ -268,5 +268,4 @@ class Processor:
 
         self.conn.commit()
         self.conn.close()
-
 

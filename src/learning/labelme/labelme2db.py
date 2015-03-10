@@ -13,7 +13,7 @@ import sqlite3
 
 sys.path.insert(0, os.path.abspath('..'))
 from dbInterface import createDb, deleteAll4imagefile
-from utilities import roi2bbox
+from utilities import roi2bbox, image2ghost
 
 sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
@@ -33,10 +33,12 @@ class BaseConverter:
 
         if 'backimage_file' in params.keys():
             self.backimage_file = params['backimage_file']
+            backfullpath = op.join(os.getenv('CITY_DATA_PATH'), self.backimage_file)
         else:
             raise Exception ('backimage_file is not given in params')
-        if not op.exists (op.join(os.getenv('CITY_DATA_PATH'), self.backimage_file)):
+        if not op.exists (backfullpath):
             raise Exception ('backimage_file does not exist: ' + self.backimage_file)
+        self.backimage = cv2.imread(backfullpath)
 
         createDb (db_path)
         self.conn = sqlite3.connect (db_path)
@@ -100,10 +102,15 @@ class FrameConverter (BaseConverter):
 
         deleteAll4imagefile (self.cursor, imagepath)
 
+        # write ghost
+        ghost = image2ghost(img, self.backimage)
+        ghostpath = op.join(self.labelme_dir, 'labelme/Ghosts', imagefile)
+        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), ghostpath), ghost)
+
         # insert the image into the database
-        entry = (imagepath, op.basename(folder), width, height, self.backimage_file)
-        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height,backimage) 
-                               VALUES (?,?,?,?,?);''', entry)
+        entry = (ghostpath, op.basename(folder), width, height)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
+                               VALUES (?,?,?,?);''', entry)
 
         img_show = img if self.debug_show else None
 
@@ -131,7 +138,7 @@ class FrameConverter (BaseConverter):
 
             # make an entry for database
             bbox = roi2bbox (roi)
-            entry = (imagepath,
+            entry = (ghostpath,
                      name, 
                      bbox[0],
                      bbox[1],
@@ -224,10 +231,15 @@ class PairConverter (BaseConverter):
 
         deleteAll4imagefile (self.cursor, imagepath)
 
+        # write ghost
+        ghost = image2ghost(img, self.backimage)
+        ghostpath = op.join(self.labelme_dir, 'labelme/Ghosts', imagefile)
+        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), ghostpath), ghost)
+
         # insert the image into the database
-        entry = (imagepath, op.basename(folder), width, height, self.backimage_file)
-        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height,backimage) 
-                               VALUES (?,?,?,?,?);''', entry)
+        entry = (ghostpath, op.basename(folder), width, height)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
+                               VALUES (?,?,?,?);''', entry)
 
         objects = tree.getroot().findall('object')
         captions_t = []
@@ -262,7 +274,7 @@ class PairConverter (BaseConverter):
 
             # make an entry for database
             bbox = roi2bbox (roi)
-            entry = (imagepath,
+            entry = (ghostpath,
                      name, 
                      bbox[0],
                      bbox[1],
@@ -321,6 +333,12 @@ def folder2frames (folder, db_path, params):
     pathlist = glob.glob (op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 
                                   'labelme/Annotations', folder, '*.xml'))
 
+    # delete 'Ghosts' dir, and recreate it
+    ghost_dir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'labelme/Ghosts', folder)
+    if op.exists (ghost_dir):
+        shutil.rmtree (ghost_dir)
+    os.makedirs (ghost_dir)
+
     with FrameConverter (db_path, params) as converter:
         for path in pathlist:
             logging.debug ('processing file ' + op.basename(path))
@@ -333,6 +351,12 @@ def folder2pairs (folder, db_path, params):
     labelme_dir = params['labelme_dir'] if 'labelme_dir' in params.keys() else ''
     pathlist = glob.glob (op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 
                                   'labelme/Annotations', folder, '*.xml'))
+
+    # delete 'Ghosts' dir, and recreate it
+    ghost_dir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'labelme/Ghosts', folder)
+    if op.exists (ghost_dir):
+        shutil.rmtree (ghost_dir)
+    os.makedirs (ghost_dir)
 
     with PairConverter (db_path, params) as converter:
         for path in pathlist:

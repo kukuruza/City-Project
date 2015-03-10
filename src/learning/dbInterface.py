@@ -11,8 +11,7 @@ def createDb (db_path):
                      (imagefile TEXT PRIMARY KEY, 
                       src TEXT, 
                       width INTEGER, 
-                      height INTEGER,
-                      backimage TEXT
+                      height INTEGER
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS cars
                      (id INTEGER PRIMARY KEY,
