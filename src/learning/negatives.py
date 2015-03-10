@@ -72,19 +72,20 @@ class NegativesGrayspots:
         self.cursor = self.conn.cursor()
 
         for filter_group in filters_groups:
+            assert ('filter' in filter_group)
             logging.info ('filter group ' + filter_group['filter'])
 
             # create a dir for cluster
-            out_filter_dir = op.join (out_dir, filter_group['filter'])
-            if op.exists (out_filter_dir):
-                shutil.rmtree (out_filter_dir)
-            os.makedirs (out_filter_dir)
+            cluster_dir = op.join (out_dir, filter_group['filter'])
+            if op.exists (cluster_dir):
+                shutil.rmtree (cluster_dir)
+            os.makedirs (cluster_dir)
 
             self.cursor.execute('SELECT imagefile,backimage FROM images')
             image_entries = self.cursor.fetchall()
 
             for image_entry in image_entries:
-                self.processImage (image_entry, filter_group, out_filter_dir)
+                self.processImage (image_entry, filter_group, cluster_dir)
 
         self.conn.close()
 

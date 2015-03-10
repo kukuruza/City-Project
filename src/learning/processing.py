@@ -232,15 +232,15 @@ class Processor:
 
     def processDb (self, db_in_path, db_out_path):
 
-        # copy input database into the output one
-        shutil.copyfile(db_in_path, db_out_path)
-
         if not op.exists (db_in_path):
             raise Exception ('db does not exist: ' + db_in_path)
 
         if op.exists (db_out_path):
             logging.warning ('deleting existing db_out_path')
             os.remove (db_out_path)
+
+        # copy input database into the output one
+        shutil.copyfile(db_in_path, db_out_path)
 
         self.conn = sqlite3.connect (db_out_path)
         self.cursor = self.conn.cursor()

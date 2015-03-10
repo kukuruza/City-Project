@@ -70,9 +70,10 @@ class Clusterer:
 
         for filter_group in filters_groups:
             assert ('filter' in filter_group)
-            cluster_dir = OP.join (out_dir, filter_group['filter'])
+            logging.info ('filter group ' + filter_group['filter'])
 
             # delete 'cluster_dir' dir, and recreate it
+            cluster_dir = OP.join (out_dir, filter_group['filter'])
             if OP.exists (cluster_dir):
                 shutil.rmtree (cluster_dir)
             os.makedirs (cluster_dir)
