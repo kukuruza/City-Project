@@ -1,5 +1,19 @@
 import numpy as np
+import sys, os
+import logging, logging.handlers
 
+
+def setupLogging (filename, level = logging.INFO, filemode = 'w'):
+    log = logging.getLogger('')
+    log.setLevel (level)
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
+    log_path = os.path.join (os.getenv('CITY_PATH'), filename)
+    fh = logging.handlers.RotatingFileHandler(log_path, mode=filemode)
+    fh.setFormatter(formatter)
+    log.addHandler(fh)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setFormatter(formatter)
+    log.addHandler(sh)
 
 
 #
