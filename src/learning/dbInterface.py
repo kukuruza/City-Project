@@ -3,7 +3,7 @@ import json
 import sqlite3
 
 
-def createDb (db_path):
+def createLabelmeDb (db_path):
     conn = sqlite3.connect (db_path)
     cursor = conn.cursor()
 
@@ -46,16 +46,18 @@ def createDb (db_path):
 #
 def deleteCar (cursor, carid):
     cursor.execute('DELETE FROM cars WHERE id=?;', (carid,));
-    cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
-    cursor.execute('SELECT match FROM matches WHERE carid=?;', (carid,));
-    match = cursor.fetchone()
-    if match:
-        cursor.execute('UPDATE matches SET carid=0 WHERE carid=?', (carid,))
-        # if all cars are 0 for a match, delete it
-        cursor.execute('SELECT carid FROM matches WHERE match=?;', (match[0],));
-        carids = cursor.fetchall()
-        if (all(carid[0] == 0 for carid in carids)):
-            cursor.execute('DELETE FROM matches WHERE match=?;', (match[0],));
+    if checkTableExists (cursor, 'polygons'):
+        cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
+    if checkTableExists (cursor, 'matches'):
+        cursor.execute('SELECT match FROM matches WHERE carid=?;', (carid,));
+        match = cursor.fetchone()
+        if match:
+            cursor.execute('UPDATE matches SET carid=0 WHERE carid=?', (carid,))
+            # if all cars are 0 for a match, delete it
+            cursor.execute('SELECT carid FROM matches WHERE match=?;', (match[0],));
+            carids = cursor.fetchall()
+            if (all(carid[0] == 0 for carid in carids)):
+                cursor.execute('DELETE FROM matches WHERE match=?;', (match[0],));
 
 
 
@@ -90,14 +92,29 @@ def deleteAll4imagefile (cursor, imagefile):
 
 
 
+# not tested or used
+def deleteEmptyImages():
+    cursor.execute('SELECT imagefile FROM images');
+    image_entries = cursor.fetchall()
+    for (imagefile,) in image_entries:
+        cursor.execute('SELECT count(id) FROM cars WHERE imagefile=(?)', (imagefile,));
+        if cursor.fetchone()[0] > 0: continue
+        cursor.execute('DELETE FROM images WHERE imagefile=?;', (imagefile,));
+        os.remove( op.join(os.getenv('CITY_DATA_PATH'), imagefile) )
+        if checkTableExists (cursor, 'masks'):
+            cursor.execute('SELECT FROM masks WHERE imagefile=?;', (imagefile,));
+            cursor.execute('DELETE FROM masks WHERE imagefile=?;', (imagefile,));
+            os.remove( op.join(os.getenv('CITY_DATA_PATH'), imagefile) )
+
+
+
 #
 # check that db follows the rules
 #
 def checkTableExists (cursor, name):
     cursor.execute('''SELECT count(*) FROM sqlite_master 
                       WHERE name=? AND type='table';''', (name,))
-    if cursor.fetchone()[0] == 0:
-        raise Exception ('table ' + name + ' does not exist')
+    return cursor.fetchone()[0] != 0
 
 def checkEntryExists (cursor, table, field, value):
     cursor.execute('SELECT count(*) FROM ? WHERE ? = ?', (table,field,value))
@@ -152,6 +169,21 @@ def queryField (car, field):
     if field == 'bbox-w-offset': 
         return [car[3]+car[7], car[4]+car[8], car[5], car[6]]
     return None
+
+
+def getImageField (image, field):
+    if field == 'imagefile': return image[0] 
+    if field == 'src':       return image[1] 
+    return None
+
+
+def getPolygonField (polygon, field):
+    if field == 'id':        return polygon[0]
+    if field == 'carid':     return polygon[1]
+    if field == 'x':         return polygon[2]
+    if field == 'y':         return polygon[3]
+    return None
+
 
 
 
@@ -210,4 +242,6 @@ def queryCars (cursor, filters={}, fields=['*']):
     logging.debug ('querying cars with: ' + query_str)
     cursor.execute(query_str)
     return cursor.fetchall()
+
+
 

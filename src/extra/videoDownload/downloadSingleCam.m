@@ -10,9 +10,11 @@ function downloadSingleCam (camNum, outFileTemplate, numMinutes)
 clear frameWriter frameReader
 
 % setup data directory
-if ~exist('FrameWriter', 'class')
-    error ('please "run ../../subdirPathsSetup.m" before calling this function');
-end
+%if ~exist('FrameWriter', 'class')
+%    error ('please "run ../../subdirPathsSetup.m" before calling this function');
+%end
+
+run ('../../subdirPathsSetup.m')
 
 % where to write video and intervals
 videoPath = fullfile([outFileTemplate, '.avi']);

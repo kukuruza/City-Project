@@ -44,12 +44,19 @@ class Clusterer:
         return (carid, ghost)
 
 
-    def collectGhosts (self, db_path, filters_path, out_dir):
+    def collectGhosts (self, db_path, filters_path, out_dir, params = {}):
         '''Cluster cars and save the patches by cluster
 
            Find cars in paths specified in data_list_path,
            use filters to cluster and transform,
            and save the ghosts '''
+
+        logging.info ('=== clustering.collectGhosts ===')
+        logging.info ('db_path: ' + db_path)
+        logging.info ('filters_path: ' + filters_path)
+        logging.info ('out_dir: ' + out_dir)
+        logging.info ('params: ' + str(params))
+        logging.info ('')
 
         # open db
         if not op.exists (db_path):
@@ -107,9 +114,26 @@ class Clusterer:
 
         conn.close()
 
+        # write info
+        with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
+            readme.write('from database ' + db_path + '\n')
+            readme.write('with filters  ' + filters_path + '\n')
 
 
-    def writeInfoFile (self, db_path, filters_path, out_dir):
+
+    def writeInfoFile (self, db_path, filters_path, out_dir, params = {}):
+
+        logging.info ('=== clustering.writeInfoFile ===')
+        logging.info ('db_path: ' + db_path)
+        logging.info ('filters_path: ' + filters_path)
+        logging.info ('out_dir: ' + out_dir)
+        logging.info ('params: ' + str(params))
+        logging.info ('')
+
+        if 'dupl_num' in params.keys(): 
+            dupl_num = params['dupl_num']
+        else:
+            dupl_num = 1
 
         # open db
         if not op.exists (db_path):
@@ -138,11 +162,17 @@ class Clusterer:
             cursor.execute('SELECT imagefile FROM images')
             imagefiles = cursor.fetchall()
 
+            counter = 0
             for (imagefile,) in imagefiles:
 
                 # get db entries
                 filter_group['imagefile'] = imagefile
                 car_entries = queryCars (cursor, filter_group)
+                counter += len(car_entries)
+
+                # skip if there are no objects
+                if not car_entries:
+                    continue
 
                 imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
                 info_file.write (op.relpath(imagepath, out_dir))
@@ -150,11 +180,19 @@ class Clusterer:
 
                 for car_entry in car_entries:
                     bbox = queryField(car_entry, 'bbox-w-offset')
-                    info_file.write ('   ' + ' '.join(str(e) for e in bbox))
+                    # write several times, for generation multiple objects
+                    for i in range(dupl_num):
+                        info_file.write ('   ' + ' '.join(str(e) for e in bbox))
 
                 info_file.write('\n')
+
+            logging.info ('instances of ' + filter_group['filter'] + ': ' + str(counter))
 
         info_file.close()
         conn.close()
 
+        # write info
+        with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
+            readme.write('from database ' + db_path + '\n')
+            readme.write('with filters  ' + filters_path + '\n')
 

@@ -3,6 +3,7 @@
 import logging
 import sys
 import os, os.path as op
+import glob
 sys.path.insert(0, os.path.abspath('../../learning'))
 from utilities import setupLogging
 import random
@@ -23,13 +24,22 @@ def splitVec (vec_path, percentages):
         nlines = int(len(content) * perc)
 
         vec_name = op.basename(vec_path)
-        part_path = op.join (op.dirname(vec_path), part + '-' + vec_name)
+        vec_name, ext = os.path.splitext(vec_name)
+        part_path = op.join (op.dirname(vec_path), vec_name + '-' + part + ext)
         logging.info ('write ' + str(nlines) + ' lines to ' + part_path)
 
         with open(part_path, 'w') as f:
             for i in range(nlines):
-                f.write (content[i] + '\n')
+                f.write (content[i])
 
+
+
+def splitAllInDir (vec_dir, percentages):
+    vec_template = op.join(vec_dir, '*.dat')
+    vec_paths = glob.glob (vec_template)
+    logging.info ('found ' + str(len(vec_paths)) + ' vector paths: ' + vec_template)
+    for vec_path in vec_paths:
+        splitVec (vec_path, percentages)
 
 
 if __name__ == '__main__':
@@ -40,8 +50,8 @@ if __name__ == '__main__':
 
     setupLogging ('log/detector/splitVec.log', logging.INFO)
 
-    vec_path = op.join (CITY_DATA_PATH, 'learning/violajones/cars_bysize/small.dat')
+    vec_dir = op.join (CITY_DATA_PATH, 'learning/violajones/byname_40x30-2/car.dat')
     percentages = { 'train': 0.8, 'test': 0.2 }
 
-    splitVec (vec_path, percentages)
+    splitVec (vec_dir, percentages)
 

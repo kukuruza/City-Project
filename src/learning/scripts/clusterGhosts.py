@@ -19,14 +19,10 @@ if __name__ == '__main__':
 
     setupLogging ('log/learning/clusterGhosts.log', logging.INFO)
 
-    in_db_path   = op.join (CITY_DATA_PATH, 'databases/w-ratio.db')
-    filters_path = op.join (CITY_DATA_PATH, 'clustering/filters/cars_bysize.json')
-    out_dir      = op.join (CITY_DATA_PATH, 'clustering/cars_bysize')
+    in_db_path   = op.join (CITY_DATA_PATH, 'databases/fr-wratio-wborder-p0.2.db')
+    filters_path = op.join (CITY_DATA_PATH, 'clustering/filters/byname_40x30.json')
+    out_dir      = op.join (CITY_DATA_PATH, 'clustering/byname_40x30-2')
 
     clusterer = Clusterer()
     clusterer.collectGhosts (in_db_path, filters_path, out_dir)
-
-    with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
-        readme.write('from database ' + in_db_path + '\n')
-        readme.write('with filters  ' + filters_path + '\n')
 

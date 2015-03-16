@@ -15,57 +15,70 @@ run ../subdirPathsSetup.m;
 
 %% input
 
+DensitySigma = 2.5;   % effective radius around car to be empty
+DensityRatio = 12.0;   % how much dense inside / sparse outside it should be
+do_write = true;
 verbose = 0;
-dowrite = true;
-dowriteFrames = true;
-dopause = 0.3;
 
-videoPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.avi'];
-timestampPath = [CITY_DATA_PATH 'camdata/cam572/10am/2-hours.txt'];
+videoName = 'camdata/cam578/Mar15-10h';
+videoPath = [CITY_DATA_PATH videoName '.avi'];
+timePath = [CITY_DATA_PATH videoName '.txt'];
+
+backfile = 'camdata/cam578/models/backimage-wet.png';
 
 
 %% output
-outDir = [CITY_DATA_PATH 'learning/cam572-sparse3/'];
 
+dir_name = 'datasets/sparse/578-Mar15-10h';
+db_name = 'src-ds2.5-dp12.0.db';
+
+outDir = [CITY_DATA_PATH dir_name];
+if ~exist (fileparts(outDir), 'dir')
+    error ('parent directory for outDir doesn''t exist');
+end
 if exist(outDir, 'dir')
     rmdir(outDir, 's');
 end
+dir_name = [dir_name '/'];
+outDir = [outDir '/'];
 mkdir(outDir);
-mkdir([outDir 'cars/']);
-mkdir([outDir 'frames/']);
-mkdir([outDir 'ghosts/']);
-mkdir([outDir 'patches/']);
+mkdir([outDir 'Images/']);
+mkdir([outDir 'Ghosts/']);
+mkdir([outDir 'Masks/']);
+mkdir([outDir 'Databases/']);
 
 
 %% init
 
 % frame reader
-frameReader = FrameReaderVideo (videoPath, timestampPath);
+frameReader = FrameReaderVideo (videoPath, timePath);
 
 % background
-load ([CITY_DATA_PATH, 'camdata/cam572/10am/models/backgroundGMM.mat']);
+load ([CITY_DATA_PATH, 'models/cam572/backgroundGMM.mat']);
+%pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 
 % true background
-backImage = int32(imread([CITY_DATA_PATH, 'camdata/cam572/10am/background1.png']));
+backImage = int32(imread([CITY_DATA_PATH, backfile]));
 
-% geometry
-load('GeometryObject_Camera_572.mat');
-sizeMap = geom.getCameraRoadMap();
-orientationMap = geom.getOrientationMap();
+% out database
+if do_write
+    db_path = [outDir 'Databases/' db_name];
+    createMaskDb(db_path);
+    sqlite3.open(db_path);
+end
 
 
 %% work
 
-for t = 1 : 100000
+for t = 1 : 10000000
     
     % read image
     [frame, ~] = frameReader.getNewFrame();
     if isempty(frame), break, end
-    frame_out = frame;
     fprintf ('frame: %d\n', t);
 
     % get the trace of foreground. Cars will be learned from this.
-    frame_ghost = uint8((int32(frame) - int32(backImage)) / 2 + 128);
+    ghost = uint8((int32(frame) - int32(backImage)) / 2 + 128);
 
     % subtract background and return mask
     mask = background.subtract(frame);
@@ -75,136 +88,55 @@ for t = 1 : 100000
     for k = 1 : size(bboxes,1)
         cars(k) = Car(bboxes(k,:));
     end
-%     mask = imerode (mask, strel('disk', 2));
-%     mask = imdilate(mask, strel('disk', 2));
     fprintf ('background cars: %d\n', length(cars));
     
-    % assigning orientation
-    for j = 1 : length(cars)
-        center = cars(j).getBottomCenter();
-        cars(j).orientation = [orientationMap.yaw(center(1), center(2)) ...
-                               orientationMap.pitch(center(1), center(2))];
+    if do_write
+        im_name = sprintf ('%06d', t);
+        image_file = [dir_name 'Images/' im_name '.jpg'];
+        ghost_file = [dir_name 'Ghosts/' im_name '.jpg'];
+        mask_file = [dir_name 'Masks/'  im_name '.png'];
+        imwrite (frame, [CITY_DATA_PATH image_file]);
+        imwrite (ghost, [CITY_DATA_PATH ghost_file]);
+        imwrite (mask,  [CITY_DATA_PATH mask_file]);
     end
-
-    % filter: sizes (size is sqrt of area)
-    SizeTolerance = 1.5;
-    counter = 1;
-    carsFilt = Car.empty;
-    for j = 1 : length(cars)
-        center = cars(j).getBottomCenter(); % [y x]
-        expectedSize = sizeMap(center(1), center(2));
-        actualSize = sqrt(single(cars(j).bbox(3) * cars(j).bbox(4)));
-        if actualSize > expectedSize / SizeTolerance && ...
-           actualSize < expectedSize * SizeTolerance
-            carsFilt(counter) = cars(j);
-            counter = counter + 1;
-        end
+        
+    statuses = cell(length(cars),1);
+    for i = 1 : length(cars)
+        statuses{i} = 'ok';
     end
-    cars = carsFilt;
-    fprintf ('sized cars:      %d\n', length(cars));
-
-    mask_out = cat(3, uint8(mask), uint8(mask), uint8(mask)) * 255;
-    for j = 1 : length(cars)
-        mask_out = cars(j).drawCar(mask_out, 'color', 'blue', 'tag', 'sized');
-    end
-    
-    % filter: bbox proportion
-    Heght2Width = [0.5 1.2];
-    counter = 1;
-    carsFilt = Car.empty;
-    for j = 1 : length(cars)
-        proportion = cars(j).bbox(4) / double(cars(j).bbox(3));
-        if proportion > Heght2Width(1) && proportion < Heght2Width(2)
-            carsFilt(counter) = cars(j);
-            counter = counter + 1;
-        end
-    end
-    cars = carsFilt;
-    fprintf ('square cars:     %d\n', length(cars));
-    
-    
-    % filter: sparse in the image
-    SafeDistance = 0.0;
-    counter = 1;
-    carsFilt = Car.empty;
-    for j = 1 : length(cars)
-        center = cars(j).getCenter(); % [y x]
-        expectedSize = sizeMap(center(1), center(2));
-        isOk = true;
-        for k = 1 : length(cars)
-            if j ~= k && dist(center, cars(k).getCenter()') < expectedSize * SafeDistance
-                isOk = false;
-            end
-        end
-        if isOk
-            carsFilt(counter) = cars(j);
-            counter = counter + 1;
-        end
-    end
-    cars = carsFilt;
+    statuses = filterBySparsity (mask, cars, statuses, 'verbose', verbose, ...
+                     'DensitySigma', DensitySigma, 'DensityRatio', DensityRatio);
+    indices = find(cellfun('isempty', strfind(statuses, 'ok')));
+    cars (indices) = [];
     fprintf ('sparse cars:     %d\n', length(cars));
-    for j = 1 : length(cars)
-        frame_out = cars(j).drawCar(frame_out, 'color', 'blue', 'tag', 'sparse');
-    end
-    
-    
-    % filter: close to the border
-    DistToBorder = 20;  % need at least DistToBorder pixels to border
-    counter = 1;
-    carsFilt = Car.empty;
-    for j = 1 : length(cars)
-        center = cars(j).getCenter(); % [y x]
-        expectedSize = sizeMap(center(1), center(2));
-        roi = cars(j).getROI();
-        %min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(2)])
-        if min([roi(1:2), size(frame,1)-roi(3), size(frame,2)-roi(4)]) > DistToBorder
-            carsFilt(counter) = cars(j);
-            counter = counter + 1;
-        end
-    end
-    cars = carsFilt;
-    fprintf ('non-border cars: %d\n', length(cars));
-    
-    
-    % expand boxes
-    ExpandPerc = 0.15;
-    for j = 1 : length(cars)
-        cars(j).bbox = expandBboxes (cars(j).bbox, ExpandPerc, frame);
-    end
 
-    
-    % output
-    frame_out = frame;
-
-    for j = 1 : length(cars)
-        car = cars(j);
-        car.segmentMask = car.extractPatch(mask);
-        car.ghost = car.extractPatch(frame_ghost);
-        car.extractPatch(frame);
-        namePrefix = ['f' sprintf('%03d',t) '-car' sprintf('%03d',j)];
-        if dowrite
-            save ([outDir 'cars/' namePrefix '.mat'], 'car');
-            imwrite(car.patch, [outDir 'patches/' namePrefix '.png']);
-            imwrite(uint8(abs(car.ghost)), [outDir 'ghosts/' namePrefix '.png']);
+    if ~isempty(cars) && do_write
+        width  = size(frame, 2);
+        height = size(frame, 1);
+        sqlite3.execute('INSERT INTO images VALUES (?,?,?,?)', ...
+                        ghost_file, videoName, width, height);
+        sqlite3.execute('INSERT INTO masks VALUES (?,?)', ghost_file, mask_file);
+        for i = 1 : length(cars)
+            car = cars(i);
+            bbox = car.bbox;
+            sqlite3.execute(['INSERT INTO cars(imagefile, name, x1, y1, width, height, ' ...
+                             'offsetx, offsety) VALUES (?,?,?,?,?,?,?,?) '], ...
+                             ghost_file, 'object', bbox(1), bbox(2), bbox(3), bbox(4), 0, 0);
         end
     end
     
-    for j = 1 : length(cars)
-        mask_out    = cars(j).drawCar(mask_out, 'color', 'yellow', 'tag', 'detected');
-        frame_out   = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
-    end
-    if dowriteFrames
-        imwrite(frame,       [outDir 'frames/' sprintf('%03d',t) '-frame.jpg']);
-        imwrite(frame_out,   [outDir 'frames/' sprintf('%03d',t) '-out.jpg']);
-        imwrite(frame_ghost, [outDir 'frames/' sprintf('%03d',t) '-ghosts.jpg']);
-        imwrite(mask_out,    [outDir 'frames/' sprintf('%03d',t) '-mask.jpg']);
-    end
     if verbose > 0
-        figure(1)
+        frame_out = frame;
+        mask_out  = uint8(mask(:,:,[1,1,1])) * 255;
+        for j = 1 : length(cars)
+            mask_out    = cars(j).drawCar(mask_out, 'color', 'yellow', 'tag', 'detected');
+            frame_out   = cars(j).drawCar(frame_out, 'color', 'yellow', 'tag', 'detected');
+        end
+        figure (1)
         subplot(2,2,1), imshow(mask_out);
-        subplot(2,2,2), imshow(frame_ghost);
+        subplot(2,2,2), imshow(ghost);
         subplot(2,2,3), imshow(frame_out);
-        pause (max(0.1, dopause));
+        pause()
     end
 end
 

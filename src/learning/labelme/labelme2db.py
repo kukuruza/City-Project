@@ -10,7 +10,7 @@ import shutil
 import sqlite3
 
 sys.path.insert(0, os.path.abspath('..'))
-from dbInterface import createDb, deleteAll4imagefile
+from dbInterface import createLabelmeDb, deleteAll4imagefile
 from utilities import roi2bbox, image2ghost
 
 sys.path.insert(0, os.path.abspath('annotations'))
@@ -38,7 +38,7 @@ class BaseConverter:
             raise Exception ('backimage_file does not exist: ' + self.backimage_file)
         self.backimage = cv2.imread(backfullpath)
 
-        createDb (db_path)
+        createLabelmeDb (db_path)
         self.conn = sqlite3.connect (db_path)
         self.cursor = self.conn.cursor()
 

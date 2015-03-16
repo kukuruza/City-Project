@@ -47,6 +47,11 @@ class NegativesGrayspots:
 
     def processDb (self, db_path, filters_path, out_dir):
 
+        logging.info ('=== negatives.processDb ===')
+        logging.info ('called with db_path: ' + db_path)
+        logging.info ('            filters_path: ' + filters_path)
+        logging.info ('            out_dir: ' + out_dir))
+
         # check output dir
         if not op.exists (out_dir):
             os.makedirs (out_dir)
