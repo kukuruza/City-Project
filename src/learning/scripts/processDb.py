@@ -19,7 +19,7 @@ import logging
 import sys
 import os, os.path as op
 sys.path.insert(0, os.path.abspath('..'))
-from processing import Processor
+from processing import dbFilter, dbExpandBboxes
 from utilities import setupLogging
 
 
@@ -33,19 +33,18 @@ if __name__ == '__main__':
     CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
 #    db_in_path  = op.join (CITY_DATA_PATH, 'labelme/Databases/src-frames.db')
 #    db_out_path = op.join (CITY_DATA_PATH, 'databases/wratio-p0.2.db')
-    db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/578-Mar15-10h/Databases/src-ds2.5-dp12.0.db')
-    db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/578-Mar15-10h/Databases/filt-ds2.5-dp12.0.db')
+    db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/src-ds2.5-dp12.0.db')
+    db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/filt-ds2.5-dp12.0-test.db')
 
     params = {'geom_maps_dir': op.join (CITY_DATA_PATH, 'models/cam578/'),
-              'debug_show': False,
-              'expand_perc': 0,
-              'keep_ratio': False,
+              'debug_show': True,
+              'expand_perc': 0.1,
+              'keep_ratio': True,
               'border_thresh_perc': 0.005,
               'min_width_thresh': 10 }
 
-    processor = Processor (params)
-    processor.processDb (db_in_path, db_out_path)
-
-    dbAssignOrientations (db_out_path, db_out_path, params)
+    #dbFilter (db_in_path, db_out_path, params)
+    dbExpandBboxes (db_in_path, db_out_path, params)
+    #dbAssignOrientations (db_out_path, db_out_path, params)
 
     

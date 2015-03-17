@@ -66,241 +66,256 @@ def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
     return roi
 
 
-
-
-class Processor:
-
-    border_thresh_perc = 0.03
-    expand_perc = 0.1
-    target_ratio = 0.75   # height / width
-    keep_ratio = False
-    size_acceptance = (0.4, 2)
-    ratio_acceptance = (0.4, 1.5)
-    sizemap_dilate = 21
-    debug_show = False
-    debug_sizemap = False
-    min_width_thresh = 0
-
-    def __init__(self, params):
-
-        logging.info ('=== processing.__init__ ===')
-        logging.info ('params: ' + str(params))
-        logging.info ('')
-
-        if 'border_thresh_perc' in params.keys(): 
-            self.border_thresh_perc = params['border_thresh_perc']
-        if 'min_width_thresh' in params.keys(): 
-            self.min_width_thresh = params['min_width_thresh']
-        if 'expand_perc' in params.keys(): 
-            self.expand_perc = params['expand_perc']
-        if 'target_ratio' in params.keys(): 
-            self.target_ratio = params['target_ratio']
-        if 'keep_ratio' in params.keys(): 
-            self.keep_ratio = params['keep_ratio']
-        if 'size_acceptance' in params.keys(): 
-            self.size_acceptance = params['size_acceptance']
-        if 'ratio_acceptance' in params.keys(): 
-            self.ratio_acceptance = params['ratio_acceptance']
-        if 'sizemap_dilate' in params.keys(): 
-            self.sizemap_dilate = params['sizemap_dilate']
-        if 'debug_show' in params.keys():
-            self.debug_show = params['debug_show']
-        if 'debug_sizemap' in params.keys(): 
-            self.debug_sizemap = params['debug_sizemap']
-
-        if 'geom_maps_dir' in params.keys():
-            size_map_path  = op.join (geom_maps_dir, 'sizeMap.tiff')
-            self.size_map  = cv2.imread (size_map_path, 0).astype(np.float32)
-        else:
-            raise Exception ('Processor: geom_maps_dir is not given in params')
-
-        if self.debug_sizemap:
-            cv2.imshow ('size_map original', self.size_map)
-
-        # dilate size_map
-        kernel = np.ones ((self.sizemap_dilate, self.sizemap_dilate), 'uint8')
-        self.size_map = cv2.dilate (self.size_map, kernel)
-
-        if self.debug_sizemap:
-            cv2.imshow ('size_map dilated', self.size_map)
-            cv2.waitKey(-1)
-
-
-
-    def isPolygonAtBorder (self, xs, ys, width, height):
-        border_thresh = (height + width) / 2 * self.border_thresh_perc
-        dist_to_border = min (xs, [width - x for x in xs], ys, [height - y for y in ys])
-        num_too_close = sum([x < border_thresh for x in dist_to_border])
-        return num_too_close >= 2
-
-
-    def isRoiAtBorder (self, roi, width, height):
-        border_thresh = (height + width) / 2 * self.border_thresh_perc
-        return min (roi[0], roi[1], height+1 - roi[2], width+1 - roi[3]) < border_thresh
-
-
-    def isWrongSize (self, roi):
-        bc = bottomCenter(roi)
-        # whatever definition of size
-        size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
-        return self.size_map [bc[0], bc[1]] * self.size_acceptance[0] > size or \
-               self.size_map [bc[0], bc[1]] * self.size_acceptance[1] < size
-
-
-    def isBadRatio (self, roi):
-        ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
-        return ratio < self.ratio_acceptance[0] or ratio > self.ratio_acceptance[1]
-
-
-    def debugShowAddRoi (self, img, roi, (offsety, offsetx), flag):
-        if self.debug_show: 
-            if flag == 'border':
-                color = (0,255,255)
-            elif flag == 'badroi':
-                color = (0,0,255)
-            else:
-                color = (255,0,0)
-            roi[0] += offsety
-            roi[1] += offsetx
-            roi[2] += offsety
-            roi[3] += offsetx
-            cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color)
-
-
-    def processCar (self, car_entry):
-
-        carid = queryField(car_entry, 'id')
-        roi = bbox2roi (queryField(car_entry, 'bbox'))
-        imagefile = queryField(car_entry, 'imagefile')
-        offsetx   = queryField(car_entry, 'offsetx')
-        offsety   = queryField(car_entry, 'offsety')
-
-        # prefer to duplicate query rather than pass parameters to function
-        self.cursor.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
-        (width,height) = self.cursor.fetchone()
-
-        is_bad = False
-        if checkTableExists(self.cursor, 'polygons'):
-            # get polygon
-            self.cursor.execute('SELECT x,y FROM polygons WHERE carid=?', 
-                                (queryField(car_entry, 'id'),))
-            polygon_entries = self.cursor.fetchall()
-            xs = [polygon_entry[0] for polygon_entry in polygon_entries]
-            ys = [polygon_entry[1] for polygon_entry in polygon_entries]
-            assert (len(xs) > 2 and min(xs) != max(xs) and min(ys) != max(ys))
-            # filter border
-            if self.isPolygonAtBorder(xs, ys, width, height): 
-                logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
-                flag = 'border'
-                is_bad = True
-        else:
-            # filter border
-            if self.isRoiAtBorder(roi, width, height): 
-                logging.info ('border polygon ' + str(roi))
-                flag = 'border'
-                is_bad = True
-
-
-        if self.isWrongSize(roi):
-            logging.info ('wrong size of car in ' + str(roi))
-            flag = 'badroi'
-            is_bad = True
-        if self.isBadRatio(roi):
-            logging.info ('bad ratio of roi ' + str(roi))
-            flag = 'badroi'
-            is_bad = True
-        if roi[3]-roi[1] < self.min_width_thresh:
-            logging.info ('too small ' + str(roi))
-            flag = 'badroi'
-            is_bad = True
-
-        if is_bad:
-            deleteCar (self.cursor, carid)
-            self.debugShowAddRoi (self.img_show, roi, (offsety, offsetx), flag)
-            return
-
-        # expand bbox
-        if self.keep_ratio:
-            roi = expandRoiToRatio (roi, (height, width), self.expand_perc, self.target_ratio)
-        else:
-            roi = expandRoiFloat (roi, (height, width), (self.expand_perc, self.expand_perc))
-        self.debugShowAddRoi (self.img_show, roi, (offsety, offsetx), 'good')
-
-        self.cursor.execute('''UPDATE cars SET x1=?, y1=?, width=?, height=? 
-                               WHERE id=?''', tuple (roi2bbox(roi) + [carid]))
-
-
-
-    def processDb (self, db_in_path, db_out_path):
-
-        logging.info ('=== processing.processDb ===')
-        logging.info ('db_in_path: ' + db_in_path)
-        logging.info ('db_out_path: ' + db_out_path)
-        logging.info ('')
-
-        if not op.exists (db_in_path):
-            raise Exception ('db does not exist: ' + db_in_path)
-
-        if op.exists (db_out_path) and db_in_path != db_out_path:
-            logging.warning ('will delete existing db_out_path')
-            os.remove (db_out_path)
-
-        # copy input database into the output one
-        if db_in_path != db_out_path:
-            shutil.copyfile(db_in_path, db_out_path)
-
-        self.conn = sqlite3.connect (db_out_path)
-        self.cursor = self.conn.cursor()
-
-        self.cursor.execute('SELECT imagefile FROM images')
-        image_entries = self.cursor.fetchall()
-
-        button = 0
-        for (imagefile,) in image_entries:
-
-            imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-            if not op.exists (imagepath):
-                raise Exception ('image does not exist: ' + imagepath)
-            self.img_show = cv2.imread(imagepath) if self.debug_show else None
-
-            self.cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-            car_entries = self.cursor.fetchall()
-            logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
-
-            for car_entry in car_entries:
-                self.processCar (car_entry)
-
-            if self.debug_show and button != 27: 
-                cv2.imshow('debug_show', self.img_show)
-                button = cv2.waitKey(-1)
-                if button == 27: cv2.destroyWindow('debug_show')
-
-        self.conn.commit()
-        self.conn.close()
-
+def __setParamUnlessThere__ (params, key, default_value):
+    if not key in params.keys(): params[key] = default_value
+    return params
 
 
 def __setupLogHeader__ (db_in_path, db_out_path, params, name):
-
     logging.info ('=== processing ' + name + '===')
     logging.info ('db_in_path:  ' + db_in_path)
     logging.info ('db_out_path: ' + db_out_path)
     logging.info ('params:      ' + str(params))
 
 
-
 def __setupCopyDb__ (db_in_path, db_out_path):
-
     if not op.exists (db_in_path):
         raise Exception ('db does not exist: ' + db_in_path)
-
     if op.exists (db_out_path) and db_in_path != db_out_path:
         logging.warning ('will delete existing db_out_path')
         os.remove (db_out_path)
-
     if db_in_path != db_out_path:
         # copy input database into the output one
         shutil.copyfile(db_in_path, db_out_path)
+
+
+def __loadKeys__ (params):
+    if 'keys_config' in params.keys() and 'calibrate' not in params.keys(): 
+        keys_config = params['keys_config']
+    else:
+        keys_config = getCalibration()
+    logging.info ('left:  ' + str(keys_config['left']))
+    logging.info ('right: ' + str(keys_config['right']))
+    logging.info ('del:   ' + str(keys_config['del']))
+    return keys_config
+
+
+def __drawRoi__ (img, roi, (offsety, offsetx), flag):
+    if flag == 'border':
+        color = (0,255,255)
+    elif flag == 'badroi':
+        color = (0,0,255)
+    else:
+        color = (255,0,0)
+    roi[0] += offsety
+    roi[1] += offsetx
+    roi[2] += offsety
+    roi[3] += offsetx
+    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color)
+
+
+def isPolygonAtBorder (xs, ys, width, height, params):
+    border_thresh = (height + width) / 2 * params['border_thresh_perc']
+    dist_to_border = min (xs, [width - x for x in xs], ys, [height - y for y in ys])
+    num_too_close = sum([x < border_thresh for x in dist_to_border])
+    return num_too_close >= 2
+
+
+def isRoiAtBorder (roi, width, height, params):
+    border_thresh = (height + width) / 2 * params['border_thresh_perc']
+    return min (roi[0], roi[1], height+1 - roi[2], width+1 - roi[3]) < border_thresh
+
+
+def isWrongSize (roi, params):
+    bc = bottomCenter(roi)
+    # whatever definition of size
+    size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
+    return (params['size_map'][bc[0], bc[1]] * params['size_acceptance'][0] > size or
+            params['size_map'][bc[0], bc[1]] * params['size_acceptance'][1] < size)
+
+
+def isBadRatio (roi, params):
+    ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
+    return ratio < params['ratio_acceptance'][0] or ratio > params['ratio_acceptance'][1]
+
+
+
+def __filterCar__ (cursor, car_entry, params):
+
+    carid = queryField(car_entry, 'id')
+    roi = bbox2roi (queryField(car_entry, 'bbox'))
+    imagefile = queryField(car_entry, 'imagefile')
+    offsetx   = queryField(car_entry, 'offsetx')
+    offsety   = queryField(car_entry, 'offsety')
+
+    # prefer to duplicate query rather than pass parameters to function
+    cursor.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
+    (width,height) = cursor.fetchone()
+
+    is_bad = False
+    if checkTableExists(cursor, 'polygons'):
+        # get polygon
+        cursor.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
+        polygon_entries = cursor.fetchall()
+        xs = [polygon_entry[0] for polygon_entry in polygon_entries]
+        ys = [polygon_entry[1] for polygon_entry in polygon_entries]
+        assert (len(xs) > 2 and min(xs) != max(xs) and min(ys) != max(ys))
+        # filter border
+        if isPolygonAtBorder(xs, ys, width, height, params): 
+            logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
+            flag = 'border'
+            is_bad = True
+    else:
+        # filter border
+        if isRoiAtBorder(roi, width, height, params): 
+            logging.info ('border polygon ' + str(roi))
+            flag = 'border'
+            is_bad = True
+
+    if isWrongSize(roi, params):
+        logging.info ('wrong size of car in ' + str(roi))
+        flag = 'badroi'
+        is_bad = True
+    if isBadRatio(roi, params):
+        logging.info ('bad ratio of roi ' + str(roi))
+        flag = 'badroi'
+        is_bad = True
+    if roi[3]-roi[1] < params['min_width_thresh']:
+        logging.info ('too small ' + str(roi))
+        flag = 'badroi'
+        is_bad = True
+
+    if is_bad:
+        deleteCar (cursor, carid)
+        if params['debug_show']:
+            __drawRoi__ (params['img_show'], roi, (offsety, offsetx), flag)
+
+
+
+def dbFilter (db_in_path, db_out_path, params):
+
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbFilter')
+    __setupCopyDb__ (db_in_path, db_out_path)
+
+    params = __setParamUnlessThere__ (params, 'border_thresh_perc', 0.03)
+    params = __setParamUnlessThere__ (params, 'min_width_thresh',   10)
+    params = __setParamUnlessThere__ (params, 'size_acceptance',   (0.4, 2))
+    params = __setParamUnlessThere__ (params, 'ratio_acceptance',  (0.4, 1.5))
+    params = __setParamUnlessThere__ (params, 'sizemap_dilate',     21)
+    params = __setParamUnlessThere__ (params, 'debug_show',         False)
+    params = __setParamUnlessThere__ (params, 'debug_sizemap',      False)
+
+    if 'geom_maps_dir' in params.keys():
+        size_map_path = op.join (params['geom_maps_dir'], 'sizeMap.tiff')
+        params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
+    else:
+        raise Exception ('geom_maps_dir is not given in params')
+
+    if params['debug_sizemap']:
+        cv2.imshow ('size_map original', params['size_map'])
+
+    # dilate size_map
+    kernel = np.ones ((params['sizemap_dilate'], params['sizemap_dilate']), 'uint8')
+    params['size_map'] = cv2.dilate (params['size_map'], kernel)
+
+    if params['debug_sizemap']:
+        cv2.imshow ('size_map dilated', params['size_map'])
+        cv2.waitKey(-1)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT imagefile FROM images')
+    image_entries = cursor.fetchall()
+
+    button = 0
+    for (imagefile,) in image_entries:
+
+        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+        if not op.exists (imagepath):
+            raise Exception ('image does not exist: ' + imagepath)
+        params['img_show'] = cv2.imread(imagepath) if params['debug_show'] else None
+
+        cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        car_entries = cursor.fetchall()
+        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+
+        for car_entry in car_entries:
+            __filterCar__ (cursor, car_entry, params)
+
+        if params['debug_show'] and button != 27: 
+            cv2.imshow('debug_show', params['img_show'])
+            button = cv2.waitKey(-1)
+            if button == 27: cv2.destroyWindow('debug_show')
+
+    conn.commit()
+    conn.close()
+
+
+
+def __expandCarBbox__ (cursor, car_entry, params):
+
+    expand_perc = params['expand_perc']
+    target_ratio = params['target_ratio']
+    carid = queryField(car_entry, 'id')
+    roi = bbox2roi (queryField(car_entry, 'bbox'))
+    imagefile = queryField(car_entry, 'imagefile')
+    offsetx   = queryField(car_entry, 'offsetx')
+    offsety   = queryField(car_entry, 'offsety')
+
+    cursor.execute('SELECT height, width FROM images WHERE imagefile=?', (imagefile,))
+    (height, width) = cursor.fetchone()
+
+    old = list(roi)
+    if params['keep_ratio']:
+        roi = expandRoiToRatio (roi, (height, width), expand_perc, target_ratio)
+    else:
+        roi = expandRoiFloat (roi, (height, width), (expand_perc, expand_perc))
+
+    if params['debug_show']:
+        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+        if not op.exists (imagepath):
+            raise Exception ('image does not exist: ' + imagepath)
+        img_show = cv2.imread(imagepath)
+        __drawRoi__ (img_show, old, (offsety, offsetx), 'badroi')
+        __drawRoi__ (img_show, roi, (offsety, offsetx), 'good')
+        cv2.imshow('debug_show', img_show)
+        if cv2.waitKey(-1) == 27: 
+            cv2.destroyWindow('debug_show')
+            params['debug_show'] = False
+
+    cursor.execute('''UPDATE cars SET x1=?, y1=?, width=?, height=? 
+                      WHERE id=?''', tuple (roi2bbox(roi) + [carid]))
+
+
+
+def dbExpandBboxes (db_in_path, db_out_path, params):
+
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbExpandBboxes')
+    __setupCopyDb__ (db_in_path, db_out_path)
+
+    params = __setParamUnlessThere__ (params, 'expand_perc', 0.1)
+    params = __setParamUnlessThere__ (params, 'target_ratio', 0.75)   # height / width
+    params = __setParamUnlessThere__ (params, 'keep_ratio', False)
+    params = __setParamUnlessThere__ (params, 'debug_show', False)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT imagefile FROM images')
+    image_entries = cursor.fetchall()
+
+    for (imagefile,) in image_entries:
+
+        cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        car_entries = cursor.fetchall()
+        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+
+        for car_entry in car_entries:
+            __expandCarBbox__ (cursor, car_entry, params)
+
+    conn.commit()
+    conn.close()
 
 
 
@@ -346,27 +361,28 @@ def dbMove (db_in_path, db_out_path, params):
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
 
-    if 'new_images_dir' in params.keys():
+    if 'images_dir' in params.keys():
 
         cursor.execute('SELECT imagefile FROM images')
         imagefiles = cursor.fetchall()
 
         for (oldfile,) in imagefiles:
-            newfile = op.join (params['new_images_dir'], op.basename (oldfile))
+            # op.basename (op.dirname(oldfile)), 
+            newfile = op.join (params['images_dir'], op.basename (oldfile))
             cursor.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
             cursor.execute('UPDATE cars SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
             if checkTableExists (cursor, 'masks'):
                 cursor.execute('UPDATE masks SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
 
-    if 'new_mask_dir' in params.keys() and not checkTableExists (cursor, 'masks'):
-        logging.warning ('new_mask_dir is in params, but table masks does not exist')
-    elif 'new_mask_dir' in params.keys():
+    if 'masks_dir' in params.keys() and not checkTableExists (cursor, 'masks'):
+        logging.warning ('masks_dir is in params, but table "masks" does not exist')
+    elif 'masks_dir' in params.keys():
         cursor.execute('SELECT maskfile FROM masks')
         maskfiles = cursor.fetchall()
 
         for (oldfile,) in maskfiles:
-            newfile = op.join (params['new_masks_dir'], op.basename (oldfile))
-            cursor.execute('UPDATE masks SET maskfile=? WHERE maskfile=?', (newfile, imagefile))
+            newfile = op.join (params['masks_dir'], op.basename (oldfile))
+            cursor.execute('UPDATE masks SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
 
     conn.commit()
     conn.close()
@@ -430,137 +446,117 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
 
 
 
+def dbClassifyManually (db_in_path, db_out_path, params = {}):
 
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
+    __setupCopyDb__ (db_in_path, db_out_path)
 
+    keys_config = __loadKeys__ (params)
 
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
 
-class ManualClassifier (Processor):
+    if 'car_condition' in params.keys(): 
+        car_condition = params['car_condition']
+    else:
+        car_condition = ''
 
-    def __init__(self, params = {}):
+    cursor.execute('SELECT imagefile FROM images')
+    image_entries = cursor.fetchall()
 
-        logging.info ('=== Manual.__init__ ===')
-        logging.info ('params: ' + str(params))
-        logging.info ('')
+    if 'imagefile_start' in params.keys(): 
+        imagefile_start = params['imagefile_start']
+        try:
+            index_im = image_entries.index((imagefile_start,))
+        except ValueError:
+            logging.error ('provided image does not exist ' + imagefile_start)
+            sys.exit()
+    else:
+        index_im = 0
 
-        self.debug_show = True
+    car_statuses = {}
+    button = 0
+    index_car = 0
+    while button != 27 and index_im < len(image_entries):
+        (imagefile,) = image_entries[index_im]
 
-        if 'keys_config' in params.keys() or 'calibrate' not in params.keys(): 
-            self.keys_config = params['keys_config']
-        else:
-            self.keys_config = getCalibration()
-        logging.info ('left:  ' + str(self.keys_config['left']))
-        logging.info ('right: ' + str(self.keys_config['right']))
-        logging.info ('del:   ' + str(self.keys_config['del']))
+        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+        if not op.exists (imagepath):
+            raise Exception ('image does not exist: ' + imagepath)
+        img = cv2.imread(imagepath)
 
+        # TODO: let car_condition not contain AND keyword
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        car_entries = cursor.fetchall()
+        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
-    def processDb (self, db_in_path, db_out_path, params = {}):
+        if index_car == -1: index_car = len(car_entries) - 1  # did 'prev image'
+        else: index_car = 0
+        while button != 27 and index_car >= 0 and index_car < len(car_entries):
+            car_entry = car_entries[index_car]
+            carid = queryField(car_entry, 'id')
+            roi = bbox2roi (queryField(car_entry, 'bbox'))
+            imagefile = queryField(car_entry, 'imagefile')
+            offsetx   = queryField(car_entry, 'offsetx')
+            offsety   = queryField(car_entry, 'offsety')
 
-        __setupLogHeader__ (db_in_path, db_out_path, params, 'ManualClassifier')
-        __setupCopyDb__ (db_in_path, db_out_path)
+            if not carid in car_statuses.keys():
+                car_statuses[carid] = 'good'
 
-        self.conn = sqlite3.connect (db_out_path)
-        self.cursor = self.conn.cursor()
+            img_show = img.copy()
+            __drawRoi__ (img_show, roi, (offsety, offsetx), car_statuses[carid])
 
-        if 'car_condition' in params.keys(): 
-            car_condition = params['car_condition']
-        else:
-            car_condition = ''
+            cv2.imshow('show', img_show)
+            button = cv2.waitKey(-1)
 
-        self.cursor.execute('SELECT imagefile FROM images')
-        image_entries = self.cursor.fetchall()
+            keys_config[ord('c')] = 'car'
+            keys_config[ord(' ')] = 'car'
+            keys_config[ord('d')] = 'double'
+            keys_config[ord('h')] = 'vehicle'
+            keys_config[ord('t')] = 'taxi'
+            keys_config[ord('r')] = 'truck'
+            keys_config[ord('v')] = 'van'
+            keys_config[ord('m')] = 'minivan'
+            keys_config[ord('b')] = 'bus'
+            keys_config[ord('p')] = 'pickup'
+            keys_config[ord('o')] = 'object'
 
-        if 'imagefile_start' in params.keys(): 
-            imagefile_start = params['imagefile_start']
-            try:
-                index_im = image_entries.index((imagefile_start,))
-            except ValueError:
-                logging.error ('provided image does not exist ' + imagefile_start)
-                sys.exit()
-        else:
-            index_im = 0
+            if button == keys_config['left']:
+                logging.debug ('prev')
+                index_car -= 1
+            elif button == keys_config['right']:
+                logging.debug ('next')
+                index_car += 1
+            elif button == keys_config['del']:
+                logging.info ('delete')
+                car_statuses[carid] = 'badroi'
+                index_car += 1
+            elif button in keys_config.keys():
+                logging.info (keys_config[button])
+                car_statuses[carid] = keys_config[button]
+                index_car += 1
 
-        car_statuses = {}
-        button = 0
-        index_car = 0
-        while button != 27 and index_im < len(image_entries):
-            (imagefile,) = image_entries[index_im]
-
-            imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-            if not op.exists (imagepath):
-                raise Exception ('image does not exist: ' + imagepath)
-            img = cv2.imread(imagepath) if self.debug_show else None
-
-            self.cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
-            car_entries = self.cursor.fetchall()
-            logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
-
-            if index_car == -1: index_car = len(car_entries) - 1  # did 'prev image'
-            else: index_car = 0
-            while button != 27 and index_car >= 0 and index_car < len(car_entries):
-                car_entry = car_entries[index_car]
-                carid = queryField(car_entry, 'id')
-                roi = bbox2roi (queryField(car_entry, 'bbox'))
-                imagefile = queryField(car_entry, 'imagefile')
-                offsetx   = queryField(car_entry, 'offsetx')
-                offsety   = queryField(car_entry, 'offsety')
-
-                if not carid in car_statuses.keys():
-                    car_statuses[carid] = 'good'
-
-                img_show = img.copy()
-                self.debugShowAddRoi (img_show, roi, (offsety, offsetx), car_statuses[carid])
-
-                cv2.imshow('show', img_show)
-                button = cv2.waitKey(-1)
-
-                self.keys_config[ord('c')] = 'car'
-                self.keys_config[ord(' ')] = 'car'
-                self.keys_config[ord('d')] = 'double'
-                self.keys_config[ord('h')] = 'vehicle'
-                self.keys_config[ord('t')] = 'taxi'
-                self.keys_config[ord('r')] = 'truck'
-                self.keys_config[ord('v')] = 'van'
-                self.keys_config[ord('m')] = 'minivan'
-                self.keys_config[ord('b')] = 'bus'
-                self.keys_config[ord('p')] = 'pickup'
-                self.keys_config[ord('o')] = 'object'
-
-                if button == self.keys_config['left']:
-                    logging.debug ('prev')
-                    index_car -= 1
-                elif button == self.keys_config['right']:
-                    logging.debug ('next')
-                    index_car += 1
-                elif button == self.keys_config['del']:
-                    logging.info ('delete')
-                    car_statuses[carid] = 'badroi'
-                    index_car += 1
-                elif button in self.keys_config.keys():
-                    logging.info (self.keys_config[button])
-                    car_statuses[carid] = self.keys_config[button]
-                    index_car += 1
-
-            if button == self.keys_config['left']:
-                logging.debug ('prev image')
-                if index_im == 0:
-                    print ('already the first image')
-                else:
-                    index_im -= 1
-                    index_car = -1
-            else: 
-                logging.debug ('next image')
-                index_im += 1
-
-        cv2.destroyWindow('debug_show')
-
-        # actually delete or update
-        for (carid, status) in car_statuses.iteritems():
-            if status == 'badroi':
-                deleteCar (self.cursor, carid)
+        if button == keys_config['left']:
+            logging.debug ('prev image')
+            if index_im == 0:
+                print ('already the first image')
             else:
-                self.cursor.execute('UPDATE cars SET name=? WHERE id=?', (status, carid))
+                index_im -= 1
+                index_car = -1
+        else: 
+            logging.debug ('next image')
+            index_im += 1
 
-        self.conn.commit()
-        self.conn.close()
+    cv2.destroyWindow('debug_show')
+
+    # actually delete or update
+    for (carid, status) in car_statuses.iteritems():
+        if status == 'badroi':
+            deleteCar (cursor, carid)
+        else:
+            cursor.execute('UPDATE cars SET name=? WHERE id=?', (status, carid))
+
+    conn.commit()
+    conn.close()
 
 
