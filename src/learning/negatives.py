@@ -22,12 +22,12 @@ from utilities import bbox2roi, getCenter
 
 class NegativesGrayspots:
 
-    def processImage (self, (imagefile,), filter_group, out_dir):
+    def processImage (self, (imagefile, ghostfile), filter_group, out_dir):
 
-        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-        if not op.exists (imagepath):
-            raise Exception ('image does not exist: ' + imagepath)
-        img = cv2.imread(imagepath)
+        ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
+        if not op.exists (ghostpath):
+            raise Exception ('ghost does not exist: ' + ghostpath)
+        img = cv2.imread(ghostpath)
 
         filter_group['imagefile'] = imagefile
         car_entries = queryCars (self.cursor, filter_group)
@@ -40,7 +40,7 @@ class NegativesGrayspots:
             (cy, cx) = getCenter(bbox2roi(bbox))
             cv2.ellipse (img, (cx, cy), axes, 0, 0, 360, (128,128,128), -1)
 
-        cv2.imwrite (op.join(out_dir, op.basename(imagefile)), img)
+        cv2.imwrite (op.join(out_dir, op.basename(ghostfile)), img)
 
 
 
@@ -81,11 +81,11 @@ class NegativesGrayspots:
                 shutil.rmtree (cluster_dir)
             os.makedirs (cluster_dir)
 
-            self.cursor.execute('SELECT imagefile FROM images')
-            imagefiles = self.cursor.fetchall()
+            self.cursor.execute('SELECT imagefile, ghostfile FROM images')
+            image_entries = self.cursor.fetchall()
 
-            for imagefile in imagefiles:
-                self.processImage (imagefile, filter_group, cluster_dir)
+            for (imagefile, ghostfile) in image_entries:
+                self.processImage ((imagefile, ghostfile), filter_group, cluster_dir)
 
         self.conn.close()
 

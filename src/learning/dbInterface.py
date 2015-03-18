@@ -24,7 +24,8 @@ def createLabelmeDb (db_path):
                       offsetx INTEGER,
                       offsety INTEGER,
                       yaw REAL,
-                      pitch REAL
+                      pitch REAL,
+                      color TEXT
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
                      (id INTEGER PRIMARY KEY,

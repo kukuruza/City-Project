@@ -100,18 +100,20 @@ def __loadKeys__ (params):
     return keys_config
 
 
-def __drawRoi__ (img, roi, (offsety, offsetx), flag):
-    if flag == 'border':
-        color = (0,255,255)
-    elif flag == 'badroi':
-        color = (0,0,255)
-    else:
-        color = (255,0,0)
+def __drawRoi__ (img, roi, (offsety, offsetx), label = '', color = None):
+    if color is None:
+        if label == 'border':
+            color = (0,255,255)
+        elif label == 'badroi':
+            color = (0,0,255)
+        else:
+            color = (255,0,0)
     roi[0] += offsety
     roi[1] += offsetx
     roi[2] += offsety
     roi[3] += offsetx
-    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color)
+    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, 2)
+    cv2.putText (img, label, (roi[1], roi[0] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 2)
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -374,6 +376,16 @@ def dbMove (db_in_path, db_out_path, params):
             if checkTableExists (cursor, 'masks'):
                 cursor.execute('UPDATE masks SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
 
+    if 'ghosts_dir' in params.keys():
+
+        cursor.execute('SELECT ghostfile FROM images')
+        ghostfiles = cursor.fetchall()
+
+        for (oldfile,) in imagefiles:
+            # op.basename (op.dirname(oldfile)), 
+            newfile = op.join (params['images_dir'], op.basename (oldfile))
+            cursor.execute('UPDATE images SET ghostfile=? WHERE ghostfile=?', (newfile, oldfile))
+
     if 'masks_dir' in params.keys() and not checkTableExists (cursor, 'masks'):
         logging.warning ('masks_dir is in params, but table "masks" does not exist')
     elif 'masks_dir' in params.keys():
@@ -446,12 +458,148 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
 
 
 
-def dbClassifyManually (db_in_path, db_out_path, params = {}):
+def dbClassifyName (db_in_path, db_out_path, params = {}):
 
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
     __setupCopyDb__ (db_in_path, db_out_path)
 
     keys_config = __loadKeys__ (params)
+
+    keys_config[ord('c')] = 'car'
+    keys_config[ord(' ')] = 'car'
+    keys_config[ord('d')] = 'double'
+    keys_config[ord('h')] = 'vehicle'
+    keys_config[ord('t')] = 'taxi'
+    keys_config[ord('r')] = 'truck'
+    keys_config[ord('v')] = 'van'
+    keys_config[ord('m')] = 'minivan'
+    keys_config[ord('b')] = 'bus'
+    keys_config[ord('p')] = 'pickup'
+    keys_config[ord('o')] = 'object'
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    if 'car_condition' in params.keys(): 
+        car_condition = params['car_condition']
+    else:
+        car_condition = ''
+
+    cursor.execute('SELECT imagefile, ghostfile FROM images')
+    image_entries = cursor.fetchall()
+
+    if 'imagefile_start' in params.keys(): 
+        imagefile_start = params['imagefile_start']
+        try:
+            index_im = image_entries.index((imagefile_start,))
+        except ValueError:
+            logging.error ('provided image does not exist ' + imagefile_start)
+            sys.exit()
+    else:
+        index_im = 0
+
+    car_statuses = {}
+    button = 0
+    index_car = 0
+    while button != 27 and index_im < len(image_entries):
+        (imagefile, ghostfile) = image_entries[index_im]
+
+        ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
+        if not op.exists (ghostpath):
+            raise Exception ('image does not exist: ' + ghostpath)
+        ghost = cv2.imread(ghostpath)
+
+        # TODO: let car_condition not contain AND keyword
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        car_entries = cursor.fetchall()
+        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+
+        if index_car == -1: index_car = len(car_entries) - 1  # did 'prev image'
+        else: index_car = 0
+        while button != 27 and index_car >= 0 and index_car < len(car_entries):
+            car_entry = car_entries[index_car]
+            carid = queryField(car_entry, 'id')
+            roi = bbox2roi (queryField(car_entry, 'bbox'))
+            imagefile = queryField(car_entry, 'imagefile')
+            offsetx   = queryField(car_entry, 'offsetx')
+            offsety   = queryField(car_entry, 'offsety')
+
+            if not carid in car_statuses.keys():
+                car_statuses[carid] = ''
+
+            img_show = ghost.copy()
+            __drawRoi__ (img_show, roi, (offsety, offsetx), car_statuses[carid])
+
+            cv2.imshow('show', img_show)
+            button = cv2.waitKey(-1)
+
+            if button == keys_config['left']:
+                logging.debug ('prev')
+                index_car -= 1
+            elif button == keys_config['right']:
+                logging.debug ('next')
+                index_car += 1
+            elif button == keys_config['del']:
+                logging.info ('delete')
+                car_statuses[carid] = 'badroi'
+                index_car += 1
+            elif button in keys_config.keys():
+                logging.info (keys_config[button])
+                car_statuses[carid] = keys_config[button]
+                index_car += 1
+
+        if button == keys_config['left']:
+            logging.debug ('prev image')
+            if index_im == 0:
+                print ('already the first image')
+            else:
+                index_im -= 1
+                index_car = -1
+        else: 
+            logging.debug ('next image')
+            index_im += 1
+
+    cv2.destroyWindow('debug_show')
+
+    # actually delete or update
+    for (carid, status) in car_statuses.iteritems():
+        if status == 'badroi':
+            deleteCar (cursor, carid)
+        elif status == '':
+            cursor  # nothing
+        else:
+            cursor.execute('UPDATE cars SET name=? WHERE id=?', (status, carid))
+
+    conn.commit()
+    conn.close()
+
+
+
+def dbClassifyColor (db_in_path, db_out_path, params = {}):
+
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
+    __setupCopyDb__ (db_in_path, db_out_path)
+
+    keys_config = __loadKeys__ (params)
+
+    keys_config[ord(' ')] = ''
+    keys_config[ord('k')] = 'black'
+    keys_config[ord('w')] = 'white'
+    keys_config[ord('b')] = 'blue'
+    keys_config[ord('y')] = 'yellow'
+    keys_config[ord('r')] = 'red'
+    keys_config[ord('g')] = 'green'
+    keys_config[ord('s')] = 'gray'
+
+    color_config = {}
+    color_config['']       = (255,0,0)
+    color_config['black']  = (0,0,0)
+    color_config['white']  = (255,255,255)
+    color_config['blue']   = (255,0,0)
+    color_config['yellow'] = (0,255,255)
+    color_config['red']    = (0,0,255)
+    color_config['green']  = (0,255,0)
+    color_config['gray']   = (128,128,128)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -501,25 +649,14 @@ def dbClassifyManually (db_in_path, db_out_path, params = {}):
             offsety   = queryField(car_entry, 'offsety')
 
             if not carid in car_statuses.keys():
-                car_statuses[carid] = 'good'
+                car_statuses[carid] = ''
 
             img_show = img.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), car_statuses[carid])
+            status = car_statuses[carid]
+            __drawRoi__ (img_show, roi, (offsety, offsetx), status, color_config[status])
 
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
-
-            keys_config[ord('c')] = 'car'
-            keys_config[ord(' ')] = 'car'
-            keys_config[ord('d')] = 'double'
-            keys_config[ord('h')] = 'vehicle'
-            keys_config[ord('t')] = 'taxi'
-            keys_config[ord('r')] = 'truck'
-            keys_config[ord('v')] = 'van'
-            keys_config[ord('m')] = 'minivan'
-            keys_config[ord('b')] = 'bus'
-            keys_config[ord('p')] = 'pickup'
-            keys_config[ord('o')] = 'object'
 
             if button == keys_config['left']:
                 logging.debug ('prev')
@@ -553,8 +690,10 @@ def dbClassifyManually (db_in_path, db_out_path, params = {}):
     for (carid, status) in car_statuses.iteritems():
         if status == 'badroi':
             deleteCar (cursor, carid)
+        elif status == '':
+            cursor.execute('UPDATE cars SET color=? WHERE id=?', (None, carid))
         else:
-            cursor.execute('UPDATE cars SET name=? WHERE id=?', (status, carid))
+            cursor.execute('UPDATE cars SET color=? WHERE id=?', (status, carid))
 
     conn.commit()
     conn.close()

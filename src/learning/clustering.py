@@ -92,15 +92,17 @@ class Clusterer:
 
                 # update imagefile and image
                 imagefile = queryField (car_entry, 'imagefile')
-                imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-                if not hasattr(self, 'imagefile') or self.imagefile != imagefile:
-                    logging.debug ('update image from ' + imagefile)
-                    self.imagefile = imagefile
+                cursor.execute('SELECT ghostfile FROM images WHERE imagefile=?', (imagefile,))
+                (ghostfile,) = cursor.fetchone()
+                ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
+                if not hasattr(self, 'imagefile') or self.ghostfile != ghostfile:
+                    logging.debug ('update image from ' + ghostfile)
+                    self.ghostfile = ghostfile
                     if not op.exists (imagepath):
-                        raise Exception ('imagepath does not exist: ' + imagepath)
-                    self.image = cv2.imread(imagepath)
+                        raise Exception ('ghostpath does not exist: ' + ghostpath)
+                    self.ghost = cv2.imread(ghostpath)
 
-                carid, ghost = self.getGhost (car_entry, self.image)
+                carid, patch = self.getGhost (car_entry, self.ghost)
 
                 filename = "%08d" % carid + IMAGE_EXT
                 filepath = op.join(cluster_dir, filename)
@@ -108,9 +110,9 @@ class Clusterer:
                 if 'resize' in filter_group.keys():
                     assert (type(filter_group['resize']) == list)
                     assert (len(filter_group['resize']) == 2)
-                    ghost = cv2.resize(ghost, tuple(filter_group['resize']))
+                    patch = cv2.resize(patch, tuple(filter_group['resize']))
 
-                cv2.imwrite(filepath, ghost)
+                cv2.imwrite(filepath, patch)
 
         conn.close()
 
@@ -159,11 +161,11 @@ class Clusterer:
 
             info_file = open(op.join(out_dir, filter_group['filter'] + '.dat'), 'w')
 
-            cursor.execute('SELECT imagefile FROM images')
+            cursor.execute('SELECT imagefile, ghostfile FROM images')
             imagefiles = cursor.fetchall()
 
             counter = 0
-            for (imagefile,) in imagefiles:
+            for (imagefile, ghostfile) in imagefiles:
 
                 # get db entries
                 filter_group['imagefile'] = imagefile
@@ -174,8 +176,8 @@ class Clusterer:
                 if not car_entries:
                     continue
 
-                imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-                info_file.write (op.relpath(imagepath, out_dir))
+                ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
+                info_file.write (op.relpath(ghostpath, out_dir))
                 info_file.write (' ' + str(len(car_entries)))
 
                 for car_entry in car_entries:

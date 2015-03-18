@@ -13,23 +13,20 @@ run ../subdirPathsSetup.m;
 
 
 % input
-inVideoDir = [CITY_DATA_PATH 'camdata/cam572/dusk/'];
-inVideoPath = [inVideoDir '15-mins.avi'];
-inTimestampPath = [inVideoDir '15-mins.txt'];
+inVideoDir = [CITY_DATA_PATH 'camdata/cam578/'];
+inVideoPath = [inVideoDir 'Jan22-14h-shadows.avi'];
+inTimestampPath = [inVideoDir 'Jan22-14h-shadows.txt'];
 % inVideoDir = [CITY_DATA_PATH 'camdata/cam572/10am/'];
 % inVideoPath = [inVideoDir 'shadows.avi'];
 % inTimestampPath = [inVideoDir '2-hours.txt'];
 
-inVideoPath = [inVideoDir '5-hours.avi'];
-inTimestampPath = [inVideoDir '5-hours.txt'];
-inVideoDir = [CITY_DATA_PATH 'camdata/cam572/5pm/'];
 % output
-outBackgroundPath = [CITY_DATA_PATH 'camdata/cam572/5pm/models/refBackground.png'];
-outVideoPath = [inVideoDir 'models/adjBackground.avi'];
-outBackimage = [inVideoDir 'models/backimage.png'];
+outBackgroundPath = [CITY_DATA_PATH 'camdata/cam578/models/backimage-wet.png'];
+outVideoPath = [inVideoDir 'models/Jan22-14h-adjBackground.avi'];
+outBackimage = [inVideoDir 'models/Jan22-14h-backimage.png'];
 refBackImage = imread(outBackgroundPath);
 
-doWrite = true;
+doWrite = false;
 
 
 % objects to detect background, to read video, and to write results video
@@ -50,7 +47,7 @@ for t = 1 : 10000
     mask = background.subtract(frame);
     
     % increase the mask size
-    DilateRadius = 0;
+    DilateRadius = 1;
     seDilate = strel('disk', DilateRadius);
     mask = imdilate(mask, seDilate);
     
@@ -59,19 +56,20 @@ for t = 1 : 10000
     end
     
     % paint the unmasked part of the image
-    kNew = 0.3;
+    kNew = 0.2;
     maskColor = mask(:,:,[1,1,1]);
     backImage(~maskColor) = frame(~maskColor) * kNew + backImage(~maskColor) * (1 - kNew);
     
     % adjust the reference background with backImage
-    adjBackImage = generateCleanBackground(refBackImage, backImage, ...
-        'verbose', 0);
+    %adjBackImage = generateCleanBackground(refBackImage, backImage, ...
+    %    'verbose', 0);
+    adjBackImage = backImage;
     
-    figure(1); imshow(adjBackImage)
+    imshow(adjBackImage)
     if doWrite, frameWriter.writeNextFrame(adjBackImage); end
 
     imshow([frame, adjBackImage]);
-    pause (0.1);
+    pause ();
     
 end
 

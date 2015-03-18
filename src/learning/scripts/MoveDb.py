@@ -14,11 +14,10 @@ if __name__ == '__main__':
     setupLogging ('log/learning/MoveDb.log', logging.INFO, 'a')
 
     CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-    db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/databases/572-10h/src-ds2.5-dp12.0.db')
-    db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/databases/572-10h/src-ds2.5-dp12.0-mv.db')
+    db_in_path  = op.join (CITY_DATA_PATH, 'datasets/labelme/Databases/src-pairs.db')
+    db_out_path = op.join (CITY_DATA_PATH, 'datasets/labelme/Databases/src-pairs-mv.db')
 
-    params = { 'images_dir': 'datasets/sparse/Ghosts/572-Oct28-10h/', 
-               'masks_dir': 'datasets/sparse/Ghosts/572-Oct28-10h/' }
+    params = { 'images_dir': 'datasets/labelme/Images/cam572-5pm-pairs' }
 
     dbMove (db_in_path, db_out_path, params)
     
