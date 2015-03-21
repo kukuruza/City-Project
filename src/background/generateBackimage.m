@@ -21,7 +21,7 @@ inTimestampPath = [inVideoDir 'Jan22-14h-shadows.txt'];
 % inTimestampPath = [inVideoDir '2-hours.txt'];
 
 % output
-outBackgroundPath = [CITY_DATA_PATH 'camdata/cam578/models/backimage-wet.png'];
+outBackgroundPath = [CITY_DATA_PATH 'camdata/cam119/models/Feb15-11h-backimage.png'];
 outVideoPath = [inVideoDir 'models/Jan22-14h-adjBackground.avi'];
 outBackimage = [inVideoDir 'models/Jan22-14h-backimage.png'];
 refBackImage = imread(outBackgroundPath);

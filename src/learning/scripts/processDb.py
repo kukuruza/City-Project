@@ -25,23 +25,24 @@ from utilities import setupLogging
 
 if __name__ == '__main__':
 
-    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
-        raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
-
     setupLogging ('log/learning/processDb.log', logging.INFO, 'a')
 
-    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-#    db_in_path  = op.join (CITY_DATA_PATH, 'labelme/Databases/src-frames.db')
-#    db_out_path = op.join (CITY_DATA_PATH, 'databases/wratio-p0.2.db')
-    db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/src-ds2.5-dp12.0.db')
-    db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/filt-ds2.5-dp12.0-test.db')
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path  = op.join (CITY_DATA_PATH, 'databases/sparse-Mar18-wb-wr.db')
+    db_out_path = op.join (CITY_DATA_PATH, 'databases/sparse-Mar18-wb-wr-ex0.3.db')
+    #db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Jan22-14h/src-ds2.5-dp12.0.db')
+    #db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Jan22-14h/filt-ds2.5-dp12.0.db')
 
-    params = {'geom_maps_dir': op.join (CITY_DATA_PATH, 'models/cam578/'),
-              'debug_show': True,
-              'expand_perc': 0.1,
+    #params = {'geom_maps_template': op.join (CITY_DATA_PATH, 'models/cam578/Jan22-14h-'),
+    #          'debug_show': False,
+    #          'expand_perc': 0.1,
+    #          'keep_ratio': True,
+    #          'border_thresh_perc': 0.005,
+    #          'min_width_thresh': 10 }
+
+    params = {'debug_show': True,
               'keep_ratio': True,
-              'border_thresh_perc': 0.005,
-              'min_width_thresh': 10 }
+              'expand_perc': 0.3 }
 
     #dbFilter (db_in_path, db_out_path, params)
     dbExpandBboxes (db_in_path, db_out_path, params)

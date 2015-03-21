@@ -1,11 +1,9 @@
-#!/bin/python
-
 import logging
 import sys
 import os, os.path as op
 import glob
 sys.path.insert(0, os.path.abspath('../../learning'))
-from utilities import setupLogging
+from utilities import setupLogging, get_CITY_DATA_PATH
 import random
 
 
@@ -44,13 +42,10 @@ def splitAllInDir (vec_dir, percentages):
 
 if __name__ == '__main__':
 
-    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
-        raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
-    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
     setupLogging ('log/detector/splitVec.log', logging.INFO)
 
-    vec_dir = op.join (CITY_DATA_PATH, 'learning/violajones/byname_40x30-2/car.dat')
+    vec_dir = op.join (CITY_DATA_PATH, 'learning/violajones/byname_24x18-2/car.dat')
     percentages = { 'train': 0.8, 'test': 0.2 }
 
     splitVec (vec_dir, percentages)

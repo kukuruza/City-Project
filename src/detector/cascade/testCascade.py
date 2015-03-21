@@ -14,12 +14,15 @@ windowName = "Object Detection"
 
 # load an image to search for faces
 #img = cv2.imread("/Users/evg/projects/City-Project/data/testdata/detector/img000.jpg");
-img = cv2.imread(op.join(CITY_DATA_PATH, 'labelme/Ghosts/cam572-bright-frames/000015.jpg'))
+img = cv2.imread(op.join(CITY_DATA_PATH, 'datasets/labelme/Ghosts/cam572-bright-frames/000015.jpg'))
 print (img.shape)
 
 # load detection file (various files for different views and uses)
-cascade = cv2.CascadeClassifier (op.join(CITY_DATA_PATH, 'violajones/models/model03-cr10.xml'))
-#cascade = cv2.CascadeClassifier (op.join(CITY_DATA_PATH, 'learning/violajones/byname_40x30/model-car-2/cascade.xml'))
+model_path = op.join(CITY_DATA_PATH, 'learning/violajones/byname_24x18/model-car-4/cascade.xml')
+#model_path = op.join(CITY_DATA_PATH, 'learning/violajones/models/model03-cr10.xml')
+if not op.exists(model_path):
+    raise Exception ('mode_path does not exist: ' + model_path)
+cascade = cv2.CascadeClassifier (model_path)
 
 # preprocessing, as suggested by: http://www.bytefish.de/wiki/opencv/object_detection
 # img_copy = cv2.resize(img, (img.shape[1]/2, img.shape[0]/2))

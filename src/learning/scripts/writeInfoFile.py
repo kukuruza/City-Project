@@ -1,27 +1,18 @@
-#
-# wrapper around Clusterer.writeInfoFile()
-# set up logging, paths, and call the function, and write a readme
-#
-
 import logging
 import sys
 import os, os.path as op
 sys.path.insert(0, os.path.abspath('..'))
-from clustering import Clusterer
-from utilities import setupLogging
+import clustering
+from utilities import setupLogging, get_CITY_DATA_PATH
 
 
 if __name__ == '__main__':
 
-    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
-        raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
-    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-
     setupLogging ('log/learning/writeInfoFile.log', logging.INFO, 'a')
 
-    in_db_path   = op.join (CITY_DATA_PATH, 'databases/fr-wratio-wborder-p0.2.db')
-    filters_path = op.join (CITY_DATA_PATH, 'clustering/filters/byname_40x30.json')
-    out_dir      = op.join (CITY_DATA_PATH, 'learning/violajones/byname_40x30-2')
+    in_db_path   = op.join (get_CITY_DATA_PATH(), 'databases/sparse-Mar18-wb-wr-ex0.3.db')
+    filters_path = op.join (get_CITY_DATA_PATH(), 'clustering/filters/byname_24x18.json')
+    out_dir      = op.join (get_CITY_DATA_PATH(), 'learning/violajones/byname_24x18-2')
 
-    clusterer = Clusterer()
-    clusterer.writeInfoFile (in_db_path, filters_path, out_dir)
+    clustering.writeInfoFile (in_db_path, filters_path, out_dir)
+

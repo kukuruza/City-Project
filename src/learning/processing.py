@@ -11,7 +11,7 @@ import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField, checkTableExists
 import dbInterface
-from utilities import bbox2roi, roi2bbox, bottomCenter, getCalibration
+from utilities import bbox2roi, roi2bbox, bottomCenter, getCalibration, __setParamUnlessThere__
 
 
 #
@@ -66,11 +66,6 @@ def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
     return roi
 
 
-def __setParamUnlessThere__ (params, key, default_value):
-    if not key in params.keys(): params[key] = default_value
-    return params
-
-
 def __setupLogHeader__ (db_in_path, db_out_path, params, name):
     logging.info ('=== processing ' + name + '===')
     logging.info ('db_in_path:  ' + db_in_path)
@@ -82,8 +77,10 @@ def __setupCopyDb__ (db_in_path, db_out_path):
     if not op.exists (db_in_path):
         raise Exception ('db does not exist: ' + db_in_path)
     if op.exists (db_out_path) and db_in_path != db_out_path:
-        logging.warning ('will delete existing db_out_path')
-        os.remove (db_out_path)
+        logging.warning ('will back up existing db_out_path')
+        backup_path = db_out_path + '.old'
+        if op.exists (backup_path): os.remove (backup_path)
+        os.rename (db_out_path, backup_path)
     if db_in_path != db_out_path:
         # copy input database into the output one
         shutil.copyfile(db_in_path, db_out_path)
@@ -154,7 +151,7 @@ def __filterCar__ (cursor, car_entry, params):
     cursor.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
     (width,height) = cursor.fetchone()
 
-    is_bad = False
+    flag = ''
     if checkTableExists(cursor, 'polygons'):
         # get polygon
         cursor.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
@@ -166,31 +163,27 @@ def __filterCar__ (cursor, car_entry, params):
         if isPolygonAtBorder(xs, ys, width, height, params): 
             logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
             flag = 'border'
-            is_bad = True
     else:
         # filter border
         if isRoiAtBorder(roi, width, height, params): 
             logging.info ('border polygon ' + str(roi))
             flag = 'border'
-            is_bad = True
 
     if isWrongSize(roi, params):
         logging.info ('wrong size of car in ' + str(roi))
         flag = 'badroi'
-        is_bad = True
     if isBadRatio(roi, params):
         logging.info ('bad ratio of roi ' + str(roi))
         flag = 'badroi'
-        is_bad = True
     if roi[3]-roi[1] < params['min_width_thresh']:
         logging.info ('too small ' + str(roi))
         flag = 'badroi'
-        is_bad = True
 
-    if is_bad:
+    if params['debug_show']:
+        __drawRoi__ (params['img_show'], roi, (offsety, offsetx), flag)
+
+    if flag != '':
         deleteCar (cursor, carid)
-        if params['debug_show']:
-            __drawRoi__ (params['img_show'], roi, (offsety, offsetx), flag)
 
 
 
@@ -207,11 +200,11 @@ def dbFilter (db_in_path, db_out_path, params):
     params = __setParamUnlessThere__ (params, 'debug_show',         False)
     params = __setParamUnlessThere__ (params, 'debug_sizemap',      False)
 
-    if 'geom_maps_dir' in params.keys():
-        size_map_path = op.join (params['geom_maps_dir'], 'sizeMap.tiff')
+    if 'geom_maps_template' in params.keys():
+        size_map_path = params['geom_maps_template'] + 'sizeMap.tiff'
         params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
     else:
-        raise Exception ('geom_maps_dir is not given in params')
+        raise Exception ('geom_maps_template is not given in params')
 
     if params['debug_sizemap']:
         cv2.imshow ('size_map original', params['size_map'])
@@ -279,8 +272,8 @@ def __expandCarBbox__ (cursor, car_entry, params):
         if not op.exists (imagepath):
             raise Exception ('image does not exist: ' + imagepath)
         img_show = cv2.imread(imagepath)
-        __drawRoi__ (img_show, old, (offsety, offsetx), 'badroi')
-        __drawRoi__ (img_show, roi, (offsety, offsetx), 'good')
+        __drawRoi__ (img_show, old, (offsety, offsetx), '', (0,0,255))
+        __drawRoi__ (img_show, roi, (offsety, offsetx), '', (255,0,0))
         cv2.imshow('debug_show', img_show)
         if cv2.waitKey(-1) == 27: 
             cv2.destroyWindow('debug_show')
@@ -329,9 +322,9 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
     if not 'geom_maps_dir' in params.keys():
         raise Exception ('geom_maps_dir is not given in params')
 
-    geom_maps_dir = params['geom_maps_dir']
-    pitch_map_path = op.join (geom_maps_dir, 'pitchMap.tiff')
-    yaw_map_path   = op.join (geom_maps_dir, 'yawMap.tiff')
+    geom_maps_template = params['geom_maps_template']
+    pitch_map_path = geom_maps_template + 'pitchMap.tiff'
+    yaw_map_path   = geom_maps_template + 'yawMap.tiff'
     pitch_map = cv2.imread (pitch_map_path, 0).astype(np.float32)
     yaw_map   = cv2.imread (yaw_map_path, -1).astype(np.float32)
     yaw_map   = cv2.add (yaw_map, -360)
@@ -404,8 +397,8 @@ def dbMove (db_in_path, db_out_path, params):
 def dbMerge (db_in_paths, db_out_path, params = {}):
 
     assert (len(db_in_paths) == 2)   # 2 for now
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbMerge')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    __setupLogHeader__ (db_in_paths[0], db_out_path, params, 'dbMerge')
+    __setupCopyDb__ (db_in_paths[0], db_out_path)
 
     conn_out = sqlite3.connect (db_out_path)
     cursor_out = conn_out.cursor()
@@ -428,7 +421,7 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
             logging.warning ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
             continue
         # insert image
-        cursor_out.execute('INSERT INTO images VALUES (?,?,?,?);', image_entry)
+        cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?);', image_entry)
         # insert mask
         if checkTableExists (cursor_in, 'masks'):
             cursor_in.execute('SELECT * FROM masks WHERE imagefile=?', (imagefile,))
@@ -441,8 +434,8 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
     # copy cars and possible polygons
     for car_entry in car_entries:
         carid = queryField (car_entry, 'id')
-        s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch)'
-        cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
+        s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch,color)'
+        cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
         carid_new = cursor_out.lastrowid
         if checkTableExists (cursor_in, 'polygons'):
             cursor_in.execute('SELECT * FROM polygons WHERE carid=?', (carid,))
@@ -454,6 +447,90 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
     conn_out.commit()
     conn_out.close()
     conn_in.close()
+
+
+
+
+def dbExamine (db_in_path, params = {}):
+
+    __setupLogHeader__ (db_in_path, '', params, 'dbExamine')
+
+    keys_config = __loadKeys__ (params)
+
+    conn = sqlite3.connect (db_in_path)
+    cursor = conn.cursor()
+
+    if 'car_condition' in params.keys(): 
+        car_condition = params['car_condition']
+    else:
+        car_condition = ''
+
+    cursor.execute('SELECT imagefile FROM images')
+    image_entries = cursor.fetchall()
+
+    if 'imagefile_start' in params.keys(): 
+        imagefile_start = params['imagefile_start']
+        try:
+            index_im = image_entries.index((imagefile_start,))
+        except ValueError:
+            logging.error ('provided image does not exist ' + imagefile_start)
+            sys.exit()
+    else:
+        index_im = 0
+
+    car_statuses = {}
+    button = 0
+    index_car = 0
+    while button != 27 and index_im < len(image_entries):
+        (imagefile,) = image_entries[index_im]
+
+        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+        if not op.exists (imagepath):
+            raise Exception ('image does not exist: ' + imagepath)
+        image = cv2.imread(imagepath)
+
+        # TODO: let car_condition not contain AND keyword
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        car_entries = cursor.fetchall()
+        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+
+        if index_car == -1: index_car = len(car_entries) - 1  # did 'prev image'
+        else: index_car = 0
+        while button != 27 and index_car >= 0 and index_car < len(car_entries):
+            car_entry = car_entries[index_car]
+            carid = queryField(car_entry, 'id')
+            roi = bbox2roi (queryField(car_entry, 'bbox'))
+            imagefile = queryField(car_entry, 'imagefile')
+            offsetx   = queryField(car_entry, 'offsetx')
+            offsety   = queryField(car_entry, 'offsety')
+
+            img_show = image.copy()
+            __drawRoi__ (img_show, roi, (offsety, offsetx))
+
+            cv2.imshow('show', img_show)
+            button = cv2.waitKey(-1)
+
+            if button == keys_config['left']:
+                logging.debug ('prev')
+                index_car -= 1
+            elif button == keys_config['right']:
+                logging.debug ('next')
+                index_car += 1
+
+        if button == keys_config['left']:
+            logging.debug ('prev image')
+            if index_im == 0:
+                print ('already the first image')
+            else:
+                index_im -= 1
+                index_car = -1
+        else: 
+            logging.debug ('next image')
+            index_im += 1
+
+    cv2.destroyWindow('show')
+
+    conn.close()
 
 
 

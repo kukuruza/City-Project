@@ -5,6 +5,11 @@ import logging, logging.handlers
 import ConfigParser 
 
 
+def __setParamUnlessThere__ (params, key, default_value):
+    if not key in params.keys(): params[key] = default_value
+    return params
+
+
 def setupLogging (filename, level=logging.INFO, filemode='w'):
     log = logging.getLogger('')
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
@@ -18,6 +23,12 @@ def setupLogging (filename, level=logging.INFO, filemode='w'):
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(formatter)
     log.addHandler(sh)
+
+
+def get_CITY_DATA_PATH():
+    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
+        raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
+    return os.getenv('CITY_DATA_PATH')
 
 
 #

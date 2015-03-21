@@ -27,7 +27,7 @@ classdef BackgroundGMM < BackgroundInterface
             addParameter(parser, 'NumTrainingFrames', 50, @isscalar);
             addParameter(parser, 'LearningRate', 0.005, @isscalar);
             addParameter(parser, 'MinimumBackgroundRatio', 0.9, @isscalar);
-            addParameter(parser, 'NumGaussians', 5, @isscalar);
+            addParameter(parser, 'NumGaussians', 2, @isscalar);
             addParameter(parser, 'InitialVariance', 15^2, @isscalar);
             addParameter(parser, 'fn_level', 22, @isscalar);
             addParameter(parser, 'fp_level', 1, @isscalar);

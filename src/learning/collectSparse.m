@@ -20,51 +20,54 @@ DensityRatio = 12.0;   % how much dense inside / sparse outside it should be
 do_write = true;
 verbose = 0;
 
-videoName = 'camdata/cam578/Mar15-10h';
+videoName = 'camdata/cam578/Jan22-14h-shadows';
 videoPath = [CITY_DATA_PATH videoName '.avi'];
 timePath = [CITY_DATA_PATH videoName '.txt'];
+%imagesPath = [CITY_DATA_PATH 'datasets/labelme/Images/cam572-bright-frames/'];
+%videoName = 'dummy';
 
-backfile = 'camdata/cam578/models/backimage-wet.png';
+backfile = 'camdata/cam578/models/backimage-Jan22-14h.png';
+%backfile = 'camdata/cam572/5pm/models/backimage.png';
 
 
 %% output
 
-dir_name = 'datasets/sparse/578-Mar15-10h';
-db_name = 'src-ds2.5-dp12.0.db';
-
-outDir = [CITY_DATA_PATH dir_name];
-if ~exist (fileparts(outDir), 'dir')
-    error ('parent directory for outDir doesn''t exist');
-end
-if exist(outDir, 'dir')
-    rmdir(outDir, 's');
-end
-dir_name = [dir_name '/'];
-outDir = [outDir '/'];
-mkdir(outDir);
-mkdir([outDir 'Images/']);
-mkdir([outDir 'Ghosts/']);
-mkdir([outDir 'Masks/']);
-mkdir([outDir 'Databases/']);
+dir_name = 'labelme0';
+db_name = 'src-ds2.5-dp12.0-dummy.db';
 
 
 %% init
 
+dataset_dir = 'datasets/sparse/';
+if ~exist ([CITY_DATA_PATH dataset_dir], 'dir')
+    error ('dataset_dir doesn''t exist');
+end
+
+db_dir = [CITY_DATA_PATH dataset_dir 'Databases/' dir_name];
+im_dir = [CITY_DATA_PATH dataset_dir 'Images/' dir_name];
+gh_dir = [CITY_DATA_PATH dataset_dir 'Ghosts/' dir_name];
+ma_dir = [CITY_DATA_PATH dataset_dir 'Masks/' dir_name];
+if exist(db_dir, 'dir'), rmdir(db_dir, 's'); end; mkdir(db_dir);
+if exist(im_dir, 'dir'), rmdir(im_dir, 's'); end; mkdir(im_dir);
+if exist(gh_dir, 'dir'), rmdir(gh_dir, 's'); end; mkdir(gh_dir);
+if exist(ma_dir, 'dir'), rmdir(ma_dir, 's'); end; mkdir(ma_dir);
+dir_name = [dir_name '/'];
+
+
 % frame reader
 frameReader = FrameReaderVideo (videoPath, timePath);
+%frameReader = FrameReaderImages (imagesPath);
 
 % background
 load ([CITY_DATA_PATH, 'models/cam572/backgroundGMM.mat']);
-%pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 
 % true background
 backImage = int32(imread([CITY_DATA_PATH, backfile]));
 
 % out database
 if do_write
-    db_path = [outDir 'Databases/' db_name];
-    createMaskDb(db_path);
-    sqlite3.open(db_path);
+    createMaskDb([db_dir '/' db_name]);
+    sqlite3.open([db_dir '/' db_name]);
 end
 
 
@@ -91,10 +94,10 @@ for t = 1 : 10000000
     fprintf ('background cars: %d\n', length(cars));
     
     if do_write
-        im_name = sprintf ('%06d', t);
-        image_file = [dir_name 'Images/' im_name '.jpg'];
-        ghost_file = [dir_name 'Ghosts/' im_name '.jpg'];
-        mask_file = [dir_name 'Masks/'  im_name '.png'];
+        im_name = sprintf ('%06d', t-1);
+        image_file = [dataset_dir 'Images/' dir_name im_name '.jpg'];
+        ghost_file = [dataset_dir 'Ghosts/' dir_name im_name '.jpg'];
+        mask_file =  [dataset_dir 'Masks/'  dir_name im_name '.png'];
         imwrite (frame, [CITY_DATA_PATH image_file]);
         imwrite (ghost, [CITY_DATA_PATH ghost_file]);
         imwrite (mask,  [CITY_DATA_PATH mask_file]);
@@ -113,15 +116,15 @@ for t = 1 : 10000000
     if ~isempty(cars) && do_write
         width  = size(frame, 2);
         height = size(frame, 1);
-        sqlite3.execute('INSERT INTO images VALUES (?,?,?,?)', ...
-                        ghost_file, videoName, width, height);
-        sqlite3.execute('INSERT INTO masks VALUES (?,?)', ghost_file, mask_file);
+        sqlite3.execute('INSERT INTO images VALUES (?,?,?,?,?)', ...
+                        image_file, videoName, width, height, ghost_file);
+        sqlite3.execute('INSERT INTO masks VALUES (?,?)', image_file, mask_file);
         for i = 1 : length(cars)
             car = cars(i);
             bbox = car.bbox;
             sqlite3.execute(['INSERT INTO cars(imagefile, name, x1, y1, width, height, ' ...
                              'offsetx, offsety) VALUES (?,?,?,?,?,?,?,?) '], ...
-                             ghost_file, 'object', bbox(1), bbox(2), bbox(3), bbox(4), 0, 0);
+                             image_file, 'object', bbox(1), bbox(2), bbox(3), bbox(4), 0, 0);
         end
     end
     
