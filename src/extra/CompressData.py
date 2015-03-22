@@ -31,7 +31,7 @@ if op.exists(tmpdir):
 print ('start copying data to the temp location')
 shutil.copytree (rootdir, tmpdir)
 
-compress_ext = '(\.jpg|\.jpeg|\.tiff|\.tif|\.png|\.mat)$'
+compress_ext = '(\.jpg|\.jpeg|\.tiff|\.tif|\.png|\.mat|\.xml)$'
 
 print ('start compressing directories with more than ' + str(num_thresh) + ' images')
 for dirpath, dirnames, filenames in os.walk(tmpdir):
