@@ -10,6 +10,7 @@ amazon/
 3rd-party/
 log/
 etc/
+tmp/
 
 
 # temporary from Matlab
