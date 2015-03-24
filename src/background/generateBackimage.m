@@ -13,20 +13,21 @@ run ../subdirPathsSetup.m;
 
 
 % input
-inVideoDir = [CITY_DATA_PATH 'camdata/cam578/'];
-inVideoPath = [inVideoDir 'Jan22-14h-shadows.avi'];
-inTimestampPath = [inVideoDir 'Jan22-14h-shadows.txt'];
+inVideoDir = [CITY_DATA_PATH 'camdata/cam671/'];
+inVideoPath = [inVideoDir 'Mar24-12h.avi'];
+inTimestampPath = [inVideoDir 'Mar24-12h.txt'];
 % inVideoDir = [CITY_DATA_PATH 'camdata/cam572/10am/'];
 % inVideoPath = [inVideoDir 'shadows.avi'];
 % inTimestampPath = [inVideoDir '2-hours.txt'];
 
 % output
-outBackgroundPath = [CITY_DATA_PATH 'camdata/cam119/models/Feb15-11h-backimage.png'];
-outVideoPath = [inVideoDir 'models/Jan22-14h-adjBackground.avi'];
-outBackimage = [inVideoDir 'models/Jan22-14h-backimage.png'];
-refBackImage = imread(outBackgroundPath);
+%refBackgroundPath = [inVideoDir 'models/backimage.png'];
+%refBackImage = imread(refBackgroundPath);
+outVideoPath = [inVideoDir 'models/Mar24-12h-background.avi'];
+outBackimagePath = [inVideoDir 'models/Mar24-12h-backimage.png'];
 
-doWrite = false;
+doWrite = true;
+doShow = false;
 
 
 % objects to detect background, to read video, and to write results video
@@ -36,7 +37,7 @@ background.fn_level = 0;
 frameReader = FrameReaderVideo (inVideoPath, inTimestampPath);
 if doWrite, frameWriter = FrameWriterVideo (outVideoPath, 2, 1); end
 
-for t = 1 : 10000
+for t = 1 : 100
     
     % read image
     [frame, ~] = frameReader.getNewFrame();
@@ -63,17 +64,18 @@ for t = 1 : 10000
     % adjust the reference background with backImage
     %adjBackImage = generateCleanBackground(refBackImage, backImage, ...
     %    'verbose', 0);
-    adjBackImage = backImage;
-    
-    imshow(adjBackImage)
-    if doWrite, frameWriter.writeNextFrame(adjBackImage); end
+    %backImage = adjBackImage;
 
-    imshow([frame, adjBackImage]);
-    pause ();
+    if doWrite, frameWriter.writeNextFrame(backImage); end
+
+    if doShow
+        imshow([frame, backImage]);
+        pause ();
+    end
     
 end
 
-if doWrite, imwrite (adjBackImage, outBackimage); end
+if doWrite, imwrite (backImage, outBackimagePath); end
 
 % need to clear frameWriter to complete writing video file
 clear frameReader frameWriter

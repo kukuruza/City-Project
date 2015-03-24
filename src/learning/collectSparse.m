@@ -17,23 +17,21 @@ run ../subdirPathsSetup.m;
 
 DensitySigma = 2.5;   % effective radius around car to be empty
 DensityRatio = 12.0;   % how much dense inside / sparse outside it should be
+
 do_write = true;
 verbose = 0;
 
-videoName = 'camdata/cam578/Jan22-14h-shadows';
+videoName = 'camdata/cam671/Mar24-12h';
 videoPath = [CITY_DATA_PATH videoName '.avi'];
 timePath = [CITY_DATA_PATH videoName '.txt'];
-%imagesPath = [CITY_DATA_PATH 'datasets/labelme/Images/cam572-bright-frames/'];
-%videoName = 'dummy';
 
-backfile = 'camdata/cam578/models/backimage-Jan22-14h.png';
-%backfile = 'camdata/cam572/5pm/models/backimage.png';
+backfile = 'camdata/cam671/models/backimage.png';
 
 
 %% output
 
-dir_name = 'labelme0';
-db_name = 'src-ds2.5-dp12.0-dummy.db';
+dir_name = '671-Mar24-12h';
+db_name = 'src-ds2.5-dp12.0.db';
 
 
 %% init
@@ -66,7 +64,7 @@ backImage = int32(imread([CITY_DATA_PATH, backfile]));
 
 % out database
 if do_write
-    createMaskDb([db_dir '/' db_name]);
+    dbCreate([db_dir '/' db_name]);
     sqlite3.open([db_dir '/' db_name]);
 end
 
