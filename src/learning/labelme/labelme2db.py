@@ -8,9 +8,8 @@ import os.path as op
 import glob
 import shutil
 import sqlite3
-
 sys.path.insert(0, os.path.abspath('..'))
-from dbInterface import createLabelmeDb, deleteAll4imagefile
+from dbInterface import createLabelmeDb, deleteAll4imagefile, getImageField
 from utilities import roi2bbox, image2ghost
 
 sys.path.insert(0, os.path.abspath('annotations'))
@@ -19,7 +18,7 @@ from annotations.parser import FrameParser, PairParser
 
 class BaseConverter:
 
-    labelme_dir = ''
+    labelme_dir = 'datasets'
     debug_show = False
 
     def __init__(self, db_path, params):
@@ -78,7 +77,6 @@ class BaseConverter:
 
 
 
-
 class FrameConverter (BaseConverter):
 
     def __init__(self, db_path, params):
@@ -92,23 +90,24 @@ class FrameConverter (BaseConverter):
         tree = ET.parse(op.join(os.getenv('CITY_DATA_PATH'), self.labelme_dir, 
                                 'labelme/Annotations', folder, annotation_file))
 
+ 
         # image
-        imagefile = self.imagefileOfAnnotation (tree.getroot());
-        imagepath = op.join(self.labelme_dir, 'labelme/Images', imagefile)
-        img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagepath))
+        imagename = self.imagefileOfAnnotation (tree.getroot());
+        imagefile = op.join(self.labelme_dir, 'labelme/Images', imagename)
+        img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagefile))
         height, width, depth = img.shape
 
-        deleteAll4imagefile (self.cursor, imagepath)
+        deleteAll4imagefile (self.cursor, imagefile)
 
         # write ghost
         ghost = image2ghost(img, self.backimage)
-        ghostpath = op.join(self.labelme_dir, 'labelme/Ghosts', imagefile)
-        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), ghostpath), ghost)
+        ghostfile = op.join(self.labelme_dir, 'labelme/Ghosts', imagename)
+        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), ghostfile), ghost)
 
         # insert the image into the database
-        entry = (ghostpath, op.basename(folder), width, height)
-        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
-                               VALUES (?,?,?,?);''', entry)
+        entry = (imagefile, op.basename(folder), width, height, ghostfile)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height,ghostfile) 
+                               VALUES (?,?,?,?,?);''', entry)
 
         img_show = img if self.debug_show else None
 
@@ -136,7 +135,7 @@ class FrameConverter (BaseConverter):
 
             # make an entry for database
             bbox = roi2bbox (roi)
-            entry = (ghostpath,
+            entry = (imagefile,
                      name, 
                      bbox[0],
                      bbox[1],
@@ -229,23 +228,23 @@ class PairConverter (BaseConverter):
                                 'labelme/Annotations', folder, annotation_file))
 
         # image
-        imagefile = self.imagefileOfAnnotation (tree.getroot());
-        imagepath = op.join(self.labelme_dir, 'labelme/Images', imagefile)
-        img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagepath))
+        imagename = self.imagefileOfAnnotation (tree.getroot());
+        imagefile = op.join(self.labelme_dir, 'labelme/Images', imagename)
+        img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagefile))
         height, width, depth = img.shape
         halfheight = height / 2
 
-        deleteAll4imagefile (self.cursor, imagepath)
+        deleteAll4imagefile (self.cursor, imagefile)
 
         # write ghost
         ghost = image2ghost(img, self.backimage)
-        ghostpath = op.join(self.labelme_dir, 'labelme/Ghosts', imagefile)
-        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), ghostpath), ghost)
+        ghostfile = op.join(self.labelme_dir, 'labelme/Ghosts', imagename)
+        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), ghostfile), ghost)
 
         # insert the image into the database
-        entry = (ghostpath, op.basename(folder), width, height)
-        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height) 
-                               VALUES (?,?,?,?);''', entry)
+        entry = (imagefile, op.basename(folder), width, height, ghostfile)
+        self.cursor.execute('''INSERT INTO images(imagefile,src,width,height,ghostfile) 
+                               VALUES (?,?,?,?,?);''', entry)
 
         objects = tree.getroot().findall('object')
         captions_t = []
@@ -280,7 +279,7 @@ class PairConverter (BaseConverter):
 
             # make an entry for database
             bbox = roi2bbox (roi)
-            entry = (ghostpath,
+            entry = (imagefile,
                      name, 
                      bbox[0],
                      bbox[1],
@@ -332,6 +331,22 @@ class PairConverter (BaseConverter):
 
 
 
+# delete 'Ghosts', and 'Masks' dir, and recreate it
+def mkdirsInLabelme (folder, labelme_dir):
+
+    # 'Images' is src, do not recreate
+
+    ghosts_dir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'labelme/Ghosts', folder)
+    logging.info ('ghosts_dir: ' + ghosts_dir)
+    if op.exists (ghosts_dir): shutil.rmtree (ghosts_dir)
+    os.makedirs (ghosts_dir)
+    
+    masks_dir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'labelme/Masks', folder)
+    logging.info ('masks_dir: ' + masks_dir)
+    if op.exists (masks_dir): shutil.rmtree (masks_dir) 
+    os.makedirs (masks_dir)
+
+
 
 def folder2frames (folder, db_path, params):
 
@@ -339,11 +354,7 @@ def folder2frames (folder, db_path, params):
     pathlist = glob.glob (op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 
                                   'labelme/Annotations', folder, '*.xml'))
 
-    # delete 'Ghosts' dir, and recreate it
-    ghost_dir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'labelme/Ghosts', folder)
-    if op.exists (ghost_dir):
-        shutil.rmtree (ghost_dir)
-    os.makedirs (ghost_dir)
+    mkdirsInLabelme (folder, labelme_dir)
 
     with FrameConverter (db_path, params) as converter:
         for path in pathlist:
@@ -358,17 +369,10 @@ def folder2pairs (folder, db_path, params):
     pathlist = glob.glob (op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 
                                   'labelme/Annotations', folder, '*.xml'))
 
-    # delete 'Ghosts' dir, and recreate it
-    ghost_dir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'labelme/Ghosts', folder)
-    if op.exists (ghost_dir):
-        shutil.rmtree (ghost_dir)
-    os.makedirs (ghost_dir)
+    mkdirsInLabelme (folder, labelme_dir)
 
     with PairConverter (db_path, params) as converter:
         for path in pathlist:
             logging.debug ('processing file ' + op.basename(path))
             converter.processImage(folder, op.basename(path))
 
-
-
-    

@@ -64,12 +64,9 @@ def __grayMasked__ (cursor, (imagefile, ghostfile), filter_group, out_dir, param
     logging.debug (str(len(car_entries)) + ' objects found for "' + 
                    filter_group['filter'] + '" in ' + imagefile)
 
-    #cursor.execute ('SELECT maskfile FROM masks WHERE maskfile = imagefile')
-    #(maskfile,) = cursor.fetchone()
-    #maskpath = op.join (os.getenv('CITY_DATA_PATH'), maskfile)
-    maskpath = op.join (os.getenv('CITY_DATA_PATH'), op.dirname(op.dirname(op.dirname(imagefile))), 
-                        'Masks', op.basename(op.dirname(imagefile)), op.basename(imagefile)[:-4] + '.png')
-    print (maskpath)
+    cursor.execute ('SELECT maskfile FROM images WHERE imagefile = ?', (imagefile,))
+    (maskfile,) = cursor.fetchone()
+    maskpath = op.join (os.getenv('CITY_DATA_PATH'), maskfile)
     mask = cv2.imread(maskpath).astype(np.uint8)
     sz_dilate = int(filter_group['width'] * params['dilate'])
     sz_erode  = int(filter_group['width'] * params['erode'])

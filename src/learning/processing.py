@@ -9,7 +9,7 @@ import os.path as op
 import glob
 import shutil
 import sqlite3
-from dbInterface import deleteCar, queryField, checkTableExists
+from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
 from utilities import bbox2roi, roi2bbox, bottomCenter, getCalibration, __setParamUnlessThere__
 
@@ -366,28 +366,27 @@ def dbMove (db_in_path, db_out_path, params):
             newfile = op.join (params['images_dir'], op.basename (oldfile))
             cursor.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
             cursor.execute('UPDATE cars SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
-            if checkTableExists (cursor, 'masks'):
-                cursor.execute('UPDATE masks SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
 
     if 'ghosts_dir' in params.keys():
 
-        cursor.execute('SELECT ghostfile FROM images')
+        cursor.execute('SELECT ghostfile FROM images ')
         ghostfiles = cursor.fetchall()
 
-        for (oldfile,) in imagefiles:
+        for (oldfile,) in ghostfiles:
             # op.basename (op.dirname(oldfile)), 
-            newfile = op.join (params['images_dir'], op.basename (oldfile))
+            newfile = op.join (params['ghosts_dir'], op.basename (oldfile))
             cursor.execute('UPDATE images SET ghostfile=? WHERE ghostfile=?', (newfile, oldfile))
 
-    if 'masks_dir' in params.keys() and not checkTableExists (cursor, 'masks'):
-        logging.warning ('masks_dir is in params, but table "masks" does not exist')
-    elif 'masks_dir' in params.keys():
-        cursor.execute('SELECT maskfile FROM masks')
+    if 'masks_dir' in params.keys():
+
+        cursor.execute('SELECT maskfile FROM images')
         maskfiles = cursor.fetchall()
 
         for (oldfile,) in maskfiles:
+            # op.basename (op.dirname(oldfile)), 
             newfile = op.join (params['masks_dir'], op.basename (oldfile))
-            cursor.execute('UPDATE masks SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
+            cursor.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
+
 
     conn.commit()
     conn.close()
@@ -409,9 +408,7 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
     cursor_in.execute('SELECT * FROM images')
     image_entries = cursor_in.fetchall()
 
-    assert (not checkTableExists (cursor_in, 'matches'))   # for now
-
-    # copy images and possibly masks
+    # copy images
     for image_entry in image_entries:
         imagefile = image_entry[0]
         # check that doesn't exist
@@ -421,12 +418,7 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
             logging.warning ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
             continue
         # insert image
-        cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?);', image_entry)
-        # insert mask
-        if checkTableExists (cursor_in, 'masks'):
-            cursor_in.execute('SELECT * FROM masks WHERE imagefile=?', (imagefile,))
-            mask_entry = cursor_in.fetchone()
-            cursor_out.execute('INSERT INTO masks VALUES (?,?);', mask_entry)
+        cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
     
     cursor_in.execute('SELECT * FROM cars')
     car_entries = cursor_in.fetchall()
@@ -776,3 +768,82 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
     conn.close()
 
 
+
+
+def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
+
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbPolygonsToMasks')
+    __setupCopyDb__ (db_in_path, db_out_path)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM images')
+    image_entries = cursor.fetchall()
+
+    imagefile = getImageField (image_entries[0], 'imagefile')
+    folder = op.basename(op.dirname(imagefile))
+    labelme_dir = op.dirname(op.dirname(op.dirname(imagefile)))
+    maskdir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'Masks', folder)
+    if op.exists (maskdir): 
+        shutil.rmtree (maskdir) 
+    os.mkdir (maskdir)
+
+    # copy images and possibly masks
+    for image_entry in image_entries:
+
+        imagefile = getImageField (image_entry, 'imagefile')
+        imagename = op.basename(imagefile)
+        maskname = op.splitext(imagename)[0] + '.png'
+        folder = op.basename(op.dirname(imagefile))
+        labelme_dir = op.dirname(op.dirname(op.dirname(imagefile)))
+        maskfile = op.join(labelme_dir, 'Masks', folder, maskname)
+
+        cursor.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+
+        height = getImageField (image_entry, 'height')
+        width = getImageField (image_entry, 'width')
+        mask = np.zeros((height, width), dtype=np.uint8)
+
+        cursor.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
+        for (carid,) in cursor.fetchall():
+            cursor.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+            polygon_entries = cursor.fetchall()
+            pts = [list(pt) for pt in polygon_entries]
+            cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+    
+        logging.info ('saving mask to file: ' + maskfile)
+        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), maskfile), mask)
+
+    conn.commit()
+    conn.close()
+
+
+def dbCustomScript (db_in_path, db_out_path, params = {}):
+
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbCustomScript')
+    __setupCopyDb__ (db_in_path, db_out_path)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('ALTER TABLE images ADD maskfile TEXT NULL')
+
+    cursor.execute('SELECT * FROM images')
+    image_entries = cursor.fetchall()
+
+    for image_entry in image_entries:
+
+        imagefile = getImageField (image_entry, 'imagefile')
+
+        cursor.execute('SELECT maskfile FROM masks WHERE imagefile = ?', (imagefile,))
+        (maskfile,) = cursor.fetchone()
+
+        cursor.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+
+    cursor.execute('DROP TABLE masks')
+
+    conn.commit()
+    conn.close()
+
+    

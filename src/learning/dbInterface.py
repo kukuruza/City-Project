@@ -11,7 +11,9 @@ def createLabelmeDb (db_path):
                      (imagefile TEXT PRIMARY KEY, 
                       src TEXT, 
                       width INTEGER, 
-                      height INTEGER
+                      height INTEGER,
+                      ghostfile TEXT,
+                      maskfile TEXT
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS cars
                      (id INTEGER PRIMARY KEY,
@@ -102,10 +104,9 @@ def deleteEmptyImages():
         if cursor.fetchone()[0] > 0: continue
         cursor.execute('DELETE FROM images WHERE imagefile=?;', (imagefile,));
         os.remove( op.join(os.getenv('CITY_DATA_PATH'), imagefile) )
-        if checkTableExists (cursor, 'masks'):
-            cursor.execute('SELECT FROM masks WHERE imagefile=?;', (imagefile,));
-            cursor.execute('DELETE FROM masks WHERE imagefile=?;', (imagefile,));
-            os.remove( op.join(os.getenv('CITY_DATA_PATH'), imagefile) )
+        #if checkTableExists (cursor, 'masks'):
+        #    cursor.execute('SELECT FROM masks WHERE imagefile=?;', (imagefile,));
+        #    os.remove( op.join(os.getenv('CITY_DATA_PATH'), imagefile) )
 
 
 
@@ -175,6 +176,8 @@ def queryField (car, field):
 def getImageField (image, field):
     if field == 'imagefile': return image[0] 
     if field == 'src':       return image[1] 
+    if field == 'width':     return image[2] 
+    if field == 'height':    return image[3] 
     return None
 
 

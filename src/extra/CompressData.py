@@ -7,8 +7,8 @@ num_thresh = 10
 
 def zipdir(path, zip):
     for root, dirs, files in os.walk(path):
-        for file in files:
-            zip.write(os.path.join(root, file))
+        for file_ in files:
+            zip.write(os.path.join(root, file_), file_)
 
 if (not os.environ.get('CITY_DATA_PATH') or 
     not os.environ.get('CITY_PATH') or

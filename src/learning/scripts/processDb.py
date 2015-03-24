@@ -19,8 +19,8 @@ import logging
 import sys
 import os, os.path as op
 sys.path.insert(0, os.path.abspath('..'))
-from processing import dbFilter, dbExpandBboxes
-from utilities import setupLogging
+import processing
+from utilities import setupLogging, get_CITY_DATA_PATH
 
 
 if __name__ == '__main__':
@@ -28,10 +28,11 @@ if __name__ == '__main__':
     setupLogging ('log/learning/processDb.log', logging.INFO, 'a')
 
     CITY_DATA_PATH = get_CITY_DATA_PATH()
-    db_in_path  = op.join (CITY_DATA_PATH, 'databases/sparse-Mar18-wb-wr.db')
-    db_out_path = op.join (CITY_DATA_PATH, 'databases/sparse-Mar18-wb-wr-ex0.3.db')
-    #db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Jan22-14h/src-ds2.5-dp12.0.db')
-    #db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Jan22-14h/filt-ds2.5-dp12.0.db')
+    #db_in_path  = op.join (CITY_DATA_PATH, 'databases/sparse-Mar18-wb-wr.db')
+    #db_out_path = op.join (CITY_DATA_PATH, 'databases/sparse-Mar18-wb-wr-ex0.3.db')
+    db_in_path  = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/572-Oct28-10h/src-ds2.5-dp12.0.db')
+    db_out_path = op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/572-Oct28-10h/src-ds2.5-dp12.0.db')
+
 
     #params = {'geom_maps_template': op.join (CITY_DATA_PATH, 'models/cam578/Jan22-14h-'),
     #          'debug_show': False,
@@ -39,13 +40,21 @@ if __name__ == '__main__':
     #          'keep_ratio': True,
     #          'border_thresh_perc': 0.005,
     #          'min_width_thresh': 10 }
+    #processing.dbFilter (db_in_path, db_out_path, params)
+    #processing.dbAssignOrientations (db_out_path, db_out_path, params)
 
-    params = {'debug_show': True,
-              'keep_ratio': True,
-              'expand_perc': 0.3 }
 
-    #dbFilter (db_in_path, db_out_path, params)
-    dbExpandBboxes (db_in_path, db_out_path, params)
-    #dbAssignOrientations (db_out_path, db_out_path, params)
+    #params = {'debug_show': True,
+    #          'keep_ratio': True,
+    #          'expand_perc': 0.3 }
+    #processing.dbExpandBboxes (db_in_path, db_out_path, params)
+
+
+    #processing.dbCustomScript (db_in_path, db_out_path)
+
+
+    #params = { 'masks_dir': 'datasets/sparse/Masks/572-Oct28-10h/' }
+    #processing.dbMove (db_in_path, db_out_path, params)
+
 
     

@@ -116,9 +116,8 @@ for t = 1 : 10000000
     if ~isempty(cars) && do_write
         width  = size(frame, 2);
         height = size(frame, 1);
-        sqlite3.execute('INSERT INTO images VALUES (?,?,?,?,?)', ...
-                        image_file, videoName, width, height, ghost_file);
-        sqlite3.execute('INSERT INTO masks VALUES (?,?)', image_file, mask_file);
+        sqlite3.execute('INSERT INTO images VALUES (?,?,?,?,?,?)', ...
+                        image_file, videoName, width, height, ghost_file, mask_file);
         for i = 1 : length(cars)
             car = cars(i);
             bbox = car.bbox;
