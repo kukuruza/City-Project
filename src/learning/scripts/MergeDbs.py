@@ -1,23 +1,16 @@
 import logging
-import sys
-import os, os.path as op
+import os, sys
 sys.path.insert(0, os.path.abspath('..'))
-from processing import dbMerge
 from utilities import setupLogging
+import processing
 
 
-if __name__ == '__main__':
+setupLogging ('log/learning/dbMerge.log', logging.INFO, 'a')
 
-    if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
-        raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
+db_in_paths = []
+db_in_paths.append( 'datasets/sparse/Databases/572-Oct28-10h/clas-ds2.5-dp12.0.db')
+db_in_paths.append( 'datasets/sparse/Databases/578-Mar15-10h/clas-ds2.5-dp12.0.db')
+db_in_paths.append( 'datasets/sparse/Databases/671-Mar24-12h/clas-ds2.5-dp12.0-to665.db')
+db_out_path = 'databases/sparse.db')
 
-    setupLogging ('log/learning/dbMerge.log', logging.INFO, 'a')
-
-    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-    db_in_paths = []
-    db_in_paths.append( op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/572-Oct28-10h/color-ds2.5-dp12.0.db') )
-    db_in_paths.append( op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/color-ds2.5-dp12.0.db') )
-    db_out_path = op.join (CITY_DATA_PATH, 'databases/sparse-color-Mar24.db')
-
-    dbMerge (db_in_paths, db_out_path)
-    
+processing.dbMerge (db_in_paths, db_out_path)

@@ -1,23 +1,23 @@
 import logging
-import sys
-import os, os.path as op
+import sys, os
 sys.path.insert(0, os.path.abspath('..'))
+from utilities import setupLogging
 import negatives
-from utilities import setupLogging, get_CITY_DATA_PATH
 
 
-if __name__ == '__main__':
+setupLogging ('log/learning/collectNegatives.log', logging.INFO, 'a')
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
-    setupLogging ('log/learning/collectNegatives.log', logging.INFO)
+db_path      = 'datasets/labelme/Databases/src-frames.db'
+filters_path = 'clustering/filters/neg_24x18_car.json'
+out_dir      = 'clustering/negatives/neg_car_masked'
 
-    db_path      = op.join (CITY_DATA_PATH, 'datasets/labelme/Databases/src-frames.db')
-    filters_path = op.join (CITY_DATA_PATH, 'clustering/filters/neg_24x18_car.json')
-    out_dir      = op.join (CITY_DATA_PATH, 'clustering/neg_car_masked')
+#params = { 'spot_scale': 0.7,
+#           'method': 'mask',
+#           'dilate': 0.25,
+#           'erode': 0.4 }
+#negatives.negativeGrayspots (db_path, filters_path, out_dir, params)
 
-    params = { 'spot_scale': 0.7,
-               'method': 'mask',
-               'dilate': 0.25,
-               'erode': 0.4 }
-
-    negatives.negativeGrayspots (db_path, filters_path, out_dir, params)
+in_dir = 'clustering/negatives/sparse_circle/negatives_for_all'
+out_dir = 'clustering/negatives/sparse_patches_circle'
+params = { 'resize': [40, 30] }
+negatives.getNegativePatches (in_dir, out_dir, params)

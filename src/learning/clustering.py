@@ -24,7 +24,7 @@ import json
 import sqlite3
 import numpy as np, cv2
 from dbInterface import queryCars, queryField
-from utilities import bbox2roi
+from utilities import bbox2roi, get_CITY_DATA_PATH
 
 
 
@@ -49,10 +49,15 @@ def collectGhosts (db_path, filters_path, out_dir, params = {}):
        use filters to cluster and transform,
        and save the ghosts '''
 
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_path      = op.join (CITY_DATA_PATH, db_path)
+    filters_path = op.join (CITY_DATA_PATH, filters_path)
+    out_dir      = op.join (CITY_DATA_PATH, out_dir)
+
     logging.info ('=== clustering.collectGhosts ===')
-    logging.info ('db_path: ' + db_path)
+    logging.info ('db_path: '      + db_path)
     logging.info ('filters_path: ' + filters_path)
-    logging.info ('out_dir: ' + out_dir)
+    logging.info ('out_dir: '      + out_dir)
     logging.info ('params: ' + str(params))
     logging.info ('')
 
@@ -125,10 +130,15 @@ def collectGhosts (db_path, filters_path, out_dir, params = {}):
 
 def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_path      = op.join(CITY_DATA_PATH, db_path)
+    filters_path = op.join(CITY_DATA_PATH, filters_path)
+    out_dir      = op.join(CITY_DATA_PATH, out_dir)
+
     logging.info ('=== clustering.writeInfoFile ===')
-    logging.info ('db_path: ' + db_path)
+    logging.info ('db_path: '      + db_path)
     logging.info ('filters_path: ' + filters_path)
-    logging.info ('out_dir: ' + out_dir)
+    logging.info ('out_dir: '      + out_dir)
     logging.info ('params: ' + str(params))
     logging.info ('')
 

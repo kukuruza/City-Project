@@ -1,19 +1,14 @@
 import logging
-import sys
-import os, os.path as op
+import os, sys
 sys.path.insert(0, os.path.abspath('..'))
+from utilities import setupLogging
 import clustering
-from utilities import setupLogging, get_CITY_DATA_PATH
 
 
-if __name__ == '__main__':
+setupLogging ('log/learning/clusterGhosts.log', logging.INFO, 'a')
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
-    setupLogging ('log/learning/clusterGhosts.log', logging.INFO)
+in_db_path   = 'databases/sparse-wb-wr-e0.1.db'
+filters_path = 'clustering/filters/name.json'
+out_dir      = 'clustering/name-sparse-e0.1'
 
-    in_db_path   = op.join (CITY_DATA_PATH, 'databases/color-wr-p0.3.db')
-    filters_path = op.join (CITY_DATA_PATH, 'clustering/filters/color.json')
-    out_dir      = op.join (CITY_DATA_PATH, 'clustering/color-572-Oct28-10h')
-
-    clustering.collectGhosts (in_db_path, filters_path, out_dir)
-
+clustering.collectGhosts (in_db_path, filters_path, out_dir)

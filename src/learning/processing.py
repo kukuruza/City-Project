@@ -1,5 +1,3 @@
-#!/bin/python
-
 import numpy as np
 import cv2
 import os, sys
@@ -11,7 +9,8 @@ import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
-from utilities import bbox2roi, roi2bbox, bottomCenter, getCalibration, __setParamUnlessThere__
+from utilities import bbox2roi, roi2bbox, bottomCenter, getCalibration
+from utilities import __setParamUnlessThere__, get_CITY_DATA_PATH
 
 
 #
@@ -189,6 +188,10 @@ def __filterCar__ (cursor, car_entry, params):
 
 def dbFilter (db_in_path, db_out_path, params):
 
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbFilter')
     __setupCopyDb__ (db_in_path, db_out_path)
 
@@ -204,6 +207,7 @@ def dbFilter (db_in_path, db_out_path, params):
 
     if 'geom_maps_template' in params.keys():
         size_map_path = params['geom_maps_template'] + 'sizeMap.tiff'
+        size_map_path  = op.join(CITY_DATA_PATH, size_map_path)
         logging.info ('will load size_map from: ' + size_map_path)
         params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
     else:
@@ -251,6 +255,8 @@ def dbFilter (db_in_path, db_out_path, params):
             button = cv2.waitKey(-1)
             if button == 27: cv2.destroyWindow('debug_show')
 
+        sys.stdout.flush()
+
     conn.commit()
     conn.close()
 
@@ -294,6 +300,10 @@ def __expandCarBbox__ (cursor, car_entry, params):
 
 def dbExpandBboxes (db_in_path, db_out_path, params):
 
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbExpandBboxes')
     __setupCopyDb__ (db_in_path, db_out_path)
 
@@ -317,12 +327,18 @@ def dbExpandBboxes (db_in_path, db_out_path, params):
         for car_entry in car_entries:
             __expandCarBbox__ (cursor, car_entry, params)
 
+        sys.stdout.flush()
+
     conn.commit()
     conn.close()
 
 
 
 def dbAssignOrientations (db_in_path, db_out_path, params):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbAssignOrientations')
     __setupCopyDb__ (db_in_path, db_out_path)
@@ -332,7 +348,9 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
 
     geom_maps_template = params['geom_maps_template']
     pitch_map_path = geom_maps_template + 'pitchMap.tiff'
+    pitch_map_path = op.join(CITY_DATA_PATH, pitch_map_path)
     yaw_map_path   = geom_maps_template + 'yawMap.tiff'
+    yaw_map_path   = op.join(CITY_DATA_PATH, yaw_map_path)
     pitch_map = cv2.imread (pitch_map_path, 0).astype(np.float32)
     yaw_map   = cv2.imread (yaw_map_path, -1).astype(np.float32)
     yaw_map   = cv2.add (yaw_map, -360)
@@ -351,12 +369,18 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
         pitch = float(pitch_map [bc[0], bc[1]])
         cursor.execute('UPDATE cars SET yaw=?, pitch=? WHERE id=?', (yaw, pitch, carid))
 
+        sys.stdout.flush()
+
     conn.commit()
     conn.close()
 
 
 
 def dbMove (db_in_path, db_out_path, params):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbMove')
     __setupCopyDb__ (db_in_path, db_out_path)
@@ -403,55 +427,68 @@ def dbMove (db_in_path, db_out_path, params):
 
 def dbMerge (db_in_paths, db_out_path, params = {}):
 
-    assert (len(db_in_paths) == 2)   # 2 for now
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
+    if len(db_in_paths) <= 1:
+        raise Exception ('db_in_paths must be a list of at least two elements')
+    
     __setupLogHeader__ (db_in_paths[0], db_out_path, params, 'dbMerge')
     __setupCopyDb__ (db_in_paths[0], db_out_path)
 
     conn_out = sqlite3.connect (db_out_path)
     cursor_out = conn_out.cursor()
 
-    conn_in = sqlite3.connect (db_in_paths[1])
-    cursor_in = conn_in.cursor()
+    for db_in_path in db_in_paths[1:]:
+        db_in_path = op.join(CITY_DATA_PATH, db_in_path)
 
-    cursor_in.execute('SELECT * FROM images')
-    image_entries = cursor_in.fetchall()
+        conn_in = sqlite3.connect (db_in_path)
+        cursor_in = conn_in.cursor()
 
-    # copy images
-    for image_entry in image_entries:
-        imagefile = image_entry[0]
-        # check that doesn't exist
-        cursor_out.execute('SELECT count(*) FROM images WHERE imagefile=?', (imagefile,))
-        (num,) = cursor_out.fetchone()
-        if num > 0:
-            logging.warning ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
-            continue
-        # insert image
-        cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
-    
-    cursor_in.execute('SELECT * FROM cars')
-    car_entries = cursor_in.fetchall()
+        cursor_in.execute('SELECT * FROM images')
+        image_entries = cursor_in.fetchall()
 
-    # copy cars and possible polygons
-    for car_entry in car_entries:
-        carid = queryField (car_entry, 'id')
-        s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch,color)'
-        cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
-        carid_new = cursor_out.lastrowid
-        if checkTableExists (cursor_in, 'polygons'):
-            cursor_in.execute('SELECT * FROM polygons WHERE carid=?', (carid,))
-            polygon_entry = cursor_in.fetchone()
-            x = polygon_entry[2]
-            y = polygon_entry[3]
-            cursor_out.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', (carid_new,x,y))
+        # copy images
+        for image_entry in image_entries:
+            imagefile = image_entry[0]
+            # check that doesn't exist
+            cursor_out.execute('SELECT count(*) FROM images WHERE imagefile=?', (imagefile,))
+            (num,) = cursor_out.fetchone()
+            if num > 0:
+                logging.warning ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
+                continue
+            # insert image
+            cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
+            sys.stdout.flush()
+        
+        cursor_in.execute('SELECT * FROM cars')
+        car_entries = cursor_in.fetchall()
+
+        # copy cars and possible polygons
+        for car_entry in car_entries:
+            carid = queryField (car_entry, 'id')
+            s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch,color)'
+            cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
+            carid_new = cursor_out.lastrowid
+            if checkTableExists (cursor_in, 'polygons'):
+                cursor_in.execute('SELECT * FROM polygons WHERE carid=?', (carid,))
+                polygon_entry = cursor_in.fetchone()
+                x = polygon_entry[2]
+                y = polygon_entry[3]
+                cursor_out.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', (carid_new,x,y))
+            sys.stdout.flush()
+
+        conn_in.close()
 
     conn_out.commit()
     conn_out.close()
-    conn_in.close()
-
 
 
 
 def dbExamine (db_in_path, params = {}):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
 
     __setupLogHeader__ (db_in_path, '', params, 'dbExamine')
 
@@ -537,6 +574,10 @@ def dbExamine (db_in_path, params = {}):
 
 def dbClassifyName (db_in_path, db_out_path, params = {}):
 
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
     __setupCopyDb__ (db_in_path, db_out_path)
 
@@ -562,9 +603,8 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
     else:
         car_condition = ''
 
-    cursor.execute('SELECT imagefile, ghostfile FROM images')
+    cursor.execute('SELECT imagefile FROM images')
     image_entries = cursor.fetchall()
-
     if 'imagefile_start' in params.keys(): 
         imagefile_start = params['imagefile_start']
         try:
@@ -575,6 +615,9 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             sys.exit()
     else:
         index_im = 0
+
+    cursor.execute('SELECT imagefile, ghostfile FROM images')
+    image_entries = cursor.fetchall()
 
     car_statuses = {}
     button = 0
@@ -608,7 +651,7 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             img_show = ghost.copy()
             __drawRoi__ (img_show, roi, (offsety, offsetx), car_statuses[carid])
 
-            img_show = cv2.resize(img_show, (0,0), fx=2.0, fy=2.0)
+            img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
@@ -655,6 +698,10 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
 
 
 def dbClassifyColor (db_in_path, db_out_path, params = {}):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
     __setupCopyDb__ (db_in_path, db_out_path)
@@ -741,7 +788,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             status = car_statuses[carid]
             __drawRoi__ (img_show, roi, (offsety, offsetx), status, color_config[status])
 
-            img_show = cv2.resize(img_show, (0,0), fx=2.0, fy=2.0)
+            img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
@@ -789,6 +836,10 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
 
 
 def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbPolygonsToMasks')
     __setupCopyDb__ (db_in_path, db_out_path)
@@ -838,6 +889,10 @@ def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
 
 
 def dbCustomScript (db_in_path, db_out_path, params = {}):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbCustomScript')
     __setupCopyDb__ (db_in_path, db_out_path)

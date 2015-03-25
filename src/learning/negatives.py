@@ -6,7 +6,6 @@
 #
 
 import numpy as np
-import numpy.ma as ma
 import cv2
 import os, sys
 import collections
@@ -16,9 +15,12 @@ import os.path as op
 import glob
 import shutil
 import sqlite3
+import random
 from dbInterface import deleteCar, queryField, queryCars
-from utilities import bbox2roi, getCenter, __setParamUnlessThere__
+from utilities import bbox2roi, getCenter
+from utilities import __setParamUnlessThere__, get_CITY_DATA_PATH
 
+IMAGE_EXT = '.png'
 
 
 def __grayCircle__ (cursor, (imagefile, ghostfile), filter_group, out_dir, params = {}):
@@ -82,6 +84,11 @@ def __grayMasked__ (cursor, (imagefile, ghostfile), filter_group, out_dir, param
 
 def negativeGrayspots (db_path, filters_path, out_dir, params = {}):
 
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_path      = op.join(CITY_DATA_PATH, db_path)
+    filters_path = op.join(CITY_DATA_PATH, filters_path)
+    out_dir      = op.join(CITY_DATA_PATH, out_dir)
+
     params = __setParamUnlessThere__ (params, 'method', 'circle')
 
     logging.info ('=== negativeGrayspots ===')
@@ -136,5 +143,78 @@ def negativeGrayspots (db_path, filters_path, out_dir, params = {}):
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
         readme.write('from database ' + db_path + '\n')
         readme.write('with filters  ' + filters_path + '\n')
+
+
+
+def __getPatchesFromImage__ (imagepath, num, params):
+
+    logging.debug ('farming pathces from ' + imagepath)
+    if not op.exists (imagepath):
+        raise Exception ('imagepath does not exist: ' + imagepath)
+
+    img = cv2.imread(imagepath).astype(np.uint8)
+    assert (img is not None)
+    (im_height, im_width, depth) = img.shape
+
+    patches = []
+    for i in range (num):
+        patch_width = random.randint (params['minwidth'], params['maxwidth'])
+        patch_height = int(patch_width * params['ratio'])
+        if (im_width < patch_width or im_height < patch_height):
+            continue
+        x1 = random.randint (0, im_width - patch_width)
+        y1 = random.randint (0, im_height - patch_height)
+        patch = img[y1:y1+patch_height, x1:x1+patch_width, :]
+
+        patch = cv2.resize(patch, tuple(params['resize']))
+        patches.append(patch)
+
+    logging.info (op.basename(imagepath) + ': got ' + str(len(patches)) + ' patches')
+    return patches
+
+
+
+def getNegativePatches (in_dir, out_dir, params = {}):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    in_dir       = op.join(CITY_DATA_PATH, in_dir)
+    out_dir      = op.join(CITY_DATA_PATH, out_dir)
+
+    params = __setParamUnlessThere__ (params, 'number', 100)
+    params = __setParamUnlessThere__ (params, 'ratio', 0.75)
+    params = __setParamUnlessThere__ (params, 'minwidth', 20)
+    params = __setParamUnlessThere__ (params, 'maxwidth', 100)
+    params = __setParamUnlessThere__ (params, 'ext', '.jpg')
+
+    logging.info ('=== negativeGrayspots ===')
+    logging.info ('called with in_dir: ' + in_dir)
+    logging.info ('            out_dir: ' + out_dir)
+    logging.info ('            params: ' + str(params))
+
+    # check output dir
+    if not op.exists (out_dir):
+        os.makedirs (out_dir)
+
+    random.seed()
+
+    ghost_dir = op.join(in_dir, '*' + params['ext'])
+    ghostpaths = glob.glob (ghost_dir)
+    random.shuffle(ghostpaths)
+    logging.info ('found ' + str(len(ghostpaths)) + ' in in_dir')
+    if not ghostpaths:
+        raise Exception ('no image found in: ' + ghost_dir)
+    num_per_image = int(params['number'] / len(ghostpaths))
+
+    counter = 0
+    for ghostpath in ghostpaths:
+        for patch in __getPatchesFromImage__(ghostpath, num_per_image, params):
+            filename = "%08d" % counter + IMAGE_EXT
+            filepath = op.join(out_dir, filename)
+            cv2.imwrite (filepath, patch)
+            counter += 1
+            if counter >= params['number']: break
+
+    
+
 
 
