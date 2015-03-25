@@ -85,6 +85,7 @@ def collectGhosts (db_path, filters_path, out_dir, params = {}):
 
         # get db entries
         car_entries = queryCars (cursor, filter_group)
+        logging.info ('found images: ' + str(len(car_entries)))
 
         # write ghosts for each entry
         for car_entry in car_entries:
@@ -118,7 +119,7 @@ def collectGhosts (db_path, filters_path, out_dir, params = {}):
     # write info
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
         readme.write('from database ' + db_path + '\n')
-        readme.write('with filters  ' + filters_path + '\n')
+        readme.write('with filters \n' + json.dumps(filters_groups, indent=4) + '\n')
 
 
 
@@ -195,5 +196,5 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
     # write info
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
         readme.write('from database ' + db_path + '\n')
-        readme.write('with filters  ' + filters_path + '\n')
+        readme.write('with filters \n' + json.dumps(filters_groups, indent=4) + '\n')
 

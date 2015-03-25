@@ -110,7 +110,7 @@ def __drawRoi__ (img, roi, (offsety, offsetx), label = '', color = None):
     roi[2] += offsety
     roi[3] += offsetx
     cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, 2)
-    cv2.putText (img, label, (roi[1], roi[0] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 2)
+    cv2.putText (img, label, (roi[1], roi[0] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -199,9 +199,12 @@ def dbFilter (db_in_path, db_out_path, params):
     params = __setParamUnlessThere__ (params, 'sizemap_dilate',     21)
     params = __setParamUnlessThere__ (params, 'debug_show',         False)
     params = __setParamUnlessThere__ (params, 'debug_sizemap',      False)
+    params = __setParamUnlessThere__ (params, 'car_condition',      '')
+
 
     if 'geom_maps_template' in params.keys():
         size_map_path = params['geom_maps_template'] + 'sizeMap.tiff'
+        logging.info ('will load size_map from: ' + size_map_path)
         params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
     else:
         raise Exception ('geom_maps_template is not given in params')
@@ -231,7 +234,12 @@ def dbFilter (db_in_path, db_out_path, params):
             raise Exception ('image does not exist: ' + imagepath)
         params['img_show'] = cv2.imread(imagepath) if params['debug_show'] else None
 
-        cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        if 'car_condition' in params.keys(): 
+            car_condition = params['car_condition']
+        else:
+            car_condition = ''
+
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
@@ -561,6 +569,7 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
         imagefile_start = params['imagefile_start']
         try:
             index_im = image_entries.index((imagefile_start,))
+            logging.info ('starting from image ' + str(index_im))
         except ValueError:
             logging.error ('provided image does not exist ' + imagefile_start)
             sys.exit()
@@ -599,6 +608,7 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             img_show = ghost.copy()
             __drawRoi__ (img_show, roi, (offsety, offsetx), car_statuses[carid])
 
+            img_show = cv2.resize(img_show, (0,0), fx=2.0, fy=2.0)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
@@ -669,6 +679,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
     color_config['red']    = (0,0,255)
     color_config['green']  = (0,255,0)
     color_config['gray']   = (128,128,128)
+    color_config['badroi'] = color_config['red']
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -685,13 +696,19 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
         imagefile_start = params['imagefile_start']
         try:
             index_im = image_entries.index((imagefile_start,))
+            logging.info ('starting from image ' + str(index_im))
         except ValueError:
             logging.error ('provided image does not exist ' + imagefile_start)
             sys.exit()
     else:
         index_im = 0
 
-    car_statuses = {}
+    cursor.execute('SELECT id,color FROM cars')
+    car_entries = cursor.fetchall()
+    car_statuses = dict(car_entries)
+    # remove empty color values
+    car_statuses = {k: v for k, v in car_statuses.items() if v}
+
     button = 0
     index_car = 0
     while button != 27 and index_im < len(image_entries):
@@ -724,6 +741,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             status = car_statuses[carid]
             __drawRoi__ (img_show, roi, (offsety, offsetx), status, color_config[status])
 
+            img_show = cv2.resize(img_show, (0,0), fx=2.0, fy=2.0)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 

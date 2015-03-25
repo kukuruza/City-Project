@@ -15,9 +15,9 @@ if __name__ == '__main__':
 
     CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
     db_in_paths = []
-    db_in_paths.append( op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/572-Oct28-10h/clas-ds2.5-dp12.0.db') )
-    db_in_paths.append( op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/clas-ds2.5-dp12.0.db') )
-    db_out_path = op.join (CITY_DATA_PATH, 'databases/sparse-to-Mar18.db')
+    db_in_paths.append( op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/572-Oct28-10h/color-ds2.5-dp12.0.db') )
+    db_in_paths.append( op.join (CITY_DATA_PATH, 'datasets/sparse/Databases/578-Mar15-10h/color-ds2.5-dp12.0.db') )
+    db_out_path = op.join (CITY_DATA_PATH, 'databases/sparse-color-Mar24.db')
 
     dbMerge (db_in_paths, db_out_path)
     

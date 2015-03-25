@@ -229,6 +229,30 @@ def queryCars (cursor, filters={}, fields=['*']):
     fields_str = ','.join(fields)
 
     # constraints
+    if not 'constraint' in filters.keys():
+        filters['constraint'] = ''
+
+    # put them all together
+    query_str = 'SELECT ' + fields_str + ' FROM cars ' + filters['constraint']
+
+    # actual query
+    logging.debug ('querying cars with: ' + query_str)
+    cursor.execute(query_str)
+    return cursor.fetchall()
+    
+
+
+def queryCarsOld (cursor, filters={}, fields=['*']):
+    '''Finds objects in specified locations based on specified filters, 
+       and returns an index of all suitable objects
+
+       'filters' is a dictionary. E.g. 
+          {'pitch.min' : -90, 'pitch.max' : -45, 'name' : 'car'} '''
+
+    # fields
+    fields_str = ','.join(fields)
+
+    # constraints
     filters_str = ''
     if filters: filters_str = ' WHERE '
     # one-by-one
