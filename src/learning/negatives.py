@@ -148,7 +148,7 @@ def negativeGrayspots (db_path, filters_path, out_dir, params = {}):
 
 def __getPatchesFromImage__ (imagepath, num, params):
 
-    logging.debug ('farming pathces from ' + imagepath)
+    #logging.debug ('farming patches from ' + imagepath)
     if not op.exists (imagepath):
         raise Exception ('imagepath does not exist: ' + imagepath)
 
@@ -156,25 +156,133 @@ def __getPatchesFromImage__ (imagepath, num, params):
     assert (img is not None)
     (im_height, im_width, depth) = img.shape
 
+    if 'mask' not in params.keys():
+        params['mask'] = np.zeros(img.shape, dtype = np.uint8)
+
     patches = []
-    for i in range (num):
+    counter = 0
+    for i in range (num * 100):
+
+        # randomly select x1, y1, width; calculate height; and extract the patch
         patch_width = random.randint (params['minwidth'], params['maxwidth'])
         patch_height = int(patch_width * params['ratio'])
-        if (im_width < patch_width or im_height < patch_height):
+        if im_width < patch_width or im_height < patch_height:
             continue
         x1 = random.randint (0, im_width - patch_width)
         y1 = random.randint (0, im_height - patch_height)
         patch = img[y1:y1+patch_height, x1:x1+patch_width, :]
 
+        # check if patch is within the mask
+        masked = params['mask'][y1:y1+patch_height, x1:x1+patch_width, :]
+        masked_perc = float(np.count_nonzero(masked)) / masked.size
+        if masked_perc > params['max_masked_perc']:
+            logging.debug ('masked_perc ' + '%.2f' % masked_perc + ' above limit')
+            continue
+
         patch = cv2.resize(patch, tuple(params['resize']))
         patches.append(patch)
+
+        if counter >= num: break
+        counter += 1
 
     logging.info (op.basename(imagepath) + ': got ' + str(len(patches)) + ' patches')
     return patches
 
 
 
-def getNegativePatches (in_dir, out_dir, params = {}):
+def negativeViaMaskfiles (db_path, filters_path, out_dir, params = {}):
+
+    logging.info ('=== negativeGrayspots ===')
+    logging.info ('called with db_path: ' + db_path)
+    logging.info ('            filters_path: ' + filters_path)
+    logging.info ('            out_dir: ' + out_dir)
+    logging.info ('            params: ' + str(params))
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_path      = op.join(CITY_DATA_PATH, db_path)
+    filters_path = op.join(CITY_DATA_PATH, filters_path)
+    out_dir      = op.join(CITY_DATA_PATH, out_dir)
+
+    params = __setParamUnlessThere__ (params, 'method', 'circle')
+    params = __setParamUnlessThere__ (params, 'number', 100)
+    params = __setParamUnlessThere__ (params, 'ratio', 0.75)
+    params = __setParamUnlessThere__ (params, 'minwidth', 20)
+    params = __setParamUnlessThere__ (params, 'maxwidth', 200)
+    params = __setParamUnlessThere__ (params, 'max_masked_perc', 0.5)
+    params = __setParamUnlessThere__ (params, 'debug_mask', False)
+
+    # check output dir
+    if op.exists (out_dir):
+        shutil.rmtree(out_dir)
+    os.makedirs (out_dir)
+
+    random.seed()
+
+    # check input db
+    if not op.exists (db_path):
+        raise Exception ('db does not exist: ' + db_path)
+
+    random.seed()
+
+    conn = sqlite3.connect (db_path)
+    cursor = conn.cursor()
+
+    # if given, size_map will serve as mask too
+    if 'size_map_path' in params.keys():
+        size_map_path  = op.join(CITY_DATA_PATH, params['size_map_path'])
+        logging.info ('will load size_map from: ' + size_map_path)
+        if not op.exists (size_map_path):
+            raise Exception ('size_map_path does not exist: ' + size_map_path)
+        size_map = cv2.imread (size_map_path)
+        assert (size_map is not None)
+        size_mask = (size_map == 0)
+    else:
+        cursor.execute('SELECT width,height FROM images')
+        (width,height) = cursor.fetchone()
+        size_mask = np.zeros ((width,height), dtype=bool)
+    if params['debug_mask']:
+        cv2.imshow('size_mask', size_mask.astype(np.uint8) * 255)
+        cv2.waitKey()
+
+    cursor.execute('SELECT ghostfile, maskfile FROM images')
+    image_entries = cursor.fetchall()
+    random.shuffle(image_entries)
+    if not image_entries:
+        raise Exception ('no image found in db')
+    logging.info ('found ' + str(len(image_entries)) + ' in in_dir')
+    num_per_image = int(params['number'] / len(image_entries)) + 1
+
+    conn.close()
+
+    counter = 0
+    for (ghostfile, maskfile) in image_entries:
+        ghostpath = op.join(CITY_DATA_PATH, ghostfile)
+        maskpath  = op.join(CITY_DATA_PATH, maskfile)
+        immask = cv2.imread (maskpath)
+        assert (immask is not None)
+        params['mask'] = np.logical_or (size_mask, immask)
+        if params['debug_mask']:
+            cv2.imshow('combined mask', params['mask'].astype(np.uint8) * 255)
+            cv2.waitKey()
+
+        for patch in __getPatchesFromImage__(ghostpath, num_per_image, params):
+            filename = "%08d" % counter + IMAGE_EXT
+            filepath = op.join(out_dir, filename)
+            cv2.imwrite (filepath, patch)
+            counter += 1
+            if counter >= params['number']: return
+
+    if counter < params['number']:
+        logging.error ('got only ' + str(counter) + ' patches')
+
+
+
+def negativeImages2patches (in_dir, out_dir, params = {}):
+
+    logging.info ('=== negativeGrayspots ===')
+    logging.info ('called with in_dir: ' + in_dir)
+    logging.info ('            out_dir: ' + out_dir)
+    logging.info ('            params: ' + str(params))
 
     CITY_DATA_PATH = get_CITY_DATA_PATH()
     in_dir       = op.join(CITY_DATA_PATH, in_dir)
@@ -183,17 +291,27 @@ def getNegativePatches (in_dir, out_dir, params = {}):
     params = __setParamUnlessThere__ (params, 'number', 100)
     params = __setParamUnlessThere__ (params, 'ratio', 0.75)
     params = __setParamUnlessThere__ (params, 'minwidth', 20)
-    params = __setParamUnlessThere__ (params, 'maxwidth', 100)
+    params = __setParamUnlessThere__ (params, 'maxwidth', 200)
+    params = __setParamUnlessThere__ (params, 'max_masked_perc', 0.5)
     params = __setParamUnlessThere__ (params, 'ext', '.jpg')
+    params = __setParamUnlessThere__ (params, 'debug_mask', False)
 
-    logging.info ('=== negativeGrayspots ===')
-    logging.info ('called with in_dir: ' + in_dir)
-    logging.info ('            out_dir: ' + out_dir)
-    logging.info ('            params: ' + str(params))
+    if 'size_map_path' in params.keys():
+        size_map_path  = op.join(CITY_DATA_PATH, params['size_map_path'])
+        logging.info ('will load size_map from: ' + size_map_path)
+        if not op.exists (size_map_path):
+            raise Exception ('size_map_path does not exist: ' + size_map_path)
+        size_map = cv2.imread (size_map_path)
+        assert (size_map is not None)
+        params['mask'] = (size_map == 0)
+        if params['debug_mask']:
+            cv2.imshow('size_map mask', params['mask'])
+            cv2.waitKey()
 
     # check output dir
-    if not op.exists (out_dir):
-        os.makedirs (out_dir)
+    if op.exists (out_dir):
+        shutil.rmtree(out_dir)
+    os.makedirs (out_dir)
 
     random.seed()
 
@@ -203,7 +321,7 @@ def getNegativePatches (in_dir, out_dir, params = {}):
     logging.info ('found ' + str(len(ghostpaths)) + ' in in_dir')
     if not ghostpaths:
         raise Exception ('no image found in: ' + ghost_dir)
-    num_per_image = int(params['number'] / len(ghostpaths))
+    num_per_image = int(params['number'] / len(ghostpaths)) + 1
 
     counter = 0
     for ghostpath in ghostpaths:
@@ -212,8 +330,10 @@ def getNegativePatches (in_dir, out_dir, params = {}):
             filepath = op.join(out_dir, filename)
             cv2.imwrite (filepath, patch)
             counter += 1
-            if counter >= params['number']: break
+            if counter >= params['number']: return
 
+    if counter < params['number']:
+        logging.error ('got only ' + str(counter) + ' patches')
     
 
 

@@ -874,11 +874,11 @@ def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
         width = getImageField (image_entry, 'width')
         mask = np.zeros((height, width), dtype=np.uint8)
 
-        cursor.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
-        for (carid,) in cursor.fetchall():
+        cursor.execute('SELECT id,offsetx,offsety FROM cars WHERE imagefile=?', (imagefile,))
+        for (carid,offsetx,offsety) in cursor.fetchall():
             cursor.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
             polygon_entries = cursor.fetchall()
-            pts = [list(pt) for pt in polygon_entries]
+            pts = [[pt[0]+offsetx, pt[1]+offsety] for pt in polygon_entries]
             cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
     
         logging.info ('saving mask to file: ' + maskfile)
