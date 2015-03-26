@@ -9,8 +9,8 @@ import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
-from utilities import bbox2roi, roi2bbox, bottomCenter, getCalibration
-from utilities import __setParamUnlessThere__, get_CITY_DATA_PATH
+from utilities import bbox2roi, roi2bbox, bottomCenter
+from setup_helper import setParamUnlessThere, get_CITY_DATA_PATH, getCalibration
 
 
 #
@@ -195,14 +195,14 @@ def dbFilter (db_in_path, db_out_path, params):
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbFilter')
     __setupCopyDb__ (db_in_path, db_out_path)
 
-    params = __setParamUnlessThere__ (params, 'border_thresh_perc', 0.03)
-    params = __setParamUnlessThere__ (params, 'min_width_thresh',   10)
-    params = __setParamUnlessThere__ (params, 'size_acceptance',   (0.4, 2))
-    params = __setParamUnlessThere__ (params, 'ratio_acceptance',  (0.4, 1.5))
-    params = __setParamUnlessThere__ (params, 'sizemap_dilate',     21)
-    params = __setParamUnlessThere__ (params, 'debug_show',         False)
-    params = __setParamUnlessThere__ (params, 'debug_sizemap',      False)
-    params = __setParamUnlessThere__ (params, 'car_condition',      '')
+    params = setParamUnlessThere (params, 'border_thresh_perc', 0.03)
+    params = setParamUnlessThere (params, 'min_width_thresh',   10)
+    params = setParamUnlessThere (params, 'size_acceptance',   (0.4, 2))
+    params = setParamUnlessThere (params, 'ratio_acceptance',  (0.4, 1.5))
+    params = setParamUnlessThere (params, 'sizemap_dilate',     21)
+    params = setParamUnlessThere (params, 'debug_show',         False)
+    params = setParamUnlessThere (params, 'debug_sizemap',      False)
+    params = setParamUnlessThere (params, 'car_condition',      '')
 
 
     if 'geom_maps_template' in params.keys():
@@ -307,10 +307,10 @@ def dbExpandBboxes (db_in_path, db_out_path, params):
     __setupLogHeader__ (db_in_path, db_out_path, params, 'dbExpandBboxes')
     __setupCopyDb__ (db_in_path, db_out_path)
 
-    params = __setParamUnlessThere__ (params, 'expand_perc', 0.1)
-    params = __setParamUnlessThere__ (params, 'target_ratio', 0.75)   # height / width
-    params = __setParamUnlessThere__ (params, 'keep_ratio', False)
-    params = __setParamUnlessThere__ (params, 'debug_show', False)
+    params = setParamUnlessThere (params, 'expand_perc', 0.1)
+    params = setParamUnlessThere (params, 'target_ratio', 0.75)   # height / width
+    params = setParamUnlessThere (params, 'keep_ratio', False)
+    params = setParamUnlessThere (params, 'debug_show', False)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()

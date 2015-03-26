@@ -19,7 +19,7 @@ import logging
 import sys, os
 sys.path.insert(0, os.path.abspath('..'))
 import processing
-from utilities import setupLogging
+from setup_helper import setupLogging
 
 
 setupLogging ('log/learning/processDb.log', logging.INFO, 'a')

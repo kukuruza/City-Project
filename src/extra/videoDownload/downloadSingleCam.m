@@ -19,6 +19,7 @@ run ('../../subdirPathsSetup.m')
 % where to write video and intervals
 videoPath = fullfile([outFileTemplate, '.avi']);
 intervalsPath = fullfile([outFileTemplate,'.txt']);
+sampleImagePath = fullfile([outFileTemplate,'.jpg']);
 
 fprintf ('Will write video to %s\n', videoPath);
 fprintf ('Will write subtitles to %s\n', intervalsPath);
@@ -28,11 +29,12 @@ frameWriter = FrameWriterVideo (videoPath, 2, 1);
 fid = fopen(intervalsPath, 'w');
 
 t0 = clock;
-t = clock;
+t = t0;
 while etime(t, t0) < numMinutes * 60
     tic
     frame = frameReader.getNewFrame();
     frameWriter.writeNextFrame (frame);
+    if t == t0, imwrite (frame, sampleImagePath); end
     t = clock;
     fprintf(fid, '%f %f %f %f %f %f \n', t(1), t(2), t(3), t(4), t(5), t(6));
     toc

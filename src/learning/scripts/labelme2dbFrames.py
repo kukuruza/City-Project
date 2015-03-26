@@ -1,7 +1,7 @@
 import logging
 import os, sys
 sys.path.insert(0, os.path.abspath('../labelme'))
-from utilities import setupLogging
+from setup_helper import setupLogging
 import labelme2db
 
 
