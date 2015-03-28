@@ -2,10 +2,11 @@ import random
 import unittest
 
 import logging
-from processing import expandRoiFloat, expandRoiToRatio
+from utilities import expandRoiFloat, expandRoiToRatio
+from utilities import hierarchicalCluster
 
 
-class TestFunctions (unittest.TestCase):
+class TestExpandRoi (unittest.TestCase):
 
     def test_expandRoiFloat_identity (self):
         roi = [3, 3, 4, 6]
@@ -46,6 +47,15 @@ class TestFunctions (unittest.TestCase):
 
 
 
+class TestClustering (unittest.TestCase):
+
+    def test_hierarchicalCluster (self):
+        clusters = hierarchicalCluster([[1,2,10,10], [4,5,15,15], [20,20,25,25]], 0.1)
+        self.assertEqual (1, 1)
+
+
+
+
 if __name__ == '__main__':
-    logging.basicConfig (level=logging.CRITICAL)
+    logging.basicConfig (level=logging.DEBUG)
     unittest.main()

@@ -9,60 +9,8 @@ import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
-from utilities import bbox2roi, roi2bbox, bottomCenter
+from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio
 from setup_helper import setParamUnlessThere, get_CITY_DATA_PATH, getCalibration
-
-
-#
-# expandRoiFloat expands a ROI, and clips it within borders
-#
-def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
-    half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
-    half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
-    # expand each side
-    roi[0] -= half_delta_y
-    roi[1] -= half_delta_x
-    roi[2] += half_delta_y
-    roi[3] += half_delta_x
-    # make integer
-    roi = [int(x) for x in roi]
-    # move to clip into borders
-    if roi[0] < 0:
-        roi[2] += abs(roi[0])
-        roi[0] = 0
-    if roi[1] < 0:
-        roi[3] += abs(roi[1])
-        roi[1] = 0
-    if roi[2] > imheight-1:
-        roi[0] -= abs((imheight-1) - roi[2])
-        roi[2] = imheight-1
-    if roi[3] > imwidth-1:
-        roi[1] -= abs((imwidth-1) - roi[3])
-        roi[3] = imwidth-1
-    # check that now averything is within borders (bbox is not too big)
-    assert (roi[0] >= 0 and roi[1] >= 0)
-    assert (roi[2] <= imheight-1 and roi[3] <= imwidth-1)
-    return roi
-
-
-#
-# expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
-#
-def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
-    # adjust width and height to ratio
-    height = float(roi[2] + 1 - roi[0])
-    width  = float(roi[3] + 1 - roi[1])
-    if height / width < ratio:
-       perc = ratio * width / height - 1
-       roi = expandRoiFloat (roi, (imheight, imwidth), (perc, 0))
-    else:
-       perc = height / width / ratio - 1
-       roi = expandRoiFloat (roi, (imheight, imwidth), (0, perc))
-    # additional expansion
-    perc = expand_perc - perc
-    if perc > 0:
-        roi = expandRoiFloat (roi, (imheight, imwidth), (perc, perc))
-    return roi
 
 
 def __setupLogHeader__ (db_in_path, db_out_path, params, name):
