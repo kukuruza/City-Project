@@ -67,7 +67,7 @@ def train (task_path, mem):
 
     for experiment in experiments:
         experiment = setParamUnlessThere (experiment, 'num_neg_images', 1000)
-        experiment = setParamUnlessThere (experiment, 'frac_pos_use', 0.8)
+        experiment = setParamUnlessThere (experiment, 'frac_pos_use', 0.9)
         experiment = setParamUnlessThere (experiment, 'neg_to_pos_ratio', 3)
         experiment = setParamUnlessThere (experiment, 'num_stages', 20)
         experiment = setParamUnlessThere (experiment, 'feature_type', 'HAAR')
@@ -169,7 +169,14 @@ if __name__ == '__main__':
     parser.add_argument('--mem', type=int,
                         default=1024,
                         help='memory that opencv_traincascade can use')
+    parser.add_argument('--show_experiments', action='store_true',
+                        help='print out experiment configurations and then quit')
     args = parser.parse_args()
+
+    if args.show_experiments:
+        experiments = ExperimentsBuilder(loadJson(args.task_path)).getResult()
+        print (json.dumps(experiments, indent=4))
+        sys.exit()
 
     logging.info ('argument list: \n' + str(args))
     train (args.task_path, args.mem)
