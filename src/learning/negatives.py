@@ -18,14 +18,14 @@ import sqlite3
 import random
 from dbInterface import deleteCar, queryField, queryCars
 from utilities import bbox2roi, getCenter
-from utilities import __setParamUnlessThere__, get_CITY_DATA_PATH
+from setup_helper import setParamUnlessThere, get_CITY_DATA_PATH
 
 IMAGE_EXT = '.png'
 
 
 def __grayCircle__ (cursor, (imagefile, ghostfile), filter_group, out_dir, params = {}):
 
-    params = __setParamUnlessThere__ (params, 'spot_scale', 0.6)
+    params = setParamUnlessThere (params, 'spot_scale', 0.6)
 
     ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
     if not op.exists (ghostpath):
@@ -50,8 +50,8 @@ def __grayCircle__ (cursor, (imagefile, ghostfile), filter_group, out_dir, param
 
 def __grayMasked__ (cursor, (imagefile, ghostfile), filter_group, out_dir, params = {}):
 
-    params = __setParamUnlessThere__ (params, 'dilate', 1. / 4)
-    params = __setParamUnlessThere__ (params, 'erode', 1. / 2.5)
+    params = setParamUnlessThere (params, 'dilate', 1. / 4)
+    params = setParamUnlessThere (params, 'erode', 1. / 2.5)
 
     if not 'width' in filter_group.keys():
         raise Exception ('no width in filter_group')
@@ -89,7 +89,7 @@ def negativeGrayspots (db_path, filters_path, out_dir, params = {}):
     filters_path = op.join(CITY_DATA_PATH, filters_path)
     out_dir      = op.join(CITY_DATA_PATH, out_dir)
 
-    params = __setParamUnlessThere__ (params, 'method', 'circle')
+    params = setParamUnlessThere (params, 'method', 'circle')
 
     logging.info ('=== negativeGrayspots ===')
     logging.info ('called with db_path: ' + db_path)
@@ -203,13 +203,13 @@ def negativeViaMaskfiles (db_path, filters_path, out_dir, params = {}):
     filters_path = op.join(CITY_DATA_PATH, filters_path)
     out_dir      = op.join(CITY_DATA_PATH, out_dir)
 
-    params = __setParamUnlessThere__ (params, 'method', 'circle')
-    params = __setParamUnlessThere__ (params, 'number', 100)
-    params = __setParamUnlessThere__ (params, 'ratio', 0.75)
-    params = __setParamUnlessThere__ (params, 'minwidth', 20)
-    params = __setParamUnlessThere__ (params, 'maxwidth', 200)
-    params = __setParamUnlessThere__ (params, 'max_masked_perc', 0.5)
-    params = __setParamUnlessThere__ (params, 'debug_mask', False)
+    params = setParamUnlessThere (params, 'method', 'circle')
+    params = setParamUnlessThere (params, 'number', 100)
+    params = setParamUnlessThere (params, 'ratio', 0.75)
+    params = setParamUnlessThere (params, 'minwidth', 20)
+    params = setParamUnlessThere (params, 'maxwidth', 200)
+    params = setParamUnlessThere (params, 'max_masked_perc', 0.5)
+    params = setParamUnlessThere (params, 'debug_mask', False)
 
     # check output dir
     if op.exists (out_dir):
@@ -288,13 +288,13 @@ def negativeImages2patches (in_dir, out_dir, params = {}):
     in_dir       = op.join(CITY_DATA_PATH, in_dir)
     out_dir      = op.join(CITY_DATA_PATH, out_dir)
 
-    params = __setParamUnlessThere__ (params, 'number', 100)
-    params = __setParamUnlessThere__ (params, 'ratio', 0.75)
-    params = __setParamUnlessThere__ (params, 'minwidth', 20)
-    params = __setParamUnlessThere__ (params, 'maxwidth', 200)
-    params = __setParamUnlessThere__ (params, 'max_masked_perc', 0.5)
-    params = __setParamUnlessThere__ (params, 'ext', '.jpg')
-    params = __setParamUnlessThere__ (params, 'debug_mask', False)
+    params = setParamUnlessThere (params, 'number', 100)
+    params = setParamUnlessThere (params, 'ratio', 0.75)
+    params = setParamUnlessThere (params, 'minwidth', 20)
+    params = setParamUnlessThere (params, 'maxwidth', 200)
+    params = setParamUnlessThere (params, 'max_masked_perc', 0.5)
+    params = setParamUnlessThere (params, 'ext', '.jpg')
+    params = setParamUnlessThere (params, 'debug_mask', False)
 
     if 'size_map_path' in params.keys():
         size_map_path  = op.join(CITY_DATA_PATH, params['size_map_path'])

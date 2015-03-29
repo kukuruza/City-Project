@@ -24,7 +24,8 @@ import json
 import sqlite3
 import numpy as np, cv2
 from dbInterface import queryCars, queryField
-from utilities import bbox2roi, get_CITY_DATA_PATH
+from utilities import bbox2roi
+from setup_helper import get_CITY_DATA_PATH
 
 
 
@@ -207,4 +208,26 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
         readme.write('from database ' + db_path + '\n')
         readme.write('with filters \n' + json.dumps(filters_groups, indent=4) + '\n')
+
+
+
+def patches2datFile (dir_in, dat_out_path):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    dir_in       = op.join(CITY_DATA_PATH, dir_in)
+    dat_out_path = op.join(CITY_DATA_PATH, dat_out_path)
+
+    image_paths = glob.glob(op.join(dir_in, '*.png'))
+    logging.info ('found ' + str(len(image_paths)) + ' files')
+
+    with open(dat_out_path, 'w') as dat_file:
+        for image_path in image_paths:
+            img = cv2.imread(image_path)
+            assert (img is not None)
+            (height,width,depth) = img.shape
+            str_roi = '  1  0 0 ' + str(width) + ' ' + str(height)
+            dat_file.write( op.relpath(image_path, op.dirname(dat_out_path)) + str_roi + '\n')
+
+
+
 

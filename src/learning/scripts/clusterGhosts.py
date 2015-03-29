@@ -1,7 +1,7 @@
 import logging
 import os, sys
 sys.path.insert(0, os.path.abspath('..'))
-from utilities import setupLogging
+from setup_helper import setupLogging
 import clustering
 
 
