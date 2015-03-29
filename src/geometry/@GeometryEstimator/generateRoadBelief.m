@@ -46,7 +46,8 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     % Smoothen the belief and estimate the number of minima
     normBelief = obj.roadBelief ./ sum(obj.roadBelief);
     smoothBelief = smooth(normBelief, windowSize)'; % Make it a row vector
-    
+    figure(2); plot(smoothBelief)
+        
     % Finding the points of minima based on being a local minima
     localMinima = colfilt(smoothBelief, [1, minimaRange], 'sliding', @min);
     
@@ -69,7 +70,8 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Taking the best out of both the hough and already present edges
-    unionEdges = union(houghEdges, laneEdges);
+    %unionEdges = union(houghEdges, laneEdges);
+    unionEdges = houghEdges;
     
     % pruning the lanes
     proxThreshold = 0.02 * imageSize(2); % Setting threshold proportionally
@@ -88,7 +90,7 @@ function[lanes, debugImage] = generateRoadBelief(obj, foreground, frame)
     %                                    obj.ipHomography);
     
     %obj.unionLanes = union(unionEdges, obj.unionLanes);
-    unionEdges = pruneLaneEdges(unionEdges, proxThreshold);
+    %unionEdges = pruneLaneEdges(unionEdges, proxThreshold);
     
     % Getting edges from the previous frames
     debug4 = printDebugImage(frame, obj.road.vanishPt, unionEdges, ...

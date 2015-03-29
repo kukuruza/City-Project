@@ -62,9 +62,11 @@ classdef GeometryEstimator < GeometryInterface
             % road; read it from the files
             
             % Extremely adhoc way to read the curved road from models 
-            obj.roadMask = imread('curvedRoadMask572.png');
-            obj.cameraRoadMap = imread('curvedCameraRoadMap572.png');
-       
+            %obj.roadMask = imread('curvedRoadMask572.png');
+            %obj.cameraRoadMap = imread('curvedCameraRoadMap572.png');
+            obj.roadMask = imread('roadMask578.png');
+            obj.road.vanishPt = [360, 90];
+            
             % Creating the orientation map
             obj.computeOrientationMap();
         end

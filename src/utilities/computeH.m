@@ -1,32 +1,24 @@
-%Function to compute the homography between two images obtained by solving the homography equations using corresponding points
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-%
-%Inputs : (p1, p2) - Corresponding arrays of points with each 2 x N
-%Outputs : H2to1 - 3 x 3 is the homography from image 2 to image 1
-%Usage: homo2to1 = computeH(pts1, pts2)
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-function[H2to1] = computeH(p1, p2)
-    %Getting the constraints to the form Ah = 0, to apply Rayleigh Quotient method for solving the least square system
+function H=computeH(ps,qs)
+	points = size(ps,1);
+	C=[];
 
-    A = [];
-    %Error checking for incompatible sizes
-    if(size(p1, 1) ~= 2 || size(p2,1) ~= 2 || size(p1, 2) ~= size(p2, 2))
-        fprintf('Incompatible sizes of p1, p2 in computeH\n');
-        return
-    end
+	scale = 1;
+	ps = ps / scale;
 
-    %Looping over all the point pairs available for homography computation
-    %to gather constraints for solving Ah = 0
-    for i = 1 : size(p1, 2)
-        A = [A ; 
-            p2(1, i), p2(2, i), 1, 0, 0, 0, -p1(1,i)*p2(1,i), -p1(1,i)*p2(2,i), -p1(1,i);
-            0, 0, 0, p2(1, i), p2(2, i), 1, -p1(2,i)*p2(1,i), -p1(2,i)*p2(2,i), -p1(2,i)];
-    end
+	for i = 1:points
+		fr = -[ps(i, 1) * qs(i, :) ps(i, 1)];
+		sr = -[ps(i, 2) * qs(i, :) ps(i, 2)];
+		C = [C; qs(i, :) 1   0   0  0 fr];
+		C = [C;  0   0   0 qs(i, :) 1 sr];
+	end
 
-    %Finding the eigenvector of the least eigenvalue which is the minimizer according to Rayleigh Theorem 
-    [V, D] = eig(A'*A);
-    %homoVec = V(:,1);
-    %H2to1 = [homoVec(1:3), homoVec(4:6), homoVec(7:9)];
-    H2to1 = [V(1:3, 1), V(4:6, 1), V(7:9, 1)]';
+	[U, S, V] = svd( C );
+	VV = V(:,9);
+	VV = VV / norm(VV);
+
+	%fprintf('%.10e\n', norm(C * VV));
+
+	H = [ VV(1:3)' ; VV(4:6)' ; VV(7:9)' / scale ];
+	H = H / norm(H);
+
 end
