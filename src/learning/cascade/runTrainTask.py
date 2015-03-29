@@ -8,10 +8,26 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
 import random
 import subprocess
+import argparse
 
+
+
+class ExperimentsBuilder:
+    def getResult (self):
+        return self.experiments
+    def __init__ (self, mine, parent = {}):
+        filt = {k:v for (k,v) in mine.iteritems() if k != '__children__'}
+        merged = dict(parent.items() + filt.items())
+        if '__children__' in mine.keys():
+            self.experiments = []
+            for child in mine['__children__']:
+                self.experiments += ExperimentsBuilder(child, merged).getResult()
+        else:
+            self.experiments = [merged]
 
 
 def loadJson (json_path):
+    json_path = op.join(os.getenv('CITY_DATA_PATH'), json_path)
     if not op.exists(json_path):
         raise Exception('json_path does not exist: ' + json_path)
     json_file = open(json_path)
@@ -41,16 +57,13 @@ def run (command, logpath, wait = True):
 
 
 
-def train (settings_path, params={}):
+def train (task_path, mem):
 
     CITY_DATA_PATH = get_CITY_DATA_PATH()
 
     random.seed(0)
 
-    settings_path = op.join(CITY_DATA_PATH, settings_path)
-    if not op.exists(settings_path):
-        raise Exception ('settings_path does not exist: ' + settings_path)
-    experiments = loadJson(settings_path)
+    experiments = ExperimentsBuilder(loadJson(task_path)).getResult()
 
     for experiment in experiments:
         experiment = setParamUnlessThere (experiment, 'num_neg_images', 1000)
@@ -126,7 +139,7 @@ def train (settings_path, params={}):
         # train
         command = ['opencv_traincascade', '-data', model_dir, '-vec', vec_path,
                    '-bg', op.basename(info_path), '-w', str(w), '-h', str(h),
-                   '-precalcValBufSize', '2048', '-precalcIdxBufSize', '2048',
+                   '-precalcValBufSize', str(mem), '-precalcIdxBufSize', str(mem),
                    '-numPos',            str(num_pos), 
                    '-numNeg',            str(num_neg),
                    '-numStages',         str(experiment['num_stages']),
@@ -136,7 +149,7 @@ def train (settings_path, params={}):
         logpath = op.join(model_dir, 'opencv_traincascade.out')
         run (command, logpath, wait=False)
 
-        readme_path = op.join(model_dir, 'readme.txt')
+        readme_path = op.join(model_dir, 'experiment.json')
         with open(readme_path, 'w') as readme_file:
             readme_file.write(json.dumps(experiment, indent=4) + '\n')
 
@@ -148,8 +161,15 @@ if __name__ == '__main__':
 
     setupLogging ('log/detector/violajones.log', logging.INFO, 'a')
 
-    logging.info ('argument list: ' + str(sys.argv))
-    if len(sys.argv) > 1:
-        train (sys.argv[1])
-    else:
-        train ('learning/violajones/tasks/test3.json')
+    parser = argparse.ArgumentParser(description='''Start opencv_traincascade
+                        task, described in a json format file''')
+    parser.add_argument('task_path', type=str, nargs='?',
+                        default='learning/violajones/tasks/test3.json',
+                        help='path to json file with task description')
+    parser.add_argument('--mem', type=int,
+                        default=1024,
+                        help='memory that opencv_traincascade can use')
+    args = parser.parse_args()
+
+    logging.info ('argument list: \n' + str(args))
+    train (args.task_path, args.mem)
