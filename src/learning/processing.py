@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
+import utilities
 from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio
 from setup_helper import setParamUnlessThere, get_CITY_DATA_PATH, getCalibration
 
@@ -282,6 +283,81 @@ def dbExpandBboxes (db_in_path, db_out_path, params):
 
 
 
+def __clusterBboxes__ (cursor, imagefile, params):
+
+    # TODO: now only works with 0 offsets,
+    #       assigned 'vehicle' to all names, angles and color are reset to null
+
+    cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+    car_entries = cursor.fetchall()
+    logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+
+    # collect rois
+    rois = []
+    for car_entry in car_entries:
+        carid = queryField(car_entry, 'id')
+        offsetx   = queryField(car_entry, 'offsetx')
+        offsety   = queryField(car_entry, 'offsety')
+        assert (offsetx == 0 and offsety == 0)
+        roi = bbox2roi (queryField(car_entry, 'bbox'))
+        rois.append (roi)
+
+    # cluster rois
+    rois_clustered = utilities.hierarchicalCluster (rois, params)
+
+    # show
+    if params['debug_show']:
+        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+        if not op.exists (imagepath):
+            raise Exception ('image does not exist: ' + imagepath)
+        img_show = cv2.imread(imagepath)
+        for i,roi in enumerate(rois):
+            __drawRoi__ (img_show, roi, (0, 0), '', (0,0,255))
+        for roi in rois_clustered:
+            __drawRoi__ (img_show, roi, (0, 0), '', (255,0,0))
+        cv2.imshow('debug_show', img_show)
+        if cv2.waitKey(-1) == 27: 
+            cv2.destroyWindow('debug_show')
+            params['debug_show'] = False
+
+    # update db
+    for car_entry in car_entries:
+        deleteCar (cursor, queryField(car_entry, 'id'))
+    for roi in rois_clustered:
+        bbox = roi2bbox(roi)
+        entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], 0, 0)
+        cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety) 
+                          VALUES (?,?,?,?,?,?,?,?);''', entry)
+
+
+
+def dbClusterBboxes (db_in_path, db_out_path, params = {}):
+
+    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
+    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClusterBboxes')
+    __setupCopyDb__ (db_in_path, db_out_path)
+
+    params = setParamUnlessThere (params, 'threshold', 0.2)
+    params = setParamUnlessThere (params, 'debug_show', False)
+    params = setParamUnlessThere (params, 'debug_clustering', False)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT imagefile FROM images')
+    image_entries = cursor.fetchall()
+
+    for (imagefile,) in image_entries:
+        __clusterBboxes__ (cursor, imagefile, params)
+
+    conn.commit()
+    conn.close()
+
+
+
 def dbAssignOrientations (db_in_path, db_out_path, params):
 
     CITY_DATA_PATH = get_CITY_DATA_PATH()
@@ -516,7 +592,6 @@ def dbExamine (db_in_path, params = {}):
     cv2.destroyWindow('show')
 
     conn.close()
-
 
 
 
