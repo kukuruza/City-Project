@@ -8,7 +8,6 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
 import random
 import subprocess
-import argparse
 
 
 
@@ -16,7 +15,7 @@ class ExperimentsBuilder:
     def getResult (self):
         return self.experiments
     def __init__ (self, mine, parent = {}):
-        filt = {k:v for (k,v) in mine.iteritems() if k != '__children__'}
+        filt = dict((k,v) for k, v in mine.iteritems() if k != '__children__')
         merged = dict(parent.items() + filt.items())
         if '__children__' in mine.keys():
             self.experiments = []

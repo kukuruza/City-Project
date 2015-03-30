@@ -5,7 +5,8 @@ import shutil
 import glob
 import json
 import random
-import argparse
+from optparse import OptionParser
+
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
@@ -118,22 +119,24 @@ if __name__ == '__main__':
 
     setupLogging ('log/detector/violajones.log', logging.INFO, 'a')
 
-    parser = argparse.ArgumentParser(description='''Start opencv_traincascade
-                        task, described in a json format file''')
-    parser.add_argument('task_path', type=str, nargs='?',
-                        default='learning/violajones/tasks/test3.json',
-                        help='path to json file with task description')
-    parser.add_argument('--mem', type=int,
-                        default=1024,
-                        help='memory that opencv_traincascade can use')
-    parser.add_argument('--show_experiments', action='store_true',
-                        help='print out experiment configurations and then quit')
-    args = parser.parse_args()
+    parser = OptionParser(description='''Start opencv_traincascade
+                                    task, described in a json format file''')
+    parser.add_option('--task_path', type=str, nargs='?',
+                      default='learning/violajones/tasks/test3.json',
+                      help='path to json file with task description')
+    parser.add_option('--mem', type=int,
+                      default=1024,
+                      help='memory that opencv_traincascade can use')
+    parser.add_option('--show_experiments', action='store_true',
+                      default=False,
+                      help='print out experiment configurations and then quit')
+    (options, args) = parser.parse_args()
+    logging.info ('argument list: \n' + str(options))
 
-    if args.show_experiments:
-        experiments = ExperimentsBuilder(loadJson(args.task_path)).getResult()
+    print (type(options))
+    if options.show_experiments:
+        experiments = ExperimentsBuilder(loadJson(options.task_path)).getResult()
         print (json.dumps(experiments, indent=4))
         sys.exit()
 
-    logging.info ('argument list: \n' + str(args))
-    trainAll (args.task_path, args.mem)
+    trainAll (options.task_path, options.mem)

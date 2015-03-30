@@ -5,7 +5,7 @@ from setup_helper import setupLogging
 import processing
 
 
-setupLogging ('log/learning/writeInfoFile.log', logging.INFO, 'a')
+setupLogging ('log/learning/ClusterBboxes.log', logging.INFO, 'a')
 
 db_in_path  = 'datasets/labelme/Databases/filt-frames.db'
 db_out_path = 'datasets/labelme/Databases/distinct-frames.db'
