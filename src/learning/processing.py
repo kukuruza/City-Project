@@ -497,7 +497,7 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
 def dbExamine (db_in_path, params = {}):
 
     color_config = {}
-    color_config['']       = (255,0,0)
+    color_config['']       = None
     color_config['black']  = (0,0,0)
     color_config['white']  = (255,255,255)
     color_config['blue']   = (255,0,0)
@@ -518,9 +518,13 @@ def dbExamine (db_in_path, params = {}):
     cursor = conn.cursor()
 
     if 'car_condition' in params.keys(): 
-        car_condition = params['car_condition']
+        car_condition = ' AND ' + params['car_condition']
     else:
         car_condition = ''
+
+    cursor.execute('SELECT count(*) FROM cars WHERE 1' + car_condition)
+    (total_num,) = cursor.fetchone()
+    logging.info('total number of objects found in db: ' + str(total_num))
 
     cursor.execute('SELECT imagefile FROM images')
     image_entries = cursor.fetchall()
@@ -564,7 +568,7 @@ def dbExamine (db_in_path, params = {}):
             color     = queryField(car_entry, 'color')
 
             img_show = img.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), name, color_config[color])
+            __drawRoi__ (img_show, roi, (offsety, offsetx), name, color_config[color or ''])
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
@@ -621,7 +625,7 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
     cursor = conn.cursor()
 
     if 'car_condition' in params.keys(): 
-        car_condition = params['car_condition']
+        car_condition = ' AND ' + params['car_condition']
     else:
         car_condition = ''
 
@@ -667,13 +671,12 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             offsetx   = queryField(car_entry, 'offsetx')
             offsety   = queryField(car_entry, 'offsety')
 
-            # init car_statuses[carid] and assign label for display
-            if not carid in car_statuses.keys():
-                label = queryField(car_entry, 'name')
-                if label is None: label = ''
-            else:
+            # assign label for display
+            if carid in car_statuses.keys():
                 label = car_statuses[carid]
-            logging.debug ('label: "' + label + '"')
+            else:
+                label = queryField(car_entry, 'name')
+            logging.debug ('label: "' + (label or '') + '"')
 
             img_show = ghost.copy()
             __drawRoi__ (img_show, roi, (offsety, offsetx), label)
@@ -745,7 +748,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
     keys_config[ord('s')] = 'gray'
 
     color_config = {}
-    color_config['']       = (255,0,0)
+    color_config['']       = None
     color_config['black']  = (0,0,0)
     color_config['white']  = (255,255,255)
     color_config['blue']   = (255,0,0)
@@ -759,7 +762,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
     cursor = conn.cursor()
 
     if 'car_condition' in params.keys(): 
-        car_condition = params['car_condition']
+        car_condition = ' AND ' + params['car_condition']
     else:
         car_condition = ''
 
@@ -803,16 +806,15 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             offsetx   = queryField(car_entry, 'offsetx')
             offsety   = queryField(car_entry, 'offsety')
 
-            # init car_statuses[carid] and assign label for display
-            if not carid in car_statuses.keys():
-                label = queryField(car_entry, 'color')
-                if label is None: label = ''
-            else:
+            # assign label for display
+            if carid in car_statuses.keys():
                 label = car_statuses[carid]
-            logging.debug ('label: "' + label + '"')
+            else:
+                label = queryField(car_entry, 'color')
+            logging.debug ('label: "' + (label or '') + '"')
 
             img_show = img.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), label, color_config[label])
+            __drawRoi__ (img_show, roi, (offsety, offsetx), label, color_config[label or ''])
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
