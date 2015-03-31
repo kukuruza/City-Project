@@ -496,6 +496,17 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
 
 def dbExamine (db_in_path, params = {}):
 
+    color_config = {}
+    color_config['']       = (255,0,0)
+    color_config['black']  = (0,0,0)
+    color_config['white']  = (255,255,255)
+    color_config['blue']   = (255,0,0)
+    color_config['yellow'] = (0,255,255)
+    color_config['red']    = (0,0,255)
+    color_config['green']  = (0,255,0)
+    color_config['gray']   = (128,128,128)
+    color_config['badroi'] = color_config['red']
+
     CITY_DATA_PATH = get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
 
@@ -533,7 +544,7 @@ def dbExamine (db_in_path, params = {}):
         imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
         if not op.exists (imagepath):
             raise Exception ('image does not exist: ' + imagepath)
-        image = cv2.imread(imagepath)
+        img = cv2.imread(imagepath)
 
         # TODO: let car_condition not contain AND keyword
         cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
@@ -544,15 +555,18 @@ def dbExamine (db_in_path, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid = queryField(car_entry, 'id')
-            roi = bbox2roi (queryField(car_entry, 'bbox'))
+            carid     = queryField(car_entry, 'id')
+            roi       = bbox2roi (queryField(car_entry, 'bbox'))
             imagefile = queryField(car_entry, 'imagefile')
             offsetx   = queryField(car_entry, 'offsetx')
             offsety   = queryField(car_entry, 'offsety')
+            name      = queryField(car_entry, 'name')
+            color     = queryField(car_entry, 'color')
 
-            img_show = image.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx))
+            img_show = img.copy()
+            __drawRoi__ (img_show, roi, (offsety, offsetx), name, color_config[color])
 
+            img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
@@ -653,11 +667,16 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             offsetx   = queryField(car_entry, 'offsetx')
             offsety   = queryField(car_entry, 'offsety')
 
+            # init car_statuses[carid] and assign label for display
             if not carid in car_statuses.keys():
-                car_statuses[carid] = ''
+                label = queryField(car_entry, 'name')
+                if label is None: label = ''
+            else:
+                label = car_statuses[carid]
+            logging.debug ('label: "' + label + '"')
 
             img_show = ghost.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), car_statuses[carid])
+            __drawRoi__ (img_show, roi, (offsety, offsetx), label)
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
@@ -758,12 +777,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
     else:
         index_im = 0
 
-    cursor.execute('SELECT id,color FROM cars')
-    car_entries = cursor.fetchall()
-    car_statuses = dict(car_entries)
-    # remove empty color values
-    car_statuses = {k: v for k, v in car_statuses.items() if v}
-
+    car_statuses = {}
     button = 0
     index_car = 0
     while button != 27 and index_im < len(image_entries):
@@ -783,18 +797,22 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid = queryField(car_entry, 'id')
-            roi = bbox2roi (queryField(car_entry, 'bbox'))
+            carid     = queryField(car_entry, 'id')
+            roi       = bbox2roi (queryField(car_entry, 'bbox'))
             imagefile = queryField(car_entry, 'imagefile')
             offsetx   = queryField(car_entry, 'offsetx')
             offsety   = queryField(car_entry, 'offsety')
 
+            # init car_statuses[carid] and assign label for display
             if not carid in car_statuses.keys():
-                car_statuses[carid] = ''
+                label = queryField(car_entry, 'color')
+                if label is None: label = ''
+            else:
+                label = car_statuses[carid]
+            logging.debug ('label: "' + label + '"')
 
             img_show = img.copy()
-            status = car_statuses[carid]
-            __drawRoi__ (img_show, roi, (offsety, offsetx), status, color_config[status])
+            __drawRoi__ (img_show, roi, (offsety, offsetx), label, color_config[label])
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)

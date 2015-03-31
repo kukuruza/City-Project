@@ -165,6 +165,7 @@ def queryField (car, field):
     if field == 'offsety':   return car[8]
     if field == 'yaw':       return car[9]
     if field == 'pitch':     return car[10]
+    if field == 'color':     return car[11]
 
     if field == 'bbox':      
         return list(car[3:7])
