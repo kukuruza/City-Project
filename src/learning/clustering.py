@@ -177,10 +177,15 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
         counter = 0
         for (imagefile, ghostfile) in imagefiles:
+            filter_group_im = dict(filter_group)
+
+            if not 'constraint' in filter_group_im.keys():
+                filter_group_im['constraint'] = 'WHERE imagefile="' + imagefile + '"'
+            else:
+                filter_group_im['constraint'] += ' AND imagefile="' + imagefile + '"'
 
             # get db entries
-            filter_group['imagefile'] = imagefile
-            car_entries = queryCars (cursor, filter_group)
+            car_entries = queryCars (cursor, filter_group_im)
             counter += len(car_entries)
 
             # skip if there are no objects

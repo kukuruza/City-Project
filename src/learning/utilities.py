@@ -31,6 +31,22 @@ def bottomCenter (roi):
     return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
 
 
+def __drawRoi__ (img, roi, (offsety, offsetx), label = '', color = None):
+    if color is None:
+        if label == 'border':
+            color = (0,255,255)
+        elif label == 'badroi':
+            color = (0,0,255)
+        else:
+            color = (255,0,0)
+    roi[0] += offsety
+    roi[1] += offsetx
+    roi[2] += offsety
+    roi[3] += offsetx
+    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, 2)
+    cv2.putText (img, label, (roi[1], roi[0] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+
 #
 # expandRoiFloat expands a ROI, and clips it within borders
 #

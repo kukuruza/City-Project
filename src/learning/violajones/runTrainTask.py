@@ -117,12 +117,12 @@ def trainAll(task_path, mem):
 
 if __name__ == '__main__':
 
-    setupLogging ('log/detector/violajones.log', logging.INFO, 'a')
+    setupLogging ('log/detector/runTrainTask.log', logging.INFO, 'a')
 
     parser = OptionParser(description='''Start opencv_traincascade
                                     task, described in a json format file''')
     parser.add_option('--task_path', type=str, nargs='?',
-                      default='learning/violajones/tasks/test3.json',
+                      default='learning/violajones/tasks/test.json',
                       help='path to json file with task description')
     parser.add_option('--mem', type=int,
                       default=1024,
@@ -131,9 +131,8 @@ if __name__ == '__main__':
                       default=False,
                       help='print out experiment configurations and then quit')
     (options, args) = parser.parse_args()
-    logging.info ('argument list: \n' + str(options))
+    logging.info ('argument list: ' + str(options))
 
-    print (type(options))
     if options.show_experiments:
         experiments = ExperimentsBuilder(loadJson(options.task_path)).getResult()
         print (json.dumps(experiments, indent=4))

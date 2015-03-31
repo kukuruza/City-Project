@@ -11,6 +11,7 @@ from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
 import utilities
 from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio
+from utilities import __drawRoi__
 from setup_helper import setParamUnlessThere, get_CITY_DATA_PATH, getCalibration
 
 
@@ -43,22 +44,6 @@ def __loadKeys__ (params):
     logging.info ('right: ' + str(keys_config['right']))
     logging.info ('del:   ' + str(keys_config['del']))
     return keys_config
-
-
-def __drawRoi__ (img, roi, (offsety, offsetx), label = '', color = None):
-    if color is None:
-        if label == 'border':
-            color = (0,255,255)
-        elif label == 'badroi':
-            color = (0,0,255)
-        else:
-            color = (255,0,0)
-    roi[0] += offsety
-    roi[1] += offsetx
-    roi[2] += offsety
-    roi[3] += offsetx
-    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, 2)
-    cv2.putText (img, label, (roi[1], roi[0] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -311,7 +296,7 @@ def __clusterBboxes__ (cursor, imagefile, params):
         if not op.exists (imagepath):
             raise Exception ('image does not exist: ' + imagepath)
         img_show = cv2.imread(imagepath)
-        for i,roi in enumerate(rois):
+        for roi in rois:
             __drawRoi__ (img_show, roi, (0, 0), '', (0,0,255))
         for roi in rois_clustered:
             __drawRoi__ (img_show, roi, (0, 0), '', (255,0,0))
