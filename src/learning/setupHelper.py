@@ -1,7 +1,31 @@
 import sys, os, os.path as op
 import logging, logging.handlers
+import shutil
 import ConfigParser 
 
+
+
+def setupLogHeader (db_in_path, db_out_path, params, name):
+    logging.info ('=== processing ' + name + '===')
+    logging.info ('db_in_path:  ' + db_in_path)
+    logging.info ('db_out_path: ' + db_out_path)
+    logging.info ('params:      ' + str(params))
+
+
+def setupCopyDb (db_in_path, db_out_path):
+    if not op.exists (db_in_path):
+        raise Exception ('db does not exist: ' + db_in_path)
+    if op.exists (db_out_path):
+        logging.warning ('will back up existing db_out_path')
+        backup_path = db_out_path + '.backup'
+        if db_in_path != db_out_path:
+            if op.exists (backup_path): os.remove (backup_path)
+            os.rename (db_out_path, backup_path)
+        else:
+            shutil.copyfile(db_in_path, backup_path)
+    if db_in_path != db_out_path:
+        # copy input database into the output one
+        shutil.copyfile(db_in_path, db_out_path)
 
 
 def setParamUnlessThere (params, key, default_value):

@@ -25,7 +25,7 @@ import sqlite3
 import numpy as np, cv2
 from dbInterface import queryCars, queryField
 from utilities import bbox2roi
-from setup_helper import get_CITY_DATA_PATH
+import setupHelper
 
 
 
@@ -50,7 +50,7 @@ def collectGhosts (db_path, filters_path, out_dir, params = {}):
        use filters to cluster and transform,
        and save the ghosts '''
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_path      = op.join (CITY_DATA_PATH, db_path)
     filters_path = op.join (CITY_DATA_PATH, filters_path)
     out_dir      = op.join (CITY_DATA_PATH, out_dir)
@@ -131,7 +131,7 @@ def collectGhosts (db_path, filters_path, out_dir, params = {}):
 
 def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_path      = op.join(CITY_DATA_PATH, db_path)
     filters_path = op.join(CITY_DATA_PATH, filters_path)
     out_dir      = op.join(CITY_DATA_PATH, out_dir)
@@ -218,7 +218,7 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
 def patches2datFile (dir_in, dat_out_path):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     dir_in       = op.join(CITY_DATA_PATH, dir_in)
     dat_out_path = op.join(CITY_DATA_PATH, dat_out_path)
 

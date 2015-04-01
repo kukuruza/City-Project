@@ -10,36 +10,15 @@ import sqlite3
 from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
 import utilities
-from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio
-from utilities import __drawRoi__
-from setup_helper import setParamUnlessThere, get_CITY_DATA_PATH, getCalibration
-
-
-def __setupLogHeader__ (db_in_path, db_out_path, params, name):
-    logging.info ('=== processing ' + name + '===')
-    logging.info ('db_in_path:  ' + db_in_path)
-    logging.info ('db_out_path: ' + db_out_path)
-    logging.info ('params:      ' + str(params))
-
-
-def __setupCopyDb__ (db_in_path, db_out_path):
-    if not op.exists (db_in_path):
-        raise Exception ('db does not exist: ' + db_in_path)
-    if op.exists (db_out_path) and db_in_path != db_out_path:
-        logging.warning ('will back up existing db_out_path')
-        backup_path = db_out_path + '.old'
-        if op.exists (backup_path): os.remove (backup_path)
-        os.rename (db_out_path, backup_path)
-    if db_in_path != db_out_path:
-        # copy input database into the output one
-        shutil.copyfile(db_in_path, db_out_path)
+from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio, drawRoi
+import setupHelper
 
 
 def __loadKeys__ (params):
     if 'keys_config' in params.keys() and 'calibrate' not in params.keys(): 
         keys_config = params['keys_config']
     else:
-        keys_config = getCalibration()
+        keys_config = setupHelper.getCalibration()
     logging.info ('left:  ' + str(keys_config['left']))
     logging.info ('right: ' + str(keys_config['right']))
     logging.info ('del:   ' + str(keys_config['del']))
@@ -113,7 +92,7 @@ def __filterCar__ (cursor, car_entry, params):
         flag = 'badroi'
 
     if params['debug_show']:
-        __drawRoi__ (params['img_show'], roi, (offsety, offsetx), flag)
+        drawRoi (params['img_show'], roi, (offsety, offsetx), flag)
 
     if flag != '':
         deleteCar (cursor, carid)
@@ -122,21 +101,21 @@ def __filterCar__ (cursor, car_entry, params):
 
 def dbFilter (db_in_path, db_out_path, params):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbFilter')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbFilter')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
-    params = setParamUnlessThere (params, 'border_thresh_perc', 0.03)
-    params = setParamUnlessThere (params, 'min_width_thresh',   10)
-    params = setParamUnlessThere (params, 'size_acceptance',   (0.4, 2))
-    params = setParamUnlessThere (params, 'ratio_acceptance',  (0.4, 1.5))
-    params = setParamUnlessThere (params, 'sizemap_dilate',     21)
-    params = setParamUnlessThere (params, 'debug_show',         False)
-    params = setParamUnlessThere (params, 'debug_sizemap',      False)
-    params = setParamUnlessThere (params, 'car_constraint',      '')
+    params = setupHelper.setParamUnlessThere (params, 'border_thresh_perc', 0.03)
+    params = setupHelper.setParamUnlessThere (params, 'min_width_thresh',   10)
+    params = setupHelper.setParamUnlessThere (params, 'size_acceptance',   (0.4, 2))
+    params = setupHelper.setParamUnlessThere (params, 'ratio_acceptance',  (0.4, 1.5))
+    params = setupHelper.setParamUnlessThere (params, 'sizemap_dilate',     21)
+    params = setupHelper.setParamUnlessThere (params, 'debug_show',         False)
+    params = setupHelper.setParamUnlessThere (params, 'debug_sizemap',      False)
+    params = setupHelper.setParamUnlessThere (params, 'car_constraint',      '')
 
 
     if 'geom_maps_template' in params.keys():
@@ -220,8 +199,8 @@ def __expandCarBbox__ (cursor, car_entry, params):
         if not op.exists (imagepath):
             raise Exception ('image does not exist: ' + imagepath)
         img_show = cv2.imread(imagepath)
-        __drawRoi__ (img_show, old, (offsety, offsetx), '', (0,0,255))
-        __drawRoi__ (img_show, roi, (offsety, offsetx), '', (255,0,0))
+        drawRoi (img_show, old, (offsety, offsetx), '', (0,0,255))
+        drawRoi (img_show, roi, (offsety, offsetx), '', (255,0,0))
         cv2.imshow('debug_show', img_show)
         if cv2.waitKey(-1) == 27: 
             cv2.destroyWindow('debug_show')
@@ -234,17 +213,17 @@ def __expandCarBbox__ (cursor, car_entry, params):
 
 def dbExpandBboxes (db_in_path, db_out_path, params):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbExpandBboxes')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbExpandBboxes')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
-    params = setParamUnlessThere (params, 'expand_perc', 0.1)
-    params = setParamUnlessThere (params, 'target_ratio', 0.75)   # height / width
-    params = setParamUnlessThere (params, 'keep_ratio', False)
-    params = setParamUnlessThere (params, 'debug_show', False)
+    params = setupHelper.setParamUnlessThere (params, 'expand_perc', 0.1)
+    params = setupHelper.setParamUnlessThere (params, 'target_ratio', 0.75)   # height / width
+    params = setupHelper.setParamUnlessThere (params, 'keep_ratio', False)
+    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -297,9 +276,9 @@ def __clusterBboxes__ (cursor, imagefile, params):
             raise Exception ('image does not exist: ' + imagepath)
         img_show = cv2.imread(imagepath)
         for roi in rois:
-            __drawRoi__ (img_show, roi, (0, 0), '', (0,0,255))
+            drawRoi (img_show, roi, (0, 0), '', (0,0,255))
         for roi in rois_clustered:
-            __drawRoi__ (img_show, roi, (0, 0), '', (255,0,0))
+            drawRoi (img_show, roi, (0, 0), '', (255,0,0))
         cv2.imshow('debug_show', img_show)
         if cv2.waitKey(-1) == 27: 
             cv2.destroyWindow('debug_show')
@@ -318,16 +297,16 @@ def __clusterBboxes__ (cursor, imagefile, params):
 
 def dbClusterBboxes (db_in_path, db_out_path, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClusterBboxes')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbClusterBboxes')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
-    params = setParamUnlessThere (params, 'threshold', 0.2)
-    params = setParamUnlessThere (params, 'debug_show', False)
-    params = setParamUnlessThere (params, 'debug_clustering', False)
+    params = setupHelper.setParamUnlessThere (params, 'threshold', 0.2)
+    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
+    params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -345,12 +324,12 @@ def dbClusterBboxes (db_in_path, db_out_path, params = {}):
 
 def dbAssignOrientations (db_in_path, db_out_path, params):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbAssignOrientations')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbAssignOrientations')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     if not 'geom_maps_dir' in params.keys():
         raise Exception ('geom_maps_dir is not given in params')
@@ -387,12 +366,12 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
 
 def dbMove (db_in_path, db_out_path, params):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbMove')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbMove')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -436,14 +415,14 @@ def dbMove (db_in_path, db_out_path, params):
 
 def dbMerge (db_in_paths, db_out_path, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     if len(db_in_paths) <= 1:
         raise Exception ('db_in_paths must be a list of at least two elements')
     
-    __setupLogHeader__ (db_in_paths[0], db_out_path, params, 'dbMerge')
-    __setupCopyDb__ (db_in_paths[0], db_out_path)
+    setupHelper.setupLogHeader (db_in_paths[0], db_out_path, params, 'dbMerge')
+    setupHelper.setupCopyDb (db_in_paths[0], db_out_path)
 
     conn_out = sqlite3.connect (db_out_path)
     cursor_out = conn_out.cursor()
@@ -507,10 +486,10 @@ def dbExamine (db_in_path, params = {}):
     color_config['gray']   = (128,128,128)
     color_config['badroi'] = color_config['red']
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
 
-    __setupLogHeader__ (db_in_path, '', params, 'dbExamine')
+    setupHelper.setupLogHeader (db_in_path, '', params, 'dbExamine')
 
     keys_config = __loadKeys__ (params)
 
@@ -550,7 +529,6 @@ def dbExamine (db_in_path, params = {}):
             raise Exception ('image does not exist: ' + imagepath)
         img = cv2.imread(imagepath)
 
-        # TODO: let car_constraint not contain AND keyword
         cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
@@ -568,7 +546,7 @@ def dbExamine (db_in_path, params = {}):
             color     = queryField(car_entry, 'color')
 
             img_show = img.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), name, color_config[color or ''])
+            drawRoi (img_show, roi, (offsety, offsetx), name, color_config[color or ''])
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
@@ -600,17 +578,17 @@ def dbExamine (db_in_path, params = {}):
 
 def dbClassifyName (db_in_path, db_out_path, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbClassifyManually')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     keys_config = __loadKeys__ (params)
 
-    keys_config[ord('c')] = 'car'
-    keys_config[ord(' ')] = 'car'
+    keys_config[ord('s')] = 'sedan'
+    keys_config[ord(' ')] = 'sedan'
     keys_config[ord('d')] = 'double'
     keys_config[ord('h')] = 'vehicle'
     keys_config[ord('t')] = 'taxi'
@@ -656,7 +634,6 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             raise Exception ('image does not exist: ' + ghostpath)
         ghost = cv2.imread(ghostpath)
 
-        # TODO: let car_constraint not contain AND keyword
         cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
@@ -679,7 +656,7 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             logging.debug ('label: "' + (label or '') + '"')
 
             img_show = ghost.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), label)
+            drawRoi (img_show, roi, (offsety, offsetx), label)
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
@@ -729,12 +706,12 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
 
 def dbClassifyColor (db_in_path, db_out_path, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbClassifyManually')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbClassifyManually')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     keys_config = __loadKeys__ (params)
 
@@ -791,7 +768,6 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             raise Exception ('image does not exist: ' + imagepath)
         img = cv2.imread(imagepath)
 
-        # TODO: let car_constraint not contain AND keyword
         cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
@@ -814,7 +790,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             logging.debug ('label: "' + (label or '') + '"')
 
             img_show = img.copy()
-            __drawRoi__ (img_show, roi, (offsety, offsetx), label, color_config[label or ''])
+            drawRoi (img_show, roi, (offsety, offsetx), label, color_config[label or ''])
 
             img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
             cv2.imshow('show', img_show)
@@ -865,12 +841,12 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
 
 def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbPolygonsToMasks')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbPolygonsToMasks')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -918,12 +894,12 @@ def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
 
 def dbCustomScript (db_in_path, db_out_path, params = {}):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    __setupLogHeader__ (db_in_path, db_out_path, params, 'dbCustomScript')
-    __setupCopyDb__ (db_in_path, db_out_path)
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbCustomScript')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
