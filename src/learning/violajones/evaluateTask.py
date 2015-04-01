@@ -7,12 +7,11 @@ import json
 import sqlite3
 import cv2
 import time
-from argparse import ArgumentParser
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
+import setupHelper
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
-from utilities import bbox2roi, __drawRoi__, overlapRatio, expandRoiFloat
+from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat
 from dbInterface import queryField
 
 
@@ -66,9 +65,9 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
 
     if params['debug_show']:
         for roi in detected:
-            __drawRoi__ (img, roi, (0, 0), '', (0,0,255))
+            drawRoi (img, roi, (0, 0), '', (0,0,255))
         for roi in truth:
-            __drawRoi__ (img, roi, (0, 0), '', (255,0,0))
+            drawRoi (img, roi, (0, 0), '', (255,0,0))
         cv2.imshow('red - detected, blue - ground truth', img)
         cv2.waitKey(-1)
 
@@ -77,15 +76,17 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
 
 def dbEvaluateCascade (db_path, params):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
 
-    params = setParamUnlessThere (params, 'debug_show', False)
-    params = setParamUnlessThere (params, 'dist_thresh', 0.5)
-    params = setParamUnlessThere (params, 'expanded', 0)
-    params = setParamUnlessThere (params, 'num_stages', -1)
+    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
+    params = setupHelper.setParamUnlessThere (params, 'dist_thresh', 0.5)
+    params = setupHelper.setParamUnlessThere (params, 'expanded', 0)
+    params = setupHelper.setParamUnlessThere (params, 'num_stages', -1)
 
     # labelled data
     db_path = op.join (CITY_DATA_PATH, db_path)
+    if not op.exists (db_path):
+        raise Exception ('db_path does not exist: ' + db_path)
 
     # model
     model_path = op.join (CITY_DATA_PATH, params['model_dir'], 'cascade.xml')
@@ -110,30 +111,15 @@ def dbEvaluateCascade (db_path, params):
 
 
 
-if __name__ == '__main__':
+def evaluateTask (task_path, db_eval_path, params):
 
-    setupLogging ('log/detector/runTestTask.log', logging.WARNING, 'a')
+    params = setupHelper.setParamUnlessThere (params, 'show_experiments', False)
 
-    parser = ArgumentParser(description='Evaluate cascade detector')
-    parser.add_argument('--task_path', type=str, nargs='?',
-                        default='learning/violajones/tasks/test-trained.json',
-                        help='path to json file with task description')
-    parser.add_argument('--db_path', type=str, nargs='?',
-                        default='datasets/labelme/Databases/distinct-frames.db')
-    parser.add_argument('--show_experiments', action='store_true',
-                        help='print out experiment configurations and then quit')
-    args = parser.parse_args()
-    logging.info ('argument list: ' + str(args))
-
-    if args.show_experiments:
-        experiments = ExperimentsBuilder(loadJson(args.task_path)).getResult()
+    if params['show_experiments']:
+        experiments = ExperimentsBuilder(loadJson(task_path)).getResult()
         print (json.dumps(experiments, indent=4))
-        sys.exit()
+        return
 
-    params = { 'debug_show': True }
-
-    for experiment in ExperimentsBuilder(loadJson(args.task_path)).getResult():
+    for experiment in ExperimentsBuilder(loadJson(task_path)).getResult():
         params = dict(params.items() + experiment.items())
-        dbEvaluateCascade (args.db_path, params)
-
-
+        dbEvaluateCascade (db_eval_path, params)

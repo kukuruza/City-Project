@@ -5,7 +5,6 @@ import shutil
 import glob
 import json
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
 import random
 import subprocess
 

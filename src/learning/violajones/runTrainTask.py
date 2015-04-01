@@ -8,21 +8,21 @@ import random
 from optparse import OptionParser
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
+import setupHelper
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 
 
 def train (experiment, mem):
 
-    CITY_DATA_PATH = get_CITY_DATA_PATH()
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
 
-    experiment = setParamUnlessThere (experiment, 'num_neg_images', 1000)
-    experiment = setParamUnlessThere (experiment, 'frac_pos_use', 0.9)
-    experiment = setParamUnlessThere (experiment, 'neg_to_pos_ratio', 3)
-    experiment = setParamUnlessThere (experiment, 'num_stages', 20)
-    experiment = setParamUnlessThere (experiment, 'feature_type', 'HAAR')
-    experiment = setParamUnlessThere (experiment, 'min_hit_rate', 0.995)
-    experiment = setParamUnlessThere (experiment, 'max_false_alarm_rate', 0.5)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'num_neg_images', 1000)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'frac_pos_use', 0.9)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'neg_to_pos_ratio', 3)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'num_stages', 20)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'feature_type', 'HAAR')
+    experiment = setupHelper.setParamUnlessThere (experiment, 'min_hit_rate', 0.995)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'max_false_alarm_rate', 0.5)
 
     model_dir        = experiment['model_dir']
     dat_path         = experiment['dat_path']
@@ -117,7 +117,7 @@ def trainAll(task_path, mem):
 
 if __name__ == '__main__':
 
-    setupLogging ('log/detector/runTrainTask.log', logging.INFO, 'a')
+    setupHelper.setupLogging ('log/detector/runTrainTask.log', logging.INFO, 'a')
 
     parser = OptionParser(description='''Start opencv_traincascade
                                     task, described in a json format file''')
