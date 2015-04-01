@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     parser = OptionParser(description='''Start opencv_traincascade
                                     task, described in a json format file''')
-    parser.add_option('--task_path', type=str, nargs='?',
+    parser.add_option('--task_path', type=str,
                       default='learning/violajones/tasks/test.json',
                       help='path to json file with task description')
     parser.add_option('--mem', type=int,
