@@ -56,6 +56,8 @@ def __drawRoi__ (img, roi, (offsety, offsetx), label = None, color = None):
 # expandRoiFloat expands a ROI, and clips it within borders
 #
 def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
+    if (perc_y, perc_x) == (0, 0): return roi
+
     half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
     half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
     # expand each side

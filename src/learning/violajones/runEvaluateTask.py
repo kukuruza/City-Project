@@ -7,12 +7,12 @@ import json
 import sqlite3
 import cv2
 import time
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from setup_helper import setupLogging, get_CITY_DATA_PATH, setParamUnlessThere
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
-from utilities import bbox2roi, __drawRoi__, overlapRatio
+from utilities import bbox2roi, __drawRoi__, overlapRatio, expandRoiFloat
 from dbInterface import queryField
 
 
@@ -27,6 +27,7 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
     if not op.exists(ghostpath):
         raise Exception ('ghostpath does not exist: ' + ghostpath)
     img = cv2.imread(ghostpath)
+    (width, height, depth) = img.shape
 
     # roi-s from ground truth
     cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
@@ -42,6 +43,9 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
     end = time.time()
     logging.debug ('finished detectMultiScale in sec: ' + str(end - start))
     detected = [bbox2roi(list(bbox)) for bbox in detected_bboxes]
+    contraction = -params['expanded'] / (1 + params['expanded'])
+    detected = [expandRoiFloat(bbox, (width,height), (contraction,contraction))
+                for bbox in detected]
 
     # performance on this image
     hits   = 0
@@ -49,14 +53,16 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
     falses = 0
     # TODO: get the best pairwise assignment (now, it's naive)
     for d in detected:
-        best_dist = 0
+        best_dist = 1
         for t in truth:
-            best_dist = max (overlapRatio(d,t), best_dist)
+            best_dist = min (1 - overlapRatio(d,t), best_dist)
         if best_dist < params['dist_thresh']:
             hits += 1
             misses -= 1
         else:
             falses += 1
+
+    logging.info ('image result: '+str(hits)+', '+str(misses)+', '+str(falses))
 
     if params['debug_show']:
         for roi in detected:
@@ -66,26 +72,23 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
         cv2.imshow('red - detected, blue - ground truth', img)
         cv2.waitKey(-1)
 
-    logging.info ('image result: '+str(hits)+', '+str(misses)+', '+str(falses))
-
     return (hits, misses, falses)
 
 
-def dbTestCascade (experiment, db_path, params = {}):
+def dbEvaluateCascade (db_path, params):
 
     CITY_DATA_PATH = get_CITY_DATA_PATH()
 
     params = setParamUnlessThere (params, 'debug_show', False)
     params = setParamUnlessThere (params, 'dist_thresh', 0.5)
-    #experiment = setParamUnlessThere (experiment, 'feature_type', 'HAAR')
-    #experiment = setParamUnlessThere (experiment, 'min_hit_rate', 0.995)
-    #experiment = setParamUnlessThere (experiment, 'max_false_alarm_rate', 0.5)
+    params = setParamUnlessThere (params, 'expanded', 0)
+    params = setParamUnlessThere (params, 'num_stages', -1)
 
     # labelled data
     db_path = op.join (CITY_DATA_PATH, db_path)
 
     # model
-    model_path = op.join (CITY_DATA_PATH, experiment['model_dir'], 'cascade.xml')
+    model_path = op.join (CITY_DATA_PATH, params['model_dir'], 'cascade.xml')
     logging.info ('model_path: ' + model_path)
     cascade = cv2.CascadeClassifier (model_path)
 
@@ -101,7 +104,7 @@ def dbTestCascade (experiment, db_path, params = {}):
         result_im = __evaluateForImage__ (cursor, cascade, imagefile, params)
         result = tuple(map(sum,zip(result, result_im)))
 
-    print (result)
+    print (op.basename(params['model_dir']) + ': ' + str(result))
 
     conn.close()
 
@@ -109,28 +112,28 @@ def dbTestCascade (experiment, db_path, params = {}):
 
 if __name__ == '__main__':
 
-    setupLogging ('log/detector/runTestTask.log', logging.INFO, 'a')
+    setupLogging ('log/detector/runTestTask.log', logging.WARNING, 'a')
 
-    parser = OptionParser(description='Evaluate cascade detector')
-    parser.add_option('--task_path', type=str, nargs='?',
-                      default='learning/violajones/tasks/test-trained.json',
-                      help='path to json file with task description')
-    parser.add_option('--db_path', type=str, nargs='?',
-                      default='datasets/labelme/Databases/distinct-frames.db')
-    parser.add_option('--show_experiments', action='store_true',
-                      default=False,
-                      help='print out experiment configurations and then quit')
-    (options, args) = parser.parse_args()
-    logging.info ('argument list: ' + str(options))
+    parser = ArgumentParser(description='Evaluate cascade detector')
+    parser.add_argument('--task_path', type=str, nargs='?',
+                        default='learning/violajones/tasks/test-trained.json',
+                        help='path to json file with task description')
+    parser.add_argument('--db_path', type=str, nargs='?',
+                        default='datasets/labelme/Databases/distinct-frames.db')
+    parser.add_argument('--show_experiments', action='store_true',
+                        help='print out experiment configurations and then quit')
+    args = parser.parse_args()
+    logging.info ('argument list: ' + str(args))
 
-    if options.show_experiments:
-        experiments = ExperimentsBuilder(loadJson(options.task_path)).getResult()
+    if args.show_experiments:
+        experiments = ExperimentsBuilder(loadJson(args.task_path)).getResult()
         print (json.dumps(experiments, indent=4))
         sys.exit()
 
-    params = { 'debug_show': False }
+    params = { 'debug_show': True }
 
-    for experiment in ExperimentsBuilder(loadJson(options.task_path)).getResult():
-        dbTestCascade (experiment, options.db_path, params)
+    for experiment in ExperimentsBuilder(loadJson(args.task_path)).getResult():
+        params = dict(params.items() + experiment.items())
+        dbEvaluateCascade (args.db_path, params)
 
 

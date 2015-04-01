@@ -136,7 +136,7 @@ def dbFilter (db_in_path, db_out_path, params):
     params = setParamUnlessThere (params, 'sizemap_dilate',     21)
     params = setParamUnlessThere (params, 'debug_show',         False)
     params = setParamUnlessThere (params, 'debug_sizemap',      False)
-    params = setParamUnlessThere (params, 'car_condition',      '')
+    params = setParamUnlessThere (params, 'car_constraint',      '')
 
 
     if 'geom_maps_template' in params.keys():
@@ -172,12 +172,12 @@ def dbFilter (db_in_path, db_out_path, params):
             raise Exception ('image does not exist: ' + imagepath)
         params['img_show'] = cv2.imread(imagepath) if params['debug_show'] else None
 
-        if 'car_condition' in params.keys(): 
-            car_condition = params['car_condition']
+        if 'car_constraint' in params.keys(): 
+            car_constraint = params['car_constraint']
         else:
-            car_condition = ''
+            car_constraint = ''
 
-        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
@@ -517,12 +517,12 @@ def dbExamine (db_in_path, params = {}):
     conn = sqlite3.connect (db_in_path)
     cursor = conn.cursor()
 
-    if 'car_condition' in params.keys(): 
-        car_condition = ' AND ' + params['car_condition']
+    if 'car_constraint' in params.keys(): 
+        car_constraint = ' AND (' + params['car_constraint'] + ')'
     else:
-        car_condition = ''
+        car_constraint = ''
 
-    cursor.execute('SELECT count(*) FROM cars WHERE 1' + car_condition)
+    cursor.execute('SELECT count(*) FROM cars WHERE 1' + car_constraint)
     (total_num,) = cursor.fetchone()
     logging.info('total number of objects found in db: ' + str(total_num))
 
@@ -550,8 +550,8 @@ def dbExamine (db_in_path, params = {}):
             raise Exception ('image does not exist: ' + imagepath)
         img = cv2.imread(imagepath)
 
-        # TODO: let car_condition not contain AND keyword
-        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        # TODO: let car_constraint not contain AND keyword
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
@@ -624,10 +624,10 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
 
-    if 'car_condition' in params.keys(): 
-        car_condition = ' AND ' + params['car_condition']
+    if 'car_constraint' in params.keys(): 
+        car_constraint = ' AND (' + params['car_constraint'] + ')'
     else:
-        car_condition = ''
+        car_constraint = ''
 
     cursor.execute('SELECT imagefile FROM images')
     image_entries = cursor.fetchall()
@@ -656,8 +656,8 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             raise Exception ('image does not exist: ' + ghostpath)
         ghost = cv2.imread(ghostpath)
 
-        # TODO: let car_condition not contain AND keyword
-        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        # TODO: let car_constraint not contain AND keyword
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
@@ -761,10 +761,10 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
 
-    if 'car_condition' in params.keys(): 
-        car_condition = ' AND ' + params['car_condition']
+    if 'car_constraint' in params.keys(): 
+        car_constraint = ' AND (' + params['car_constraint'] + ')'
     else:
-        car_condition = ''
+        car_constraint = ''
 
     cursor.execute('SELECT imagefile FROM images')
     image_entries = cursor.fetchall()
@@ -791,8 +791,8 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             raise Exception ('image does not exist: ' + imagepath)
         img = cv2.imread(imagepath)
 
-        # TODO: let car_condition not contain AND keyword
-        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_condition, (imagefile,))
+        # TODO: let car_constraint not contain AND keyword
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
         car_entries = cursor.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
