@@ -31,10 +31,33 @@ def bottomCenter (roi):
     return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
 
 
+def drawRoi (img, roi, (offsety, offsetx), label = None, color = None):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    if label is None: label = ''
+    if color is None:
+        if label == 'border':
+            color = (0,255,255)
+        elif label == 'badroi':
+            color = (0,0,255)
+        else:
+            color = (255,0,0)
+        thickness = 1
+    else:
+        thickness = 2
+    roi[0] += offsety
+    roi[1] += offsetx
+    roi[2] += offsety
+    roi[3] += offsetx
+    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
+    cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, color, thickness)
+
+
 #
 # expandRoiFloat expands a ROI, and clips it within borders
 #
 def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
+    if (perc_y, perc_x) == (0, 0): return roi
+
     half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
     half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
     # expand each side
@@ -87,29 +110,47 @@ def overlapRatio (roi1, roi2):
     assert (len(roi1) == 4 and len(roi2) == 4)
     dy = min(roi1[2], roi2[2]) - max(roi1[0], roi2[0])
     dx = min(roi1[3], roi2[3]) - max(roi1[1], roi2[1])
-    if dy <= 0 or dx <= 0: return 1
+    if dy <= 0 or dx <= 0: return 0
     area1 = (roi1[2] - roi1[0]) * (roi1[3] - roi1[1])
     area2 = (roi2[2] - roi2[0]) * (roi2[3] - roi2[1])
     inters = dx * dy
     union  = area1 + area2 - inters
     logging.debug('inters: ' + str(inters) + ', union: ' +  str(union))
-    assert (union > inters and inters > 0)
-    return 1 - float(inters) / union
+    assert (union >= inters and inters > 0)
+    return float(inters) / union
 
-def hierarchicalCluster (rois, thresh):
-    if len(rois) < 2: return None
-    pairwise_distances = []
-    for j in range(1, len(rois)):
-        for i in range(0, j):
-            pairwise_distances.append(overlapRatio(rois[i], rois[j]))
 
-    Z = scipy.cluster.hierarchy.linkage(pairwise_distances)
-    #scipy.cluster.hierarchy.dendrogram(Z)
-    #matplotlib.pyplot.waitforbuttonpress()
+def hierarchicalCluster (rois, params = {}):
+    if not rois:         return []
+    elif len(rois) == 1: return rois
+
+    N = len(rois)
+    pairwise_distances = np.zeros((N,N), dtype = float)
+    for j in range(N):
+        for i in range(N):
+            pairwise_distances[i][j] = 1 - overlapRatio(rois[i], rois[j])
+    condensed_distances = scipy.spatial.distance.squareform (pairwise_distances)
+
+    # perform clustering
+    Z = scipy.cluster.hierarchy.linkage (condensed_distances)
+    clusters = scipy.cluster.hierarchy.fcluster (Z, params['threshold'], 'distance')
+    logging.debug('clusters: ' + str(clusters))
+
+    # get centers as simple mean
+    centers = []
+    for cluster in list(set(clusters)):
+        rois_cluster = [x for i, x in enumerate(rois) if clusters[i] == cluster]
+        centers.append (list( np.mean(np.array(rois_cluster), 0).astype(int) ))
+    logging.debug ('centers: ' + str(centers))
+    logging.info ('out of ' + str(len(clusters)) + ' ROIs left ' + str(len(centers)))
+
+    # show clusters
+    if params['debug_clustering']:
+        scipy.cluster.hierarchy.dendrogram(Z)
+        matplotlib.pyplot.waitforbuttonpress()
+        matplotlib.pyplot.close()
     logging.debug(Z)
 
-    clusters = scipy.cluster.hierarchy.fcluster(Z, thresh, criterion='inconsistent')
-    logging.debug(clusters)
-    return clusters
+    return centers
 
 

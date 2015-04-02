@@ -18,7 +18,8 @@ img = cv2.imread(op.join(CITY_DATA_PATH, 'datasets/labelme/Ghosts/cam572-bright-
 print (img.shape)
 
 # load detection file (various files for different views and uses)
-model_path = op.join(CITY_DATA_PATH, 'learning/violajones/cars_24x18-e0.3/model-masked/cascade.xml')
+#model_path = op.join(CITY_DATA_PATH, 'learning/violajones/models/cars_24x18-e0.3/model-masked/cascade.xml')
+model_path = op.join(CITY_DATA_PATH, 'learning/violajones/models/tests/test-trained/cascade.xml')
 #model_path = op.join(CITY_DATA_PATH, 'learning/violajones/models/model03-cr10.xml')
 if not op.exists(model_path):
     raise Exception ('mode_path does not exist: ' + model_path)

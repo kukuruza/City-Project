@@ -1,7 +1,7 @@
 import logging
 import os, sys
 sys.path.insert(0, os.path.abspath('..'))
-from setup_helper import setupLogging
+from setupHelper import setupLogging
 import processing
 
 
@@ -19,5 +19,5 @@ params = {'car_condition':'AND name = "taxi"'};
 
 processing.dbClassifyName (db_in_path, db_out_path, params)
 #processing.dbClassifyColor (db_in_path, db_out_path, params)
-#processing.dbExamine (db_in_path)
+#processing.dbExamine (db_in_path, params)
 
