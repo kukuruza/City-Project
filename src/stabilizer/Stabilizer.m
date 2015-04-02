@@ -32,9 +32,9 @@ classdef Stabilizer < handle
             indexPairs = matchFeatures(obj.refFeatures, curFeatures);
             refInliers = obj.refPts(indexPairs(:, 1), :);
             curInliers = curPts(indexPairs(:, 2), :);
-
+            
             % Using homography to get the inlier points on the ground
-            [~, homography] = ransacPlane2D(refInliers.Location', ...
+            [~, homography] = ransacHomography(refInliers.Location', ...
                                                     curInliers.Location');
             stableFrame = warpH(curFrame, double(homography), size(curFrame));
         end

@@ -4,6 +4,7 @@
 
 % Adding the path for video
 run '../rootPathsSetup.m';
+run '../subdirPathsSetup.m'
 
 % Setting up the path for the video
 rootPath = [CITY_DATA_PATH, 'camdata/cam578/'];

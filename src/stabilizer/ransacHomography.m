@@ -1,12 +1,15 @@
-function [grouping, bestH]  = ransacPlane2D(pts1, pts2)
+function [grouping, bestH]  = ransacHomography(pts1, pts2)
     % Function to identify the components of two planes using matchines
     % 
     % Uses homography to identify points
     
+    assert(size(pts1, 1) == 2)
+    assert(size(pts2, 1) == 2)
+    
     % Homography computation needs 8 variables ie 4 points
     noPts = size(pts1, 2);
     maxIters = 200;
-    threshold = 1; % 5 pixel threshold for H inlier check
+    threshold = 5; % 5 pixel threshold for H inlier check
     
     % Best consensus
     bestCons = 0;
