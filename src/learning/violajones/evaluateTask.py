@@ -17,7 +17,7 @@ from dbInterface import queryField
 
 
 def __evaluateForImage__ (cursor, cascade, imagefile, params):
-    logging.info ('evaluating image: ' + imagefile)
+    logging.debug ('evaluating image: ' + imagefile)
 
     cursor.execute('SELECT ghostfile FROM images WHERE imagefile=?', (imagefile,))
     (ghostfile,) = cursor.fetchone()
@@ -43,6 +43,7 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
     logging.debug ('finished detectMultiScale in sec: ' + str(end - start))
     detected = [bbox2roi(list(bbox)) for bbox in detected_bboxes]
     contraction = -params['expanded'] / (1 + params['expanded'])
+    logging.debug('contraction: ' + str(contraction))
     detected = [expandRoiFloat(bbox, (width,height), (contraction,contraction))
                 for bbox in detected]
 
@@ -61,7 +62,7 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
         else:
             falses += 1
 
-    logging.info ('image result: '+str(hits)+', '+str(misses)+', '+str(falses))
+    logging.info (op.basename(imagefile) + ': ' + str((hits, misses, falses)))
 
     if params['debug_show']:
         for roi in detected:
@@ -76,11 +77,12 @@ def __evaluateForImage__ (cursor, cascade, imagefile, params):
 
 def dbEvaluateCascade (db_path, params):
 
+    print ('evaluating model: ' + params['model_dir'])
+
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
 
     params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
     params = setupHelper.setParamUnlessThere (params, 'dist_thresh', 0.5)
-    params = setupHelper.setParamUnlessThere (params, 'expanded', 0)
     params = setupHelper.setParamUnlessThere (params, 'num_stages', -1)
 
     # labelled data
@@ -105,9 +107,16 @@ def dbEvaluateCascade (db_path, params):
         result_im = __evaluateForImage__ (cursor, cascade, imagefile, params)
         result = tuple(map(sum,zip(result, result_im)))
 
-    print (op.basename(params['model_dir']) + ': ' + str(result))
-
     conn.close()
+
+    result_str = op.basename(params['model_dir']) + ':\t' + ' '.join([str(s) for s in list(result)])
+    print ('result ' + result_str)
+
+    if 'result_path' in params.keys():
+        with open(op.join (CITY_DATA_PATH, params['result_path']), 'a') as fresult:
+            fresult.write (result_str + '\n')
+
+    return result_str
 
 
 

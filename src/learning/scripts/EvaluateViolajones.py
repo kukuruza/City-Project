@@ -6,12 +6,12 @@ from setupHelper import setupLogging
 import evaluateTask
 
 
-setupLogging ('log/detector/runTestTask.log', logging.WARNING, 'a')
+setupLogging ('log/detector/runTestTask.log', logging.DEBUG, 'a')
 
-task_path = 'learning/violajones/tasks/test-trained.json'
+task_path = 'learning/violajones/tasks/Apr02-ex-er-di.json'
 db_eval_path = 'datasets/labelme/Databases/572/distinct-frames.db'
 
-params = { 'debug_show': False,
+params = { 'debug_show': True,
            'show_experiments': False 
          }
 

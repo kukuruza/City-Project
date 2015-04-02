@@ -8,14 +8,17 @@ import negatives
 setupLogging ('log/learning/collectNegatives.log', logging.INFO, 'a')
 
 db_path      = 'datasets/labelme/Databases/572/filt-frames.db'
-out_dir      = 'clustering/negatives/neg-dense-frames/mask-params/di0.3-er0.4'
+out_dir      = 'clustering/negatives/neg-dense-frames/mask-adaptive/di0.2-er0.3-bl2-noise1.5'
 
-params = { 'spot_scale': 0.7,
-           'method': 'mask',
-           'dilate': 0.3,
-           'erode': 0.4,
+params = { 'method': 'mask',
+           'dilate': 0.2,
+           'erode': 0.3,
            'debug_show': False,
-           'width': 24 }
+           'noise_level': 1.5,
+           'pixelation': 4,
+           'blur_sigma': 2,
+           'sizemap_path': 'models/cam572/sizeMap.tiff'
+         }
 negatives.negativeGrayspots (db_path, out_dir, params)
 
 #in_dir = 'clustering/negatives/sparse-masked/negatives_for_all'
@@ -29,4 +32,4 @@ negatives.negativeGrayspots (db_path, out_dir, params)
 #         }
 #negatives.negativeImages2patches (in_dir, out_dir, params)
 
-#negatives.negativeViaMaskfiles (db_path, filters_path, out_dir, params)
+#negatives.negativePatchesViaMaskfiles (db_path, filters_path, out_dir, params)
