@@ -24,6 +24,7 @@ def train (experiment, mem):
     experiment = setupHelper.setParamUnlessThere (experiment, 'feature_type', 'HAAR')
     experiment = setupHelper.setParamUnlessThere (experiment, 'min_hit_rate', 0.995)
     experiment = setupHelper.setParamUnlessThere (experiment, 'max_false_alarm_rate', 0.5)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'weight_trim_rate', 0.95)
 
     dat_path         = experiment['dat_path']
     background_files = experiment['background_files']
@@ -95,7 +96,8 @@ def train (experiment, mem):
                '-numStages',         str(experiment['num_stages']),
                '-featureType',       str(experiment['feature_type']),
                '-minHitRate',        str(experiment['min_hit_rate']),
-               '-maxFalseAlarmRate', str(experiment['max_false_alarm_rate']) ]
+               '-maxFalseAlarmRate', str(experiment['max_false_alarm_rate']),
+               '-weightTrimRate',    str(experiment['weight_trim_rate']) ]
     logpath = op.join(model_dir, 'opencv_traincascade.out')
     execCommand (command, logpath, wait=False)
 
