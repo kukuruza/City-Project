@@ -1,19 +1,16 @@
 close all; clear all;
 addpath('../')
 addpath('additionals/')
+
 run ../../rootPathsSetup.m
 run ../../subdirPathsSetup.m
 
-cameraId = 578;
-%image = imread(fullfile('~/Google Drive/City-Project/data/camdata', ...
-%               sprintf('cam%d', cameraId), 'frames-4pm', 'image0001.png'));
-image = imread('test.png');
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %warpedImg = imread('additionals/warped578.png');
-laneImg = imread('~/Desktop/shortlanes.jpg');
+laneImg = imread('additionals/lanes578.jpg');
 laneImg = laneImg(:, :, 1);
-laneImg = [repmat(laneImg(:, 1), [1 5]), laneImg];
+% Adjusting the size to the original image size
+laneImg = [repmat(laneImg(:, 1), [1 5]), laneImg]; 
 %lanes = uint8([lanes(:, 1:5, :), lanes] > 1);
 
 lanes = (laneImg > 250);
@@ -49,8 +46,9 @@ for i = 1:length(xPts)
     
     if(length(x) > 2)
         % Fitting a curve
-        %fprintf('%d\n', length(x));
+        % Curve of degree two
         %curve = polyfit(x, y, 2);
+        % Curve of degree one
         curve = polyfit(x, y, 1);
             
         % Finding the tangent at that point
@@ -60,28 +58,8 @@ for i = 1:length(xPts)
 end
 
 %figure(1); imagesc(tangent)
-%return
-%marked = image .* lanes(:, :, [1 1 1]);
-%[~, Gdir] = imgradient(lanes(:, :, 1));
-%[gx, gy] = derivative5(lanes(:, :, 1), 'x', 'y');
-%angle = atan2d(gx, gy);
 
-%figure(1); imagesc(angle)
-%figure(2); imagesc(Gdir)
-%break
-% Consider only negative directions of the gradient
-%Gind = Gdir < 0;
-%Gdir = Gdir(Gind);
-%figure(1); imshow(Gind)
-%figure(2); imshow(Gdir)
-%return
-
-% Now go through each row and get the start of the lanes
-%I = Gdir;
-%laneSize = zeros(1, size(Gdir, 1));
-%figure(1); imagesc(Gdir)
-%return
-
+% Adhoc way to deal with top part and lower part
 Gdir = tangent;
 Gind = lanes == 0;
 I = tangent;
@@ -143,7 +121,7 @@ end
 
 % Reading the road mask file and assigning the directions
 dir578 = {'out', 'out', 'out', 'none', 'in', 'in', 'in'};
-roadMask = imread('roadMask578.tiff');
+roadMask = imread('additionals/roadMask578.tiff');
 
 lanes = unique(roadMask);
 for i = 1:numel(dir578)
@@ -155,8 +133,5 @@ for i = 1:numel(dir578)
     end
 end
 
-%figure; imagesc(I)
-%figure; imagesc(I)
-% Perform linear interpolation to get the intermediate values
-%[rowId, colId, vals] = find(Gdir < 0);
-%interpolated = interp2(colId, rowId, vals, 1:size(Gdir, 2), 1:size(Gdir, 1));
+figure; imagesc(I)
+
