@@ -16,6 +16,7 @@ def train (experiment, mem):
 
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
 
+    experiment = setupHelper.setParamUnlessThere (experiment, 'model_name', '')
     experiment = setupHelper.setParamUnlessThere (experiment, 'num_neg_images', 1000)
     experiment = setupHelper.setParamUnlessThere (experiment, 'frac_pos_use', 0.9)
     experiment = setupHelper.setParamUnlessThere (experiment, 'neg_to_pos_ratio', 3)
@@ -23,15 +24,15 @@ def train (experiment, mem):
     experiment = setupHelper.setParamUnlessThere (experiment, 'feature_type', 'HAAR')
     experiment = setupHelper.setParamUnlessThere (experiment, 'min_hit_rate', 0.995)
     experiment = setupHelper.setParamUnlessThere (experiment, 'max_false_alarm_rate', 0.5)
+    experiment = setupHelper.setParamUnlessThere (experiment, 'weight_trim_rate', 0.95)
 
-    model_dir        = experiment['model_dir']
     dat_path         = experiment['dat_path']
     background_files = experiment['background_files']
     w                = experiment['w']
     h                = experiment['h']
 
     # model dir
-    model_dir = op.join(CITY_DATA_PATH, model_dir)
+    model_dir = op.join(CITY_DATA_PATH, experiment['model_dir'], experiment['model_name'])
     logging.info ('model_dir: ' + model_dir)
     if op.exists (model_dir):
         logging.warning ('will delete existing model_dir: ' + model_dir)
@@ -95,7 +96,8 @@ def train (experiment, mem):
                '-numStages',         str(experiment['num_stages']),
                '-featureType',       str(experiment['feature_type']),
                '-minHitRate',        str(experiment['min_hit_rate']),
-               '-maxFalseAlarmRate', str(experiment['max_false_alarm_rate']) ]
+               '-maxFalseAlarmRate', str(experiment['max_false_alarm_rate']),
+               '-weightTrimRate',    str(experiment['weight_trim_rate']) ]
     logpath = op.join(model_dir, 'opencv_traincascade.out')
     execCommand (command, logpath, wait=False)
 
@@ -136,6 +138,20 @@ if __name__ == '__main__':
     if options.show_experiments:
         experiments = ExperimentsBuilder(loadJson(options.task_path)).getResult()
         print (json.dumps(experiments, indent=4))
+        CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
+        for experiment in experiments:
+            if 'dat_path' not in experiment.keys():
+                raise Exception ('dat_path is not in an experiment')
+            if not op.exists(op.join(CITY_DATA_PATH, experiment['dat_path'])):
+                raise Exception ('dat_path does not exist: ' + experiment['dat_path'])
+            if 'model_dir' not in experiment.keys():
+                raise Exception ('model_dir is not in an experiment')
+            if not op.exists(op.dirname(op.dirname(op.join(CITY_DATA_PATH, experiment['model_dir'])))):
+                raise Exception ('parent of model_dir does not exist: ' + experiment['model_dir'])
+            if 'background_files' not in experiment.keys():
+                raise Exception ('background_files is not in an experiment')
+            if not glob.glob(op.join(CITY_DATA_PATH, experiment['background_files'])):
+                raise Exception ('background_files do not exist: ' + experiment['background_files'])
         sys.exit()
 
     trainAll (options.task_path, options.mem)
