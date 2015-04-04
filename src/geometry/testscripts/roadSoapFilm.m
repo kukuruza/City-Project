@@ -17,9 +17,9 @@ function F = roadSoapFilm (F, mask, varargin)
 parser = inputParser;
 addRequired(parser, 'F', @ismatrix);
 addRequired(parser, 'mask', @(x) ismatrix(x) && isa(x, 'uint8'));
-addParameter(parser, 'thresh', 0.01, @isscalar);
-addParameter(parser, 'sizeContour', 20, @isscalar);
-addParameter(parser, 'sizeBody', 10, @isscalar);
+addParameter(parser, 'Thresh', 0.01, @(x) isnumeric(x) && (isscalar(x) || isvector(x)));
+addParameter(parser, 'SizeContour', 20, @(x) isnumeric(x) && (isscalar(x) || isvector(x)));
+addParameter(parser, 'SizeBody', 10, @(x) isnumeric(x) && (isscalar(x) || isvector(x)));
 addParameter(parser, 'video', []);
 addParameter(parser, 'verbose', 0, @isscalar);
 parse (parser, F, mask, varargin{:});
@@ -37,18 +37,24 @@ mask(1,:) = 0;
 if parsed.verbose > 1, imshow(mask == 0); waitforbuttonpress; end
 
 % fill contours, including borders
-F = soapFilm (F, mask == 255, 'ignore', mask == 0, ...
-                'size', parsed.sizeContour, 'thresh', parsed.thresh, ...
-                'video', parsed.video, 'verbose', parsed.verbose);
+for i = 1:length(parsed.SizeContour)
+    fprintf ('contour with size: %d, threshiold %f\n', parsed.SizeContour(i), parsed.Thresh(i));
+    F = soapFilm (F, mask == 255, 'ignore', mask == 0, ...
+                    'size', parsed.SizeContour(i), 'Thresh', parsed.Thresh(i), ...
+                    'video', parsed.video, 'verbose', parsed.verbose);
+end
 
 if parsed.verbose > 1, imagesc(F); waitforbuttonpress; end
 
 
 %% body
 
-F = soapFilm (F, mask > 0, ...
-                'size', parsed.sizeBody, 'thresh', parsed.thresh, ...
-                'video', parsed.video, 'verbose', parsed.verbose);
+for i = 1:length(parsed.SizeBody)
+    fprintf ('body with size: %d, threshiold %f\n', parsed.SizeBody(i), parsed.Thresh(i));
+    F = soapFilm (F, mask > 0, ...
+                  'size', parsed.SizeBody(i), 'Thresh', parsed.Thresh(i), ...
+                  'video', parsed.video, 'verbose', parsed.verbose);
+end
 
 if parsed.verbose > 1, imagesc(F); waitforbuttonpress; end
 
@@ -71,21 +77,21 @@ function F = soapFilm (F, hard, varargin)
     addRequired(parser, 'F', @ismatrix);
     addRequired(parser, 'mask', @(x) islogical(x) && ismatrix(x));
     addParameter(parser, 'ignore', [], @(x) ismatrix(x) && islogical(x));
-    addParameter(parser, 'size', 1, @isscalar);
-    addParameter(parser, 'maxNumIter', 1000, @isscalar);
-    addParameter(parser, 'thresh', 0.1, @isscalar);
+    addParameter(parser, 'Size', 1, @isscalar);
+    addParameter(parser, 'MaxNumIter', 10000, @isscalar);
+    addParameter(parser, 'Thresh', 0.1, @isscalar);
     addParameter(parser, 'video', []);
     addParameter(parser, 'verbose', 0, @isscalar);
     parse (parser, F, hard, varargin{:});
     
     parsed = parser.Results;
-    sz = parsed.size;
+    sz = parsed.Size;
     F = parsed.F;
     hard = parsed.mask;
     ignore = parsed.ignore;
     if isempty(ignore), ignore = false(size(hard)); end
 
-    if parsed.verbose > 1
+    if parsed.verbose > 2
         imagesc(hard);
         waitforbuttonpress
         imagesc(ignore);
@@ -94,14 +100,14 @@ function F = soapFilm (F, hard, varargin)
         waitforbuttonpress
     end
 
-    se = fspecial('average', parsed.size * 2 + 1);
+    se = fspecial('average', sz * 2 + 1);
     
     F = padarray (F, [sz sz]);
     hard = padarray (hard, [sz sz]);
     ignore = padarray (ignore, [sz sz], true);
 
     F0 = F;
-    for it = 1 : parsed.maxNumIter
+    for it = 1 : parsed.MaxNumIter
         F1 = F;
         
         % average
@@ -130,7 +136,7 @@ function F = soapFilm (F, hard, varargin)
         if parsed.verbose > 0
             fprintf ('iter: %d, delta: %f\n', it, delta);
         end
-        if delta < parsed.thresh, break, end
+        if delta < parsed.Thresh, break, end
     end
     
     F = F (sz+1 : size(F,1)-sz, sz+1 : size(F,2)-sz);
