@@ -121,7 +121,7 @@ def dbEvaluateCascade (db_path, params):
 
     conn.close()
 
-    result_str = op.basename(params['model_dir']) + ':\t' + ' '.join([str(s) for s in list(result)])
+    result_str = op.basename(model_dir) + ':\t' + ' '.join([str(s) for s in list(result)])
     print ('result ' + result_str)
 
     if 'result_path' in params.keys():
@@ -145,7 +145,7 @@ def evaluateTask (task_path, db_eval_path, params):
     # clear (by removing) the file of output
 
     if 'result_path' in params.keys():
-        result_path = op.join (CITY_DATA_PATH, params['result_path'])
+        result_path = op.join (os.getenv('CITY_DATA_PATH'), params['result_path'])
         if op.exists(result_path):
             os.remove(result_path)
 

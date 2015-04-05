@@ -8,7 +8,7 @@ import evaluateTask
 
 setupLogging ('log/detector/runTestTask.log', logging.INFO, 'a')
 
-task_path = 'learning/violajones/tasks/Mar27-es-sz.json'
+task_path = 'learning/violajones/tasks/Apr02-boost.json'
 db_eval_path = 'datasets/labelme/Databases/572/distinct-frames.db'
 result_path = os.path.join('learning/violajones/models', 
                            os.path.splitext(os.path.basename(task_path))[0], 'eval-d0.7.txt')
