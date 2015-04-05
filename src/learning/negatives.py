@@ -45,8 +45,10 @@ def __grayCircle__ (cursor, (imagefile, ghostfile), out_dir, params):
         raise Exception ('ghost does not exist: ' + ghostpath)
     ghost = cv2.imread(ghostpath)
 
-    params['imagefile'] = imagefile
-    car_entries = queryCars (cursor, params)
+    # create an empty mask
+    mask = np.zeros(ghost.shape, dtype=np.uint8)
+    
+    car_entries = queryCars (cursor, {'constraint': 'WHERE imagefile = "' + imagefile + '"'})
     logging.debug (str(len(car_entries)) + ' objects found in ' + imagefile)
 
     for car_entry in car_entries:
@@ -54,7 +56,21 @@ def __grayCircle__ (cursor, (imagefile, ghostfile), out_dir, params):
         spot_scale = params['spot_scale']
         axes = (int(bbox[2] * spot_scale / 2), int(bbox[3] * spot_scale / 2))
         (cy, cx) = getCenter(bbox2roi(bbox))
-        cv2.ellipse (ghost, (cx, cy), axes, 0, 0, 360, (128,128,128), -1)
+        cv2.ellipse (mask, (cx, cy), axes, 0, 0, 360, (255,255,255), -1)
+
+    # blur the mask a little
+    mask = scipy.ndimage.filters.gaussian_filter (mask, params['blur_sigma'])
+
+    if params['debug_show']:
+        cv2.imshow('debug mask', mask)
+        cv2.waitKey()
+
+    # add pixelated color noise
+    noise = __generateNoiseMask__ (ghost.shape, params['noise_level'], params['pixelation'])
+    noise = noise.astype(float)
+
+    mask = mask.astype(np.float) / 255.0
+    ghost = np.multiply(ghost, 1 - mask) + np.multiply(noise, mask)
 
     cv2.imwrite (op.join(out_dir, op.basename(ghostfile)), ghost)
 
