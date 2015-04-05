@@ -34,6 +34,9 @@ labels(1) = [];
 angle_map = zeros(size(edges_mask));
 
 % for every separate edge
+if isempty(labels)
+    error('all particles are too small');
+end
 for label = labels'
     edge_mask = edges_mask == label;
     edge_mask = imdilate(edge_mask, strel('disk', parsed.DilateEdge));

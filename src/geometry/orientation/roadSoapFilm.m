@@ -17,9 +17,9 @@ function F = roadSoapFilm (F, mask, varargin)
 parser = inputParser;
 addRequired(parser, 'F', @ismatrix);
 addRequired(parser, 'mask', @(x) ismatrix(x) && isa(x, 'uint8'));
-addParameter(parser, 'Thresh', 0.01, @(x) isnumeric(x) && (isscalar(x) || isvector(x)));
-addParameter(parser, 'SizeContour', 20, @(x) isnumeric(x) && (isscalar(x) || isvector(x)));
-addParameter(parser, 'SizeBody', 10, @(x) isnumeric(x) && (isscalar(x) || isvector(x)));
+addParameter(parser, 'Thresh', 0.01, @isscalar);
+addParameter(parser, 'SizeContour', 20, @isscalar);
+addParameter(parser, 'SizeBody', 10, @isscalar);
 addParameter(parser, 'video', []);
 addParameter(parser, 'verbose', 0, @isscalar);
 parse (parser, F, mask, varargin{:});
@@ -37,24 +37,20 @@ mask(1,:) = 0;
 if parsed.verbose > 1, imshow(mask == 0); waitforbuttonpress; end
 
 % fill contours, including borders
-for i = 1:length(parsed.SizeContour)
-    fprintf ('contour with size: %d, threshiold %f\n', parsed.SizeContour(i), parsed.Thresh(i));
-    F = soapFilm (F, mask == 255, 'ignore', mask == 0, ...
-                    'size', parsed.SizeContour(i), 'Thresh', parsed.Thresh(i), ...
-                    'video', parsed.video, 'verbose', parsed.verbose);
-end
+fprintf ('contour with size: %d, threshiold %f\n', parsed.SizeContour, parsed.Thresh);
+F = soapFilm (F, mask == 255, 'ignore', mask == 0, ...
+                'size', parsed.SizeContour, 'Thresh', parsed.Thresh, ...
+                'video', parsed.video, 'verbose', parsed.verbose);
 
 if parsed.verbose > 1, imagesc(F); waitforbuttonpress; end
 
 
 %% body
 
-for i = 1:length(parsed.SizeBody)
-    fprintf ('body with size: %d, threshiold %f\n', parsed.SizeBody(i), parsed.Thresh(i));
-    F = soapFilm (F, mask > 0, ...
-                  'size', parsed.SizeBody(i), 'Thresh', parsed.Thresh(i), ...
-                  'video', parsed.video, 'verbose', parsed.verbose);
-end
+fprintf ('body with size: %d, threshiold %f\n', parsed.SizeBody, parsed.Thresh);
+F = soapFilm (F, mask > 0, ...
+              'size', parsed.SizeBody, 'Thresh', parsed.Thresh, ...
+              'video', parsed.video, 'verbose', parsed.verbose);
 
 if parsed.verbose > 1, imagesc(F); waitforbuttonpress; end
 
@@ -67,7 +63,7 @@ if parsed.verbose > 1, imagesc(maskInside); waitforbuttonpress; end
 F (~maskInside) = 0;
 
 % remove extra borders
-F = F(2:size(F,1)-1, 2:size(F,2)-1);
+F = F(2 : size(F,1)-1, 2 : size(F,2)-1);
 
 end
 
