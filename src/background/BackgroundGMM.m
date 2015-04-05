@@ -93,7 +93,6 @@ classdef BackgroundGMM < BackgroundInterface
             end
          end
          
-         
         % bbox [x,y,w,h] 
          function bboxes = mask2bboxes (BS, mask)
              bboxes = step(BS.blob, mask);

@@ -51,12 +51,13 @@ function [houghLines, houghImage] = findHoughLines(image)
     
     % Getting the edge image and hough transformation
     edgeFrame = edge(rgb2gray(image), 'canny');
-    [houghImage, theta, rho] = hough(edgeFrame);
     
+    [houghImage, theta, rho] = hough(edgeFrame);
     % Vertical lines are only to be considered
     % Detecting the lines
     peaks = houghpeaks(houghImage, 100, 'Threshold', 0.2*max(houghImage(:)));
-    houghLines = houghlines(edgeFrame, theta, rho, peaks, 'FillGap', 10, 'MinLength', 5);
+    houghLines = houghlines(edgeFrame, theta, rho, peaks, 'FillGap', 10,...
+                                                            'MinLength', 5);
     
     % debugImage = drawHoughLines(image, houghLines);
     % figure(1); imshow(debugImage)
