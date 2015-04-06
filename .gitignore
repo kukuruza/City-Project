@@ -68,3 +68,4 @@ Thumbs.db
 src/geometry/testscripts/local*
 src/geometry/local*
 src/background/local*
+src/geometry/testscripts/additionals/*
