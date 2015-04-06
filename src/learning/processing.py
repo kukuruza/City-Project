@@ -117,14 +117,12 @@ def dbFilter (db_in_path, db_out_path, params):
     params = setupHelper.setParamUnlessThere (params, 'debug_sizemap',      False)
     params = setupHelper.setParamUnlessThere (params, 'car_constraint',      '')
 
+    if 'size_map_path' not in params.keys():
+        raise Exception ('size_map_path is not given in params')
 
-    if 'geom_maps_template' in params.keys():
-        size_map_path = params['geom_maps_template'] + 'sizeMap.tiff'
-        size_map_path  = op.join(CITY_DATA_PATH, size_map_path)
-        logging.info ('will load size_map from: ' + size_map_path)
-        params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
-    else:
-        raise Exception ('geom_maps_template is not given in params')
+    size_map_path  = op.join(CITY_DATA_PATH, params['size_map_path'])
+    logging.info ('will load size_map from: ' + size_map_path)
+    params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
 
     if params['debug_sizemap']:
         cv2.imshow ('size_map original', params['size_map'])
@@ -331,17 +329,16 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
     setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbAssignOrientations')
     setupHelper.setupCopyDb (db_in_path, db_out_path)
 
-    if not 'geom_maps_dir' in params.keys():
-        raise Exception ('geom_maps_dir is not given in params')
+    if 'pitch_map_path' not in params.keys() or 'yaw_map_path' not in params.keys():
+        raise Exception ('pitch_map_path or yaw_map_path is not given in params')
 
-    geom_maps_template = params['geom_maps_template']
-    pitch_map_path = geom_maps_template + 'pitchMap.tiff'
-    pitch_map_path = op.join(CITY_DATA_PATH, pitch_map_path)
-    yaw_map_path   = geom_maps_template + 'yawMap.tiff'
-    yaw_map_path   = op.join(CITY_DATA_PATH, yaw_map_path)
+    pitch_map_path = op.join(CITY_DATA_PATH, params['pitch_map_path'])
+    yaw_map_path   = op.join(CITY_DATA_PATH, params['yaw_map_path'])
     pitch_map = cv2.imread (pitch_map_path, 0).astype(np.float32)
     yaw_map   = cv2.imread (yaw_map_path, -1).astype(np.float32)
-    yaw_map   = cv2.add (yaw_map, -360)
+    # in the tiff angles belong to [0, 360). Change that to [-180, 180)
+    yaw_map   = np.add(-180, np.mod( np.add(180, yaw_map), 360 ) )
+
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
