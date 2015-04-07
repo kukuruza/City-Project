@@ -33,11 +33,15 @@ def checkMap (map_path, dtype='uint8', binary=False, channels=1):
         return False
 
     # is it a binary image
-    if binary:
-        if len(np.unique(img)) != 2:
-            print (map_name + ': image must be binary ' +
-                   '(have pixels exactly 2 distinct values), but ' +
-                   str(len(np.unique(img))) + ' values were found.')
+    if binary and len(np.unique(img)) != 2:
+        print (map_name + ': image must be binary ' +
+               '(have pixels of exactly 2 distinct values), but ' +
+               str(len(np.unique(img))) + ' values were found.')
+        return False
+    elif not binary and len(np.unique(img)) == 2:
+        print (map_name + ': image must NOT be binary ' +
+               '(must have pixels of more than 2 distinct values)')
+        return False
 
     return True
 
