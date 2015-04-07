@@ -32,6 +32,8 @@ load('points-cam578.mat');
 fprintf('Consensus: %f \n', sum(grouping)/size(pts1, 1));
 
 warpImage2 = warpH(image2, bestH, size(image1));
+homography = bestH;
+%save('homography578.mat', 'homography');
 
 % Showing the image pair:
 % Left side corresponds to warped frame (observe the two channels are
