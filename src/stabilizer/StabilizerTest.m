@@ -27,10 +27,14 @@ for i = 1:noFrames
     end
     
     % Stabilizing the frame
-    stableFrame = corrector.stabilizeFrame(curFrame);
+    stableFrame = corrector.stabilizeFrame(curFrame, 'general');
+    %stableFrame = corrector.stabilizeFrame(curFrame);
+    
+    % Stabilizing the frame just with translation
+    %stableFrame = corrector.stabilizeFrame(curFrame, 'translation');
     
     % Debugging through various image displays
-    %figure(1); imshow([curFrame, refFrame; stableFrame, stableFrame])
+    figure(1); imshow([curFrame, refFrame; stableFrame, stableFrame])
     %figure(1); imshowpair([stableFrame, ], [refFrame, ], 'ColorChannels', 'red-cyan');
     %figure(1); imshowpair([stableFrame, curFrame], [refFrame, refFrame], ...
     %                                    'ColorChannels', 'red-cyan');

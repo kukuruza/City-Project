@@ -21,7 +21,11 @@ classdef Stabilizer < handle
        
         % Main function of the module, to stabilize the incoming image with
         % respect to a reference
-        function [stableFrame, homography] = stabilizeFrame(obj, curFrame)
+        function [stableFrame, homography] = stabilizeFrame(obj, curFrame, type)
+            if(nargin < 3)
+                type = 'general';
+            end
+               
             curGray = rgb2gray(curFrame);
    
             curPts = detectFASTFeatures(curGray, 'MinContrast', obj.ptThresh);
@@ -35,7 +39,7 @@ classdef Stabilizer < handle
             
             % Using homography to get the inlier points on the ground
             [~, homography] = ransacHomography(refInliers.Location', ...
-                                                    curInliers.Location');
+                                                curInliers.Location', type);
             stableFrame = warpH(curFrame, double(homography), size(curFrame));
         end
         

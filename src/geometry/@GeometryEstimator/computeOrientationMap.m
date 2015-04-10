@@ -43,8 +43,8 @@ function computeOrientationMap(obj, initialPitchAngle)
     end
            
     % Re-adjusting all the angles to (-180, 180]
-    yawMap(yawMap < -180) = yawMap(yawMap < -180) + 180;
-    yawMap(yawMap > 180) = yawMap(yawMap > 180) - 180;
+    yawMap(yawMap < -180) = yawMap(yawMap < -180) + 360;
+    yawMap(yawMap > 180) = yawMap(yawMap > 180) - 360;
    
     % Pitch is based on a linear relationship (approximate) for 40 degrees
     pitchMap = initialPitchAngle * (yId - obj.road.vanishPt(2)) ...

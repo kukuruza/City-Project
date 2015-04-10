@@ -47,7 +47,7 @@ classdef GeometryEstimator < GeometryInterface
             obj.imageSize = [size(initImage, 1), size(initImage, 2)];
             
             % Identifying the car lanes for the given image and given lanes
-            %obj.computeRoadMask();
+            obj.computeRoadMask();
             
             % Computing the homography
             %obj.computeHomography();
@@ -64,8 +64,8 @@ classdef GeometryEstimator < GeometryInterface
             % Extremely adhoc way to read the curved road from models 
             %obj.roadMask = imread('curvedRoadMask572.png');
             %obj.cameraRoadMap = imread('curvedCameraRoadMap572.png');
-            obj.roadMask = imread('roadMask578.tiff');
-            obj.road.vanishPt = [140, 80];
+            %obj.roadMask = imread('roadMask578.tiff');
+            %obj.road.vanishPt = [140, 80];
             
             % Creating the orientation map
             obj.computeOrientationMap();
