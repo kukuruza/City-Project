@@ -4,8 +4,10 @@ import cv2
 from optparse import OptionParser
 
 
-def checkMap (map_path, dtype='uint8', binary=False, channels=1):
+def checkMap (map_path, dtype='uint8', binary=False, channels=1, verbose=0):
     map_name = op.basename(map_path)
+    if verbose:
+        print (map_name)
 
     if not op.exists(map_path):
         print (map_name + ': file does not exist')
@@ -39,6 +41,8 @@ def checkMap (map_path, dtype='uint8', binary=False, channels=1):
                str(len(np.unique(img))) + ' values were found.')
         return False
     elif not binary and len(np.unique(img)) == 2:
+        #cv2.imshow('test', img)
+        #cv2.waitKey()
         print (map_name + ': image must NOT be binary ' +
                '(must have pixels of more than 2 distinct values)')
         return False
@@ -92,19 +96,16 @@ def checkAcoversB (A_path, B_path):
 
 def checkMaps (map_path_template):
     size_map_path      = map_path_template.replace('*', 'Size')
-    direction_map_path = map_path_template.replace('*', 'Direction')
     yaw_map_path       = map_path_template.replace('*', 'Yaw')
     pitch_map_path     = map_path_template.replace('*', 'Pitch')
 
     # check maps independently
     ok_size      = checkMap (size_map_path,      dtype='uint8')
-    ok_direction = checkMap (direction_map_path, dtype='uint8', binary=True)
     ok_yaw       = checkMap (yaw_map_path,       dtype='uint16')
     ok_pitch     = checkMap (pitch_map_path,     dtype='uint8')
 
     # sizes of all maps match
     checkSameSizes ([(size_map_path, ok_size),
-                     (direction_map_path, ok_direction),
                      (yaw_map_path, ok_yaw),
                      (pitch_map_path, ok_pitch)])
 
