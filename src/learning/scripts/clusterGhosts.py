@@ -7,8 +7,8 @@ import clustering
 
 setupLogging ('log/learning/clusterGhosts.log', logging.INFO, 'a')
 
-in_db_path   = 'databases/sp-color-wr-e0.3.db'
-filters_path = 'clustering/filters/color.json'
-out_dir      = 'clustering/color-572-Oct28-10h'
+in_db_path   = 'databases/wr-e0.3.db'
+filters_path = 'clustering/filters/angles.json'
+out_dir      = 'clustering/angles-e0.3'
 
 clustering.collectGhosts (in_db_path, filters_path, out_dir)

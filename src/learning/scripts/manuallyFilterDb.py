@@ -7,17 +7,15 @@ import processing
 
 setupLogging ('log/learning/manuallyFilterDb.log', logging.INFO, 'a')
 
-db_in_path = 'datasets/sparse/Databases/578-Jan22-14h/clas-ds2.5-dp12.0-satwik.db'
-db_out_path = 'datasets/sparse/Databases/578-Jan22-14h/clas-ds2.5-dp12.0-satwik.db'
+db_in_path =  'datasets/sparse/Databases/119-Apr09-13h/clas.db'
+db_out_path = 'datasets/sparse/Databases/119-Apr09-13h/color.db'
 
-#params = { 'imagefile_start': 'datasets/sparse/Images/578-Mar15-10h/000559.jpg' }
-params = {'car_condition':'AND name = "taxi"'};
-#params = { 'imagefile_start': 'datasets/sparse/Images/578-Jan22-14h/000071.jpg' }
-#params = { 'imagefile_start': 'datasets/sparse/Images/671-Mar24-12h/000665.jpg' }
-#params = { 'car_condition': 'AND name = "vehicle"' }
-#params = {}
+params = {}
+#params['car_constraint'] = 'name = "limo"'
+#params['imagefile_start'] = 'datasets/sparse/Images/119-Apr09-13h/000035.jpg'
+params['disp_scale'] = 3
 
-processing.dbClassifyName (db_in_path, db_out_path, params)
-#processing.dbClassifyColor (db_in_path, db_out_path, params)
+#processing.dbClassifyName (db_in_path, db_out_path, params)
+processing.dbClassifyColor (db_in_path, db_out_path, params)
 #processing.dbExamine (db_in_path, params)
 
