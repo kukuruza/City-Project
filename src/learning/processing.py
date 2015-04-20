@@ -329,11 +329,23 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
     setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbAssignOrientations')
     setupHelper.setupCopyDb (db_in_path, db_out_path)
 
-    if 'pitch_map_path' not in params.keys() or 'yaw_map_path' not in params.keys():
-        raise Exception ('pitch_map_path or yaw_map_path is not given in params')
+    if 'size_map_path' not in params.keys():
+        raise Exception ('size_map_path is not given in params')
+    if 'pitch_map_path' not in params.keys():
+        raise Exception ('pitch_map_path is not given in params')
+    if 'yaw_map_path' not in params.keys():
+        raise Exception ('yaw_map_path is not given in params')
 
+    size_map_path  = op.join(CITY_DATA_PATH, params['size_map_path'])
     pitch_map_path = op.join(CITY_DATA_PATH, params['pitch_map_path'])
     yaw_map_path   = op.join(CITY_DATA_PATH, params['yaw_map_path'])
+    if not op.exists(size_map_path):
+        raise Exception ('size_map_path does not exist: ' + size_map_path)
+    if not op.exists(pitch_map_path):
+        raise Exception ('pitch_map_path does not exist: ' + pitch_map_path)
+    if not op.exists(yaw_map_path):
+        raise Exception ('yaw_map_path does not exist: ' + yaw_map_path)
+    size_map  = cv2.imread (size_map_path, 0).astype(np.float32)
     pitch_map = cv2.imread (pitch_map_path, 0).astype(np.float32)
     yaw_map   = cv2.imread (yaw_map_path, -1).astype(np.float32)
     # in the tiff angles belong to [0, 360). Change that to [-180, 180)
@@ -350,11 +362,10 @@ def dbAssignOrientations (db_in_path, db_out_path, params):
         carid = queryField (car_entry, 'id')
         roi = bbox2roi (queryField (car_entry, 'bbox'))
         bc = bottomCenter(roi)
-        yaw   = float(yaw_map   [bc[0], bc[1]])
-        pitch = float(pitch_map [bc[0], bc[1]])
-        cursor.execute('UPDATE cars SET yaw=?, pitch=? WHERE id=?', (yaw, pitch, carid))
-
-        sys.stdout.flush()
+        if size_map[bc[0], bc[1]] > 0:
+            yaw   = float(yaw_map   [bc[0], bc[1]])
+            pitch = float(pitch_map [bc[0], bc[1]])
+            cursor.execute('UPDATE cars SET yaw=?, pitch=? WHERE id=?', (yaw, pitch, carid))
 
     conn.commit()
     conn.close()
@@ -418,8 +429,9 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
     if len(db_in_paths) <= 1:
         raise Exception ('db_in_paths must be a list of at least two elements')
     
-    setupHelper.setupLogHeader (db_in_paths[0], db_out_path, params, 'dbMerge')
-    setupHelper.setupCopyDb (db_in_paths[0], db_out_path)
+    db_in_path0 = op.join(CITY_DATA_PATH, db_in_paths[0])
+    setupHelper.setupLogHeader (db_in_path0, db_out_path, params, 'dbMerge')
+    setupHelper.setupCopyDb (db_in_path0, db_out_path)
 
     conn_out = sqlite3.connect (db_out_path)
     cursor_out = conn_out.cursor()
@@ -488,6 +500,8 @@ def dbExamine (db_in_path, params = {}):
 
     setupHelper.setupLogHeader (db_in_path, '', params, 'dbExamine')
 
+    params = setupHelper.setParamUnlessThere (params, 'disp_scale', 1.5)
+
     keys_config = __loadKeys__ (params)
 
     conn = sqlite3.connect (db_in_path)
@@ -545,7 +559,8 @@ def dbExamine (db_in_path, params = {}):
             img_show = img.copy()
             drawRoi (img_show, roi, (offsety, offsetx), name, color_config[color or ''])
 
-            img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
+            disp_scale = params['disp_scale']
+            img_show = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
@@ -579,22 +594,26 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
+    params = setupHelper.setParamUnlessThere (params, 'disp_scale', 1.5)
+
     setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbClassifyManually')
     setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     keys_config = __loadKeys__ (params)
 
-    keys_config[ord('s')] = 'sedan'
-    keys_config[ord(' ')] = 'sedan'
-    keys_config[ord('d')] = 'double'
-    keys_config[ord('h')] = 'vehicle'
-    keys_config[ord('t')] = 'taxi'
-    keys_config[ord('r')] = 'truck'
-    keys_config[ord('v')] = 'van'
+    keys_config[ord(' ')] = 'vehicle'    # but can't see the type, or not in the list
+    keys_config[ord('s')] = 'sedan'      # generic small car
+    keys_config[ord('d')] = 'double'     # several cars stacked into one bbox
+    keys_config[ord('c')] = 'taxi'       # (cab)
+    keys_config[ord('t')] = 'truck'
+    keys_config[ord('v')] = 'van'        # (== a small truck)
     keys_config[ord('m')] = 'minivan'
     keys_config[ord('b')] = 'bus'
     keys_config[ord('p')] = 'pickup'
-    keys_config[ord('o')] = 'object'
+    keys_config[ord('l')] = 'limo'
+    keys_config[ord('o')] = 'object'     # not a car, pedestrian, or bike
+    keys_config[ord('h')] = 'pedestrian' # (human)
+    keys_config[ord('k')] = 'bike'       # (bike or motobike)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -650,12 +669,14 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
                 label = car_statuses[carid]
             else:
                 label = queryField(car_entry, 'name')
+                if label == 'object': label = ''
             logging.debug ('label: "' + (label or '') + '"')
 
             img_show = ghost.copy()
             drawRoi (img_show, roi, (offsety, offsetx), label)
 
-            img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
+            disp_scale = params['disp_scale']
+            img_show = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
@@ -709,6 +730,8 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
 
     setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbClassifyManually')
     setupHelper.setupCopyDb (db_in_path, db_out_path)
+
+    params = setupHelper.setParamUnlessThere (params, 'disp_scale', 1.5)
 
     keys_config = __loadKeys__ (params)
 
@@ -789,7 +812,8 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             img_show = img.copy()
             drawRoi (img_show, roi, (offsety, offsetx), label, color_config[label or ''])
 
-            img_show = cv2.resize(img_show, (0,0), fx=1.5, fy=1.5)
+            disp_scale = params['disp_scale']
+            img_show = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
             cv2.imshow('show', img_show)
             button = cv2.waitKey(-1)
 
