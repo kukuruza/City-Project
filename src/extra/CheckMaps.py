@@ -8,6 +8,7 @@ def checkMap (map_path, dtype='uint8', binary=False, channels=1, verbose=0):
     map_name = op.basename(map_path)
     if verbose:
         print (map_name)
+        print ('required dtype: ' + dtype)
 
     if not op.exists(map_path):
         print (map_name + ': file does not exist')
@@ -94,15 +95,15 @@ def checkAcoversB (A_path, B_path):
 
 
 
-def checkMaps (map_path_template):
+def checkMaps (map_path_template, verbose = True):
     size_map_path      = map_path_template.replace('*', 'Size')
     yaw_map_path       = map_path_template.replace('*', 'Yaw')
     pitch_map_path     = map_path_template.replace('*', 'Pitch')
 
     # check maps independently
-    ok_size      = checkMap (size_map_path,      dtype='uint8')
-    ok_yaw       = checkMap (yaw_map_path,       dtype='uint16')
-    ok_pitch     = checkMap (pitch_map_path,     dtype='uint8')
+    ok_size      = checkMap (size_map_path,  'uint8', False, 1, verbose)
+    ok_yaw       = checkMap (yaw_map_path,   'uint16', False, 1, verbose)
+    ok_pitch     = checkMap (pitch_map_path, 'uint8', False, 1, verbose)
 
     # sizes of all maps match
     checkSameSizes ([(size_map_path, ok_size),
@@ -126,5 +127,5 @@ if __name__ == '__main__':
     parser.add_option('-v', action='store_true', default=False, help='verbosity_level')
     (options, args) = parser.parse_args()
 
-    checkMaps (options.map_path_template)
+    checkMaps (options.map_path_template, options.v)
 
