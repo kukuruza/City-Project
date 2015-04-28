@@ -8,6 +8,7 @@ function [inliers, vPts] = ransacLineSegments(lines, imSize)
     
     for j = 1:noLines
         %lineEq(j , :) = cross([houghLines(j).point1, 1], [houghLines(j).point2, 1]);
+        %lines
         lineEq(j , :) = cross([lines(j, [1 3]), 1], [lines(j, [2 4]), 1]);
     end
     

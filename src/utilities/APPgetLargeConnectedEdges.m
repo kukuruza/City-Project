@@ -42,7 +42,6 @@ for i = 1:num_dir
     direction(i).ind = ind(find(a_ind==i));
 end
 
-
 % remove edges that are too small and give all edges that have the same
 % direction a unique id
 % edges(height, width, [angle id])
