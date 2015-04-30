@@ -36,30 +36,23 @@ function [bestVP] = ransacVanishPoint(lines, image, offset)
     candidates = [intersects(:, 1) ./ intersects(:, 3), ...
                             intersects(:, 2) ./ intersects(:, 3)];
     
-    withinImg = (candidates(:, 1) > 0) & (candidates(:, 1) < imSize(2)) & ...
-                (candidates(:, 2) > 0) & (candidates(:, 2) < imSize(1));
+%     withinImg = (candidates(:, 1) > 0) & (candidates(:, 1) < imSize(2)) & ...
+%                (candidates(:, 2) > 0) & (candidates(:, 2) < imSize(1));
     
+    withinImg = abs(candidates(:, 1)) < imSize(2) & ...
+                abs(candidates(:, 2)) < imSize(1);
+            
     vPts = candidates(withinImg, :);
+    %vPts = candidates;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Debugging the candidate vanishing points
-    debug = false;
-    if(debug)
-        figure(1); hold off
-            imshow(image)
-        figure(1); hold on
-            plot(vPts(:, 1), vPts(:, 2), 'o', 'LineWidth', 2);
-            plot(lines(:, [1 2])', offset + lines(:, [3 4])')
-            %plot(lines(:, [1 2])', offset + lines(:, [3 4])')
-    end
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
     % Selecting the best vanishing point from candidates based on the
     % amount of rotation caused in the line segments
     noVPts = size(vPts, 1);
     penalty = zeros(noVPts, 1);
-    consensus = zeros(noVPts, 2);
-    angleThreshold = 10;
+    consensus = zeros(noVPts, 1);
+    angleThreshold = 5;
+    
     for i = 1:noVPts
         % Finding the angular displacement
         locVector = bsxfun(@minus, centers, vPts(i, :));
@@ -71,27 +64,87 @@ function [bestVP] = ransacVanishPoint(lines, image, offset)
         penalty(i) = sum(angles);
         
         % Performing a consensus step
-        consensus(i) = sum(angles < 10);
+        agreement =  angles < angleThreshold;
+        consensus(i) = sum(agreement);
+        %fprintf('%f %f\n', consensus(i), max(consensus(1:(i-1))));
+        
+        % Recording the consensus
+        if(i == 1)
+            bestConsensus = agreement;
+        elseif (consensus(i) > max(consensus(1:(i-1))))
+            bestConsensus = agreement;
+        end
     end
     
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Maximum consensus
+    [maxCons, ~] = max(consensus);
+    maxInds = consensus == maxCons;
+    
+    % Mean of the average
+    bestVP = mean(vPts(maxInds, :), 1);
+    % Adding the offset
+    bestVP = bestVP + [0, offset];
+    
+    %%%%%%%%%%%%%%%  Debugging %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Debugging the penalty
-    debug = true;
-    field 
+    debug = false;
     if(debug)
-        figure(1); plot(penalty)
+        figure(1); hold all
+        %plot(penalty)
+        plot(consensus);
+        hold off
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+    % Debugging the candidate vanishing points
+    debug = false;
+    maxConsensus = max(consensus);
+    if(debug)
+        figure(1); hold off
+        imshow(image)
+        figure(1); hold on
+        
+        for i = 1:length(vPts)
+            plot(vPts(i, 1), vPts(i, 2), 'o', 'LineWidth', ...
+                                5 * consensus(i) / maxConsensus);
+        end
+        
+        %plot(vPts(:, 1), vPts(:, 2), 'o', 'LineWidth', 2);
+        plot(vPts(maxInds, 1), vPts(maxInds, 2), 'o', 'LineWidth', 2);
+        plot(lines(:, [1 2])', offset + lines(:, [3 4])')
+        %plot(lines(:, [1 2])', offset + lines(:, [3 4])')
+        axis 'tight' 
+    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Debugging the candidate vanishing points
+    debug = true;
+    if(debug)
+        figure(1); hold off
+        imshow(image)
+        figure(1); hold on
+        
+%         for i = 1:length(vPts)
+%             plot(vPts(i, 1), vPts(i, 2), 'o', 'LineWidth', ...
+%                                 5 * consensus(i) / maxConsensus);
+%         end
+        
+        %plot(vPts(:, 1), vPts(:, 2), 'o', 'LineWidth', 2);
+        plot(bestVP(1), bestVP(2), 'o', 'LineWidth', 2);
+        %plot(vPts(maxInds, 1), vPts(maxInds, 2), 'o', 'LineWidth', 2);
+        plot(lines(bestConsensus, [1 2])', ...
+                   offset + lines(bestConsensus, [3 4])', 'LineWidth', 2)
+        %plot(lines(:, [1 2])', offset + lines(:, [3 4])')
+        axis 'tight'
+    end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Best fit
-    [~, minInd] = min(penalty);
-    bestVP= vPts(minInd, :);
+    %[~, minInd] = min(penalty);
+    %bestVP= vPts(minInd, :);
     %figure(1); plot(penalty)
     %noLines
     
-    figure(1); hold off, imshow(image)
+    %figure(2); hold off, imshow(image)
     %figure(1); hold on, plot(allLines(:, [1 2])', allLines(:, [3 4])')
-    figure(1); hold on, plot(vPts(minInd, 1), vPts(minInd, 2), 'x', 'LineWidth', 10)
+    %figure(2); hold on, plot(vPts(minInd, 1), vPts(minInd, 2), 'x', 'LineWidth', 10)
     %figure(2); plot(bestVPs(:, 1), bestVPs(:, 2), 'x')
     %bestVP = vPts(minInd, :);
     %figure(1); plot(penalty)
