@@ -15,7 +15,7 @@ classdef Car < CarInterface
         orientation; % [yaw pitch]
         
         % for output
-        name = 'car';
+        name;
         % detection score
         score = -1;
         
@@ -45,12 +45,14 @@ classdef Car < CarInterface
             % parse and validate input
             parser = inputParser;
             addOptional (parser, 'bbox', [], @(x) isempty(x) || isvector(x) && length(x) == 4);
-            addOptional (parser, 'timestamp', [0 0 0 0 0 0], ...
-                                         @(x) isvector(x) && length(x) == 6);
+            addOptional (parser, 'timestamp', [0 0 0 0 0 0], @(x) isvector(x) && length(x) == 6);
+            addOptional (parser, 'name', 'vehicle', @ischar);
+             
             parse (parser, varargin{:});
 
             C.bbox = parser.Results.bbox;
             C.timeStamp = parser.Results.timestamp;
+            C.name = parser.Results.name;
         end
         
         
