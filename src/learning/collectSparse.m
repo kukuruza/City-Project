@@ -58,6 +58,7 @@ frameReader = FrameReaderVideo (videoPath, timePath);
 
 % background
 load ([CITY_DATA_PATH, 'models/cam572/backgroundGMM.mat']);
+pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
 
 % true background
 backImage = int32(imread([CITY_DATA_PATH, backfile]));
@@ -141,6 +142,9 @@ for t = 1 : 10000000
 end
 
 clear frameReader
+if do_write
+    sqlite3.close();
+end
 
 
 

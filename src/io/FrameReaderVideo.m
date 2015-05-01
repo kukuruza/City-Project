@@ -11,10 +11,15 @@ classdef FrameReaderVideo < FrameReader
         eof = false;
     end % properties
     methods
-        function FR = FrameReaderVideo (videoPath, timeStampPath)
+        function FR = FrameReaderVideo (videoPath, ~)
+            % make timestamp from videoPath
+            [dir, name, ~] = fileparts(videoPath);
+            timeStampPath = fullfile(dir, [name, '.txt']);
+            
             if ~exist(videoPath,'file') || ~exist(timeStampPath, 'file')
                 fprintf ('FrameReaderVideo: files: %s, %s\n', videoPath, timeStampPath);
-                error ('FrameReaderVideo: videoPath or timeStampPath doesn''t exist');
+                error (['FrameReaderVideo: videoPath or timeStampPath doesn''t exist: ' ...
+                        videoPath ', ' timeStampPath]);
             end
             FR.timesTable = dlmread(timeStampPath);
             
