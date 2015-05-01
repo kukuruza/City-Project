@@ -11,7 +11,7 @@ import time
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import setupHelper
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
-from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat
+from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
 from dbInterface import queryField
 
 
@@ -152,3 +152,81 @@ def evaluateTask (task_path, db_eval_path, params):
     for experiment in ExperimentsBuilder(loadJson(task_path)).getResult():
         params = dict(params.items() + experiment.items())
         dbEvaluateCascade (db_eval_path, params)
+
+
+
+
+def __detectForImage__ (cursor, cascade, imagefile, params):
+    logging.debug ('detecting for image: ' + imagefile)
+
+    cursor.execute('SELECT ghostfile FROM images WHERE imagefile=?', (imagefile,))
+    (ghostfile,) = cursor.fetchone()
+
+    ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
+    if not op.exists(ghostpath):
+        raise Exception ('ghostpath does not exist: ' + ghostpath)
+    img = cv2.imread(ghostpath)
+    (width, height, depth) = img.shape
+
+    # roi-s from detecting
+    logging.debug ('started detectMultiScale')
+    start = time.time()
+    detected = cascade.detectMultiScale(img)
+    end = time.time()
+    logging.debug ('finished detectMultiScale in sec: ' + str(end - start))
+    contraction = -params['expanded'] / (1 + params['expanded'])
+    logging.debug('contraction: ' + str(contraction))
+    c = (contraction, contraction);
+    detected = [roi2bbox( expandRoiFloat(bbox2roi(list(bbox)), (width,height), c) )
+                for bbox in detected]
+
+    logging.info (op.basename(imagefile) + ': detected bboxes: ' + str(len(detected)))
+
+    if params['debug_show']:
+        for roi in detected:
+            drawRoi (img, bbox2roi(roi), (0, 0), '', (0,255,0))
+        cv2.imshow('detected', img)
+        cv2.waitKey(-1)
+
+    return detected
+
+
+
+def dbDetectCascade (db_in_path, db_out_path, model_path, params):
+
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbDetectCascade')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
+
+    # model
+    model_path = op.join (CITY_DATA_PATH, model_path)
+    logging.info ('model_path: ' + model_path)
+
+    cascade = cv2.CascadeClassifier (model_path)
+
+    # remove the ground truth
+    cursor.execute('DELETE FROM cars')
+
+    cursor.execute('SELECT imagefile FROM images')
+    image_entries = cursor.fetchall()
+
+    # detect
+    for (imagefile,) in image_entries:
+        bboxes = __detectForImage__ (cursor, cascade, imagefile, params)
+        for bbox in bboxes:
+            entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], 0, 0)
+            s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety)'
+            cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?);', entry)
+
+    conn.commit()
+    conn.close()
+
+

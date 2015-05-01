@@ -6,7 +6,7 @@ from setupHelper import setupLogging
 import evaluateTask
 
 
-setupLogging ('log/detector/runTestTask.log', logging.INFO, 'a')
+setupLogging ('log/detector/EvaluateViolajones.log', logging.INFO, 'a')
 
 task_path = 'learning/violajones/tasks/Apr04-circle.json'
 db_eval_path = 'datasets/labelme/Databases/572/distinct-frames.db'
