@@ -1,5 +1,7 @@
+import math
 import numpy as np
 import cv2
+from datetime import datetime
 import os, sys
 import collections
 import logging
@@ -455,7 +457,7 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
                 logging.warning ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
                 continue
             # insert image
-            cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
+            cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?,?,?);', image_entry)
             sys.stdout.flush()
         
         cursor_in.execute('SELECT * FROM cars')
@@ -467,12 +469,6 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
             s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch,color)'
             cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
             carid_new = cursor_out.lastrowid
-            if checkTableExists (cursor_in, 'polygons'):
-                cursor_in.execute('SELECT * FROM polygons WHERE carid=?', (carid,))
-                polygon_entry = cursor_in.fetchone()
-                x = polygon_entry[2]
-                y = polygon_entry[3]
-                cursor_out.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', (carid_new,x,y))
             sys.stdout.flush()
 
         conn_in.close()
@@ -913,33 +909,43 @@ def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
     conn.close()
 
 
-def dbCustomScript (db_in_path, db_out_path, params = {}):
+def dbUpdateTimes (db_in_path, db_out_path, params = {}):
 
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbCustomScript')
-    setupHelper.setupCopyDb (db_in_path, db_out_path)
+    #setupHelper.setupCopyDb (db_in_path, db_out_path)
+
+    params = setupHelper.setParamUnlessThere (params, 'offset', 0)
+    params = setupHelper.setParamUnlessThere (params, 'add', True)
+    params = setupHelper.setParamUnlessThere (params, 'update', True)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
 
-    cursor.execute('ALTER TABLE images ADD maskfile TEXT NULL')
+    if params['add']: cursor.execute('ALTER TABLE images ADD time TIMESTAMP NULL')
 
-    cursor.execute('SELECT * FROM images')
-    image_entries = cursor.fetchall()
+    if params['update']:
 
-    for image_entry in image_entries:
+        cursor.execute('SELECT * FROM images')
+        image_entries = cursor.fetchall()
 
-        imagefile = getImageField (image_entry, 'imagefile')
+        with open(op.join(CITY_DATA_PATH, params['times_path'])) as f:
+            tlines = f.readlines()
+        assert (len(tlines) + params['offset'] >= len(image_entries))
 
-        cursor.execute('SELECT maskfile FROM masks WHERE imagefile = ?', (imagefile,))
-        (maskfile,) = cursor.fetchone()
+        for i in range(len(image_entries)):
+            image_entry = image_entries[i]
+            imagefile = getImageField (image_entry, 'imagefile')
 
-        cursor.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
-
-    cursor.execute('DROP TABLE masks')
+            tline = tlines[i + params['offset']];
+            s = math.modf(float(tline.split()[-1]))
+            l = [int(float(x)) for x in tline.split()]
+            t = datetime (l[0], l[1], l[2], l[3], l[4], int(s[1]), int(1000000*s[0]))
+            ttext = t.strftime('%Y-%m-%d %H:%M:%S.%f')
+            cursor.execute('UPDATE images SET time=? WHERE imagefile=?', (ttext, imagefile))
 
     conn.commit()
     conn.close()

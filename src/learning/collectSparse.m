@@ -75,7 +75,7 @@ end
 for t = 1 : 10000000
     
     % read image
-    [frame, ~] = frameReader.getNewFrame();
+    [frame, timestamp] = frameReader.getNewFrame();
     if isempty(frame), break, end
     fprintf ('frame: %d\n', t);
 
@@ -115,14 +115,15 @@ for t = 1 : 10000000
     if ~isempty(cars) && do_write
         width  = size(frame, 2);
         height = size(frame, 1);
-        sqlite3.execute('INSERT INTO images VALUES (?,?,?,?,?,?)', ...
-                        image_file, videoName, width, height, ghost_file, mask_file);
+        time_py = matlab2pyTime(timestamp);
+        query = 'INSERT INTO images VALUES (imagefile,src,width,height,ghostfile,maskfile,time)';
+        sqlite3.execute(query, image_file, videoName, width, height, ghost_file, mask_file, time_py);
         for i = 1 : length(cars)
             car = cars(i);
             bbox = car.bbox;
-            sqlite3.execute(['INSERT INTO cars(imagefile, name, x1, y1, width, height, ' ...
-                             'offsetx, offsety) VALUES (?,?,?,?,?,?,?,?) '], ...
-                             image_file, 'object', bbox(1), bbox(2), bbox(3), bbox(4), 0, 0);
+            query = ['INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx, offsety) ' ...
+                     'VALUES (?,?,?,?,?,?,?,?)'];
+            sqlite3.execute(query, image_file, 'object', bbox(1), bbox(2), bbox(3), bbox(4), 0, 0);
         end
     end
     
