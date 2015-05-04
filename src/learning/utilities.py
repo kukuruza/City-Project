@@ -4,6 +4,7 @@ import scipy.cluster.hierarchy
 import matplotlib.pyplot
 import sys, os, os.path as op
 import logging
+import setupHelper
 
 
 
@@ -12,11 +13,11 @@ import logging
 # crop = im[roi[0]:roi[2]+1, roi[1]:roi[3]+1] (differs from Matlab)
 #
 def bbox2roi (bbox):
-    assert (isinstance(bbox, list) and len(bbox) == 4)
+    assert ((isinstance(bbox, list) or isinstance(bbox, tuple)) and len(bbox) == 4)
     return [bbox[1], bbox[0], bbox[3]+bbox[1]-1, bbox[2]+bbox[0]-1]
 
 def roi2bbox (roi):
-    assert (isinstance(roi, list) and len(roi) == 4)
+    assert ((isinstance(roi, list) or isinstance(roi, tuple)) and len(roi) == 4)
     return [roi[1], roi[0], roi[3]-roi[1]+1, roi[2]-roi[0]+1]
 
 def image2ghost (image, backimage):
@@ -120,9 +121,11 @@ def overlapRatio (roi1, roi2):
     return float(inters) / union
 
 
-def hierarchicalCluster (rois, params = {}):
-    if not rois:         return []
-    elif len(rois) == 1: return rois
+def hierarchicalClusterRoi (rois, params = {}):
+    if not rois:         return [], []
+    elif len(rois) == 1: return rois, [0]
+
+    params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
@@ -151,6 +154,119 @@ def hierarchicalCluster (rois, params = {}):
         matplotlib.pyplot.close()
     logging.debug(Z)
 
-    return centers
+    return centers, clusters
 
+
+
+# polygon == [pts], pt = (x, y)
+# current naive implementation
+def polygon2roi (polygon):
+    xs = []
+    ys = []
+    for pt in polygon:
+        xs.append(pt[0])
+        ys.append(pt[1])
+    return [min(ys), min(xs), max(ys), max(xs)]
+
+
+# polygon == [pts], pt = (x, y)
+def overlapRatioPoly (polygon1, polygon2, params):
+    mask1 = np.zeros(params['imgshape'], dtype = np.uint8)
+    cv2.fillPoly (mask1, [np.array(polygon1, dtype = np.int32)], (127))
+    mask2 = np.zeros(params['imgshape'], dtype = np.uint8)
+    cv2.fillPoly (mask2, [np.array(polygon2, dtype = np.int32)], (127))
+    # show clusters
+    if params['debug_clustering']:
+        cv2.imshow('mask', mask1 + mask2)
+        cv2.waitKey(-1)
+    inters = np.logical_and(mask1, mask2)
+    union  = np.logical_or (mask1, mask2)
+    nInters = float(np.count_nonzero(inters))
+    nUnion  = float(np.count_nonzero(union))
+    return nInters / nUnion if nUnion > 0 else 0
+
+
+def hierarchicalClusterPolygons (polygons, params):
+    if not polygons:         return [], []
+    elif len(polygons) == 1: return [polygon2roi(polygons[0])], [0]
+
+    params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
+
+    N = len(polygons)
+    pairwise_distances = np.zeros((N,N), dtype = float)
+    for j in range(N):
+        for i in range(N):
+            pairwise_distances[i][j] = 1 - overlapRatioPoly(polygons[i], polygons[j], params)
+    condensed_distances = scipy.spatial.distance.squareform (pairwise_distances)
+
+    # perform clustering
+    Z = scipy.cluster.hierarchy.linkage (condensed_distances)
+    clusters = scipy.cluster.hierarchy.fcluster (Z, params['threshold'], 'distance')
+    logging.debug ('clusters: ' + str(clusters))
+
+    # get centers as simple mean polygon
+    centers = []
+    for cluster in list(set(clusters)):
+        rois_cluster = [polygon2roi(x) for i, x in enumerate(polygons) if clusters[i] == cluster]
+        centers.append (list( np.mean(np.array(rois_cluster), 0).astype(int) ))
+    logging.debug ('centers: ' + str(centers))
+    logging.debug ('out of ' + str(len(clusters)) + ' polygons left ' + str(len(centers)))
+
+    # show clusters
+    if params['debug_clustering']:
+        scipy.cluster.hierarchy.dendrogram(Z)
+        matplotlib.pyplot.waitforbuttonpress()
+        matplotlib.pyplot.close()
+    logging.debug(Z)
+
+    return centers, clusters
+
+
+
+
+
+def polygon2bboxFIXME (cursor, carid):
+    cursor.execute('SELECT (offsetx,offsety) FROM cars WHERE carid = ?', (carid,))
+    (offsetx,offsety) = cursor.fetchone()
+    cursor.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+    polygon_entries = cursor.fetchall()
+
+    pts = [[pt[0]+offsetx, pt[1]+offsety] for pt in polygon_entries]
+
+    cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+
+
+
+def readImagefile (cursor, imagefile):
+    imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+    if not op.exists (imagepath):
+        raise Exception ('image does not exist: ' + imagepath)
+    return cv2.imread(imagepath)
+
+
+def createDirs (home_dir, name):
+    if not op.exists(op.join(os.getenv('CITY_DATA_PATH'), home_dir)):
+        raise Exception ('home_dir does not exist: ' + home_dir)
+    try:        
+        os.mkdir (op.join(os.getenv('CITY_DATA_PATH'), home_dir, 'Databases', name))
+    except: pass
+    try:
+        os.mkdir (op.join(os.getenv('CITY_DATA_PATH'), home_dir, 'Images', name))
+    except: pass
+    try:        
+        os.mkdir (op.join(os.getenv('CITY_DATA_PATH'), home_dir, 'Masks', name))
+    except: pass
+    try:        
+        os.mkdir (op.join(os.getenv('CITY_DATA_PATH'), home_dir, 'Ghosts', name))
+    except: pass
+
+
+# extract homedir and folder from the somefile:
+#   somefile = labelmedir / <'Images'/'Databases'/etc.> / folder / filename
+#
+def somefile2dirs (somefile):
+    folderpath = op.dirname (somefile)
+    labelmedir = op.dirname (op.dirname(folderpath))
+    folder = op.basename (folderpath)
+    return (labelmedir, folder)
 

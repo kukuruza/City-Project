@@ -58,8 +58,11 @@ class BaseParser:
                 words.pop(i)
                 newword = self.terms.best_match(word)
                 words.insert(i, newword)
-                if (newword != word): 
-                    logging.info ('dictionary generalized ' + word + ' to ' + newword)
+                if (newword != word):
+                    if (word == 'car' and newword == 'sedan'):  # that's too much
+                        logging.debug('dictionary generalized ' + word + ' to ' + newword)
+                    else:
+                        logging.info ('dictionary generalized ' + word + ' to ' + newword)
 
         for word in words: 
             word = str(word)
@@ -73,9 +76,9 @@ class FrameParser (BaseParser):
     def parse (self, phrase):
         words = self.to_bag_of_words(phrase)
 
-        # if there are no words, only a single number, it's a car
+        # if there are no words, only a single number, it's a sedan
         if len(words) == 1 and words[0].isdigit():
-            words = ['car']
+            words = ['sedan']
 
         # remove all numbers
         words = [word for word in words if not word.isdigit()]
@@ -136,10 +139,10 @@ class PairParser (BaseParser):
             numbers.append(self.counter)
             self.counter += 1
 
-        # 'car' can be skipped
+        # 'sedan' can be skipped
         if not names:
-            logging.debug ('added "car" name to: "' + phrase + '"')
-            names.append('car')
+            logging.debug ('added "sedan" name to: "' + phrase + '"')
+            names.append('sedan')
 
         if len(names) == 1 and len(numbers) == 1:
             return names[0], numbers[0]

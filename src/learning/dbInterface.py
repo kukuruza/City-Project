@@ -13,7 +13,8 @@ def createLabelmeDb (db_path):
                       width INTEGER, 
                       height INTEGER,
                       ghostfile TEXT,
-                      maskfile TEXT
+                      maskfile TEXT,
+                      time TIMESTAMP
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS cars
                      (id INTEGER PRIMARY KEY,
@@ -44,6 +45,7 @@ def createLabelmeDb (db_path):
     conn.close()
 
 
+
 #
 # delete one car keeping db consistancy
 #
@@ -52,16 +54,7 @@ def deleteCar (cursor, carid):
     if checkTableExists (cursor, 'polygons'):
         cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
     if checkTableExists (cursor, 'matches'):
-        cursor.execute('SELECT match FROM matches WHERE carid=?;', (carid,));
-        match = cursor.fetchone()
-        if match:
-            cursor.execute('UPDATE matches SET carid=0 WHERE carid=?', (carid,))
-            # if all cars are 0 for a match, delete it
-            cursor.execute('SELECT carid FROM matches WHERE match=?;', (match[0],));
-            carids = cursor.fetchall()
-            if (all(carid[0] == 0 for carid in carids)):
-                cursor.execute('DELETE FROM matches WHERE match=?;', (match[0],));
-
+        cursor.execute('DELETE FROM matches  WHERE carid=?;', (carid,));
 
 
 
@@ -271,6 +264,8 @@ def queryCarsOld (cursor, filters={}, fields=['*']):
     logging.debug ('querying cars with: ' + query_str)
     cursor.execute(query_str)
     return cursor.fetchall()
+
+
 
 
 

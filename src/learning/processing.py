@@ -249,8 +249,7 @@ def dbExpandBboxes (db_in_path, db_out_path, params):
 
 def __clusterBboxes__ (cursor, imagefile, params):
 
-    # TODO: now only works with 0 offsets,
-    #       assigned 'vehicle' to all names, angles and color are reset to null
+    # TODO: assigned 'vehicle' to all names, angles and color are reset to null
 
     cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = cursor.fetchall()
@@ -260,14 +259,11 @@ def __clusterBboxes__ (cursor, imagefile, params):
     rois = []
     for car_entry in car_entries:
         carid = queryField(car_entry, 'id')
-        offsetx   = queryField(car_entry, 'offsetx')
-        offsety   = queryField(car_entry, 'offsety')
-        assert (offsetx == 0 and offsety == 0)
         roi = bbox2roi (queryField(car_entry, 'bbox'))
         rois.append (roi)
 
     # cluster rois
-    rois_clustered = utilities.hierarchicalCluster (rois, params)
+    rois_clustered, clusters = utilities.hierarchicalClusterRoi (rois, params)
 
     # show
     if params['debug_show']:
@@ -306,7 +302,6 @@ def dbClusterBboxes (db_in_path, db_out_path, params = {}):
 
     params = setupHelper.setParamUnlessThere (params, 'threshold', 0.2)
     params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
-    params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
@@ -916,7 +911,7 @@ def dbUpdateTimes (db_in_path, db_out_path, params = {}):
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
     setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbCustomScript')
-    #setupHelper.setupCopyDb (db_in_path, db_out_path)
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     params = setupHelper.setParamUnlessThere (params, 'offset', 0)
     params = setupHelper.setParamUnlessThere (params, 'add', True)

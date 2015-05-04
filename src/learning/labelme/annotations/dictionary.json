@@ -10,7 +10,9 @@
         { "name": "vehicle", "known": false, "children": [
             { "name": "",          "known": false, "children": [] },
             { "name": "minivan",   "known": false, "children": [] },
-            { "name": "sedan",     "known": false, "children": [] }, 
+            { "name": "sedan",     "known": true, "children": [
+                { "name": "car", "known": false, "children": [] }] 
+            }, 
             { "name": "hatchback", "known": false, "children": [] },
             { "name": "taxi",    "known": true,  "children": [
                 { "name": "cab", "known": false, "children": [] }] 
@@ -20,16 +22,17 @@
             },
             { "name": "truck", "known": true, "children": [] },
             { "name": "van", "known": true, "children": [] },
-            { "name": "suv", "known": true, "children": [] },
-            { "name": "pickup", "known": false, "children": [] }]
+            { "name": "suv", "known": false, "children": [] },
+            { "name": "limo", "known": true, "children": [] },
+            { "name": "pickup", "known": true, "children": [] }]
         },
-        { "name": "pedestrian", "known": false, "children": [
+        { "name": "pedestrian", "known": true, "children": [
             { "name": "man",    "known": false, "children": [] },
             { "name": "woman",  "known": false, "children": [] },
             { "name": "person", "known": false, "children": [] },
             { "name": "human",  "known": false, "children": [] }]
         },
-        { "name": "bike", "known": false, "children": [
+        { "name": "bike", "known": true, "children": [
             { "name": "bicycle", "known": false, "children": [] }]
         }]
 }

@@ -115,9 +115,9 @@ for t = 1 : 10000000
     if ~isempty(cars) && do_write
         width  = size(frame, 2);
         height = size(frame, 1);
-        time_py = matlab2pyTime(timestamp);
+        time_db = matlab2dbTime(timestamp);
         query = 'INSERT INTO images VALUES (imagefile,src,width,height,ghostfile,maskfile,time)';
-        sqlite3.execute(query, image_file, videoName, width, height, ghost_file, mask_file, time_py);
+        sqlite3.execute(query, image_file, videoName, width, height, ghost_file, mask_file, time_db);
         for i = 1 : length(cars)
             car = cars(i);
             bbox = car.bbox;
