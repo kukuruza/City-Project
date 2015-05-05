@@ -1,5 +1,4 @@
 classdef CandidatesBase < CandidatesInterface
-    
     methods(Static)
         % Visualizing the candidates
         function debugImg = drawCandidates (bboxes, image)
@@ -7,7 +6,13 @@ classdef CandidatesBase < CandidatesInterface
             cmap = colormap(lines(size(bboxes,1)));
             % init with random colors
             shapeInserter = vision.ShapeInserter( ...
-                'BorderColor','Custom','CustomBorderColor',uint8(cmap * 255));
+            'BorderColor','Custom','CustomBorderColor', uint8(cmap * 255), ...
+                               'LineWidth', 2);
+            
+            % Draw in white 
+            %shapeInserter = vision.ShapeInserter( ...
+            %'BorderColor','Custom','CustomBorderColor', uint8([255 255 255]), ...
+            %                    'LineWidth', 1);
             % draw
             debugImg = step(shapeInserter, image, uint32(bboxes));
         end
@@ -22,6 +27,7 @@ classdef CandidatesBase < CandidatesInterface
                     bboxes(i, 1), bboxes(i, 2), bboxes(i, 3), bboxes(i, 4));
             end
             
+            % Close the file
             fclose(fileId);
         end
         
@@ -38,5 +44,4 @@ classdef CandidatesBase < CandidatesInterface
             end
         end
     end % methods(Static)
-
 end
