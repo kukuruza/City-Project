@@ -7,12 +7,12 @@ clear all
 %% set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
 CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
-run ([getenv('CITY_PATH') 'src/subdirPathsSetup.m']);  % add tree to search path
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));
 cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-db_path = [CITY_DATA_PATH 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed.db'];
+db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed.db');
 
 
 
