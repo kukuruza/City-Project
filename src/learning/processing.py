@@ -58,8 +58,6 @@ def __filterCar__ (cursor, car_entry, params):
     carid = queryField(car_entry, 'id')
     roi = bbox2roi (queryField(car_entry, 'bbox'))
     imagefile = queryField(car_entry, 'imagefile')
-    offsetx   = queryField(car_entry, 'offsetx')
-    offsety   = queryField(car_entry, 'offsety')
 
     # prefer to duplicate query rather than pass parameters to function
     cursor.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
@@ -94,7 +92,7 @@ def __filterCar__ (cursor, car_entry, params):
         flag = 'badroi'
 
     if params['debug_show']:
-        drawRoi (params['img_show'], roi, (offsety, offsetx), flag)
+        drawRoi (params['img_show'], roi, flag)
 
     if flag != '':
         deleteCar (cursor, carid)
@@ -182,8 +180,6 @@ def __expandCarBbox__ (cursor, car_entry, params):
     carid = queryField(car_entry, 'id')
     roi = bbox2roi (queryField(car_entry, 'bbox'))
     imagefile = queryField(car_entry, 'imagefile')
-    offsetx   = queryField(car_entry, 'offsetx')
-    offsety   = queryField(car_entry, 'offsety')
 
     cursor.execute('SELECT height, width FROM images WHERE imagefile=?', (imagefile,))
     (height, width) = cursor.fetchone()
@@ -199,8 +195,8 @@ def __expandCarBbox__ (cursor, car_entry, params):
         if not op.exists (imagepath):
             raise Exception ('image does not exist: ' + imagepath)
         img_show = cv2.imread(imagepath)
-        drawRoi (img_show, old, (offsety, offsetx), '', (0,0,255))
-        drawRoi (img_show, roi, (offsety, offsetx), '', (255,0,0))
+        drawRoi (img_show, old, '', (0,0,255))
+        drawRoi (img_show, roi, '', (255,0,0))
         cv2.imshow('debug_show', img_show)
         if cv2.waitKey(-1) == 27: 
             cv2.destroyWindow('debug_show')
@@ -249,7 +245,7 @@ def dbExpandBboxes (db_in_path, db_out_path, params):
 
 def __clusterBboxes__ (cursor, imagefile, params):
 
-    # TODO: assigned 'vehicle' to all names, angles and color are reset to null
+    # TODO: now assigned 'vehicle' to all names, angles and color are reset to null
 
     cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = cursor.fetchall()
@@ -263,7 +259,7 @@ def __clusterBboxes__ (cursor, imagefile, params):
         rois.append (roi)
 
     # cluster rois
-    rois_clustered, clusters = utilities.hierarchicalClusterRoi (rois, params)
+    rois_clustered, clusters, scores = utilities.hierarchicalClusterRoi (rois, params)
 
     # show
     if params['debug_show']:
@@ -283,11 +279,13 @@ def __clusterBboxes__ (cursor, imagefile, params):
     # update db
     for car_entry in car_entries:
         deleteCar (cursor, queryField(car_entry, 'id'))
-    for roi in rois_clustered:
+    for i in range(len(rois_clustered)):
+        roi = rois_clustered[i]
+        score = scores[i]
         bbox = roi2bbox(roi)
-        entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], 0, 0)
-        cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,offsetx,offsety) 
-                          VALUES (?,?,?,?,?,?,?,?);''', entry)
+        entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], score)
+        cursor.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,score) 
+                          VALUES (?,?,?,?,?,?,?);''', entry)
 
 
 
@@ -461,8 +459,8 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
         # copy cars and possible polygons
         for car_entry in car_entries:
             carid = queryField (car_entry, 'id')
-            s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety,yaw,pitch,color)'
-            cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
+            s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
+            cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
             carid_new = cursor_out.lastrowid
             sys.stdout.flush()
 
@@ -542,13 +540,13 @@ def dbExamine (db_in_path, params = {}):
             carid     = queryField(car_entry, 'id')
             roi       = bbox2roi (queryField(car_entry, 'bbox'))
             imagefile = queryField(car_entry, 'imagefile')
-            offsetx   = queryField(car_entry, 'offsetx')
-            offsety   = queryField(car_entry, 'offsety')
             name      = queryField(car_entry, 'name')
             color     = queryField(car_entry, 'color')
 
+            # TODO: color based on score
+
             img_show = img.copy()
-            drawRoi (img_show, roi, (offsety, offsetx), name, color_config[color or ''])
+            drawRoi (img_show, roi, name, color_config[color or ''])
 
             disp_scale = params['disp_scale']
             img_show = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
@@ -652,8 +650,6 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             carid = queryField(car_entry, 'id')
             roi = bbox2roi (queryField(car_entry, 'bbox'))
             imagefile = queryField(car_entry, 'imagefile')
-            offsetx   = queryField(car_entry, 'offsetx')
-            offsety   = queryField(car_entry, 'offsety')
 
             # assign label for display
             if carid in car_statuses.keys():
@@ -664,7 +660,7 @@ def dbClassifyName (db_in_path, db_out_path, params = {}):
             logging.debug ('label: "' + (label or '') + '"')
 
             img_show = ghost.copy()
-            drawRoi (img_show, roi, (offsety, offsetx), label)
+            drawRoi (img_show, roi, label)
 
             disp_scale = params['disp_scale']
             img_show = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
@@ -790,8 +786,6 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             carid     = queryField(car_entry, 'id')
             roi       = bbox2roi (queryField(car_entry, 'bbox'))
             imagefile = queryField(car_entry, 'imagefile')
-            offsetx   = queryField(car_entry, 'offsetx')
-            offsety   = queryField(car_entry, 'offsety')
 
             # assign label for display
             if carid in car_statuses.keys():
@@ -801,7 +795,7 @@ def dbClassifyColor (db_in_path, db_out_path, params = {}):
             logging.debug ('label: "' + (label or '') + '"')
 
             img_show = img.copy()
-            drawRoi (img_show, roi, (offsety, offsetx), label, color_config[label or ''])
+            drawRoi (img_show, roi, label, color_config[label or ''])
 
             disp_scale = params['disp_scale']
             img_show = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
@@ -890,11 +884,11 @@ def dbPolygonsToMasks (db_in_path, db_out_path, params = {}):
         width = getImageField (image_entry, 'width')
         mask = np.zeros((height, width), dtype=np.uint8)
 
-        cursor.execute('SELECT id,offsetx,offsety FROM cars WHERE imagefile=?', (imagefile,))
-        for (carid,offsetx,offsety) in cursor.fetchall():
+        cursor.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
+        for (carid,) in cursor.fetchall():
             cursor.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
             polygon_entries = cursor.fetchall()
-            pts = [[pt[0]+offsetx, pt[1]+offsety] for pt in polygon_entries]
+            pts = [[pt[0], pt[1]] for pt in polygon_entries]
             cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
     
         logging.info ('saving mask to file: ' + maskfile)
@@ -910,7 +904,7 @@ def dbUpdateTimes (db_in_path, db_out_path, params = {}):
     db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
     db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
 
-    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbCustomScript')
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbUpdateTimes')
     setupHelper.setupCopyDb (db_in_path, db_out_path)
 
     params = setupHelper.setParamUnlessThere (params, 'offset', 0)
@@ -944,5 +938,30 @@ def dbUpdateTimes (db_in_path, db_out_path, params = {}):
 
     conn.commit()
     conn.close()
+
+    
+
+def dbCustomScript (db_in_path, db_out_path = None, params = {}):
+
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path) if db_out_path else db_in_path
+
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbCustomScript')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('CREATE TEMPORARY TABLE backup(id,imagefile,name,x1,y1,width,height,yaw,pitch,color)')
+    cursor.execute('INSERT INTO backup SELECT id,imagefile,name,x1,y1,width,height,yaw,pitch,color FROM cars')
+    cursor.execute('DROP TABLE cars')
+    cursor.execute('CREATE TABLE cars(id,imagefile,name,x1,y1,width,height,score,yaw,pitch,color)')
+    cursor.execute('INSERT INTO cars(id,imagefile,name,x1,y1,width,height,yaw,pitch,color) SELECT * FROM backup')
+    cursor.execute('DROP TABLE backup')
+
+    conn.commit()
+    conn.close()
+
 
     

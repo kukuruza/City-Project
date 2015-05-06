@@ -218,13 +218,15 @@ def dbDetectCascade (db_in_path, db_out_path, model_path, params):
     cursor.execute('SELECT imagefile FROM images')
     image_entries = cursor.fetchall()
 
+    # TODO: how to enter score?
+
     # detect
     for (imagefile,) in image_entries:
         bboxes = __detectForImage__ (cursor, cascade, imagefile, params)
         for bbox in bboxes:
             entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], 0, 0)
-            s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety)'
-            cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?);', entry)
+            s = 'cars(imagefile,name,x1,y1,width,height)'
+            cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', entry)
 
     conn.commit()
     conn.close()

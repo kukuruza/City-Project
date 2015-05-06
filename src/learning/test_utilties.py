@@ -3,7 +3,7 @@ import unittest
 
 import logging
 from utilities import expandRoiFloat, expandRoiToRatio
-from utilities import hierarchicalCluster
+from utilities import hierarchicalClusterRoi
 
 
 class TestExpandRoi (unittest.TestCase):
@@ -50,7 +50,8 @@ class TestExpandRoi (unittest.TestCase):
 class TestClustering (unittest.TestCase):
 
     def test_hierarchicalCluster (self):
-        clusters = hierarchicalCluster([[1,2,10,10], [4,5,15,15], [20,20,25,25]], 0.1)
+        params = { 'threshold': 0.1 }
+        centers, clusters, scores = hierarchicalClusterRoi([[1,2,10,10], [4,5,15,15], [20,20,25,25]], params)
         self.assertEqual (1, 1)
 
 

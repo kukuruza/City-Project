@@ -32,7 +32,7 @@ def bottomCenter (roi):
     return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
 
 
-def drawRoi (img, roi, (offsety, offsetx), label = None, color = None):
+def drawRoi (img, roi, label = None, color = None):
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
     if color is None:
@@ -45,10 +45,6 @@ def drawRoi (img, roi, (offsety, offsetx), label = None, color = None):
         thickness = 1
     else:
         thickness = 2
-    roi[0] += offsety
-    roi[1] += offsetx
-    roi[2] += offsety
-    roi[3] += offsetx
     cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
     cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, color, thickness)
 
@@ -107,7 +103,7 @@ def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
     return roi
 
 
-def overlapRatio (roi1, roi2):
+def overlapRatio (roi1, roi2, score1, score2):
     assert (len(roi1) == 4 and len(roi2) == 4)
     dy = min(roi1[2], roi2[2]) - max(roi1[0], roi2[0])
     dx = min(roi1[3], roi2[3]) - max(roi1[1], roi2[1])
@@ -118,7 +114,7 @@ def overlapRatio (roi1, roi2):
     union  = area1 + area2 - inters
     logging.debug('inters: ' + str(inters) + ', union: ' +  str(union))
     assert (union >= inters and inters > 0)
-    return float(inters) / union
+    return float(inters) / union * score1 * score2
 
 
 def hierarchicalClusterRoi (rois, params = {}):
@@ -126,12 +122,14 @@ def hierarchicalClusterRoi (rois, params = {}):
     elif len(rois) == 1: return rois, [0]
 
     params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
+    params = setupHelper.setParamUnlessThere (params, 'scores', [1]*len(rois))
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
+    sc_in = params['scores']
     for j in range(N):
         for i in range(N):
-            pairwise_distances[i][j] = 1 - overlapRatio(rois[i], rois[j])
+            pairwise_distances[i][j] = 1 - overlapRatio(rois[i], rois[j], sc_in[i], sc_in[j])
     condensed_distances = scipy.spatial.distance.squareform (pairwise_distances)
 
     # perform clustering
@@ -141,9 +139,12 @@ def hierarchicalClusterRoi (rois, params = {}):
 
     # get centers as simple mean
     centers = []
+    scores = []
     for cluster in list(set(clusters)):
         rois_cluster = [x for i, x in enumerate(rois) if clusters[i] == cluster]
         centers.append (list( np.mean(np.array(rois_cluster), 0).astype(int) ))
+        scores_cluster = [x for i, x in enumerate(sc_in) if clusters[i] == cluster]
+        scores.append (max(scores_cluster))
     logging.debug ('centers: ' + str(centers))
     logging.info ('out of ' + str(len(clusters)) + ' ROIs left ' + str(len(centers)))
 
@@ -154,7 +155,7 @@ def hierarchicalClusterRoi (rois, params = {}):
         matplotlib.pyplot.close()
     logging.debug(Z)
 
-    return centers, clusters
+    return centers, clusters, scores
 
 
 
@@ -222,18 +223,6 @@ def hierarchicalClusterPolygons (polygons, params):
     return centers, clusters
 
 
-
-
-
-def polygon2bboxFIXME (cursor, carid):
-    cursor.execute('SELECT (offsetx,offsety) FROM cars WHERE carid = ?', (carid,))
-    (offsetx,offsety) = cursor.fetchone()
-    cursor.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
-    polygon_entries = cursor.fetchall()
-
-    pts = [[pt[0]+offsetx, pt[1]+offsety] for pt in polygon_entries]
-
-    cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
 
 
 

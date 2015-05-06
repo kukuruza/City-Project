@@ -24,8 +24,7 @@ def createLabelmeDb (db_path):
                       y1 INTEGER,
                       width INTEGER, 
                       height INTEGER,
-                      offsetx INTEGER,
-                      offsety INTEGER,
+                      score REAL,
                       yaw REAL,
                       pitch REAL,
                       color TEXT
@@ -154,11 +153,10 @@ def queryField (car, field):
     if field == 'y1':        return car[4]
     if field == 'width':     return car[5]
     if field == 'height':    return car[6]
-    if field == 'offsetx':   return car[7]
-    if field == 'offsety':   return car[8]
-    if field == 'yaw':       return car[9]
-    if field == 'pitch':     return car[10]
-    if field == 'color':     return car[11]
+    if field == 'score':     return car[7]
+    if field == 'yaw':       return car[8]
+    if field == 'pitch':     return car[9]
+    if field == 'color':     return car[10]
 
     if field == 'bbox':      
         return list(car[3:7])
@@ -172,6 +170,9 @@ def getImageField (image, field):
     if field == 'src':       return image[1] 
     if field == 'width':     return image[2] 
     if field == 'height':    return image[3] 
+    if field == 'ghostfile': return image[4] 
+    if field == 'maskfile':  return image[5] 
+    if field == 'time':      return image[6] 
     return None
 
 

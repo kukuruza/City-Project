@@ -94,11 +94,11 @@ def __processFrame__ (cursor, imagefile, params):
 
         # make an entry for database
         bbox = roi2bbox (roi)
-        car_entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], 0, 0)
+        car_entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3])
 
         # write to db
-        s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety)'
-        cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?);', car_entry)
+        s = 'cars(imagefile,name,x1,y1,width,height)'
+        cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
 
         carid = cursor.lastrowid
         for i in range(len(xs)):
@@ -268,7 +268,7 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
             #pts = np.array([xs, ys], dtype=np.int32).transpose()
             #cv2.polylines(imgpair, [pts], True, (255,255,255))
 
-        # get bbox and offset ys
+        # get bbox
         is_top = np.mean(np.mean(ys)) < height
         if not is_top: 
             ys = [y-height for y in ys]
@@ -277,11 +277,11 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
         # make an entry for database
         bbox = roi2bbox (roi)
         car_entry = (imagefile1 if is_top else imagefile2,
-                     name, bbox[0], bbox[1], bbox[2], bbox[3], 0, 0)
+                     name, bbox[0], bbox[1], bbox[2], bbox[3])
 
         # write car to db
-        s = 'cars(imagefile,name,x1,y1,width,height,offsetx,offsety)'
-        cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?);', car_entry)
+        s = 'cars(imagefile,name,x1,y1,width,height)'
+        cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
         carid = cursor.lastrowid
         for i in range(len(xs)):
             polygon = (carid,xs[i],ys[i])
