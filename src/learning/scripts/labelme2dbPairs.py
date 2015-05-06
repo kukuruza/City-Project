@@ -1,17 +1,16 @@
 import logging
 import os, sys
-sys.path.insert(0, os.path.abspath('../labelme'))
+sys.path.insert(0, os.path.abspath('..'))
 from setupHelper import setupLogging
+sys.path.insert(0, os.path.abspath('../labelme'))
 import labelme2db
 
 
-setupLogging ('log/learning/analyzePairs.log', logging.INFO, 'a')
+setupLogging ('log/learning/Labelme2dbPairs.log', logging.INFO, 'a')
 
-folder = 'cam572-5pm-pairs'
-db_path = 'datasets/labelme/Databases/src-pairs-2.db'
+db_in_path  = 'datasets/labelme/Databases/572-Oct30-17h-pair/init.db'
+db_out_path = 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed.db'
 
-params = { 'backimage_file': 'camdata/cam572/5pm/models/backimageTwice.png',
-           'labelme_dir': 'datasets' 
-         }
+params = { 'debug_show': False }
 
-labelme2db.folder2pairs (folder, db_path, params)
+labelme2db.folder2pairs (db_in_path, db_out_path, params)

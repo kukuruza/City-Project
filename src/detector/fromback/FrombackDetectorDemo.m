@@ -4,29 +4,29 @@
 
 clear all
 
-% change dir to the directory of this script
-cd (fileparts(mfilename('fullpath')));
-
-run '../../rootPathsSetup.m';
-run '../../subdirPathsSetup.m'
+%% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+run (fullfile(getenv('CITY_PATH'), 'src/subdirPathsSetup.m'));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 
 %% input
+video_file  = 'camdata/cam572/Oct30-17h.avi';
+back_file   = 'camdata/cam572/Oct30-17h-back.png';
 
 imgPath = '../testdata/5pm-018.png';
-
 
 
 %% init
 
 % geometry
 load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
-fprintf ('Have read the Geometry object from file\n');
 
-% load background
-load ([CITY_DATA_PATH 'models/cam572/backgroundGMM.mat']);
-pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
+% background
+background = BackgroundGMM('pretrain_video_path', [CITY_DATA_PATH video_file], ...
+                           'pretrain_back_path', [CITY_DATA_PATH back_file]);
 
 % detector
 frombackDetector = FrombackDetector(geom, background);

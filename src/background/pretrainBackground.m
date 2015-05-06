@@ -13,15 +13,20 @@ parser = inputParser;
 addRequired(parser, 'background', @(x) isa(x, 'BackgroundGMM'));
 addRequired(parser, 'videoPath', @(x) exist(x, 'file'));
 addParameter(parser, 'backimage', []);
+addParameter(parser, 'verbose', 0, @isscalar);
 parse (parser, background, videoPath, varargin{:});
 parsed = parser.Results;
 
 frameReader = FrameReaderVideo (videoPath); 
 for t = 1 : 100
     [img, ~] = frameReader.getNewFrame();
-    if parsed.backimage
-        img = uint8(int32(img) - int32(backimage) + 128);
+    if ~isempty(parsed.backimage)
+        img = image2ghost(img, parsed.backimage);
     end
-    background.subtract(img, 'denoise', false);
+    result = background.subtract(img, 'denoise', false);
+    if parsed.verbose
+        imshow([img uint8(result(:,:,[1 1 1]))*255])
+        waitforbuttonpress
+    end
 end
 clear frameReader

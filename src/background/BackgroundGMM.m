@@ -32,6 +32,8 @@ classdef BackgroundGMM < BackgroundInterface
             addParameter(parser, 'fn_level', 22, @isscalar);
             addParameter(parser, 'fp_level', 1, @isscalar);
             addParameter(parser, 'minimum_blob_area', 50, @isscalar);
+            addParameter(parser, 'pretrain_video_path', '', @ischar);
+            addParameter(parser, 'pretrain_back_path', '', @ischar);
             parse (parser, varargin{:});
             parsed = parser.Results;
             
@@ -67,6 +69,17 @@ classdef BackgroundGMM < BackgroundInterface
                    'Fill',true, ...
                    'FillColor','White', ...
                    'Opacity',0.2);
+               
+            if ~isempty(parsed.pretrain_video_path)
+                if ~isempty(parsed.pretrain_back_path)
+                    backimage = imread(parsed.pretrain_back_path);
+                    pretrainBackground (BS, parsed.pretrain_video_path, 'backimage', backimage);
+                else
+                    pretrainBackground (BS, parsed.pretrain_video_path);
+                end
+            else
+                warning ('BackgroundGMM careted but not pre-trained');
+            end
         end
          
          
