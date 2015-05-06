@@ -1,7 +1,12 @@
+function sampleAllCameras (dir_name)
 % collect images from every camera
 
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
 
-dirpath = [CITY_DATA_PATH, 'camdata/samples/'];
+dirpath = [CITY_DATA_PATH dir_name];
 
 % file for output
 fout = fopen ([dirpath 'out.txt'], 'w');
@@ -11,9 +16,6 @@ ftitles = fopen ([dirpath, 'readme.txt'], 'w');
 
 verbose = 1;
 
-
-% change dir to the directory of this script
-cd (fileparts(mfilename('fullpath')));
 
 urlViewerPart = 'http://nyctmc.org/google_popup.php?cid=';
 % url example: http://207.251.86.238/cctv360.jpg?rand=0988954345345

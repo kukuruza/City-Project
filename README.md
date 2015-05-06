@@ -7,14 +7,14 @@ Analyze traffic given a set of optical cameras in urban areas
 ## Conventions
 
 #### Referring to data
-The goal is to allow to use the same code at different machines. The global variable `CITY_DATA_PATH` is set individually by everyone according to the locations of data on their computers. It is set in file `rootPathsSetup.m`, which is not in Git.
+The goal is to allow to use the same code on different machines. The environmentals variables `CITY_PATH` and `CITY_DATA_PATH` are set individually by everyone according to the locations of git repo and data on their computers. For example, on Unix (Linux and OS X) they can be set in file `~/.bash_profile`.
 
 ```Matlab
-% change dir to the directory of this script
-cd (fileparts(mfilename('fullpath')));
-
-% change ../.. to the relative path of the file
-run '../../rootPathsSetup.m';
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script 
 
 % then when necessary, refer to the data location as
 myDirectory = 'myDir/mySubdir';

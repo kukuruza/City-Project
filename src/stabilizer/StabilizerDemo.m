@@ -2,9 +2,11 @@
 % stabilizing the images, through RANSAC
 % Stabilizing the videos using inbuild matlab function
 
-% Adding the path for video
-run '../rootPathsSetup.m';
-run '../subdirPathsSetup.m'
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % Setting up the path for the video
 rootPath = [CITY_DATA_PATH, 'camdata/cam578/'];

@@ -9,20 +9,19 @@ function downloadSingleCam (camNum, outFileTemplate, numMinutes)
 
 clear frameWriter frameReader
 
-% setup data directory
-%if ~exist('FrameWriter', 'class')
-%    error ('please "run ../../subdirPathsSetup.m" before calling this function');
-%end
-
-run ('../../subdirPathsSetup.m')
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % where to write video and intervals
-videoPath = fullfile([outFileTemplate, '.avi']);
-intervalsPath = fullfile([outFileTemplate,'.txt']);
-sampleImagePath = fullfile([outFileTemplate,'.jpg']);
+videoPath = fullfile([CITY_DATA_PATH outFileTemplate, '.avi']);
+intervalsPath = fullfile([CITY_DATA_PATH outFileTemplate,'.txt']);
+sampleImagePath = fullfile([CITY_DATA_PATH outFileTemplate,'.jpg']);
 
 fprintf ('Will write video to %s\n', videoPath);
-fprintf ('Will write subtitles to %s\n', intervalsPath);
+fprintf ('Will write time  to %s\n', intervalsPath);
 
 frameReader = FrameReaderInternet (camNum);
 frameWriter = FrameWriterVideo (videoPath, 2, 1);

@@ -15,7 +15,12 @@ CarFilter = 'car+front-occluded-crop,car+frontal-occluded-crop';
 
 DirCropped = '/Volumes/Other/projects/City-Project/data/Labelme/croppedFront90x46b/';
 
-% run '../rootPathsSetup.m';
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
+
 %database_path = 
 
 %database = LMdatabase (REMOTEANNOTATIONS);

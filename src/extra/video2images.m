@@ -7,10 +7,11 @@ function video2images (videoPath, outDir)
 
 clear frameWriter frameReader
 
-% setup data directory
-if ~exist('FrameReader', 'class')
-    error ('please run ../subdirPathsSetup.m prior to calling this function');
-end
+% setup paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 

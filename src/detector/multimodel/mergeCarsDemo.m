@@ -3,12 +3,11 @@ clear all;
 close all;
 clc
 
-% change dir to the directory of this script
-cd (fileparts(mfilename('fullpath')));
-
-% change ../.. to the relative path of the file
-run '../../rootPathsSetup.m';
-run '../../subdirPathsSetup.m';
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 carsDir = 'testdata/';
 frameName = '008';

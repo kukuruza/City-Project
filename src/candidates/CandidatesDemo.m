@@ -1,8 +1,10 @@
 % Script to test the functioning of the Candidates class
 
-% Setting up the paths
-run ../rootPathsSetup.m
-run ../subdirPathsSetup.m
+% Set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % Reading the image and mask
 %camId = 572;

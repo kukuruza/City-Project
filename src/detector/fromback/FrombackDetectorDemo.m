@@ -7,7 +7,7 @@ clear all
 %% set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
 CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
-run (fullfile(getenv('CITY_PATH'), 'src/subdirPathsSetup.m'));  % add tree to search path
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
 cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 

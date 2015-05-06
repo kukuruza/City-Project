@@ -1,7 +1,9 @@
 clear all
 
-cd (fileparts(mfilename('fullpath')));
-run '../rootPathsSetup.m';
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 detector = vision.ForegroundDetector();
 image = imread ('testdata/ioTest-fr0.png');
