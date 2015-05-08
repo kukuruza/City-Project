@@ -14,6 +14,7 @@ import dbInterface
 import utilities
 from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio, drawRoi
 import setupHelper
+import matplotlib.pyplot as plt  # for colormaps
 
 
 def __loadKeys__ (params):
@@ -39,17 +40,23 @@ def isRoiAtBorder (roi, width, height, params):
     return min (roi[0], roi[1], height+1 - roi[2], width+1 - roi[3]) < border_thresh
 
 
-def isWrongSize (roi, params):
-    bc = bottomCenter(roi)
-    # whatever definition of size
+def sizeProb (roi, params):
+    # naive definition of size
     size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
-    return (params['size_map'][bc[0], bc[1]] * params['size_acceptance'][0] > size or
-            params['size_map'][bc[0], bc[1]] * params['size_acceptance'][1] < size)
+    bc = bottomCenter(roi)
+    max_prob = params['size_map'][bc[0], bc[1]]
+    prob = utilities.gammaProb (size, max_prob, params['size_acceptance'])
+    if size < params['min_width_thresh']: prob = 0
+    logging.debug ('size of roi probability: ' + str(prob))
+    return prob
 
 
-def isBadRatio (roi, params):
+def ratioProb (roi, params):
     ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
-    return ratio < params['ratio_acceptance'][0] or ratio > params['ratio_acceptance'][1]
+    prob = utilities.gammaProb (ratio, 1.333, params['ratio_acceptance'])
+    logging.debug ('ratio of roi probability: ' + str(prob))
+    return prob
+
 
 
 
@@ -59,11 +66,10 @@ def __filterCar__ (cursor, car_entry, params):
     roi = bbox2roi (queryField(car_entry, 'bbox'))
     imagefile = queryField(car_entry, 'imagefile')
 
-    # prefer to duplicate query rather than pass parameters to function
     cursor.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
     (width,height) = cursor.fetchone()
 
-    flag = ''
+    border_prob = 1
     if checkTableExists(cursor, 'polygons'):
         # get polygon
         cursor.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
@@ -74,27 +80,31 @@ def __filterCar__ (cursor, car_entry, params):
         # filter border
         if isPolygonAtBorder(xs, ys, width, height, params): 
             logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
-            flag = 'border'
+            border_prob = 0
     else:
         # filter border
         if isRoiAtBorder(roi, width, height, params): 
             logging.info ('border polygon ' + str(roi))
-            flag = 'border'
+            border_prob = 0
 
-    if isWrongSize(roi, params):
-        logging.info ('wrong size of car in ' + str(roi))
-        flag = 'badroi'
-    if isBadRatio(roi, params):
-        logging.info ('bad ratio of roi ' + str(roi))
-        flag = 'badroi'
-    if roi[3]-roi[1] < params['min_width_thresh']:
-        logging.info ('too small ' + str(roi))
-        flag = 'badroi'
+    # get current score
+    cursor.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
+    (name,score) = cursor.fetchone()
+    if score is None: score = 1.0 
+
+    # get probabilities of car, given constraints
+    size_prob   = sizeProb (roi, params)
+    ratio_prob  = ratioProb(roi, params)
+    
+    # update score in db
+    score *= (size_prob * ratio_prob * border_prob)
+    cursor.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug_show']:
-        drawRoi (params['img_show'], roi, flag)
+        color = tuple([int(x * 255) for x in plt.cm.jet(score)][0:3])
+        drawRoi (params['img_show'], roi, '', color)
 
-    if flag != '':
+    if score < params['score_threshold']:
         deleteCar (cursor, carid)
 
 
@@ -110,8 +120,9 @@ def dbFilter (db_in_path, db_out_path, params):
 
     params = setupHelper.setParamUnlessThere (params, 'border_thresh_perc', 0.03)
     params = setupHelper.setParamUnlessThere (params, 'min_width_thresh',   10)
-    params = setupHelper.setParamUnlessThere (params, 'size_acceptance',   (0.4, 2))
-    params = setupHelper.setParamUnlessThere (params, 'ratio_acceptance',  (0.4, 1.5))
+    params = setupHelper.setParamUnlessThere (params, 'size_acceptance',    3)
+    params = setupHelper.setParamUnlessThere (params, 'ratio_acceptance',   3)
+    params = setupHelper.setParamUnlessThere (params, 'score_threshold',    1.0)
     params = setupHelper.setParamUnlessThere (params, 'sizemap_dilate',     21)
     params = setupHelper.setParamUnlessThere (params, 'debug_show',         False)
     params = setupHelper.setParamUnlessThere (params, 'debug_sizemap',      False)
@@ -218,7 +229,7 @@ def dbExpandBboxes (db_in_path, db_out_path, params):
 
     params = setupHelper.setParamUnlessThere (params, 'expand_perc', 0.1)
     params = setupHelper.setParamUnlessThere (params, 'target_ratio', 0.75)   # height / width
-    params = setupHelper.setParamUnlessThere (params, 'keep_ratio', False)
+    params = setupHelper.setParamUnlessThere (params, 'keep_ratio', True)
     params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
 
     conn = sqlite3.connect (db_out_path)
@@ -956,7 +967,17 @@ def dbCustomScript (db_in_path, db_out_path = None, params = {}):
     cursor.execute('CREATE TEMPORARY TABLE backup(id,imagefile,name,x1,y1,width,height,yaw,pitch,color)')
     cursor.execute('INSERT INTO backup SELECT id,imagefile,name,x1,y1,width,height,yaw,pitch,color FROM cars')
     cursor.execute('DROP TABLE cars')
-    cursor.execute('CREATE TABLE cars(id,imagefile,name,x1,y1,width,height,score,yaw,pitch,color)')
+    cursor.execute('''CREATE TABLE cars(id INTEGER PRIMARY KEY,
+                                        imagefile TEXT, 
+                                        name TEXT, 
+                                        x1 INTEGER,
+                                        y1 INTEGER,
+                                        width INTEGER, 
+                                        height INTEGER,
+                                        score REAL,
+                                        yaw REAL,
+                                        pitch REAL,
+                                        color TEXT)''')
     cursor.execute('INSERT INTO cars(id,imagefile,name,x1,y1,width,height,yaw,pitch,color) SELECT * FROM backup')
     cursor.execute('DROP TABLE backup')
 

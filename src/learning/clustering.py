@@ -33,7 +33,7 @@ def getGhost (car_entry, image):
     assert (car_entry is not None)
 
     carid = queryField (car_entry, 'id')
-    bbox = queryField(car_entry, 'bbox-w-offset')
+    bbox = queryField(car_entry, 'bbox')
     roi = bbox2roi(bbox)
     (height, width, depth) = image.shape
     if roi[2] > height and roi[3] > width:

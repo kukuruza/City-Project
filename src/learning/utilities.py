@@ -5,6 +5,7 @@ import matplotlib.pyplot
 import sys, os, os.path as op
 import logging
 import setupHelper
+from scipy.stats import gamma
 
 
 
@@ -103,7 +104,7 @@ def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
     return roi
 
 
-def overlapRatio (roi1, roi2, score1, score2):
+def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
     assert (len(roi1) == 4 and len(roi2) == 4)
     dy = min(roi1[2], roi2[2]) - max(roi1[0], roi2[0])
     dx = min(roi1[3], roi2[3]) - max(roi1[1], roi2[1])
@@ -115,6 +116,15 @@ def overlapRatio (roi1, roi2, score1, score2):
     logging.debug('inters: ' + str(inters) + ', union: ' +  str(union))
     assert (union >= inters and inters > 0)
     return float(inters) / union * score1 * score2
+
+
+def gammaProb (x, max_value, shape):
+    '''
+    x is distributed with Gamma(shape, scale).
+    scale is set so that the maximim of pdf equals max_value, shape is input
+    '''
+    scale = float(max_value) / (shape - 1)
+    return gamma.pdf(x, shape, 0, scale) / gamma.pdf(max_value, shape, 0, scale)
 
 
 def hierarchicalClusterRoi (rois, params = {}):

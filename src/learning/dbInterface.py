@@ -18,7 +18,7 @@ def createLabelmeDb (db_path):
                       );''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS cars
                      (id INTEGER PRIMARY KEY,
-                      imagefile INTEGER, 
+                      imagefile TEXT, 
                       name TEXT, 
                       x1 INTEGER,
                       y1 INTEGER,
@@ -160,8 +160,6 @@ def queryField (car, field):
 
     if field == 'bbox':      
         return list(car[3:7])
-    if field == 'bbox-w-offset': 
-        return [car[3]+car[7], car[4]+car[8], car[5], car[6]]
     return None
 
 
