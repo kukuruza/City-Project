@@ -1,36 +1,46 @@
-classdef Candidates < CandidatesBase
+classdef CandidatesSizemap < CandidatesBase
     % Class to generate candidates for CNN's detection
     % Based on the geometry of the camera : pick the box based on the size
     % over the lanes
     
-    properties
+    properties (Hidden)
+        mapSize
+        minCarSize
+        carAspectRatio
+        
+        bboxes  % generated at the time of contructing the object
     end
     
     methods
-        % Getting the candidate boxes, using size map of the given camera
-        function bboxes = getCandidates (self, sizeMap, varargin)
+        
+        function self = CandidatesSizemap (mapSize, varargin)
             % Parameters to tune the way the boxes are generated
             parser = inputParser;
-            addParameter(parser, 'minCarSize', 20); % Minimum size of car
-            addParameter(parser, 'carAspectRatio', 1.2); % width/height ratio
-            parse (parser, varargin{:});
+            addRequired (parser, 'mapSize', @ismatrix);
+            addParameter(parser, 'minCarSize', 10, @isscalar); % Minimum size of car
+            addParameter(parser, 'carAspectRatio', 1.33, @isscalar); % width/height ratio
+            parse (parser, mapSize, varargin{:});
             parsed = parser.Results;
             
+            self.mapSize        = parsed.mapSize;
+            self.minCarSize     = parsed.minCarSize;
+            self.carAspectRatio = parsed.carAspectRatio;
+            
             % First segregrate the roads if possible
-            clusters = bwlabel(sizeMap);
+            clusters = bwlabel(self.mapSize);
             clusterIds = unique(clusters);
             
             % Remove zero
             clusterIds(clusterIds == 0) = [];
             
             % Initialize bboxes to []
-            bboxes = [];
+            self.bboxes = [];
             
             % For each cluster (lane / multiple lane)
             for i = 1:length(clusterIds)
                 % Determine if single lane or multiple lanes
                 laneMask = uint8(clusters == i);
-                lane = sizeMap .* laneMask;
+                lane = self.mapSize .* laneMask;
 
                 laneSize = sum(laneMask, 2);
                 [maxLaneSize, maxId] = max(laneSize);
@@ -45,8 +55,8 @@ classdef Candidates < CandidatesBase
                     % Find the first point of the lane
                     [~, startPt] = max(laneMask, [], 2);
                     
-                    laneRows = laneSize > ratio * parsed.minCarSize;
-                    %laneRows = maxVal > parsed.minCarSize;
+                    laneRows = laneSize > ratio * self.minCarSize;
+                    %laneRows = maxVal > self.minCarSize;
                     
                     % Skip few rows
                     % laneRows() = ;
@@ -61,13 +71,13 @@ classdef Candidates < CandidatesBase
                     x = uint32(x); 
                     
                     % Height
-                    linInds = sub2ind(size(sizeMap), y, x);
-                    % figure(1); imagesc(sizeMap)
-                    height = sizeMap(linInds);
+                    linInds = sub2ind(size(self.mapSize), y, x);
+                    % figure(1); imagesc(self.mapSize)
+                    height = self.mapSize(linInds);
                     
                     % Width
-                    width = parsed.carAspectRatio * height;
-                    bboxes = [bboxes; x y width height];
+                    width = self.carAspectRatio * height;
+                    self.bboxes = [self.bboxes; x y width height];
                     
                 % Assume multiple lanes
                 else
@@ -85,7 +95,7 @@ classdef Candidates < CandidatesBase
                     endPt = size(laneMask, 2) + 1 - endPt;
                     
                     % Car size cutoff
-                    laneRows = laneSize > ratio * parsed.minCarSize;
+                    laneRows = laneSize > ratio * self.minCarSize;
                     
                     % Finding the centers of the boxes
                     matrix = [linspace(1, 0, noLanes+2); ...
@@ -102,20 +112,27 @@ classdef Candidates < CandidatesBase
                     xMiddle = uint32(reshape(centers(laneRows, :), [], 1));
                     
                     % height
-                    linInds = sub2ind(size(sizeMap), yMiddle, xMiddle);
-                    height = uint32(sizeMap(linInds));
+                    linInds = sub2ind(size(self.mapSize), yMiddle, xMiddle);
+                    height = uint32(self.mapSize(linInds));
                     
                     % width
-                    width = parsed.carAspectRatio * height;
+                    width = self.carAspectRatio * height;
                     
                     % Adjusting the rectangle
                     x = uint32(xMiddle - width/2);
                     y = uint32(yMiddle - height/2);
                     
                     % Bounding boxes
-                    bboxes = [bboxes; x y width height];
+                    self.bboxes = [self.bboxes; x y width height];
                 end 
             end
         end
-    end     
+        
+        
+        % Getting the candidate boxes, using size map of the given camera
+        function bboxes = getCandidates (self, varargin)
+            bboxes = self.bboxes;
+        end
+        
+    end
 end
