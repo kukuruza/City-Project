@@ -122,8 +122,7 @@ for t = 1 : 10000000
         for i = 1 : length(cars)
             car = cars(i);
             bbox = car.bbox;
-            query = ['INSERT INTO cars(imagefile,name,x1,y1,width,height) ' ...
-                     'VALUES (?,?,?,?,?,?,?,?)'];
+            query = 'INSERT INTO cars(imagefile,name,x1,y1,width,height) VALUES (?,?,?,?,?,?)';
             sqlite3.execute(query, image_file, 'object', bbox(1), bbox(2), bbox(3), bbox(4));
         end
     end

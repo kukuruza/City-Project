@@ -14,7 +14,7 @@ classdef FrameReaderImages < FrameReader
         function FR = FrameReaderImages (imDir)
 
             FR.imDir = imDir;
-            imTemplate = [FR.imDir, '*.jpg'];
+            imTemplate = fullfile(FR.imDir, '*.jpg');
             FR.imNames = dir (imTemplate);
             FR.counter = 1;
             
@@ -32,7 +32,7 @@ classdef FrameReaderImages < FrameReader
             if FR.counter > length(FR.imNames)
                 frame = [];
             else
-                frame = imread([FR.imDir, FR.imNames(FR.counter).name]);
+                frame = imread(fullfile(FR.imDir, FR.imNames(FR.counter).name));
             end
             FR.counter = FR.counter + 1;
             timeinterval = 1;

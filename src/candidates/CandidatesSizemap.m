@@ -5,8 +5,9 @@ classdef CandidatesSizemap < CandidatesBase
     
     properties (Hidden)
         mapSize
-        minCarSize
-        carAspectRatio
+        minCarSize       % minimum width of car
+        carAspectRatio   % width/height ratio
+        interval         % interval between candidate bboxes, pxl
         
         bboxes  % generated at the time of contructing the object
     end
@@ -17,14 +18,16 @@ classdef CandidatesSizemap < CandidatesBase
             % Parameters to tune the way the boxes are generated
             parser = inputParser;
             addRequired (parser, 'mapSize', @ismatrix);
-            addParameter(parser, 'minCarSize', 10, @isscalar); % Minimum size of car
-            addParameter(parser, 'carAspectRatio', 1.33, @isscalar); % width/height ratio
+            addParameter(parser, 'minCarSize', 10, @isscalar);
+            addParameter(parser, 'carAspectRatio', 1.33, @isscalar); 
+            addParameter(parser, 'interval', 5, @isscalar); 
             parse (parser, mapSize, varargin{:});
             parsed = parser.Results;
             
             self.mapSize        = parsed.mapSize;
             self.minCarSize     = parsed.minCarSize;
             self.carAspectRatio = parsed.carAspectRatio;
+            self.interval       = parsed.interval;
             
             % First segregrate the roads if possible
             clusters = bwlabel(self.mapSize);
@@ -77,8 +80,7 @@ classdef CandidatesSizemap < CandidatesBase
                     
                     % Width
                     width = self.carAspectRatio * height;
-                    self.bboxes = [self.bboxes; x y width height];
-                    
+
                 % Assume multiple lanes
                 else
                     % Draw the boxes from anywhere random such that entire
@@ -121,11 +123,16 @@ classdef CandidatesSizemap < CandidatesBase
                     % Adjusting the rectangle
                     x = uint32(xMiddle - width/2);
                     y = uint32(yMiddle - height/2);
-                    
-                    % Bounding boxes
-                    self.bboxes = [self.bboxes; x y width height];
                 end 
+                
+                % assertion inside is violated if bbox is out of bounds
+                bbox2roi([x y width height]);
+                
+                self.bboxes = [self.bboxes; x y width height];
+                    
             end
+            
+            self.bboxes = self.bboxes(1:self.interval:size(self.bboxes,1), :);
         end
         
         
