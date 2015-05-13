@@ -106,12 +106,6 @@ def dbDetectCascadeTask (db_in_path, task_path, db_out_dir, params):
     Perform Viola-Jones detection of each model in the task
     '''
 
-    # clear db_out_dir
-    db_out_dir = op.join (os.getenv('CITY_DATA_PATH'), db_out_dir)
-    if op.exists(db_out_dir):
-        shutil.rmtree(db_out_dir)
-    os.makedirs(db_out_dir)
-
     for experiment in ExperimentsBuilder(loadJson(task_path)).getResult():
         model_dir = op.join (os.getenv('CITY_DATA_PATH'), experiment['model_dir'])
         if 'model_name' in experiment.keys():

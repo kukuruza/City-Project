@@ -29,26 +29,76 @@ import setupHelper
 
 
 
-def getGhost (car_entry, image):
-    assert (car_entry is not None)
+def collectGhosts (db_in_path, out_dir, params = {}):
+    '''
+    Save car ghosts into out_dir
+    '''
 
-    carid = queryField (car_entry, 'id')
-    bbox = queryField(car_entry, 'bbox')
-    roi = bbox2roi(bbox)
-    (height, width, depth) = image.shape
-    if roi[2] > height and roi[3] > width:
-        raise Exception ('bad roi for ' + queryField(car_entry, 'imagefile'))
+    db_in_path = op.join (os.getenv('CITY_DATA_PATH'), db_in_path)
+    out_dir    = op.join (os.getenv('CITY_DATA_PATH'), out_dir)
 
-    ghost = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
-    return (carid, ghost)
+    setupHelper.setupLogHeader (db_in_path, '', params, 'collectGhosts')
+
+    # open db
+    if not op.exists (db_in_path):
+        raise Exception ('db does not exist: ' + db_in_path)
+    conn = sqlite3.connect (db_in_path)
+    cursor = conn.cursor()
+
+    # delete 'out_dir' dir, and recreate it
+    if op.exists (out_dir):
+        logging.warning ('will delete existing out dir: ' + out_dir)
+        shutil.rmtree (out_dir)
+    os.makedirs (out_dir)
+
+    # get db entries
+
+    car_entries = queryCars (cursor, params)
+    logging.info ('found images: ' + str(len(car_entries)))
+
+    ghostfile0 = None
+
+    # write ghosts for each entry
+    for car_entry in car_entries:
+
+        # update imagefile and image
+        imagefile = queryField (car_entry, 'imagefile')
+        cursor.execute('SELECT ghostfile FROM images WHERE imagefile=?', (imagefile,))
+        (ghostfile,) = cursor.fetchone()
+        ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
+        if ghostfile0 is None or ghostfile0 != ghostfile:
+            logging.debug ('update image from ' + ghostfile)
+            ghostfile0 = ghostfile
+            if not op.exists (ghostpath):
+                raise Exception ('ghostpath does not exist: ' + ghostpath)
+            ghost = cv2.imread(ghostpath)
+
+        # extract patch
+        bbox = queryField(car_entry, 'bbox')
+        roi = bbox2roi(bbox)
+        patch = ghost [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+
+        # make patch file path
+        carid = queryField(car_entry, 'id')
+        patchname = "%08d" % carid + IMAGE_EXT
+        patchpath = op.join(out_dir, patchname)
+
+        # resize if necessary
+        if 'resize' in params.keys():
+            assert (type(params['resize']) == list and len(params['resize']) == 2)
+            patch = cv2.resize(patch, tuple(params['resize']))
+
+        cv2.imwrite(patchpath, patch)
+
+    conn.close()
 
 
-def collectGhosts (db_path, filters_path, out_dir, params = {}):
-    '''Cluster cars and save the patches by cluster
 
-       Find cars in paths specified in data_list_path,
-       use filters to cluster and transform,
-       and save the ghosts '''
+def collectGhostTask (db_path, filters_path, out_dir, params = {}):
+    '''
+    Cluster cars and save the patches by cluster.
+    Use filters to cluster and transform, and save the ghosts 
+    '''
 
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_path      = op.join (CITY_DATA_PATH, db_path)

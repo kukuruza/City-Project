@@ -104,8 +104,18 @@ def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
     return roi
 
 
+def gammaProb (x, max_value, shape):
+    '''
+    x is distributed with Gamma(shape, scale).
+    scale is set so that the maximim of pdf equals max_value, shape is input
+    '''
+    scale = float(max_value) / (shape - 1)
+    return gamma.pdf(x, shape, 0, scale) / gamma.pdf(max_value, shape, 0, scale)
+
+
 def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
     assert (len(roi1) == 4 and len(roi2) == 4)
+    if roi1 == roi2 and score1 == score2: return 1  # same object
     dy = min(roi1[2], roi2[2]) - max(roi1[0], roi2[0])
     dx = min(roi1[3], roi2[3]) - max(roi1[1], roi2[1])
     if dy <= 0 or dx <= 0: return 0
@@ -118,25 +128,17 @@ def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
     return float(inters) / union * score1 * score2
 
 
-def gammaProb (x, max_value, shape):
-    '''
-    x is distributed with Gamma(shape, scale).
-    scale is set so that the maximim of pdf equals max_value, shape is input
-    '''
-    scale = float(max_value) / (shape - 1)
-    return gamma.pdf(x, shape, 0, scale) / gamma.pdf(max_value, shape, 0, scale)
-
-
 def hierarchicalClusterRoi (rois, params = {}):
     if not rois:         return [], []
     elif len(rois) == 1: return rois, [0]
 
     params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
-    params = setupHelper.setParamUnlessThere (params, 'scores', [1]*len(rois))
+    #params = setupHelper.setParamUnlessThere (params, 'scores', [1]*len(rois))
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
-    sc_in = params['scores']
+    sc_in = [1]*N #params['scores']
+
     for j in range(N):
         for i in range(N):
             pairwise_distances[i][j] = 1 - overlapRatio(rois[i], rois[j], sc_in[i], sc_in[j])

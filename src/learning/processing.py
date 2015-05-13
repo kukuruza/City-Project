@@ -122,7 +122,7 @@ def dbFilter (db_in_path, db_out_path, params):
     params = setupHelper.setParamUnlessThere (params, 'min_width_thresh',   10)
     params = setupHelper.setParamUnlessThere (params, 'size_acceptance',    3)
     params = setupHelper.setParamUnlessThere (params, 'ratio_acceptance',   3)
-    params = setupHelper.setParamUnlessThere (params, 'score_threshold',    1.0)
+    params = setupHelper.setParamUnlessThere (params, 'score_threshold',    0)
     params = setupHelper.setParamUnlessThere (params, 'sizemap_dilate',     21)
     params = setupHelper.setParamUnlessThere (params, 'debug_show',         False)
     params = setupHelper.setParamUnlessThere (params, 'debug_sizemap',      False)
@@ -264,12 +264,16 @@ def __clusterBboxes__ (cursor, imagefile, params):
 
     # collect rois
     rois = []
+    scores = []
     for car_entry in car_entries:
         carid = queryField(car_entry, 'id')
         roi = bbox2roi (queryField(car_entry, 'bbox'))
+        score = queryField(car_entry, 'score')
         rois.append (roi)
+        scores.append (score)
 
     # cluster rois
+    #params['scores'] = scores
     rois_clustered, clusters, scores = utilities.hierarchicalClusterRoi (rois, params)
 
     # show
@@ -279,9 +283,9 @@ def __clusterBboxes__ (cursor, imagefile, params):
             raise Exception ('image does not exist: ' + imagepath)
         img_show = cv2.imread(imagepath)
         for roi in rois:
-            drawRoi (img_show, roi, (0, 0), '', (0,0,255))
+            drawRoi (img_show, roi, '', (0,0,255))
         for roi in rois_clustered:
-            drawRoi (img_show, roi, (0, 0), '', (255,0,0))
+            drawRoi (img_show, roi, '', (255,0,0))
         cv2.imshow('debug_show', img_show)
         if cv2.waitKey(-1) == 27: 
             cv2.destroyWindow('debug_show')
@@ -320,6 +324,32 @@ def dbClusterBboxes (db_in_path, db_out_path, params = {}):
 
     for (imagefile,) in image_entries:
         __clusterBboxes__ (cursor, imagefile, params)
+
+    conn.commit()
+    conn.close()
+
+
+
+def dbThresholdScore (db_in_path, db_out_path, params = {}):
+
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbClusterBboxes')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
+
+    params = setupHelper.setParamUnlessThere (params, 'threshold', 0.5)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT id,score FROM cars')
+    car_entries = cursor.fetchall()
+
+    for (carid,score) in car_entries:
+        if score < params['threshold']:
+            cursor.execute('DELETE FROM cars WHERE id = ?', (carid,))
 
     conn.commit()
     conn.close()
@@ -421,7 +451,6 @@ def dbMove (db_in_path, db_out_path, params):
             newfile = op.join (params['masks_dir'], op.basename (oldfile))
             cursor.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
 
-
     conn.commit()
     conn.close()
 
@@ -458,7 +487,7 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
             cursor_out.execute('SELECT count(*) FROM images WHERE imagefile=?', (imagefile,))
             (num,) = cursor_out.fetchone()
             if num > 0:
-                logging.warning ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
+                logging.info ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
                 continue
             # insert image
             cursor_out.execute('INSERT INTO images VALUES (?,?,?,?,?,?,?);', image_entry)
@@ -467,18 +496,109 @@ def dbMerge (db_in_paths, db_out_path, params = {}):
         cursor_in.execute('SELECT * FROM cars')
         car_entries = cursor_in.fetchall()
 
-        # copy cars and possible polygons
+        # copy cars
         for car_entry in car_entries:
             carid = queryField (car_entry, 'id')
             s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
             cursor_out.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
-            carid_new = cursor_out.lastrowid
-            sys.stdout.flush()
 
         conn_in.close()
 
     conn_out.commit()
     conn_out.close()
+
+
+
+def dbMaskScores (db_in_path, db_out_path, params = {}):
+
+    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
+
+    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'dbMaskScores')
+    setupHelper.setupCopyDb (db_in_path, db_out_path)
+
+    conn = sqlite3.connect (db_out_path)
+    cursor = conn.cursor()
+
+    # load the map of scores and normalize it by 1/255
+    if 'score_map_path' not in params.keys():
+        raise Exception ('score_map_path is not given in params')
+    score_map_path = op.join(CITY_DATA_PATH, params['score_map_path'])
+    if not op.exists(score_map_path):
+        raise Exception ('score_map_path does not exist: ' + score_map_path)
+    score_map = cv2.imread(score_map_path, -1).astype(float);
+    score_map /= 255.0
+
+    cursor.execute('SELECT * FROM cars')
+    car_entries = cursor.fetchall()
+
+    for car_entry in car_entries:
+        carid = queryField (car_entry, 'id')
+        bbox  = queryField (car_entry, 'bbox')
+        score = queryField (car_entry, 'score')
+        if not score: score = 1 
+
+        center = bottomCenter(bbox2roi(bbox))
+        score *= score_map[center[0], center[1]]
+        cursor.execute('UPDATE cars SET score=? WHERE id=?', (score, carid))
+
+    conn.commit()
+    conn.close()
+
+
+
+def dbShow (db_in_path, params = {}):
+
+    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
+    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
+
+    setupHelper.setupLogHeader (db_in_path, '', params, 'dbExamine')
+
+    params = setupHelper.setParamUnlessThere (params, 'disp_scale', 1.5)
+
+    conn = sqlite3.connect (db_in_path)
+    cursor = conn.cursor()
+
+    if 'car_constraint' in params.keys(): 
+        car_constraint = ' AND (' + params['car_constraint'] + ')'
+    else:
+        car_constraint = ''
+
+    cursor.execute('SELECT imagefile FROM images')
+    imagefiles = cursor.fetchall()
+
+    for (imagefile,) in imagefiles:
+
+        imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+        if not op.exists (imagepath):
+            raise Exception ('image does not exist: ' + imagepath)
+        img = cv2.imread(imagepath)
+
+        cursor.execute('SELECT * FROM cars WHERE imagefile=? ' + car_constraint, (imagefile,))
+        car_entries = cursor.fetchall()
+        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+
+        for car_entry in car_entries:
+            carid     = queryField(car_entry, 'id')
+            roi       = bbox2roi (queryField(car_entry, 'bbox'))
+            score     = queryField(car_entry, 'score')
+            #name      = queryField(car_entry, 'name')
+            if score is None: score = 1 
+
+            color = tuple([int(x * 255) for x in plt.cm.jet(score)][0:3])
+            drawRoi (img, roi, '', color)
+
+        disp_scale = params['disp_scale']
+        img = cv2.resize(img, (0,0), fx=disp_scale, fy=disp_scale)
+        cv2.imshow('show', img)
+        if cv2.waitKey(-1) == 27: break
+
+
+    cv2.destroyWindow('show')
+
+    conn.close()
+
 
 
 

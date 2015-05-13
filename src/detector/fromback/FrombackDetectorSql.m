@@ -13,8 +13,8 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-db_in_file  = 'datasets/labelme/Databases/572-Oct30-17h-frame/init.db';
-db_out_file = 'datasets/labelme/Databases/572-Oct30-17h-frame/fromback.db';
+db_in_file  = 'datasets/labelme/Databases/572-Oct30-17h-pair/init.db';
+db_out_file = 'datasets/labelme/Databases/572-Oct30-17h-pair/fromback.db';
 
 video_file  = 'camdata/cam572/Oct30-17h.avi';
 back_file   = 'camdata/cam572/Oct30-17h-back.png';
