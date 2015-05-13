@@ -16,7 +16,7 @@ if (not os.environ.get('CITY_DATA_PATH') or
     raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH, CITY_SHARED_PATH')
 
 rootdir = os.getenv('CITY_DATA_PATH')
-tmpdir  = op.join (os.getenv('CITY_PATH'), 'tmp')
+tmpdir  = op.join (os.getenv('CITY_PATH'), 'backup')
 #shareddir = os.getenv('CITY_SHARED_PATH')
 print ('data dir: ' + rootdir)
 print ('temp dir: ' + tmpdir)

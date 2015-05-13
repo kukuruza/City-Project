@@ -556,6 +556,7 @@ def dbShow (db_in_path, params = {}):
     setupHelper.setupLogHeader (db_in_path, '', params, 'dbExamine')
 
     params = setupHelper.setParamUnlessThere (params, 'disp_scale', 1.5)
+    params = setupHelper.setParamUnlessThere (params, 'threshold_score', 0)
 
     conn = sqlite3.connect (db_in_path)
     cursor = conn.cursor()
@@ -584,9 +585,14 @@ def dbShow (db_in_path, params = {}):
             roi       = bbox2roi (queryField(car_entry, 'bbox'))
             score     = queryField(car_entry, 'score')
             #name      = queryField(car_entry, 'name')
-            if score is None: score = 1 
 
-            color = tuple([int(x * 255) for x in plt.cm.jet(score)][0:3])
+            logging.debug ('roi ' + str(roi) + ', score: ' + str(score))
+
+            if score is None: score = 1
+
+            if score < params['threshold_score']: continue
+
+            color = tuple([int(x * 255) for x in plt.cm.jet(score * 255)][0:3])
             drawRoi (img, roi, '', color)
 
         disp_scale = params['disp_scale']

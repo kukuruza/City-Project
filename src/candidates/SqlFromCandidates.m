@@ -22,10 +22,10 @@ dir_name = '572-Oct30-17h-pair';
 mapsize_path = 'models/cam572/mapSize.tiff';
 
 db_in_name  = 'init.db';
-db_out_name = 'cand-sizemap.db';
+db_out_name = 'selsearch.db';
 
 patch_size = [30, 40];
-patch_dir = 'clustering/572-Oct30-17h-pair/candidates_selsearch';
+patch_dir = 'clustering/572-Oct30-17h-pair/selsearch';
 
 
 %% init
