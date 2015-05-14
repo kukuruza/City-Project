@@ -20,7 +20,8 @@ classdef CandidatesSizemap < CandidatesBase
             addRequired (parser, 'mapSize', @ismatrix);
             addParameter(parser, 'minCarSize', 10, @isscalar);
             addParameter(parser, 'carAspectRatio', 1.33, @isscalar); 
-            addParameter(parser, 'interval', 5, @isscalar); 
+            addParameter(parser, 'interval', 5, @isscalar);
+            
             parse (parser, mapSize, varargin{:});
             parsed = parser.Results;
             
@@ -66,7 +67,7 @@ classdef CandidatesSizemap < CandidatesBase
                     
                     % Y
                     y = 1:length(laneRows);
-                    y = y(laneRows)';
+                    y = uint32(y(laneRows)');
                     
                     % X
                     % Adding some buffer (randomize?)
@@ -76,10 +77,10 @@ classdef CandidatesSizemap < CandidatesBase
                     % Height
                     linInds = sub2ind(size(self.mapSize), y, x);
                     % figure(1); imagesc(self.mapSize)
-                    height = self.mapSize(linInds);
+                    height = uint32(self.mapSize(linInds));
                     
                     % Width
-                    width = self.carAspectRatio * height;
+                    width = uint32(self.carAspectRatio * height);
 
                 % Assume multiple lanes
                 else
@@ -118,23 +119,39 @@ classdef CandidatesSizemap < CandidatesBase
                     height = uint32(self.mapSize(linInds));
                     
                     % width
-                    width = self.carAspectRatio * height;
+                    width = uint32(self.carAspectRatio * height);
                     
                     % Adjusting the rectangle
                     x = uint32(xMiddle - width/2);
                     y = uint32(yMiddle - height/2);
-                end 
+                end
                 
-                % assertion inside is violated if bbox is out of bounds
-                bbox2roi([x y width height]);
-                
-                self.bboxes = [self.bboxes; x y width height];
-                    
-            end
+                % Dealing with border cases -- ignore them
+                % image size
+                imSize = size(self.mapSize);
+                % Getting the border cases
+                removeId =  (x < 1) | (x > imSize(2)) | ...
+                            (y < 1) | (y > imSize(1)) | ...
+                            (x + width > imSize(2)) | ...
+                            (y + height > imSize(1)) | ...
+                            height < 1 | width < 1;
             
+                retainId = ~removeId;
+                x       = x(retainId);
+                y       = y(retainId);
+                width   = width(retainId);
+                height  = height(retainId);
+
+                % assertion inside is violated if bbox is out of bounds
+                % Assertion is for each box, not a batch !
+                for j = 1:size(x, 1)
+                    bbox2roi([x(j) y(j) width(j) height(j)]);
+                end
+                
+                self.bboxes = [self.bboxes; x y width height];        
+            end
             self.bboxes = self.bboxes(1:self.interval:size(self.bboxes,1), :);
         end
-        
         
         % Getting the candidate boxes, using size map of the given camera
         function bboxes = getCandidates (self, varargin)
