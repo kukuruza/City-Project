@@ -13,7 +13,6 @@ from dbInterface import deleteCar, queryField, checkTableExists, getImageField
 import dbInterface
 import utilities
 from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio, drawRoi
-import matplotlib.pyplot as plt  # for colormaps
 from dbBase import BaseProcessor
 
 
@@ -42,7 +41,7 @@ def sizeProb (roi, params):
 
 def ratioProb (roi, params):
     ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
-    prob = utilities.gammaProb (ratio, 1.333, params['ratio_acceptance'])
+    prob = utilities.gammaProb (ratio, params['target_ratio'], params['ratio_acceptance'])
     logging.debug ('ratio of roi probability: ' + str(prob))
     return prob
 
@@ -85,8 +84,7 @@ def __filterBorderCar__ (c, car_entry, params):
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug_show']:
-        color = tuple([int(x * 255) for x in plt.cm.jet(score)][0:3])
-        drawRoi (params['img_show'], roi, '', color)
+        utilities.drawScoredRoi (params['img_show'], roi, '', score)
 
 
 
@@ -109,8 +107,7 @@ def __filterRatioCar__ (c, car_entry, params):
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug_show']:
-        color = tuple([int(x * 255) for x in plt.cm.jet(score)][0:3])
-        drawRoi (params['img_show'], roi, '', color)
+        utilities.drawScoredRoi (params['img_show'], roi, '', score)
 
 
 
@@ -133,8 +130,7 @@ def __filterSizeCar__ (c, car_entry, params):
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug_show']:
-        color = tuple([int(x * 255) for x in plt.cm.jet(score)][0:3])
-        drawRoi (params['img_show'], roi, '', color)
+        utilities.drawScoredRoi (params['img_show'], roi, '', score)
 
 
 
@@ -192,7 +188,8 @@ def __clusterBboxes__ (c, imagefile, params):
 
     # cluster rois
     #params['scores'] = scores
-    rois_clustered, clusters, scores = utilities.hierarchicalClusterRoi (rois, params)
+    values = utilities.hierarchicalClusterRoi (rois, params)
+    (rois_clustered, clusters, scores1) = values
 
     # show
     if params['debug_show']:
@@ -253,12 +250,12 @@ class ModifyProcessor (BaseProcessor):
             logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
             for car_entry in car_entries:
-                __filterCar__ (c, car_entry, params)
+                __filterBorderCar__ (c, car_entry, params)
 
-            if params['debug_show'] and 'button' in locals() and button != 27: 
+            if params['debug_show'] and ('key' not in locals() or key != 27): 
                 cv2.imshow('debug_show', params['img_show'])
-                button = cv2.waitKey(-1)
-                if button == 27: cv2.destroyWindow('debug_show')
+                key = cv2.waitKey(-1)
+                if key == 27: cv2.destroyWindow('debug_show')
 
         return self
 
@@ -268,6 +265,7 @@ class ModifyProcessor (BaseProcessor):
         logging.info ('==== filterRatio ====')
         c = self.cursor
 
+        params = self.setParamUnlessThere (params, 'target_ratio', 0.75)
         params = self.setParamUnlessThere (params, 'ratio_acceptance', 3)
         params = self.setParamUnlessThere (params, 'debug_show',       False)
         params = self.setParamUnlessThere (params, 'constraint',       '')
@@ -289,16 +287,16 @@ class ModifyProcessor (BaseProcessor):
             for car_entry in car_entries:
                 __filterRatioCar__ (c, car_entry, params)
 
-            if params['debug_show'] and 'button' in locals() and button != 27: 
+            if params['debug_show'] and ('key' not in locals() or key != 27): 
                 cv2.imshow('debug_show', params['img_show'])
-                button = cv2.waitKey(-1)
-                if button == 27: cv2.destroyWindow('debug_show')
+                key = cv2.waitKey(-1)
+                if key == 27: cv2.destroyWindow('debug_show')
 
         return self
 
 
 
-    def filterSize (self, size_map_path, params):
+    def filterSize (self, params):
         logging.info ('==== filterSize ====')
         c = self.cursor
 
@@ -308,8 +306,9 @@ class ModifyProcessor (BaseProcessor):
         params = self.setParamUnlessThere (params, 'debug_show',       False)
         params = self.setParamUnlessThere (params, 'debug_sizemap',    False)
         params = self.setParamUnlessThere (params, 'constraint',       '')
+        params = self.verifyParamThere    (params, 'size_map_path')
 
-        size_map_path  = op.join(self.CITY_DATA_PATH, size_map_path)
+        size_map_path  = op.join(self.CITY_DATA_PATH, params['size_map_path'])
         params['size_map'] = cv2.imread (size_map_path, 0).astype(np.float32)
 
         if params['debug_sizemap']:
@@ -340,10 +339,10 @@ class ModifyProcessor (BaseProcessor):
             for car_entry in car_entries:
                 __filterSizeCar__ (c, car_entry, params)
 
-            if params['debug_show'] and 'button' in locals() and button != 27: 
+            if params['debug_show'] and ('key' not in locals() or key != 27): 
                 cv2.imshow('debug_show', params['img_show'])
-                button = cv2.waitKey(-1)
-                if button == 27: cv2.destroyWindow('debug_show')
+                key = cv2.waitKey(-1)
+                if key == 27: cv2.destroyWindow('debug_show')
 
         return self
 
@@ -412,12 +411,9 @@ class ModifyProcessor (BaseProcessor):
         logging.info ('==== assignOrientations ====')
         c = self.cursor
 
-        if 'size_map_path' not in params.keys():
-            raise Exception ('size_map_path is not given in params')
-        if 'pitch_map_path' not in params.keys():
-            raise Exception ('pitch_map_path is not given in params')
-        if 'yaw_map_path' not in params.keys():
-            raise Exception ('yaw_map_path is not given in params')
+        params = self.verifyParamThere (params, 'size_map_path')
+        params = self.verifyParamThere (params, 'pitch_map_path')
+        params = self.verifyParamThere (params, 'yaw_map_path')
 
         size_map_path  = op.join(self.CITY_DATA_PATH, params['size_map_path'])
         pitch_map_path = op.join(self.CITY_DATA_PATH, params['pitch_map_path'])
@@ -433,7 +429,6 @@ class ModifyProcessor (BaseProcessor):
         yaw_map   = cv2.imread (yaw_map_path, -1).astype(np.float32)
         # in the tiff angles belong to [0, 360). Change that to [-180, 180)
         yaw_map   = np.add(-180, np.mod( np.add(180, yaw_map), 360 ) )
-
 
         c.execute('SELECT * FROM cars')
         car_entries = c.fetchall()
@@ -494,7 +489,7 @@ class ModifyProcessor (BaseProcessor):
         logging.info ('==== merge ====')
         c = self.cursor
 
-        db_add_path  = op.join(self.CITY_DATA_PATH, db_out_path)
+        db_add_path  = op.join(self.CITY_DATA_PATH, db_add_path)
 
         conn_add = sqlite3.connect (db_add_path)
         cursor_add = conn_add.cursor()
@@ -509,7 +504,7 @@ class ModifyProcessor (BaseProcessor):
             c.execute('SELECT count(*) FROM images WHERE imagefile=?', (imagefile,))
             (num,) = c.fetchone()
             if num > 0:
-                logging.info ('duplicate image ' + imagefile + ' found in ' + db_in_paths[1]) 
+                logging.warning ('duplicate image found ' + imagefile) 
                 continue
             # insert image
             c.execute('INSERT INTO images VALUES (?,?,?,?,?,?,?);', image_entry)
@@ -532,9 +527,9 @@ class ModifyProcessor (BaseProcessor):
         logging.info ('==== maskScores ====')
         c = self.cursor
 
+        params = self.verifyParamThere (params, 'score_map_path')
+
         # load the map of scores and normalize it by 1/255
-        if 'score_map_path' not in params.keys():
-            raise Exception ('score_map_path is not given in params')
         score_map_path = op.join(self.CITY_DATA_PATH, params['score_map_path'])
         if not op.exists(score_map_path):
             raise Exception ('score_map_path does not exist: ' + score_map_path)

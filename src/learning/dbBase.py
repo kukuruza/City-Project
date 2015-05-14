@@ -53,11 +53,17 @@ class BaseProcessor:
         if not key in params.keys(): params[key] = default_value
         return params
 
+    def verifyParamThere (self, params, key):
+        if not key in params.keys():
+            raise Exception ('"' + key + '" not found in params')
+        return params
+
 
 
 from dbManual import ManualProcessor
 from dbModify import ModifyProcessor
+from dbCnn import CnnProcessor
 
-class Processor (ModifyProcessor, ManualProcessor):
+class Processor (ModifyProcessor, ManualProcessor, CnnProcessor):
     '''
     '''

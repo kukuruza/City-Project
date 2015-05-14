@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Clustering aims to prepare Car/PyCar objects collected from different sources
+# Clustering aims to prepare patches collected from different sources
 #   into dataset that can be used for training/testing.
 #
 # The input of the module is collections of cars, the output is folders 

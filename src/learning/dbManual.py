@@ -4,9 +4,8 @@ import os, sys
 import os.path as op
 import logging
 from dbInterface import deleteCar, queryField
-from utilities import bbox2roi, roi2bbox, drawRoi
-import ConfigParser              # for keys
-import matplotlib.pyplot as plt  # for colormaps
+from utilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi
+import ConfigParser  # for keys
 from dbBase import BaseProcessor
 
 
@@ -85,8 +84,7 @@ class ManualProcessor (BaseProcessor):
 
                 if score < params['threshold_score']: continue
 
-                color = tuple([int(x * 255) for x in plt.cm.jet(score * 255)][0:3])
-                drawRoi (img, roi, '', color)
+                drawScoredRoi (img, roi, '', score)
 
             disp_scale = params['disp_scale']
             img = cv2.resize(img, (0,0), fx=disp_scale, fy=disp_scale)

@@ -6,6 +6,7 @@ import sys, os, os.path as op
 import logging
 import setupHelper
 from scipy.stats import gamma
+import matplotlib.pyplot as plt  # for colormaps
 
 
 
@@ -48,6 +49,21 @@ def drawRoi (img, roi, label = None, color = None):
         thickness = 2
     cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
     cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, color, thickness)
+
+
+def drawScoredRoi (img, roi, label = None, score = 1.0):
+    assert (score >= 0 and score <= 1)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    if label is None: label = ''
+    if score is None:
+        score = 1
+        thickness = 1
+    else:
+        thickness = 2
+    color = tuple([int(x * 255) for x in plt.cm.jet(float(score))][0:3])
+    cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
+    cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, score, thickness)
+
 
 
 #
@@ -129,8 +145,8 @@ def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
 
 
 def hierarchicalClusterRoi (rois, params = {}):
-    if not rois:         return [], []
-    elif len(rois) == 1: return rois, [0]
+    if not rois:         return [], [], []
+    elif len(rois) == 1: return rois, [0], [1]
 
     params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
     #params = setupHelper.setParamUnlessThere (params, 'scores', [1]*len(rois))

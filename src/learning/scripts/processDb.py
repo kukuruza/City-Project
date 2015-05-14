@@ -2,44 +2,59 @@ import logging
 import sys, os
 sys.path.insert(0, os.path.abspath('..'))
 import processing
+sys.path.insert(0, os.path.abspath('../labelme'))
+import labelme2db
 from setupHelper import setupLogging
+import fnmatch
 
 
-setupLogging ('log/learning/processDb.log', logging.INFO, 'a')
 
-#db_in_path  = 'datasets/sparse/Databases/119-Apr09-13h/color.db'
-#db_out_path = 'datasets/sparse/Databases/119-Apr09-13h/angles.db'
+setupLogging ('log/learning/ProcessDb.log', logging.WARNING, 'a')
+
+in_dir = os.path.join(os.getenv('CITY_DATA_PATH'), 'datasets/labelme/Databases/572-Oct30-17h-pair')
+
+#params = { }
+#params = { 'images_dir': 'datasets/labelme/Images/572-Oct30-17h-frame',
+#           'ghosts_dir': 'datasets/labelme/Ghosts/572-Oct30-17h-frame',
+#           'masks_dir':  'datasets/labelme/Masks/572-Oct30-17h-frame' }
+
+#db_in_paths = []
+#for root, dirnames, filenames in os.walk(in_dir):
+#    for filename in fnmatch.filter(filenames, '*.db'):
+#        db_in_paths.append(os.path.join(root, filename))
+#
+#for db_in_path in db_in_paths:
+#    try:
+#        processing.dbCustomScript (db_in_path, None, params)
+#    except Exception,e: print (db_in_path, str(e))
 
 
-# needs params
-#params = {'size_map_path':  'models/cam119/mapSize.tiff',
-#          'yaw_map_path':   'models/cam119/mapYaw.tiff',
-#          'pitch_map_path': 'models/cam119/mapPitch.tiff'}
-#processing.dbAssignOrientations (db_in_path, db_out_path, params)
+db_in_path  = 'datasets/labelme/Databases/572-Oct30-17h-pair/vj1-and-fromback.db'
+db_out_path = 'datasets/labelme/Databases/572-Oct30-17h-pair/vj1-and-fromback-thres.db'
 
-
-#params = {'size_map_path': 'models/cam717/mapSize.tiff',
-#          'debug_show': False,
+#params = {'score_map_path': 'models/cam572/mapFromback.tiff',
+#          'debug_show': True,
 #          'border_thresh_perc': -0.01,
 #          'min_width_thresh': 5,
-#          'size_acceptance': (0.3, 2)
+#          'size_acceptance': 3,
+#          'ratio_acceptance': 3
 #          }
+#processing.dbMaskScores (db_in_path, db_out_path, params)
+
+
+params = {'size_map_path': 'models/cam572/mapSize.tiff',
+          'debug_show': False,
+          'border_thresh_perc': 0.01,
+          'min_width_thresh': 5,
+          'size_acceptance': 2,
+          'ratio_acceptance': 3
+          }
 #processing.dbFilter (db_in_path, db_out_path, params)
 
 
+#params = {'expand_perc': 0.3,
+#          'debug_show': True }
 
-db_in_path  = 'databases/all.db'
-db_out_path = 'databases/wr-e0.3.db'
+#processing.dbExpandBboxes (db_in_path, db_out_path, params)
 
-
-params = {'debug_show': True,
-          'keep_ratio': True,
-          'expand_perc': 0.3 }
-processing.dbExpandBboxes (db_in_path, db_out_path, params)
-
-
-#processing.dbCustomScript (db_in_path, db_out_path)
-
-
-#params = { 'masks_dir': 'datasets/sparse/Masks/572-Oct28-10h/' }
-#processing.dbMove (db_in_path, db_out_path, params)
+processing.dbThresholdScore (db_in_path, db_out_path, params)

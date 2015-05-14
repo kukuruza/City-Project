@@ -7,9 +7,6 @@ import json
 import sqlite3
 import cv2
 import time
-
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-import setupHelper
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
 from dbInterface import queryField
