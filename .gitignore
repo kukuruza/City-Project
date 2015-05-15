@@ -65,7 +65,9 @@ ehthumbs.db
 Thumbs.db
 
 # Geometry module specific
+local*
 src/geometry/testscripts/local*
 src/geometry/local*
 src/background/local*
+src/carCounting/local*
 src/geometry/testscripts/additionals/*

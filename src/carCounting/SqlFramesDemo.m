@@ -12,10 +12,8 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-db_path = [CITY_DATA_PATH 'datasets/labelme/Databases/572-Oct30-17h-fr/Apr01-masks-ex0.1-di0.3-er0.3.db'];
-
-
-
+%db_path = [CITY_DATA_PATH 'datasets/labelme/Databases/572-Oct30-17h-fr/Apr01-masks-ex0.1-di0.3-er0.3.db'];
+db_path = [CITY_DATA_PATH, 'datasets/labelme/Databases/572-Nov28-10h-pair/detected/ex0.1-di0.3-er0.3-filt.db'];
 %% show all information about every car in every image
 
 % open database

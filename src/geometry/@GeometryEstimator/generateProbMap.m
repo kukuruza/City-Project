@@ -10,13 +10,17 @@ function[probMap, overlaidImg] = generateProbMap(obj, carOrPoint, frameDiff, ima
         point = carOrPoint;
     end
 
-    % Indices for which roadMap exists    
+    % Indices for which roadMap exists
     ptsOnRoad = find(obj.roadMask ~= 0);
+    [r, c] = ind2sub(obj.imageSize, ptsOnRoad);
+    
     for i = 1:length(ptsOnRoad)
-        [r, c] = ind2sub(obj.imageSize, ptsOnRoad(i));
-        probMap(ptsOnRoad(i)) = obj.getMutualProb(point, [c, r], frameDiff);
+        if(rem(i, 1000) == 0)
+            fprintf('%d %d \n', i, length(ptsOnRoad));
+        end
+        probMap(ptsOnRoad(i)) = obj.getMutualProb(point, [c(i), r(i)], frameDiff);
     end
-
+    
     %Debugging
     %fprintf('Number of arguments %d \n', nargin);
     if(nargin < 4)
