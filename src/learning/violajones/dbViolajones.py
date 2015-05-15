@@ -13,7 +13,6 @@ import setupHelper
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 from utilities import bbox2roi, drawRoi, drawScoredRoi, overlapRatio, expandRoiFloat, roi2bbox
 from dbInterface import queryField, checkTableExists
-import processing
 from dbBase import BaseProcessor
 
 

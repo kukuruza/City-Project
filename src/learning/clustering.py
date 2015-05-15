@@ -181,22 +181,18 @@ def collectGhostTask (db_path, filters_path, out_dir, params = {}):
 
 def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
+    logging.info ('==== writeInfoFile ====')
+    logging.info ('db_path: '      + db_path)
+    logging.info ('filters_path: ' + filters_path)
+    logging.info ('out_dir: '      + out_dir)
+    logging.info ('params: ' + str(params))
+
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     db_path      = op.join(CITY_DATA_PATH, db_path)
     filters_path = op.join(CITY_DATA_PATH, filters_path)
     out_dir      = op.join(CITY_DATA_PATH, out_dir)
 
-    logging.info ('=== clustering.writeInfoFile ===')
-    logging.info ('db_path: '      + db_path)
-    logging.info ('filters_path: ' + filters_path)
-    logging.info ('out_dir: '      + out_dir)
-    logging.info ('params: ' + str(params))
-    logging.info ('')
-
-    if 'dupl_num' in params.keys(): 
-        dupl_num = params['dupl_num']
-    else:
-        dupl_num = 1
+    dupl_num = params['dupl_num'] if 'dupl_num' in params.keys() else 1
 
     # open db
     if not op.exists (db_path):
@@ -247,7 +243,7 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
             info_file.write (' ' + str(len(car_entries)))
 
             for car_entry in car_entries:
-                bbox = queryField(car_entry, 'bbox-w-offset')
+                bbox = queryField(car_entry, 'bbox')
                 # write several times, for generation multiple objects
                 for i in range(dupl_num):
                     info_file.write ('   ' + ' '.join(str(e) for e in bbox))
