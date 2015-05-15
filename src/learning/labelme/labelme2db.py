@@ -264,7 +264,7 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
 
         if params['debug_show']: 
             roi = [min(ys), min(xs), max(ys), max(xs)]
-            utilities.drawRoi (imgpair, roi, (0,0), name, (255,255,255))
+            utilities.drawRoi (imgpair, roi, name, (255,255,255))
             #pts = np.array([xs, ys], dtype=np.int32).transpose()
             #cv2.polylines(imgpair, [pts], True, (255,255,255))
 
@@ -352,9 +352,9 @@ def __mergeSameCars__ (cursor, imagefile, params):
         img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagefile))
         for polygon in polygons:
             roi = utilities.polygon2roi(polygon)
-            utilities.drawRoi (img, roi, (0,0), None, (0,0,255))
+            utilities.drawRoi (img, roi, None, (0,0,255))
         for roi in rois_clustered:
-            utilities.drawRoi (img, roi, (0,0), None, (0,255,0))
+            utilities.drawRoi (img, roi, None, (0,255,0))
         cv2.imshow('debug_show', img)
         cv2.waitKey(-1)
 

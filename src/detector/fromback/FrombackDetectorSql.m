@@ -1,5 +1,5 @@
-% FrombackDetectorDemo.m
-% Shows how to use the FrombackDetector class
+% FrombackDetectorSql.m
+% Use FrombackDetector class to detect cars in every image from a database
 %
 
 clear all
@@ -13,11 +13,11 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-db_in_file  = 'datasets/labelme/Databases/572-Oct30-17h-pair/init.db';
-db_out_file = 'datasets/labelme/Databases/572-Oct30-17h-pair/fromback.db';
+db_in_file  = 'datasets/labelme/Databases/572-Nov28-10h-pair/init.db';
+db_out_file = 'datasets/labelme/Databases/572-Nov28-10h-pair/detected/fromback-dr8.db';
 
-video_file  = 'camdata/cam572/Oct30-17h.avi';
-back_file   = 'camdata/cam572/Oct30-17h-back.png';
+video_file  = 'camdata/cam572/Nov28-10h.avi';
+back_file   = 'camdata/cam572/Nov28-10h-back.png';
 
 verbose = 0;
 
@@ -31,11 +31,12 @@ safeCopyFile([CITY_DATA_PATH db_in_file], [CITY_DATA_PATH db_out_file]);
 load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
 
 % background
-background = BackgroundGMM('pretrain_video_path', [CITY_DATA_PATH video_file]);%, ...
-                           %'pretrain_back_path', [CITY_DATA_PATH back_file]);
+background = BackgroundGMM('pretrain_video_path', [CITY_DATA_PATH video_file]);
 
 % detector
 frombackDetector = FrombackDetector(geom, background);
+frombackDetector.DensityRatio = 8.0;
+%frombackDetector.DensitySigma = 1.3;
 %frombackDetector.noFilter = true;
 
 % back

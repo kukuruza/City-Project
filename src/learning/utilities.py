@@ -125,6 +125,7 @@ def gammaProb (x, max_value, shape):
     x is distributed with Gamma(shape, scale).
     scale is set so that the maximim of pdf equals max_value, shape is input
     '''
+    if max_value == 0: return 0
     scale = float(max_value) / (shape - 1)
     return gamma.pdf(x, shape, 0, scale) / gamma.pdf(max_value, shape, 0, scale)
 

@@ -10,10 +10,13 @@ import time
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
 from dbInterface import queryField
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+from dbBase import BaseProcessor
 
 
 
-def __evaluateForImage__ (cursor_true, cursor_eval, imagefile, params):
+
+def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
 
     # roi-s from ground truth
     cursor_true.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
@@ -65,43 +68,39 @@ def __evaluateForImage__ (cursor_true, cursor_eval, imagefile, params):
 
 
 
-def dbEvaluateDetector (db_true_path, db_eval_path, params):
-    '''
-    Compare bboxes for the ground truth db and the db under evaluation
-    Returns a list of (hits, misses, false positives)
-    '''
+class EvaluateProcessor (BaseProcessor):
 
-    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
-    params = setupHelper.setParamUnlessThere (params, 'dist_thresh', 0.5)
+    def evaluateDetector (self, db_true_path, params):
+        '''
+        Compare bboxes for the ground truth db and the db under evaluation
+        Returns a list of (hits, misses, false positives)
+        '''
+        logging.info ('==== evaluateDetector ====')
+        c = self.cursor
 
-    # open ground truth db
-    db_true_path = op.join (os.getenv('CITY_DATA_PATH'), db_true_path)
-    if not op.exists (db_true_path):
-        raise Exception ('db_true_path does not exist: ' + db_true_path)
-    conn_true = sqlite3.connect (db_true_path)
-    cursor_true = conn_true.cursor()
+        params = self.setParamUnlessThere (params, 'debug_show', False)
+        params = self.setParamUnlessThere (params, 'dist_thresh', 0.5)
 
-    # open evalutaed db
-    db_eval_path = op.join (os.getenv('CITY_DATA_PATH'), db_eval_path)
-    if not op.exists (db_eval_path):
-        raise Exception ('db_true_path does not exist: ' + db_eval_path)
-    conn_eval = sqlite3.connect (db_eval_path)
-    cursor_eval = conn_eval.cursor()
+        # open ground truth db
+        db_true_path = op.join (self.CITY_DATA_PATH, db_true_path)
+        if not op.exists (db_true_path):
+            raise Exception ('db_true_path does not exist: ' + db_true_path)
+        conn_true = sqlite3.connect (db_true_path)
+        cursor_true = conn_true.cursor()
 
-    cursor_eval.execute('SELECT imagefile FROM images')
-    image_entries = cursor_eval.fetchall()
+        c.execute('SELECT imagefile FROM images')
+        image_entries = c.fetchall()
 
-    # evaluate
-    result = (0,0,0) 
-    for (imagefile,) in image_entries:
-        logging.debug ('evaluating image: ' + imagefile)
-        result_im = __evaluateForImage__ (cursor_true, cursor_eval, imagefile, params)
-        result = tuple(map(sum,zip(result, result_im)))
+        # evaluate
+        result = (0,0,0) 
+        for (imagefile,) in image_entries:
+            logging.debug ('evaluating image: ' + imagefile)
+            result_im = __evaluateForImage__ (c, cursor_true, imagefile, params)
+            result = tuple(map(sum,zip(result, result_im)))
 
-    conn_true.close()
-    conn_eval.close()
+        conn_true.close()
 
-    return result
+        return result
 
 
 
@@ -130,14 +129,14 @@ def dbEvaluateTask (task_path, db_true_path, db_eval_dir, params):
         else:
             model_name = op.basename(task['model_dir'])
 
-        db_eval_path = op.join (db_eval_dir, model_name + '.db')
-        if not op.exists( op.join(CITY_DATA_PATH, db_eval_path)):
-            raise Exception ('db_eval_path does not exist: ' + db_eval_path)
-        logging.info ('evaluating task: ' + op.basename(db_eval_path))
-        result = dbEvaluateDetector (db_true_path, db_eval_path, params)
+        db_in_path = op.join (db_eval_dir, model_name + '.db')
+        if not op.exists( op.join(CITY_DATA_PATH, db_in_path)):
+            raise Exception ('db_in_path does not exist: ' + db_in_path)
+        logging.info ('evaluating task: ' + op.basename(db_in_path))
+        result = EvaluateProcessor(db_in_path).evaluateDetector(db_true_path, params)
         
         # (hits, misses, falses) to file
-        f.write (op.basename(db_eval_path) + ': \t' + str(result) + '\n')
+        f.write (op.basename(db_in_path) + ': \t' + str(result) + '\n')
 
     f.close()
 

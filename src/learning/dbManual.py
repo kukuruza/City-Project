@@ -50,15 +50,12 @@ class ManualProcessor (BaseProcessor):
         logging.info ('==== show ====')
         c = self.cursor
 
-        params = self.setParamUnlessThere (params, 'disp_scale', 1.5)
+        params = self.setParamUnlessThere (params, 'disp_scale', 1.0)
         params = self.setParamUnlessThere (params, 'threshold_score', 0)
+        image_constraint = ' WHERE ' + params['image_constraint'] if 'image_constraint' in params.keys() else ''
+        car_constraint = ' AND (' + params['car_constraint'] + ')' if 'car_constraint' in params.keys() else ''
 
-        if 'car_constraint' in params.keys(): 
-            car_constraint = ' AND (' + params['car_constraint'] + ')'
-        else:
-            car_constraint = ''
-
-        c.execute('SELECT imagefile FROM images')
+        c.execute('SELECT imagefile FROM images' + image_constraint)
         imagefiles = c.fetchall()
 
         for (imagefile,) in imagefiles:
@@ -127,10 +124,7 @@ class ManualProcessor (BaseProcessor):
 
         keys_config = self.__loadKeys__ (params)
 
-        if 'car_constraint' in params.keys(): 
-            car_constraint = ' AND (' + params['car_constraint'] + ')'
-        else:
-            car_constraint = ''
+        car_constraint = ' AND (' + params['car_constraint'] + ')' if 'car_constraint' in params.keys() else ''
 
         c.execute('SELECT count(*) FROM cars WHERE 1' + car_constraint)
         (total_num,) = c.fetchone()

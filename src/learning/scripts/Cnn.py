@@ -11,9 +11,8 @@ db_in_path  = 'learning/violajones/eval/May07-chosen/mhr0.995-mfar0.7-wtr0.95.db
 db_out_path = 'learning/violajones/eval/May07-chosen/test.db'
 labels_path = 'cnn/predictions/572-Oct30-17h-pair/mhr0.995-mfar0.7-wtr0.95-e0.1.txt'
 
-Processor()\
-    .open (db_in_path, db_out_path)\
+Processor(db_in_path, db_out_path)\
     .importLabels (labels_path, { })\
     .show()\
-    .close ()
+    .commit()
 

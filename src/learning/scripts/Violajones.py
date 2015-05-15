@@ -1,32 +1,17 @@
 import logging
 import sys, os
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning/violajones'))
 import processing
 from setupHelper import setupLogging
-from dbBase import Processor
+from dbViolajones import detectViolajonesTask
 
+setupLogging ('log/learning/Violajones.log', logging.INFO, 'a')
+  
+db_in_path = 'datasets/labelme/Databases/572-Nov28-10h-pair/init.db'
+db_out_dir = 'datasets/labelme/Databases/572-Nov28-10h-pair/detected'
+task_path = 'learning/violajones/tasks/May07-chosen.json'
+db_true_path = 'datasets/labelme/Databases/572-Nov28-10h-pair/parsed.db'
 
-setupLogging ('log/learning/Violajones.log', logging.WARNING, 'a')
-
-db_in_path  = 'datasets/labelme/Databases/572-Oct30-17h-pair/vj1.db'
-fromback_path = 'datasets/labelme/Databases/572-Oct30-17h-pair/fromback.db'
-
-db_out_path = 'datasets/labelme/Databases/572-Oct30-17h-pair/vj1-and-fromback-thres-test.db'
-
-
-Processor()\
-    .open (db_in_path, db_out_path)\
-    .merge (fromback_path, {'debug_show': True})\
-    .filterSize ({'size_map_path': 'models/cam572/mapSize.tiff',
-                  'size_acceptance': 2, 
-                  'debug_show': True})\
-    .cluster    ({'threshold': 0.7, 
-                  'debug_show': True})\
-    .close()
-
-#params = {'score_map_path': 'models/cam572/mapFromback.tiff',
-#          'debug_show': True,
-#          }
-#processing.dbMaskScores (db_in_path, db_out_path, params)
-
-#processing.dbThresholdScore (db_in_path, db_out_path, params)
+detectViolajonesTask (db_in_path, task_path, db_out_dir, { 'debug_show': False })
+#dbEvaluateTask (task_path, db_true_path, db_in_path, params)

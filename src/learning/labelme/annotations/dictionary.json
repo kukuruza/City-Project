@@ -7,7 +7,7 @@
             { "name": "Shanghang",  "known": false, "children": [] },
             { "name": "Satwik",     "known": false, "children": [] }]
         },
-        { "name": "vehicle", "known": false, "children": [
+        { "name": "vehicle", "known": true, "children": [
             { "name": "",          "known": false, "children": [] },
             { "name": "minivan",   "known": false, "children": [] },
             { "name": "sedan",     "known": true, "children": [
@@ -32,7 +32,9 @@
             { "name": "person", "known": false, "children": [] },
             { "name": "human",  "known": false, "children": [] }]
         },
-        { "name": "bike", "known": true, "children": [
+        { "name": "bike", "known": false, "children": [
+            { "name": "motocycle", "known": false, "children": [] },
+            { "name": "moto", "known": false, "children": [] },
             { "name": "bicycle", "known": false, "children": [] }]
         }]
 }

@@ -1,8 +1,8 @@
 import logging
 import os, sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning/labelme'))
 from setupHelper import setupLogging
-sys.path.insert(0, os.path.abspath('../labelme'))
 import labelme2db
 
 

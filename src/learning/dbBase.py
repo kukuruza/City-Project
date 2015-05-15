@@ -9,29 +9,32 @@ import sqlite3
 
 class BaseProcessor:
 
-    def open (self, db_in_path, db_out_path):
+    def __init__ (self, db_in_path, db_out_path = None):
 
         if not os.environ.get('CITY_DATA_PATH') or not os.environ.get('CITY_PATH'):
             raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
 
+        logging.info ('db_in_path:  ' + str(db_in_path))
+        logging.info ('db_out_path: ' + str(db_out_path))
+
         self.CITY_DATA_PATH = os.environ.get('CITY_DATA_PATH')
         db_in_path   = op.join (self.CITY_DATA_PATH, db_in_path)
-        db_out_path  = op.join (self.CITY_DATA_PATH, db_out_path)
-
-        logging.info ('db_in_path:  ' + db_in_path)
-        logging.info ('db_out_path: ' + db_out_path)
+        db_out_path  = op.join (self.CITY_DATA_PATH, db_out_path) if db_out_path else db_in_path
 
         self.__setupCopyDb__ (db_in_path, db_out_path)
 
         self.conn = sqlite3.connect (db_out_path)
         self.cursor = self.conn.cursor()
 
-        return self
 
-
-    def close (self):
+    def commit (self):
         self.conn.commit()
         self.conn.close()
+
+
+    def forget (self):
+        self.conn.close()
+
 
 
     def __setupCopyDb__ (self, db_in_path, db_out_path):
@@ -60,10 +63,3 @@ class BaseProcessor:
 
 
 
-from dbManual import ManualProcessor
-from dbModify import ModifyProcessor
-from dbCnn import CnnProcessor
-
-class Processor (ModifyProcessor, ManualProcessor, CnnProcessor):
-    '''
-    '''

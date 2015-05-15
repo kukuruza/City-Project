@@ -9,6 +9,6 @@ setupLogging ('log/learning/clusterGhosts.log', logging.INFO, 'a')
 
 in_db_path   = 'databases/wr-e0.3.db'
 filters_path = 'clustering/filters/angles.json'
-out_dir      = 'clustering/angles-e0.3'
+out_dir      = 'clustering/test'
 
-clustering.collectGhosts (in_db_path, filters_path, out_dir)
+clustering.collectGhostsTask (in_db_path, filters_path, out_dir)
