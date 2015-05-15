@@ -6,7 +6,7 @@ from dbAll import Processor
 
 setupLogging ('log/learning/Manually.log', logging.INFO, 'a')
 
-db_in_path =  'datasets/labelme/Databases/572-Nov28-10h-pair/detected/fromback-dr8.db'
-db_true_path =  'datasets/labelme/Databases/572-Nov28-10h-pair/parsed.db'
+db_in_path =  'datasets/labelme/Databases/572-Nov28-10h-pair/detected/ex0.1-di0.3-er0.3-filt.db'
 
-print (Processor(db_in_path).evaluateDetector(db_true_path, {'debug_show': False}))
+Processor(db_in_path).show().forget()
+
