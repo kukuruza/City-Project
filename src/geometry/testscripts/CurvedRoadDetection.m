@@ -26,6 +26,7 @@ debugImage = image;
 
 segmentVP = [];
 segmentBound = [];
+segmentInliers = {};
 
 for i = 1:length(y)-2
     endRow = y(i);
@@ -87,9 +88,10 @@ for i = 1:length(y)-2
     boundary = [min([inliers(:, 1); inliers(:, 2)]), ...
                         max([inliers(:, 1); inliers(:, 2)])];
     segmentBound = [segmentBound; boundary];
+    segmentInliers{i} = inliers;
     %pause()
 end
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Find the B-spline for the midline using approximation
 % Mean y co-ordinate is the horizon
 horizon = mean(segmentVP(:, 2));
@@ -99,8 +101,18 @@ adjVP = [segmentVP(:, 1), horizon * ones(size(segmentVP, 1), 1)];
 
 scale = double(segmentBound(:, 2) - segmentBound(:, 1)) ./ ...
                             double((y(1:size(segmentBound, 1)) - horizon));
+scale = scale / 2;
+% meanScale = mean(scale)/2;
 
 midPts = double([mean(segmentBound, 2), y(1:size(segmentBound, 1))]);
+                        
+% totalScale = [];
+% for i = 1:numel(segmentInliers)
+%     segScale = ([segmentInliers{i}(:, 1); segmentInliers{i}(:, 2)] - midPts(i, 1))./ ...
+%                     ([segmentInliers{i}(:, 3); segmentInliers{i}(:, 4)] - horizon);
+%     
+%     totalScale = [totalScale; segScale];
+% end                        
 
 % First and last control points(three times each for ensuring they are on
 % the B-spline
@@ -137,8 +149,23 @@ end
 controlPts(4, :) = 1.5 * knotPt - 0.25 * (startPt + endPt);
 
 % Getting the points for interpolation
-points = drawUniformSpline(controlPts, 0.01);
+points = drawUniformSpline(controlPts, 0.001);
 
+% Drawing the other edges
+outerPoints = {};
+innerPoints = {};
+
+for i = 1:length(scale)
+    outerCPts = controlPts;
+    outerCPts(4:7, :) = outerCPts(4:7, :) + ...
+                    [scale(i) * (outerCPts(4:7, 2) - horizon), zeros(4, 1)];
+    outerPoints{i} = drawUniformSpline(outerCPts, 0.001);
+
+    innerCPts = controlPts;
+    innerCPts(4:7, :) = innerCPts(4:7, :) - ...
+                    [scale(i) * (innerCPts(4:7, 2) - horizon), zeros(4, 1)];
+    innerPoints{i} = drawUniformSpline(innerCPts, 0.001);
+end
 % Debugging
 if(1)
     figure(1); hold off
@@ -150,5 +177,9 @@ if(1)
         %plot(segmentBound(:, 2), y(1:end-1), 'x', 'LineWidth', 3)
         %plot(adjVP(:, 1), adjVP(:, 2), '*', 'LineWidth', 3)
         plot(points(:, 1), points(:, 2), '.', 'LineWidth', 1)
+        for i = 1:length(scale)
+            plot(outerPoints{i}(:, 1), outerPoints{i}(:, 2), '.', 'LineWidth', 1)
+            plot(innerPoints{i}(:, 1), innerPoints{i}(:, 2), '.', 'LineWidth', 1)
+        end
     hold off 
 end
