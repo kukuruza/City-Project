@@ -33,11 +33,12 @@ def collectGhosts (db_in_path, out_dir, params = {}):
     '''
     Save car ghosts into out_dir
     '''
+    setupHelper.setupLogHeader (db_in_path, '', params, 'collectGhosts')
 
     db_in_path = op.join (os.getenv('CITY_DATA_PATH'), db_in_path)
     out_dir    = op.join (os.getenv('CITY_DATA_PATH'), out_dir)
 
-    setupHelper.setupLogHeader (db_in_path, '', params, 'collectGhosts')
+    params = setupHelper.setParamUnlessThere (params, 'constraint', '1')
 
     # open db
     if not op.exists (db_in_path):
@@ -51,9 +52,8 @@ def collectGhosts (db_in_path, out_dir, params = {}):
         shutil.rmtree (out_dir)
     os.makedirs (out_dir)
 
-    # get db entries
-
-    car_entries = queryCars (cursor, params)
+    cursor.execute('SELECT * FROM cars WHERE ' + params['constraint'])
+    car_entries = cursor.fetchall()
     logging.info ('found images: ' + str(len(car_entries)))
 
     ghostfile0 = None
@@ -94,9 +94,9 @@ def collectGhosts (db_in_path, out_dir, params = {}):
 
 
 
-def collectGhostTask (db_path, filters_path, out_dir, params = {}):
+def collectGhostsTask (db_path, filters_path, out_dir, params = {}):
     '''
-    Cluster cars and save the patches by cluster.
+    Cluster cars and save the patches in bulk, by "task".
     Use filters to cluster and transform, and save the ghosts 
     '''
 
@@ -140,7 +140,8 @@ def collectGhostTask (db_path, filters_path, out_dir, params = {}):
         os.makedirs (cluster_dir)
 
         # get db entries
-        car_entries = queryCars (cursor, filter_group)
+        cursor.execute('SELECT * FROM cars WHERE ' + filter_group['constraint'])
+        car_entries = cursor.fetchall()
         logging.info ('found images: ' + str(len(car_entries)))
 
         # write ghosts for each entry
@@ -158,8 +159,12 @@ def collectGhostTask (db_path, filters_path, out_dir, params = {}):
                     raise Exception ('ghostpath does not exist: ' + ghostpath)
                 ghost = cv2.imread(ghostpath)
 
-            carid, patch = getGhost (car_entry, ghost)
+            # extract patch
+            bbox = queryField(car_entry, 'bbox')
+            roi = bbox2roi(bbox)
+            patch = ghost [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
 
+            carid = queryField(car_entry, 'id')
             filename = "%08d" % carid + IMAGE_EXT
             filepath = op.join(cluster_dir, filename)
 
@@ -180,6 +185,11 @@ def collectGhostTask (db_path, filters_path, out_dir, params = {}):
 
 
 def writeInfoFile (db_path, filters_path, out_dir, params = {}):
+    '''
+    Write .dat file for Violajones. It is a file used to produce .vec positives
+    Each line corresponds to some imagefile from a dataset, may be several bboxes 
+    Currently not used due to some dat -> vec problems, as far as I remember
+    '''
 
     logging.info ('==== writeInfoFile ====')
     logging.info ('db_path: '      + db_path)
@@ -263,6 +273,11 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
 
 def patches2datFile (dir_in, dat_out_path):
+    '''
+    Write .dat file for Violajones. It is a file used to produce .vec positives
+    Input is a bunch of patches in clustering
+    It writes one bbox for each patch it gets on input.
+    '''
 
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
     dir_in       = op.join(CITY_DATA_PATH, dir_in)

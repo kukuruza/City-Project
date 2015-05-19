@@ -22,10 +22,10 @@ dir_name = '572-Oct30-17h-pair';
 mapsize_path = 'models/cam572/mapSize.tiff';
 
 db_in_name  = 'init.db';
-db_out_name = 'selsearch.db';
+db_out_name = 'sizemap-step5.db';
 
 patch_size = [30, 40];
-patch_dir = 'clustering/572-Oct30-17h-pair/selsearch';
+patch_dir = 'clustering/572-Oct30-17h-pair/sizemap-step5';
 
 
 %% init
@@ -41,7 +41,7 @@ imagenames = dir(fullfile(im_dir, '*.jpg'));
 
 mapsize = imread(fullfile(CITY_DATA_PATH, mapsize_path));
 
-cands = CandidatesSelectSearch('mapSize', mapsize);
+cands = CandidatesSizemap(mapsize);
 
 % copy db_in_path to db_out_path and remove all cars
 if do_write
@@ -50,6 +50,10 @@ if do_write
     sqlite3.execute('DELETE FROM cars');
     sqlite3.close();
     sqlite3.open (db_out_path);
+end
+
+if ~exist (fullfile(CITY_DATA_PATH, patch_dir), 'dir')
+    mkdir (fullfile(CITY_DATA_PATH, patch_dir))
 end
 
 
