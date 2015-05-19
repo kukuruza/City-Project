@@ -71,3 +71,4 @@ src/geometry/local*
 src/background/local*
 src/carCounting/local*
 src/geometry/testscripts/additionals/*
+src/geometry/testscripts/*.mat
