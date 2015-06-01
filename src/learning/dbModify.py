@@ -28,7 +28,7 @@ def isRoiAtBorder (roi, width, height, params):
     return min (roi[0], roi[1], height+1 - roi[2], width+1 - roi[3]) < border_thresh
 
 
-def sizeProb (roi, params):
+def sizeProbability (roi, params):
     # naive definition of size
     size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
     bc = bottomCenter(roi)
@@ -39,7 +39,7 @@ def sizeProb (roi, params):
     return prob
 
 
-def ratioProb (roi, params):
+def ratioProbability (roi, params):
     ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
     prob = utilities.gammaProb (ratio, params['target_ratio'], params['ratio_acceptance'])
     logging.debug ('ratio of roi probability: ' + str(prob))
@@ -100,7 +100,7 @@ def __filterRatioCar__ (c, car_entry, params):
     if score is None: score = 1.0 
 
     # get probabilities of car, given constraints
-    ratio_prob = ratioProb(roi, params)
+    ratio_prob = ratioProbability(roi, params)
     
     # update score in db
     score *= ratio_prob
@@ -123,7 +123,7 @@ def __filterSizeCar__ (c, car_entry, params):
     if score is None: score = 1.0 
 
     # get probabilities of car, given constraints
-    size_prob = sizeProb (roi, params)
+    size_prob = sizeProbability (roi, params)
     
     # update score in db
     score *= size_prob
@@ -228,6 +228,9 @@ class ModifyProcessor (BaseProcessor):
 
 
     def filterBorder (self, params):
+        '''
+        Zero 'score' of bboxes that is closer than 'min_width_thresh' from the border
+        '''
         logging.info ('==== filterBorder ====')
         c = self.cursor
 
@@ -262,6 +265,10 @@ class ModifyProcessor (BaseProcessor):
 
 
     def filterRatio (self, params):
+        '''
+        Reduce score of boxes, for which height/width is too different than 'target_ratio'
+        Score reduction factor is controlled with 'ratio_acceptance'
+        '''
         logging.info ('==== filterRatio ====')
         c = self.cursor
 
@@ -297,6 +304,10 @@ class ModifyProcessor (BaseProcessor):
 
 
     def filterSize (self, params):
+        '''
+        Reduce score of boxes, whose size is too different than predicted by 'size_map'
+        Score reduction factor is controlled with 'size_acceptance'
+        '''
         logging.info ('==== filterSize ====')
         c = self.cursor
 
@@ -349,6 +360,9 @@ class ModifyProcessor (BaseProcessor):
 
 
     def thresholdScore (self, params = {}):
+        '''
+        Delete all cars that have score less than 'threshold'
+        '''
         logging.info ('==== thresholdScore ====')
         c = self.cursor
 
@@ -366,6 +380,11 @@ class ModifyProcessor (BaseProcessor):
 
 
     def expandBboxes (self, params):
+        '''
+        Expand bbox in every direction.
+        If 'keep_ratio' flag is set, the smaller of width and height will be expanded more
+        TODO: bbox is clipped to the border if necessary. Maybe think of better ways for border
+        '''
         logging.info ('==== expandBboxes ====')
         c = self.cursor
 
@@ -391,6 +410,11 @@ class ModifyProcessor (BaseProcessor):
 
 
     def clusterBboxes (self, params = {}):
+        '''
+        Combine close bboxes into one, based on intersection/union ratio via hierarchical clustering
+        TODO: implement score-weighted clustering
+        '''
+
         logging.info ('==== clusterBboxes ====')
         c = self.cursor
 
@@ -408,6 +432,9 @@ class ModifyProcessor (BaseProcessor):
 
 
     def assignOrientations (self, params):
+        '''
+        assign 'yaw' and 'pitch' angles to each car based on provided yaw and pitch maps 
+        '''
         logging.info ('==== assignOrientations ====')
         c = self.cursor
 
@@ -486,6 +513,9 @@ class ModifyProcessor (BaseProcessor):
 
         
     def merge (self, db_add_path, params = {}):
+        '''
+        Merge images and cars (TODO: matches) from db_add_path to current database
+        '''
         logging.info ('==== merge ====')
         c = self.cursor
 
@@ -524,6 +554,9 @@ class ModifyProcessor (BaseProcessor):
 
 
     def maskScores (self, params = {}):
+        '''
+        Apply a map (0-255) that will reduce the scores of each car accordingly (255 -> keep same)
+        '''
         logging.info ('==== maskScores ====')
         c = self.cursor
 
@@ -554,6 +587,9 @@ class ModifyProcessor (BaseProcessor):
 
 
     def polygonsToMasks (self, params = {}):
+        '''
+        Transform polygon db table into bboxes when processing results from labelme
+        '''
         logging.info ('==== polygonsToMasks ====')
         c = self.cursor
 
@@ -600,6 +636,9 @@ class ModifyProcessor (BaseProcessor):
 
 
     def dbCustomScript (self, params = {}):
+        '''
+        Anything short term here
+        '''
         c = self.cursor
 
         logging.error ('dbCustomScript currently empty')
