@@ -30,8 +30,9 @@ sqlCommand = 'SELECT x1, y1, width, height FROM cars WHERE id = ?';
 framePath = fullfile(CITY_DATA_PATH, 'camdata/cam717/Apr07-15h.jpg');
 frame = imread(framePath);
 
-% Initialize the empty map (camera 717 is 352 x 240)
-yawMap = zeros(size(frame, 1), size(frame, 2)) - 45;
+% Initialize the empty map (camera 717 is 352 x 240) with offset
+offset = 0;
+yawMap = zeros(size(frame, 1), size(frame, 2)) - offset;
 
 %% For each entry, populate the position of the car
 for i = 1:numel(imgPaths)
@@ -43,9 +44,11 @@ for i = 1:numel(imgPaths)
     yawMap(carCenter(2), carCenter(1)) = angles(i);
 end
 
-mask = 255 * uint8(yawMap > -45);
+mask = yawMap > offset;
 
 %% Smoothing the yaw map using soap film
+yawMap = soapFilm(yawMap, mask, 'Thresh', 0.005);
+yawMap = yawMap + offset;
 
 % yawMap = roadSoapFilm (yawMap, 255 - mask, ...
 %                        'thresh', 0.01, ...
