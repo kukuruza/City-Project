@@ -18,10 +18,10 @@ mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
 % waitforbuttonpress()
 
 % Takes in the roadMap for a camera and generates the candidates
-%cands = CandidatesSizemap (mapSize);
+cands = CandidatesSizemap (mapSize);
 
 % Selective Search wrapper
-cands = CandidatesSelectSearch('mapSize', mapSize);
+%cands = CandidatesSelectSearch('mapSize', mapSize);
 
 % Example boxes
 %bboxes = uint32(400 * rand(100, 4) + 1);
@@ -29,21 +29,26 @@ cands = CandidatesSelectSearch('mapSize', mapSize);
 %readBoxes = cands.loadCandidates('savedBoxes.txt');
 
 tic
-    % bboxes = cands.getCandidates();
-    bboxes = cands.getCandidates('image', image);
+    bboxes = cands.getCandidates();
+    %bboxes = cands.getCandidates('image', image);
 toc
 
-debugImg = cands.drawCandidates(bboxes, image);
-imshow(debugImg)
+% Displaying the output : Shuffle output produces only N shuffled outputs
+shuffle = false;
+% output by N
+N = 50;
+if(~shuffle)
+    debugImg = cands.drawCandidates(bboxes, image);
+    imshow(debugImg)
+else 
+    % % Shuffle to output randomly
+    bboxes = bboxes(randperm(size(bboxes,1)), :);
 
-% % Shuffle to output randomly
-% bboxes = bboxes(randperm(size(bboxes,1)), :);
-% % output by N
-% N = 50;
-% for i = 0 : floor(size(bboxes,1) / N)
-%     subset = bboxes(i*N+1 : min(size(bboxes,1),(i+1)*N), :);
-%     if isempty(subset), break; end
-%     debugImg = cands.drawCandidates(subset, image);
-%     figure(3); imshow(debugImg)
-%     waitforbuttonpress();
-% end
+    for i = 0 : floor(size(bboxes,1) / N)
+        subset = bboxes(i*N+1 : min(size(bboxes,1),(i+1)*N), :);
+        if isempty(subset), break; end
+        debugImg = cands.drawCandidates(subset, image);
+        figure(3); imshow(debugImg)
+        waitforbuttonpress();
+    end    
+end

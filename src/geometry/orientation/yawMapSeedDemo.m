@@ -44,7 +44,9 @@ for i = 1:numel(imgPaths)
 end
 
 mask = 255 * uint8(yawMap > -45);
-%% Debugging
+
+%% Smoothing the yaw map using soap film
+
 % yawMap = roadSoapFilm (yawMap, 255 - mask, ...
 %                        'thresh', 0.01, ...
 %                        'sizeContour', 20, ...
