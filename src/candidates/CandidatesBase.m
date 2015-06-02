@@ -41,6 +41,9 @@ classdef CandidatesBase < CandidatesInterface
                 fileId = fopen(fileName, 'r');
                 bboxes = textscan(fileId, '%d %d %d %d\n');
                 bboxes = cell2mat(bboxes);
+                
+                % Close the file
+                fclose(fileId);
             end
         end
     end % methods(Static)

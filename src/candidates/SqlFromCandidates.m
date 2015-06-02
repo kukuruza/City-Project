@@ -109,10 +109,6 @@ for t = 1 : length(imagenames)
 %     end
 end
 
-
 if do_write
     sqlite3.close();
 end
-
-
-

@@ -18,10 +18,10 @@ mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
 % waitforbuttonpress()
 
 % Takes in the roadMap for a camera and generates the candidates
-cands = CandidatesSizemap (mapSize);
+%cands = CandidatesSizemap (mapSize);
 
 % Selective Search wrapper
-%cands = CandidatesSelectSearch('mapSize', mapSize);
+cands = CandidatesSelectSearch('mapSize', mapSize);
 
 % Example boxes
 %bboxes = uint32(400 * rand(100, 4) + 1);
@@ -29,7 +29,8 @@ cands = CandidatesSizemap (mapSize);
 %readBoxes = cands.loadCandidates('savedBoxes.txt');
 
 tic
-bboxes = cands.getCandidates();
+    % bboxes = cands.getCandidates();
+    bboxes = cands.getCandidates('image', image);
 toc
 
 debugImg = cands.drawCandidates(bboxes, image);

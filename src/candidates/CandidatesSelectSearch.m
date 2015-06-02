@@ -54,8 +54,7 @@ classdef CandidatesSelectSearch < CandidatesBase
                    sz > self.SizeAllowance(2) * self.mapSize(bc(1), bc(2))
                      bboxes(i,:) = [];
                 end
-            end
-            
+            end 
         end
         
         function self = CandidatesSelectSearch (varargin)
