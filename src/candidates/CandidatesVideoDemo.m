@@ -37,11 +37,10 @@ for i = 1:10
     toc
 
     % Dumping the candidate images to the file system
-    
     cands.dumpCandidateImages(image, bboxes, ...
-                            sprintf(savePath, i));
+                           sprintf(savePath, i));
 end
-
+% 24 x 18
 return
 % Displaying the output : Shuffle output produces only N shuffled outputs
 shuffle = false;

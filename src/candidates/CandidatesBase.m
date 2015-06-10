@@ -55,10 +55,12 @@ classdef CandidatesBase < CandidatesInterface
             
             filePath = fullfile(savePath, 'candidate_%05d.png');
             for i = 1:size(bboxes, 1)
-                % saving the image
-                imwrite(image(bboxes(i, 2) + (0:bboxes(i, 4)-1), bboxes(i, 1) + (0:bboxes(i, 3)-1)), ...
-                           sprintf(filePath, i), ...
-                           'png');
+                % saving the image after resizing
+                subImg = image(bboxes(i, 2) + (0:bboxes(i, 4)-1), ...
+                                bboxes(i, 1) + (0:bboxes(i, 3)-1), :);
+                subImg = imresize(subImg, [24, 18]);
+                
+                imwrite(subImg, sprintf(filePath, i), 'png');
             end
         end
         
