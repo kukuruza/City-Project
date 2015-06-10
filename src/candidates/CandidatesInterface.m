@@ -17,5 +17,8 @@ classdef CandidatesInterface
         
         % Load the candidate boxes from the given file
         bboxes = loadCandidates(fileName);
+        
+        % Dumping the candidate sub-images into the folder
+        dumpCandidateImages(images, bboxes, savePath);
     end
 end

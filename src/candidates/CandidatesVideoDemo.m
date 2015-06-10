@@ -10,34 +10,39 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %camId = 572;
 image = imread(fullfile(CITY_DATA_PATH, 'models/cam572/cam572.png'));
 
+% Video
+videoPath = fullfile(CITY_DATA_PATH, 'camdata/cam572/5pm/15-mins.avi');
+reader = FrameReaderVideo(videoPath, []);
+
 mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
 %camId = 671;
 % image = imread(fullfile(CITY_DATA_PATH, 'models/cam671/backimage-Mar24-12h.png'));
 % mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam671/mapSize.tiff'));
 
-% imagesc(mapSize)
-% waitforbuttonpress()
+% Loop
+savePath = fullfile(CITY_DATA_PATH, 'cnn/testingCam572/%d/');
 
-% Takes in the roadMap for a camera and generates the candidates
-cands = CandidatesSizemap (mapSize);
+noFrames = 10;
+for i = 1:10
+    image = reader.getNewFrame();
+    % Takes in the roadMap for a camera and generates the candidates
+    cands = CandidatesSizemap (mapSize);
 
-% Selective Search wrapper
-%cands = CandidatesSelectSearch('mapSize', mapSize);
+    % Selective Search wrapper
+    %cands = CandidatesSelectSearch('mapSize', mapSize);
 
-% Example boxes
-%bboxes = uint32(400 * rand(100, 4) + 1);
-%cands.saveCandidates(bboxes, 'savedBoxes.txt');
-%readBoxes = cands.loadCandidates('savedBoxes.txt');
+    tic
+        bboxes = cands.getCandidates();
+    %     bboxes = cands.getCandidates('image', image);
+    toc
 
-tic
-    bboxes = cands.getCandidates();
-%     bboxes = cands.getCandidates('image', image);
-toc
+    % Dumping the candidate images to the file system
+    
+    cands.dumpCandidateImages(image, bboxes, ...
+                            sprintf(savePath, i));
+end
 
-% Dumping the candidate images to the file system
-%savePath = fullfile(CITY_DATA_PATH, 'cnn/testingCam572');
-%cands.dumpCandidateImages(image, bboxes, savePath);
-
+return
 % Displaying the output : Shuffle output produces only N shuffled outputs
 shuffle = false;
 % output by N

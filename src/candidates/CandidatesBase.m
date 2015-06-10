@@ -46,5 +46,21 @@ classdef CandidatesBase < CandidatesInterface
                 fclose(fileId);
             end
         end
+        
+        % Dumping the candidate images to a folder for CNN testing
+        function dumpCandidateImages(image, bboxes, savePath)
+            if(~exist(savePath, 'dir'))
+                mkdir(savePath);
+            end
+            
+            filePath = fullfile(savePath, 'candidate_%05d.png');
+            for i = 1:size(bboxes, 1)
+                % saving the image
+                imwrite(image(bboxes(i, 2) + (0:bboxes(i, 4)-1), bboxes(i, 1) + (0:bboxes(i, 3)-1)), ...
+                           sprintf(filePath, i), ...
+                           'png');
+            end
+        end
+        
     end % methods(Static)
 end
