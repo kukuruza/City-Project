@@ -58,11 +58,29 @@ classdef CandidatesBase < CandidatesInterface
                 % saving the image after resizing
                 subImg = image(bboxes(i, 2) + (0:bboxes(i, 4)-1), ...
                                 bboxes(i, 1) + (0:bboxes(i, 3)-1), :);
-                subImg = imresize(subImg, [24, 18]);
+                subImg = imresize(subImg, [18, 24]);
                 
                 imwrite(subImg, sprintf(filePath, i), 'png');
             end
         end
+        
+        % Reading the output from CNN
+        % Format <image no> <class> <probability>
+        % Here <image no> is the sub image dumped => candidate
+        % <class> is either 0 (no car) or 1 (car)
+        % <probability> denotes the class confidence
+        function debugImage = readPlotCNNResults(resultPath, image, bboxes)
+            % Read the CNN result image
+            fileId = fopen(resultPath);
+            results = textscan(fileId, '%d %d %f\n');
+            
+            % Get the corresponding true boxes
+            detections = bboxes(results{2} == 1, :);
+            
+            % Plot the boxes on the image
+            debugImage = CandidatesBase.drawCandidates(detections, image);
+        end
+        
         
     end % methods(Static)
 end

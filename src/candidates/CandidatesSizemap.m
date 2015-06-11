@@ -71,16 +71,20 @@ classdef CandidatesSizemap < CandidatesBase
                     
                     % X
                     % Adding some buffer (randomize?)
-                    x = startPt(laneRows) + laneSize(laneRows)/3;
+                    x = startPt(laneRows) + laneSize(laneRows)/4;
                     x = uint32(x); 
                     
                     % Height
                     linInds = sub2ind(size(self.mapSize), y, x);
-                    % figure(1); imagesc(self.mapSize)
+                    % Over-estimating the height
                     height = uint32(self.mapSize(linInds));
                     
                     % Width
                     width = uint32(self.carAspectRatio * height);
+                    
+                    % Making x the top left corner of the box
+                    % Intially x was bottom left corner
+                    y = y - height;
 
                 % Assume multiple lanes
                 else
@@ -116,10 +120,12 @@ classdef CandidatesSizemap < CandidatesBase
                     
                     % height
                     linInds = sub2ind(size(self.mapSize), yMiddle, xMiddle);
-                    height = uint32(self.mapSize(linInds));
+                    % Over-estimating
+                    height = uint32(self.mapSize(linInds)); 
                     
                     % width
                     width = uint32(self.carAspectRatio * height);
+                    %width = uint32(height);
                     
                     % Adjusting the rectangle
                     x = uint32(xMiddle - width/2);
@@ -147,6 +153,13 @@ classdef CandidatesSizemap < CandidatesBase
                 for j = 1:size(x, 1)
                     bbox2roi([x(j) y(j) width(j) height(j)]);
                 end
+                
+                % Debugging
+%                 data = load('image.mat');
+%                 figure(1); imshow(self.drawCandidates([x y width height], ...
+%                                                                data.image))
+%                 %figure(2); imagesc(laneMask)
+%                 pause()
                 
                 self.bboxes = [self.bboxes; x y width height];        
             end

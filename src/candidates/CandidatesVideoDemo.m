@@ -15,6 +15,7 @@ videoPath = fullfile(CITY_DATA_PATH, 'camdata/cam572/5pm/15-mins.avi');
 reader = FrameReaderVideo(videoPath, []);
 
 mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
+%figure(1); imshow(mapSize); return
 %camId = 671;
 % image = imread(fullfile(CITY_DATA_PATH, 'models/cam671/backimage-Mar24-12h.png'));
 % mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam671/mapSize.tiff'));
@@ -23,8 +24,8 @@ mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
 savePath = fullfile(CITY_DATA_PATH, 'cnn/testingCam572/%d/');
 
 noFrames = 10;
-for i = 1:10
-    image = reader.getNewFrame();
+for i = 1:noFrames
+    frame = reader.getNewFrame();
     % Takes in the roadMap for a camera and generates the candidates
     cands = CandidatesSizemap (mapSize);
 
@@ -33,14 +34,22 @@ for i = 1:10
 
     tic
         bboxes = cands.getCandidates();
-    %     bboxes = cands.getCandidates('image', image);
+    %     bboxes = cands.getCandidates('image', frame);
     toc
 
     % Dumping the candidate images to the file system
-    cands.dumpCandidateImages(image, bboxes, ...
-                           sprintf(savePath, i));
+    cands.dumpCandidateImages(frame, bboxes, ...
+                          sprintf(savePath, i));
+    
+    % Read the result file and plot the results
+    %textPath = '/Users/skottur/Downloads/test.txt';
+    %debugImg = cands.readPlotCNNResults(textPath, frame, bboxes);
+    
+    %figure(1); imshow(debugImg)
+    %figure(2); imshow(cands.drawCandidates(bboxes, image))
+    
 end
-% 24 x 18
+% 18 x 24
 return
 % Displaying the output : Shuffle output produces only N shuffled outputs
 shuffle = false;
