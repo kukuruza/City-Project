@@ -13,7 +13,6 @@ from dbInterface import createLabelmeDb, deleteAll4imagefile, getImageField, que
 import utilities
 from utilities import roi2bbox, image2ghost, getCenter, bbox2roi
 import setupHelper
-import processing
 
 sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
@@ -89,8 +88,17 @@ def __processFrame__ (cursor, imagefile, params):
             logging.info ('degenerate polygon ' + str(xs) + ',' + str(ys) + 'in: ' + annotation_name)
             continue
 
-        # make bbox
+        # make roi
         roi = [min(ys), min(xs), max(ys), max(xs)]
+
+        # validate roi
+        sz = img.shape
+        if roi[0] < 0 or roi[1] < 0 or roi[2] >= sz[0] or roi[3] >= sz[1]:
+            logging.warning ('roi ' + str(roi) + ' out of borders: ' + str((sz[0],sz[1])));
+        roi[0] = max(roi[0], 0)
+        roi[1] = max(roi[1], 0)
+        roi[2] = min(roi[2], sz[0]-1)
+        roi[3] = min(roi[3], sz[1]-1)
 
         # make an entry for database
         bbox = roi2bbox (roi)
@@ -225,8 +233,8 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
     cars_t = []
     cars_b = []
 
-    cursor.execute('SELECT height FROM images WHERE imagefile = ?', (imagefile1,))
-    (height,) = cursor.fetchone()
+    cursor.execute('SELECT width,height FROM images WHERE imagefile = ?', (imagefile1,))
+    (width,height) = cursor.fetchone()
 
     if params['debug_show']:
         amazonpair_name = imagename1strip + '-' + imagename2strip + '.jpg'
@@ -268,11 +276,19 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
             #pts = np.array([xs, ys], dtype=np.int32).transpose()
             #cv2.polylines(imgpair, [pts], True, (255,255,255))
 
-        # get bbox
+        # get roi
         is_top = np.mean(np.mean(ys)) < height
         if not is_top: 
             ys = [y-height for y in ys]
         roi = [min(ys), min(xs), max(ys), max(xs)]
+        
+        # validate roi
+        if roi[0] < 0 or roi[1] < 0 or roi[2] >= height or roi[3] >= width:
+            logging.warning ('roi ' + str(roi) + ' out of borders: ' + str((width,height)));
+        roi[0] = max(roi[0], 0)
+        roi[1] = max(roi[1], 0)
+        roi[2] = min(roi[2], height-1)
+        roi[3] = min(roi[3], width-1)
 
         # make an entry for database
         bbox = roi2bbox (roi)
@@ -286,7 +302,7 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
         for i in range(len(xs)):
             polygon = (carid,xs[i],ys[i])
             cursor.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
-    
+
         # write to either top or bottom stack
         if is_top:
             captions_t.append((name, number))
@@ -329,7 +345,8 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
 def __mergeSameCars__ (cursor, imagefile, params):
 
     cursor.execute('SELECT height,width FROM images WHERE imagefile=?', (imagefile,))
-    params['imgshape'] = cursor.fetchone()
+    (height,width) = cursor.fetchone()
+    params['imgshape'] = (height,width)
 
     cursor.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
     carids = cursor.fetchall()
@@ -360,10 +377,17 @@ def __mergeSameCars__ (cursor, imagefile, params):
 
     # update db
     for i in range(len(clusters)):
+
         roi0 = rois_clustered[i]
-        cluster = clusters[i]
+        if roi0[0] < 0 or roi0[1] < 0 or roi0[2] >= height or roi0[3] >= width:
+            logging.warning ('roi ' + str(roi0) + ' out of borders: ' + str((width,height)));
+        roi0[0] = max(roi0[0], 0)
+        roi0[1] = max(roi0[1], 0)
+        roi0[2] = min(roi0[2], height-1)
+        roi0[3] = min(roi0[3], width-1)
 
         # most will be just single elements
+        cluster = clusters[i]
         if not isinstance (cluster, list):
             continue            
 

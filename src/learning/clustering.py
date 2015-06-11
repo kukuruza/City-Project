@@ -139,8 +139,11 @@ def collectGhostsTask (db_path, filters_path, out_dir, params = {}):
         cluster_dir = op.join (out_dir, filter_group['filter'])
         os.makedirs (cluster_dir)
 
+        if 'constraint' in params.keys(): constraint = ' AND (' + params['constraint'] + ')'
+        else: constraint = ''
+
         # get db entries
-        cursor.execute('SELECT * FROM cars WHERE ' + filter_group['constraint'])
+        cursor.execute('SELECT * FROM cars WHERE 1' + constraint)
         car_entries = cursor.fetchall()
         logging.info ('found images: ' + str(len(car_entries)))
 

@@ -379,7 +379,7 @@ class ModifyProcessor (BaseProcessor):
 
 
 
-    def expandBboxes (self, params):
+    def expandBboxes (self, params={}):
         '''
         Expand bbox in every direction.
         If 'keep_ratio' flag is set, the smaller of width and height will be expanded more
