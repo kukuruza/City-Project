@@ -139,11 +139,16 @@ def collectGhostsTask (db_path, filters_path, out_dir, params = {}):
         cluster_dir = op.join (out_dir, filter_group['filter'])
         os.makedirs (cluster_dir)
 
-        if 'constraint' in params.keys(): constraint = ' AND (' + params['constraint'] + ')'
-        else: constraint = ''
+        constraint = ' WHERE 1'
+        if 'constraint' in filter_group.keys(): 
+            constraint += ' AND ( ' + filter_group['constraint'] + ')'
+        if 'constraint' in params.keys(): 
+            constraint += ' AND (' + params['constraint'] + ')'
+        logging.info ('constraint: ' + constraint)
 
         # get db entries
-        cursor.execute('SELECT * FROM cars WHERE 1' + constraint)
+        logging.info ('query: ' + 'SELECT * FROM cars' + constraint)
+        cursor.execute('SELECT * FROM cars' + constraint)
         car_entries = cursor.fetchall()
         logging.info ('found images: ' + str(len(car_entries)))
 
@@ -183,6 +188,7 @@ def collectGhostsTask (db_path, filters_path, out_dir, params = {}):
     # write info
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
         readme.write('from database ' + db_path + '\n')
+        readme.write('constraint: ' + constraint + '\n')
         readme.write('with filters \n' + json.dumps(filters_groups, indent=4) + '\n')
 
 
