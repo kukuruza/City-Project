@@ -38,8 +38,8 @@ for i = 1:length(y)-2
     
     % Detecting the lines
     scaleLength = min(size(subImg));
-    peaks = houghpeaks(houghImage, 100, 'Threshold', 0.1*max(houghImage(:)));
-    houghLines = houghlines(subImg, theta, rho, peaks, 'FillGap', 10,...
+    peaks = houghpeaks(houghImage, 100, 'Threshold', 0.1 * max(houghImage(:)));
+    houghLines = houghlines(subImg, theta, rho, peaks, 'FillGap', 10, ...
                                         'MinLength', 0.1 * scaleLength);
     
     % Clean out unlikely candidates

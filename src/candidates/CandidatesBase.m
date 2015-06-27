@@ -80,7 +80,5 @@ classdef CandidatesBase < CandidatesInterface
             % Plot the boxes on the image
             debugImage = CandidatesBase.drawCandidates(detections, image);
         end
-        
-        
     end % methods(Static)
 end
