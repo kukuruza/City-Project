@@ -210,15 +210,14 @@ def negativeGrayspots (db_path, out_dir, params = {}):
 
 
 
-def __getPatchesFromImage__ (imagepath, num, params):
+def __getPatchesFromImage__ (img, num, params):
+    '''
+    Collect 'num' of random patches from 'img'.
+    '''
 
-    #logging.debug ('farming patches from ' + imagepath)
-    if not op.exists (imagepath):
-        raise Exception ('imagepath does not exist: ' + imagepath)
-
-    img = cv2.imread(imagepath).astype(np.uint8)
     assert (img is not None)
     (im_height, im_width, depth) = img.shape
+    logging.debug ('image shape: %dx%d', im_height, im_width)
 
     if 'mask' not in params.keys():
         params['mask'] = np.zeros(img.shape, dtype = np.uint8)
@@ -249,8 +248,23 @@ def __getPatchesFromImage__ (imagepath, num, params):
         if counter >= num: break
         counter += 1
 
-    logging.info (op.basename(imagepath) + ': got ' + str(len(patches)) + ' patches')
+    logging.info ('got ' + str(len(patches)) + ' patches')
     return patches
+
+
+
+def __getPatchesFromImagefile__ (imagepath, num, params):
+    '''
+    Helper wrapper function. Read the image and call __getPatchesFromImage__
+    '''
+
+    if not op.exists (imagepath):
+        raise Exception ('imagepath does not exist: ' + imagepath)
+
+    img = cv2.imread(imagepath).astype(np.uint8)
+
+    logging.debug (op.basename(imagepath))
+    return __getPatchesFromImage__ (img, num, params)
 
 
 
@@ -279,8 +293,6 @@ def negativePatchesViaMaskfiles (db_path, filters_path, out_dir, params = {}):
     if op.exists (out_dir):
         shutil.rmtree(out_dir)
     os.makedirs (out_dir)
-
-    random.seed()
 
     # check input db
     if not op.exists (db_path):
@@ -329,7 +341,7 @@ def negativePatchesViaMaskfiles (db_path, filters_path, out_dir, params = {}):
             cv2.imshow('combined mask', params['mask'].astype(np.uint8) * 255)
             cv2.waitKey()
 
-        for patch in __getPatchesFromImage__(ghostpath, num_per_image, params):
+        for patch in __getPatchesFromImagefile__(ghostpath, num_per_image, params):
             filename = "%08d" % counter + IMAGE_EXT
             filepath = op.join(out_dir, filename)
             cv2.imwrite (filepath, patch)
@@ -389,7 +401,7 @@ def negativeImages2patches (in_dir, out_dir, params = {}):
 
     counter = 0
     for ghostpath in ghostpaths:
-        for patch in __getPatchesFromImage__(ghostpath, num_per_image, params):
+        for patch in __getPatchesFromImagefile__(ghostpath, num_per_image, params):
             filename = "%08d" % counter + IMAGE_EXT
             filepath = op.join(out_dir, filename)
             cv2.imwrite (filepath, patch)
@@ -399,6 +411,67 @@ def negativeImages2patches (in_dir, out_dir, params = {}):
     if counter < params['number']:
         logging.error ('got only ' + str(counter) + ' patches')
     
+
+
+def collectRandomPatchesFromVideo (video_in_path, out_dir, params = {}):
+    '''
+    Extract patches from every frame in a video
+    Used for unsupervised learning of features in DNN (pre-training)
+    Background should already be subtracted
+    '''
+    setupHelper.setupLogHeader (video_in_path, '', params, 'collectRandomPatchesFromVideo')
+
+    video_in_path = op.join (os.getenv('CITY_DATA_PATH'), video_in_path)
+    out_dir       = op.join (os.getenv('CITY_DATA_PATH'), out_dir)
+
+    params = setupHelper.setParamUnlessThere (params, 'number', 100)
+    params = setupHelper.setParamUnlessThere (params, 'ratio', 0.75)
+    params = setupHelper.setParamUnlessThere (params, 'minwidth', 20)
+    params = setupHelper.setParamUnlessThere (params, 'maxwidth', 200)
+    params = setupHelper.setParamUnlessThere (params, 'max_masked_perc', 0.5) # not used
+
+
+    if not op.exists (video_in_path):
+        raise Exception ('video does not exist: ' + video_in_path)
+
+    # check output dir
+    if op.exists (out_dir):
+        shutil.rmtree(out_dir)
+    os.makedirs (out_dir)
+
+    random.seed()
+
+    # count the number of frames in the video
+    video = cv2.VideoCapture(video_in_path)
+    counter_images = 0
+    while (True):
+        ret, frame = video.read()
+        if not ret: break
+        counter_images += 1
+
+    logging.info ('video has %d frames', counter_images)
+    num_per_image = int(params['number'] / counter_images) + 1
+
+    video = cv2.VideoCapture(video_in_path)
+    counter = 0
+    while (True):
+        ret, frame = video.read()
+        if not ret: break
+
+        for patch in __getPatchesFromImage__ (frame, num_per_image, params):
+            filename = "%08d" % counter + IMAGE_EXT
+            filepath = op.join(out_dir, filename)
+            cv2.imwrite (filepath, patch)
+            counter += 1
+            if counter >= params['number']: return
+
+        if counter < params['number']:
+            logging.error ('got only ' + str(counter) + ' patches')
+
+
+
+
+
 
 
 
