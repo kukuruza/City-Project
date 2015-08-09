@@ -1,6 +1,11 @@
-% Learn car appearance models from data
+% Collect patches seen by background detector
+% Takes a original video, as well as ghost video on input
 %   If background detector sees a very distinct spot, it becomes a car
 %   Patch, ghost, orientation, size of the car is extracted
+%
+% Note: reason for using ghost video as opposed to ghost image
+%       is the possibility to use varying illumination conditions
+%       They are encoded in the video, but not the image.
 
 clear all
 
@@ -14,28 +19,29 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 %% input
 
+% for sparse dataset need strict parameters
 DensitySigma = 2.5;   % effective radius around car to be empty
 DensityRatio = 12.0;   % how much dense inside / sparse outside it should be
 
-do_write = true;
+filter_by_sparsity = false;
+write_db = true;
 verbose = 0;
 
-videoName = 'camdata/cam671/Mar24-12h';
+videoName = 'camdata/cam541/Jul26-16h';
 videoPath = [CITY_DATA_PATH videoName '.avi'];
+ghostPath = [CITY_DATA_PATH videoName '-ghost.avi'];
 timePath = [CITY_DATA_PATH videoName '.txt'];
-
-backfile = 'camdata/cam671/models/backimage.png';
 
 
 %% output
 
-dir_name = '671-Mar24-12h';
-db_name = 'src-ds2.5-dp12.0.db';
+dir_name = '541-Jul26-16h';
+db_name = 'src.db';
 
 
 %% init
 
-dataset_dir = 'datasets/sparse/';
+dataset_dir = 'datasets/unlabelled/';
 if ~exist ([CITY_DATA_PATH dataset_dir], 'dir')
     error ('dataset_dir doesn''t exist');
 end
@@ -53,21 +59,16 @@ dir_name = [dir_name '/'];
 
 % frame reader
 frameReader = FrameReaderVideo (videoPath, timePath);
-%frameReader = FrameReaderImages (imagesPath);
+ghostReader = FrameReaderImages (ghostPath, timePath);
 
 % background
-load ([CITY_DATA_PATH, 'models/cam572/backgroundGMM.mat']);
-pretrainBackground (background, [CITY_DATA_PATH 'camdata/cam572/5pm/']);
-
-% true background
-backImage = int32(imread([CITY_DATA_PATH, backfile]));
+background = BackgroundGMM();
 
 % out database
-if do_write
+if write_db
     dbCreate([db_dir '/' db_name]);
     sqlite3.open([db_dir '/' db_name]);
 end
-
 
 %% work
 
@@ -75,11 +76,9 @@ for t = 1 : 10000000
     
     % read image
     [frame, timestamp] = frameReader.getNewFrame();
+    [ghost, ~] = ghostReader.getNewFrame();
     if isempty(frame), break, end
     fprintf ('frame: %d\n', t);
-
-    % get the trace of foreground. Cars will be learned from this.
-    ghost = uint8((int32(frame) - int32(backImage)) / 2 + 128);
 
     % subtract background and return mask
     mask = background.subtract(frame);
@@ -91,7 +90,7 @@ for t = 1 : 10000000
     end
     fprintf ('background cars: %d\n', length(cars));
     
-    if do_write
+    if write_db
         im_name = sprintf ('%06d', t-1);
         image_file = [dataset_dir 'Images/' dir_name im_name '.jpg'];
         ghost_file = [dataset_dir 'Ghosts/' dir_name im_name '.jpg'];
@@ -105,19 +104,21 @@ for t = 1 : 10000000
     for i = 1 : length(cars)
         statuses{i} = 'ok';
     end
-    statuses = filterBySparsity (mask, cars, statuses, 'verbose', verbose, ...
-                     'DensitySigma', DensitySigma, 'DensityRatio', DensityRatio);
-    indices = find(cellfun('isempty', strfind(statuses, 'ok')));
-    cars (indices) = [];
-    fprintf ('sparse cars:     %d\n', length(cars));
+    if filter_by_sparsity
+        statuses = filterBySparsity (mask, cars, statuses, 'verbose', verbose, ...
+                         'DensitySigma', DensitySigma, 'DensityRatio', DensityRatio);
+        indices = find(cellfun('isempty', strfind(statuses, 'ok')));
+        cars (indices) = [];
+        fprintf ('sparse cars:     %d\n', length(cars));
+    end
     
     % TODO: write scores to db
 
-    if ~isempty(cars) && do_write
+    if ~isempty(cars) && write_db
         width  = size(frame, 2);
         height = size(frame, 1);
         time_db = matlab2dbTime(timestamp);
-        query = 'INSERT INTO images VALUES (imagefile,src,width,height,ghostfile,maskfile,time)';
+        query = 'INSERT INTO images (imagefile,src,width,height,ghostfile,maskfile,time) VALUES (?,?,?,?,?,?,?)';
         sqlite3.execute(query, image_file, videoName, width, height, ghost_file, mask_file, time_db);
         for i = 1 : length(cars)
             car = cars(i);
@@ -143,7 +144,8 @@ for t = 1 : 10000000
 end
 
 clear frameReader
-if do_write
+clear ghostReader
+if write_db
     sqlite3.close();
 end
 

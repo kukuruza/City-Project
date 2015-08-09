@@ -11,10 +11,12 @@ classdef FrameReaderVideo < FrameReader
         eof = false;
     end % properties
     methods
-        function FR = FrameReaderVideo (videoPath, ~)
-            % make timestamp from videoPath
-            [dir, name, ~] = fileparts(videoPath);
-            timeStampPath = fullfile(dir, [name, '.txt']);
+        function FR = FrameReaderVideo (videoPath, timeStampPath)
+            % usually timestamp has the same prefix as video, so make timestamp from videoPath
+            if nargin == 1
+                [dir, name, ~] = fileparts(videoPath);
+                timeStampPath = fullfile(dir, [name, '.txt']);
+            end
             
             if ~exist(videoPath,'file') || ~exist(timeStampPath, 'file')
                 fprintf ('FrameReaderVideo: files: %s, %s\n', videoPath, timeStampPath);
