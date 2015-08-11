@@ -32,6 +32,11 @@ def setParamUnlessThere (params, key, default_value):
     return params
 
 
+def assertParamIsThere (params, key):
+    if not key in params.keys():
+        raise Exception ('key %s is not in params' % key)
+
+
 def setupLogging (filename, level=logging.INFO, filemode='w'):
     log = logging.getLogger('')
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
