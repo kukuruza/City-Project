@@ -50,9 +50,6 @@ def collectGhostsHDF5 (db_in_path, hdf5_out_path, params = {}):
     setupHelper.assertParamIsThere (params, 'resize')
     assert (type(params['resize']) == list and len(params['resize']) == 2)
 
-    # open db
-    if not op.exists (db_in_path):
-        raise Exception ('db does not exist: ' + db_in_path)
     conn = sqlite3.connect (db_in_path)
     cursor = conn.cursor()
 
@@ -103,7 +100,6 @@ def collectGhostsHDF5 (db_in_path, hdf5_out_path, params = {}):
         if params['normalize']: patch /= 255.
         data[i,:,:,:] = patch
         ids[i] = queryField(car_entry, 'id')
-
 
     conn.close()
 
@@ -281,7 +277,7 @@ def collectGhosts (db_in_path, out_dir, params = {}):
         ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
         # ghostfile is updated only when imagefile changes (for speed)
         if ghostfile0 is None or ghostfile0 != ghostfile:
-            logging.debug ('update image from ' + ghostfile)
+            logging.debug ('collectGhosts: upload new image from ' + ghostfile)
             ghostfile0 = ghostfile
             if not op.exists (ghostpath):
                 raise Exception ('ghostpath does not exist: ' + ghostpath)
