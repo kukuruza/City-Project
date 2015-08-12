@@ -117,20 +117,21 @@ def collectGhostsHDF5 (db_in_path, h5_out_path, params = {}):
 
 
 
-def mergeHDF5 (h5_in_path, h5_merge_path):
+def mergeHDF5 (h5_in_path1, h5_in_path2, h5_out_path):
     '''
-    Concatenate 'h5_merge_path' to the end of 'h5_in_path'.
-    Save the output as 'h5_in_path'
+    Concatenate 'h5_in_path2' to the end of 'h5_in_path1'.
+    Save the output as 'h5_out_path'
     '''
     CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
-    h5_in_path    = op.join (CITY_DATA_PATH, h5_in_path)
-    h5_merge_path = op.join (CITY_DATA_PATH, h5_merge_path)
+    h5_in_path1    = op.join (CITY_DATA_PATH, h5_in_path1)
+    h5_in_path2    = op.join (CITY_DATA_PATH, h5_in_path2)
+    h5_out_path    = op.join (CITY_DATA_PATH, h5_out_path)
 
     logging.info ('=== exporting.mergeHDF5 ===')
-    logging.info ('h5_in_path: '    + h5_in_path)
-    logging.info ('h5_merge_path: ' + h5_merge_path)
+    logging.info ('h5_in_path1: ' + h5_in_path1)
+    logging.info ('h5_in_path2: ' + h5_in_path2)
 
-    with h5py.File(h5_in_path) as f1:
+    with h5py.File(h5_in_path1) as f1:
         data1 = f1['data'][:]
         ids1  = f1['ids'][:]
         label1 = f1['label'][:] if 'label' in f1 else None
@@ -139,7 +140,7 @@ def mergeHDF5 (h5_in_path, h5_merge_path):
         assert len(ids1.shape) == 1
         assert label1 is None or len(label1.shape) == 1
 
-    with h5py.File(h5_merge_path) as f2:
+    with h5py.File(h5_in_path2) as f2:
         data2 = f2['data'][:]
         ids2  = f2['ids'][:]
         label2  = f2['label'][:] if 'label' in f2 else None
@@ -156,7 +157,7 @@ def mergeHDF5 (h5_in_path, h5_merge_path):
 
     # TODO: if dataset are too big, need to avoid adding them in memory
 
-    with h5py.File(h5_in_path, 'w') as fOut:
+    with h5py.File(h5_out_path, 'w') as fOut:
         fOut['data'] = np.vstack((data1, data2))
         fOut['ids']  = np.hstack((ids1, ids2))
         if label1 is not None: 
@@ -183,7 +184,8 @@ def collectGhostsTaskHDF5 (db_path, filters_path, out_dir, params = {}):
     logging.info ('params: ' + str(params))
     logging.info ('')
 
-    params = setupHelper.setParamUnlessThere (params, 'merge', True)
+    params = setupHelper.setParamUnlessThere (params, 'merge', False)
+    params = setupHelper.setParamUnlessThere (params, 'constraint', '1')
 
     # load clusters
     if not op.exists(filters_path):
@@ -207,9 +209,8 @@ def collectGhostsTaskHDF5 (db_path, filters_path, out_dir, params = {}):
         if 'constraint' in filter_group.keys(): 
             assert filter_group['constraint'][0:5] != 'WHERE'  # prevent old format
             constraint += ' AND (%s)' % filter_group['constraint']
-        if 'constraint' in params.keys(): 
-            assert params['constraint'][0:5] != 'WHERE'  # prevent old format
-            constraint += ' AND (%s)' % params['constraint']
+        assert params['constraint'][0:5] != 'WHERE'  # prevent old format
+        constraint += ' AND (%s)' % params['constraint']
         logging.info ('constraint: ' + constraint)
         filter_group['constraint'] = constraint
 
@@ -225,7 +226,7 @@ def collectGhostsTaskHDF5 (db_path, filters_path, out_dir, params = {}):
         merged_path = op.join (out_dir, op.basename(out_dir) + '.h5')
         shutil.copyfile(h5_paths[0], merged_path)
         for i in range(1, len(h5_paths)):
-            mergeHDF5 (merged_path, h5_paths[i])
+            mergeHDF5 (merged_path, h5_paths[i], merged_path)
 
     # write info
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:

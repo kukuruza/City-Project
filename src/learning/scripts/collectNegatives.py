@@ -27,6 +27,19 @@ This is the new pipeline to extract the negatives:
 
 setupLogging ('log/learning/collectNegatives.log', logging.DEBUG, 'a')
 
+# NOT used
+# video_in_path = 'camdata/cam541/Jul26-16h-ghost.avi'
+# h5_out_path = 'clustering/unlabelled/Jul26-16h-40x30.h5'
+# params = { 'size_map_path': 'models/cam572/mapSize.tiff',
+#            'number': 100,
+#            'resize': [40, 30],
+#            'minwidth': 15,
+#            'maxwidth':  100,
+#            'write_samples': 5
+#          }
+# negatives.collectRandomPatchesFromVideoHDF5 (video_in_path, h5_out_path, params)
+
+
 # step 1: write negative frames with 'grayspots'
 db_in_path   = 'datasets/labelme/Databases/572-Oct30-17h-frame/parsed.db'
 out_dir      = 'clustering/negatives/test'
