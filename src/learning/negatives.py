@@ -22,6 +22,7 @@ from dbInterface import deleteCar, queryField, queryCars
 from utilities import bbox2roi, getCenter
 import setupHelper
 import dbInterface  # to check for table
+import h5py  # for collectRandomPatchesFromVideoHDF5 (will be removed)
 
 IMAGE_EXT = '.png'
 
@@ -571,7 +572,6 @@ def collectRandomPatchesFromVideo (video_in_path, out_dir, params = {}):
     params = setupHelper.setParamUnlessThere (params, 'maxwidth', 200)
     params = setupHelper.setParamUnlessThere (params, 'max_masked_perc', 0.5) # not used
 
-
     if not op.exists (video_in_path):
         raise Exception ('video does not exist: ' + video_in_path)
 
@@ -606,11 +606,89 @@ def collectRandomPatchesFromVideo (video_in_path, out_dir, params = {}):
             counter += 1
             if counter >= params['number']: return
 
-        if counter < params['number']:
-            logging.error ('got only ' + str(counter) + ' patches')
+    if counter < params['number']:
+        logging.error ('got only ' + str(counter) + ' patches')
 
 
 
+# TODO: after moving datasets to HDF5, make a db+h5 from video,
+#       and throw away thos function
+#
+def collectRandomPatchesFromVideoHDF5 (video_in_path, h5_out_path, params = {}):
+    '''
+    Extract patches from every frame in a video, and save them as HDF5 file
+    Used for unsupervised learning of features in DNN (pre-training)
+    Background should already be subtracted
+    '''
+    setupHelper.setupLogHeader (video_in_path, '', params, 'collectRandomPatchesFromVideo')
+
+    video_in_path = op.join (os.getenv('CITY_DATA_PATH'), video_in_path)
+    h5_out_path   = op.join (os.getenv('CITY_DATA_PATH'), h5_out_path)
+
+    params = setupHelper.setParamUnlessThere (params, 'number', 100)
+    params = setupHelper.setParamUnlessThere (params, 'ratio', 0.75)
+    params = setupHelper.setParamUnlessThere (params, 'minwidth', 20)
+    params = setupHelper.setParamUnlessThere (params, 'maxwidth', 200)
+    params = setupHelper.setParamUnlessThere (params, 'max_masked_perc', 0.5) # not used
+    params = setupHelper.setParamUnlessThere (params, 'write_samples', 0)
+    params = setupHelper.setParamUnlessThere (params, 'normalize', True)
+    setupHelper.assertParamIsThere (params, 'resize')
+    assert (type(params['resize']) == list and len(params['resize']) == 2)
+
+    if not op.exists (video_in_path):
+        raise Exception ('video does not exist: ' + video_in_path)
+
+    random.seed()
+
+    # make data numpy array first, and write all to there
+    # TODO: create dataset first and write directly to there, without a huge array in memory
+    (width, height) = tuple(params['resize'])
+    data = np.zeros((params['number'], 3, height, width), dtype='float32')
+
+    # count the number of frames in the video
+    video = cv2.VideoCapture(video_in_path)
+    counter_images = 0
+    while (True):
+        ret, frame = video.read()
+        if not ret: break
+        counter_images += 1
+
+    logging.info ('video has %d frames', counter_images)
+    num_per_image = int(params['number'] / counter_images) + 1
+
+    video = cv2.VideoCapture(video_in_path)
+    counter = 0
+    while (True):
+        ret, frame = video.read()
+        if not ret: break
+
+        for patch in __getPatchesFromImage__ (frame, num_per_image, params):
+
+            # save a sample patch as an image
+            if counter < params['write_samples']:
+                patchsuffix = '-%d%s' % (counter, IMAGE_EXT)
+                patchpath = op.splitext(h5_out_path)[0] + patchsuffix
+                logging.debug ('patchpath: %s' % patchpath)
+                cv2.imwrite(patchpath, patch)
+
+            # write to intermediate numpy arrays
+            patch = np.transpose(patch.astype('float32'), (2,0,1))  # why not (1,2,0)?
+            if params['normalize']: patch /= 255.
+            data[counter,:,:,:] = patch
+
+            counter += 1
+            if counter >= params['number']: break
+        if counter >= params['number']: break
+
+    # process a case where for any reason could not get enough patches
+    if counter < params['number']:
+        logging.error ('got only ' + str(counter) + ' patches')
+        # TODO: not tested
+        data.resize((counter, 3, height, width))
+
+    # create the hdf5
+    with h5py.File(h5_out_path, 'w') as f:
+        f['data'] = data
 
 
 

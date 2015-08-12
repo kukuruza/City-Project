@@ -31,7 +31,7 @@ import datetime  # to print creation timestamp in readme.txt
 
 
 
-def collectGhostsHDF5 (db_in_path, hdf5_out_path, params = {}):
+def collectGhostsHDF5 (db_in_path, h5_out_path, params = {}):
     '''
     Save car ghosts as a hdf5 dataset.
     Each db entry which satisfies the provided filters is saved in the hdf5.
@@ -41,7 +41,7 @@ def collectGhostsHDF5 (db_in_path, hdf5_out_path, params = {}):
     setupHelper.setupLogHeader (db_in_path, '', params, 'collectGhostsHDF5')
 
     db_in_path    = op.join (os.getenv('CITY_DATA_PATH'), db_in_path)
-    hdf5_out_path = op.join (os.getenv('CITY_DATA_PATH'), hdf5_out_path)
+    h5_out_path = op.join (os.getenv('CITY_DATA_PATH'), h5_out_path)
 
     params = setupHelper.setParamUnlessThere (params, 'write_samples', 0)
     params = setupHelper.setParamUnlessThere (params, 'constraint', '1')
@@ -92,7 +92,7 @@ def collectGhostsHDF5 (db_in_path, hdf5_out_path, params = {}):
         # save a sample patch as an image
         if i < params['write_samples']:
             patchsuffix = '-id%08d%s' % (queryField(car_entry, 'id'), IMAGE_EXT)
-            patchpath = op.splitext(hdf5_out_path)[0] + patchsuffix
+            patchpath = op.splitext(h5_out_path)[0] + patchsuffix
             cv2.imwrite(patchpath, patch)
 
         # write to intermediate numpy arrays
@@ -104,7 +104,7 @@ def collectGhostsHDF5 (db_in_path, hdf5_out_path, params = {}):
     conn.close()
 
     # create the hdf5
-    with h5py.File(hdf5_out_path, 'w') as f:
+    with h5py.File(h5_out_path, 'w') as f:
         f['data'] = data
         f['ids']  = ids
         if params['label'] is not None: 
