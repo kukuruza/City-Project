@@ -498,6 +498,20 @@ class ManualProcessor (BaseProcessor):
 
 
     def labelMatches (self, params = {}):
+        '''
+        Manually label matching cars in the provided dataset.
+
+        At the start you should see a window with two images one under another.
+        - Press and hold the mouse at a Bbox in the top, and release at a Bbox in the bottom.
+            That will add a match between this pair of Bboxes.
+            If one of the two Bboxes were matched to something already, match won't be added.
+        - Click at a Bbox in the top, and press DEL. 
+            That will remove a match if the top Bbox was matched
+        - Press 'Right' (according to your calibration) or "Left'.
+            That will change the image pair.
+        - Press 'Esc' to save changes and exit.
+        - Pass 'imagefile_start' number in parameters to start with a certain image pair.
+        '''
         logging.info ('==== labelMatches ====')
         c = self.cursor
 
@@ -557,44 +571,52 @@ class ManualProcessor (BaseProcessor):
             logging.info ('%d cars found for %s' % (len(cars2), imagefile2))
 
             # draw cars in both images
-            for car in cars1:
-                roi = queryField(car, 'roi')
-                drawRoi (img1, roi)
-            for car in cars2:
-                roi = queryField(car, 'roi')
-                drawRoi (img2, roi)
+            for car in cars1: drawRoi (img1, queryField(car, 'roi'))
+            for car in cars2: drawRoi (img2, queryField(car, 'roi'))
 
             i1 = i2 = None
 
             # each cycle is some some key is pressed
             #   fortunately all the keys mean some serious update
+            selectedMatch = None
+            needRedraw = True
             button = -1
             while button == -1:
 
                 img_stack = np.vstack((img1, img2))
 
-                if i1 is None and i2 is None:
+                if needRedraw:
 
-                    # find existing matches
-                    for car1 in cars1:
-                        for car2 in cars2:
+                    # find existing matches, and make a map
+                    matchesOf1 = {}
+                    matchesOf2 = {}
+                    for j1 in range(len(cars1)):
+                        car1 = cars1[j1]
+                        for j2 in range(len(cars2)):
+                            car2 = cars2[j2]
                             s = '''SELECT match FROM matches WHERE carid = ?
                                    INTERSECT
                                    SELECT match FROM matches WHERE carid = ?'''
                             c.execute(s, (queryField(car1, 'id'), queryField(car2, 'id')))
-                            if c.fetchone() is not None:
+                            matches = c.fetchall()
+                            if len(matches) > 0:
+                                assert len(matches) == 1  # no duplicate matches
                                 roi1 = queryField(car1, 'roi')
                                 roi2 = queryField(car2, 'roi')
                                 self.__drawMatch__ (img_stack, roi1, roi2)
+                                matchesOf1[j1] = matches[0][0]
+                                matchesOf2[j2] = matches[0][0]
 
                     # draw image
                     disp_scale = params['disp_scale'] / 2
                     img_show = cv2.resize(img_stack, (0,0), fx=disp_scale, fy=disp_scale)
                     cv2.imshow('show', img_show)
+                    logging.info ('%d matches found between the pair' % len(matchesOf1))
+                    needRedraw = False
 
                 # process mouse callback effect (button has been pressed)
                 if mousePressed:
-                    i2 = None  # reset after the last
+                    i2 = None  # reset after the last unsuccessful match
                     logging.debug ('pressed  x=%d, y=%d' % (xpress, ypress))
                     xpress /= disp_scale
                     ypress /= disp_scale
@@ -614,31 +636,40 @@ class ManualProcessor (BaseProcessor):
                 # if we could find pressed and released cars, add match
                 if i1 is not None and i2 is not None:
 
-                    # add the match to the list
-                    carid1 = queryField(cars1[i1], 'id')
-                    carid2 = queryField(cars2[i2], 'id')
-                    logging.info ('detected a match')
+                    # if one of the cars in the new match is already matched, discard
+                    if i1 in matchesOf1 or i2 in matchesOf2:
+                        logging.warning ('one or two connected cars is already matched')
+                        i1 = i2 = None
 
-                    # find a free match index
-                    c.execute('SELECT MAX(match) FROM matches')
-                    match = int(c.fetchone()[0]) + 1
+                    else:
+                        # add the match to the list
+                        carid1 = queryField(cars1[i1], 'id')
+                        carid2 = queryField(cars2[i2], 'id')
+                        logging.debug ('i1 = %d, i2 = %d' % (i1, i2))
+                        logging.info ('detected a match')
 
-                    c.execute('INSERT INTO matches(match, carid) VALUES (?,?)', (match, carid1))
-                    c.execute('INSERT INTO matches(match, carid) VALUES (?,?)', (match, carid2))
+                        # find a free match index
+                        c.execute('SELECT MAX(match) FROM matches')
+                        matchid = int(c.fetchone()[0]) + 1
 
-                    # display the match
-                    roi1 = queryField(cars1[i1], 'roi')
-                    roi2 = queryField(cars2[i2], 'roi')
-                    roi2[0] += yoffset
-                    roi2[1] += yoffset
-                    self.__drawMatch__ (img_stack, roi1, roi2)
+                        c.execute('INSERT INTO matches(match, carid) VALUES (?,?)', (matchid, carid1))
+                        c.execute('INSERT INTO matches(match, carid) VALUES (?,?)', (matchid, carid2))
 
-                    # reset
-                    i1 = i2 = None
+                        # display the match
+                        roi1 = queryField(cars1[i1], 'roi')
+                        roi2 = queryField(cars2[i2], 'roi')
+                        roi2[0] += yoffset
+                        roi2[1] += yoffset
+                        self.__drawMatch__ (img_stack, roi1, roi2)
+
+                        # reset when a new match is made
+                        needRedraw = True
+                        i1 = i2 = None
 
                 # stay inside the loop inside one image pair until some button is pressed
                 button = cv2.waitKey(50)
 
+            # process pressed key (all except exit)
             if button == keys_config['left']:
                 logging.debug ('prev image pair')
                 if index_im == 1:
@@ -648,6 +679,17 @@ class ManualProcessor (BaseProcessor):
             elif button == keys_config['right']:
                 logging.debug ('next image pair')
                 index_im += 1  # exit at last image pair from outer loop
+            elif button == keys_config['del']:
+                # if any car was selected, and it is matched
+                if i1 is not None and i1 in matchesOf1:
+                    match = matchesOf1[i1]
+                    carid1 = queryField(cars1[i1], 'id')
+                    logging.info ('deleting match %d' % match)
+                    c.execute('DELETE FROM matches WHERE match = ? AND carid = ?', (match, carid1))
+                else:
+                    logging.debug ('delete is pressed, but no match is selected')
+
+
 
         return self
 
