@@ -3,6 +3,28 @@ import json
 import sqlite3
 
 
+def checkTableExists (cursor, name):
+    cursor.execute('''SELECT count(*) FROM sqlite_master 
+                      WHERE name=? AND type='table';''', (name,))
+    return cursor.fetchone()[0] != 0
+
+
+def checkEntryExists (cursor, table, field, value):
+    cursor.execute('SELECT count(*) FROM ? WHERE ? = ?', (table,field,value))
+    if cursor.fetchone()[0] == 0:
+        raise Exception ('table ' + table + ' does not have ' + field + '=' + value)
+
+
+def createTableMatches (cursor):
+    if not checkTableExists (cursor, 'matches'):
+        cursor.execute('''CREATE TABLE IF NOT EXISTS matches
+                         (id INTEGER PRIMARY KEY,
+                          match INTEGER,
+                          carid INTEGER
+                         );''')
+
+
+
 def createLabelmeDb (db_path):
     conn = sqlite3.connect (db_path)
     cursor = conn.cursor()
@@ -35,11 +57,7 @@ def createLabelmeDb (db_path):
                       x INTEGER,
                       y INTEGER
                       );''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS matches
-                     (id INTEGER PRIMARY KEY,
-                      match INTEGER,
-                      carid INTEGER
-                      );''')
+    createTableMatches(cursor)
     conn.commit()
     conn.close()
 
@@ -102,19 +120,6 @@ def deleteEmptyImages():
 
 
 
-#
-# check that db follows the rules
-#
-def checkTableExists (cursor, name):
-    cursor.execute('''SELECT count(*) FROM sqlite_master 
-                      WHERE name=? AND type='table';''', (name,))
-    return cursor.fetchone()[0] != 0
-
-def checkEntryExists (cursor, table, field, value):
-    cursor.execute('SELECT count(*) FROM ? WHERE ? = ?', (table,field,value))
-    if cursor.fetchone()[0] == 0:
-        raise Exception ('table ' + table + ' does not have ' + field + '=' + value)
-
 
 def checkDb (db_path):
     conn = sqlite3.connect (db_path)
@@ -160,6 +165,9 @@ def queryField (car, field):
 
     if field == 'bbox':      
         return list(car[3:7])
+    if field == 'roi':
+        bbox = list(car[3:7])
+        return [bbox[1], bbox[0], bbox[3]+bbox[1]-1, bbox[2]+bbox[0]-1]
     return None
 
 
