@@ -30,6 +30,9 @@ def image2ghost (image, backimage):
 def getCenter (roi):
     return (int((roi[0] + roi[2]) * 0.5), int((roi[1] + roi[3]) * 0.5))
 
+def getOpencvCenter (roi):
+    return (int((roi[1] + roi[3]) * 0.5), int((roi[0] + roi[2]) * 0.5))
+
 def bottomCenter (roi):
     return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
 
