@@ -10,7 +10,7 @@ addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search pa
 cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % Setting up the paths for input and reference database
-dbPath = 'databaseWriterDemo.db';
+dbPath = fullfile(CITY_DATA_PATH, 'cnn/candidates', '671-Mar24-12h_selective.db');
 refPath = fullfile(CITY_DATA_PATH, 'datasets/sparse/Databases/671-Mar24-12h',...
                     'src.db');
 
@@ -29,8 +29,8 @@ mapSize = imread(sizeMapPath);
 % Reading the images in a loop
 imgListing = dir([imageDir, '*.jpg']);
 
-for i = 1:2%length(imgListing)
-    image = imread(imgListing(i).name);
+for i = 1:length(imgListing)
+    image = imread(fullfile(imageDir, imgListing(i).name));
     
     % Size map based candidates
     %cands = CandidatesSizemap (mapSize);
@@ -39,11 +39,17 @@ for i = 1:2%length(imgListing)
     cands = CandidatesSelectSearch('mapSize', mapSize);
     
     % Getting the candidates
-    %bboxes = cands.getCandidates();
     bboxes = cands.getCandidates('image', image);
+    
+%     debugImg = cands.drawCandidates(bboxes, image);
+%     bboxes = cands.getCandidates('image', image);
     
     % Writing the candidates
     writer.saveBoxesToDatabase(bboxes, imgListing(i).name);
+    
+    % Displaying the image
+    fprintf('%d / %d\n', i, length(imgListing));
+%     figure(1); imshow(debugImg)
 end
 
 % Closing the database / DatabaseWriter

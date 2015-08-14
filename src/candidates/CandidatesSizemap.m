@@ -129,7 +129,8 @@ classdef CandidatesSizemap < CandidatesBase
                     
                     % Adjusting the rectangle
                     x = uint32(xMiddle - width/2);
-                    y = uint32(yMiddle - height/2);
+                    %y = uint32(yMiddle - height/2);
+                    y = uint32(yMiddle - height);
                 end
                 
                 % Dealing with border cases -- ignore them
