@@ -7,7 +7,7 @@ import sqlite3
 
 
 
-class BaseProcessor:
+class BaseProcessor(object):
 
     def __init__ (self, db_in_path, db_out_path = None):
 
