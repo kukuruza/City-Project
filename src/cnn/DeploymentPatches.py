@@ -38,6 +38,7 @@ class DeploymentPatches:
         '''
         Expect patch to be color, 3-channels, [0,255], dtype of np.uint8
         '''
+        assert patch is not None
         assert patch.ndim == 3     # color image
         assert patch.shape[2] == 3  # 3-channels
         assert patch.dtype == np.dtype('uint8')
@@ -53,6 +54,6 @@ if __name__ == "__main__":
     network_path = op.join(os.getenv('CITY_DATA_PATH'), 'cnn/prototxt-files/deploy_python.prototxt')
     model_path   = op.join(os.getenv('CITY_DATA_PATH'), 'cnn/models/city_quick_iter_4000.caffemodel')
     deployment = DeploymentPatches(network_path, model_path)
-    patch = cv2.imread('testdata/negative-40x30.png')
+    patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/negative-40x30.png'))
     label = deployment.classify(patch)
     print("Predicted class is #{}.".format(label))
