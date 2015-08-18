@@ -1,12 +1,11 @@
 import logging
 import os, sys
 sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('../violajones'))
-from setupHelper import setupLogging
-import evaluateTask
+import helperSetup
+import dbEvaluate
 
 
-setupLogging ('log/detector/EvaluateDetections.log', logging.INFO, 'a')
+helperSetup.setupLogging ('log/detector/EvaluateDetections.log', logging.INFO, 'a')
 
 task_path = 'learning/violajones/tasks/Apr04-circle.json'
 db_eval_path = 'datasets/labelme/Databases/572/distinct-frames.db'
@@ -20,4 +19,4 @@ params = { 'debug_show': False,
            #'model': '40x30-e0.1-circle'
          }
 
-evaluateTask.evaluateTask (task_path, db_eval_path, params)
+dbEvaluate.evaluateTask (task_path, db_eval_path, params)

@@ -1,9 +1,9 @@
 import logging
 import os, sys
 sys.path.insert(0, os.path.abspath('..'))
-from setupHelper import setupLogging
-import negatives
-import exporting
+import helperSetup
+import dbNegatives
+import dbExport
 
 '''
 Populate negative db with negative bboxes.
@@ -25,7 +25,7 @@ This is the new pipeline to extract the negatives:
   3) Extract negative patches, and save as hdf5 (exporting.collectGhostsHDF5)
 '''
 
-setupLogging ('log/learning/collectNegatives.log', logging.DEBUG, 'a')
+helperSetup.setupLogging ('log/learning/CollectNegatives.log', logging.DEBUG, 'a')
 
 # NOT used
 # video_in_path = 'camdata/cam541/Jul26-16h-ghost.avi'
@@ -37,7 +37,7 @@ setupLogging ('log/learning/collectNegatives.log', logging.DEBUG, 'a')
 #            'maxwidth':  100,
 #            'write_samples': 5
 #          }
-# negatives.collectRandomPatchesFromVideoHDF5 (video_in_path, h5_out_path, params)
+# dbNegatives.collectRandomPatchesFromVideoHDF5 (video_in_path, h5_out_path, params)
 
 
 # step 1: write negative frames with 'grayspots'
@@ -54,7 +54,10 @@ params = { 'method': 'circle',
            'sizemap_path': 'models/cam572/mapSize.tiff'
          }
 db_neg_path = 'clustering/negatives/test/negatives-circle-noise-sc0.8-bl2.db'
-negatives.negativeGrayspots (db_in_path, db_neg_path, out_dir, params)
+(conn, cursor) = helperSetup.dbInit(db_in_path, db_neg_path)
+dbNegatives.negativeGrayspots (cursor, out_dir, params)
+conn.commit()
+conn.close()
 
 # step 2: populate with bboxes
 params = { 'size_map_path': 'models/cam572/mapSize.tiff',
@@ -65,14 +68,17 @@ params = { 'size_map_path': 'models/cam572/mapSize.tiff',
            'max_masked_perc': 0.3,
          }
 db_filled_path = 'clustering/negatives/test/negatives-circle-noise-sc0.8-bl2-filled.db'
-negatives.fillNegativeDbWithBboxes (db_neg_path, db_filled_path, params)
+(conn, cursor) = helperSetup.dbInit(db_neg_path, db_filled_path)
+dbNegatives.fillNegativeDbWithBboxes (cursor, params)
+conn.commit()
+conn.close()
 
 # step 3: extract negative patches, and save as hdf5
 hdf5_out_path = 'clustering/negatives/test/negatives-circle-noise-sc0.8-bl2.h5'
 params = { 'resize': [40, 30], 
            'label': 0
          }
-exporting.collectGhostsHDF5 (db_filled_path, hdf5_out_path, params)
+dbExport.collectGhostsHDF5 (db_filled_path, hdf5_out_path, params)
 
 
 

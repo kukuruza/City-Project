@@ -9,11 +9,10 @@ import cv2
 import time
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-import setupHelper
+import helperSetup
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 from utilities import bbox2roi, drawRoi, drawScoredRoi, overlapRatio, expandRoiFloat, roi2bbox
-from dbInterface import queryField, checkTableExists
-from dbBase import BaseProcessor
+from helperDb import queryField, checkTableExists
 
 
 
@@ -47,51 +46,45 @@ def __detectForImage__ (cursor, cascade, imagefile, params):
 
 
 
-class ViolajonesProcessor (BaseProcessor):
+def detectViolajones (c, model_path, params):
+    logging.info ('==== detectViolajones ====')
+    helperSetup.setParamUnlessThere (params, 'debug_show', False)
 
-    def detectViolajones (self, model_path, params):
-        logging.info ('==== detectViolajones ====')
-        c = self.cursor
+    # model
+    logging.info ('model_path: ' + model_path)
+    model_path = op.join (os.getenv('CITY_DATA_PATH'), model_path)
+    if not op.exists(model_path):
+        raise Exception ('model_path does not exist: ' + model_path)
 
-        params = self.setParamUnlessThere (params, 'debug_show', False)
+    cascade = cv2.CascadeClassifier (model_path)
 
-        # model
-        logging.info ('model_path: ' + model_path)
-        model_path = op.join (self.CITY_DATA_PATH, model_path)
-        if not op.exists(model_path):
-            raise Exception ('model_path does not exist: ' + model_path)
+    # remove the ground truth
+    c.execute('DELETE FROM cars')
+    if checkTableExists(c, 'matches'):
+        c.execute('DELETE FROM matches')
+    if checkTableExists(c, 'polygons'):
+        c.execute('DROP TABLE polygons')
 
-        cascade = cv2.CascadeClassifier (model_path)
+    c.execute('SELECT imagefile FROM images')
+    image_entries = c.fetchall()
 
-        # remove the ground truth
-        c.execute('DELETE FROM cars')
-        if checkTableExists(c, 'matches'):
-            c.execute('DELETE FROM matches')
-        if checkTableExists(c, 'polygons'):
-            c.execute('DROP TABLE polygons')
+    # TODO: how to estimate score from Viola-Jones?
 
-        c.execute('SELECT imagefile FROM images')
-        image_entries = c.fetchall()
+    # detect
+    for (imagefile,) in image_entries:
+        bboxes = __detectForImage__ (c, cascade, imagefile, params)
+        for bbox in bboxes:
+            entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], 1)
+            s = 'cars(imagefile,name,x1,y1,width,height,score)'
+            c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?);', entry)
 
-        # TODO: how to estimate score from Viola-Jones?
-
-        # detect
-        for (imagefile,) in image_entries:
-            bboxes = __detectForImage__ (c, cascade, imagefile, params)
+        if params['debug_show'] and ('key' not in locals() or key != 27): 
+            img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagefile))
             for bbox in bboxes:
-                entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], 1)
-                s = 'cars(imagefile,name,x1,y1,width,height,score)'
-                c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?);', entry)
-
-            if params['debug_show'] and ('key' not in locals() or key != 27): 
-                img = cv2.imread(op.join(self.CITY_DATA_PATH, imagefile))
-                for bbox in bboxes:
-                    drawScoredRoi (img, bbox2roi(bbox), '', 1)
-                cv2.imshow('debug_show', img)
-                key = cv2.waitKey(-1)
-                if key == 27: cv2.destroyWindow('debug_show')
-
-        return self
+                drawScoredRoi (img, bbox2roi(bbox), '', 1)
+            cv2.imshow('debug_show', img)
+            key = cv2.waitKey(-1)
+            if key == 27: cv2.destroyWindow('debug_show')
 
 
 

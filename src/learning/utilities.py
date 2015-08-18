@@ -4,7 +4,7 @@ import scipy.cluster.hierarchy
 import matplotlib.pyplot
 import sys, os, os.path as op
 import logging
-import setupHelper
+import helperSetup
 from scipy.stats import gamma
 import matplotlib.pyplot as plt  # for colormaps
 
@@ -72,7 +72,10 @@ def drawScoredRoi (img, roi, label = None, score = 1.0):
 #
 # expandRoiFloat expands a ROI, and clips it within borders
 #
-def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
+def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x), integer_result = True):
+    '''
+    floats are rounded to the nearest integer
+    '''
     if (perc_y, perc_x) == (0, 0): return roi
 
     half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
@@ -82,8 +85,6 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
     roi[1] -= half_delta_x
     roi[2] += half_delta_y
     roi[3] += half_delta_x
-    # make integer
-    roi = [int(x) for x in roi]
     # move to clip into borders
     if roi[0] < 0:
         roi[2] += abs(roi[0])
@@ -100,6 +101,9 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
     # check that now averything is within borders (bbox is not too big)
     assert (roi[0] >= 0 and roi[1] >= 0)
     assert (roi[2] <= imheight-1 and roi[3] <= imwidth-1)
+    # make integer
+    if integer_result:
+        roi = [int(round(x)) for x in roi]
     return roi
 
 
@@ -107,30 +111,38 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x)):
 # expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
 #
 def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
+    bbox = roi2bbox(roi)
     # adjust width and height to ratio
     height = float(roi[2] + 1 - roi[0])
     width  = float(roi[3] + 1 - roi[1])
     if height / width < ratio:
        perc = ratio * width / height - 1
-       roi = expandRoiFloat (roi, (imheight, imwidth), (perc, 0))
+       roi = expandRoiFloat (roi, (imheight, imwidth), (perc, 0), integer_result = False)
     else:
        perc = height / width / ratio - 1
-       roi = expandRoiFloat (roi, (imheight, imwidth), (0, perc))
+       roi = expandRoiFloat (roi, (imheight, imwidth), (0, perc), integer_result = False)
     # additional expansion
-    perc = expand_perc - perc
+    perc = (1 + expand_perc) / (1 + perc) - 1
     if perc > 0:
-        roi = expandRoiFloat (roi, (imheight, imwidth), (perc, perc))
+        roi = expandRoiFloat (roi, (imheight, imwidth), (perc, perc), integer_result = False)
+    roi = [int(round(x)) for x in roi]
     return roi
+
 
 
 def gammaProb (x, max_value, shape):
     '''
-    x is distributed with Gamma(shape, scale).
-    scale is set so that the maximim of pdf equals max_value, shape is input
+    x is distributed with Gamma(shape, scale).  
+    (loose) 1 < Gamma.shape < +inf (tight)
+    
+    Gamma.scale is set so that the maximim of pdf equals max_value, 
+    Gamma.shape is input
     '''
-    if max_value == 0: return 0
+    #if max_value == 0: return 0  ### WTF is this for???
+    if shape <= 1: raise Exception ('gammaProb: shape should be > 1')
     scale = float(max_value) / (shape - 1)
     return gamma.pdf(x, shape, 0, scale) / gamma.pdf(max_value, shape, 0, scale)
+
 
 
 def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
@@ -152,8 +164,8 @@ def hierarchicalClusterRoi (rois, params = {}):
     if not rois:         return [], [], []
     elif len(rois) == 1: return rois, [0], [1]
 
-    params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
-    #params = setupHelper.setParamUnlessThere (params, 'scores', [1]*len(rois))
+    helperSetup.setParamUnlessThere (params, 'debug_clustering', False)
+    #helperSetup.setParamUnlessThere (params, 'scores', [1]*len(rois))
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
@@ -166,7 +178,7 @@ def hierarchicalClusterRoi (rois, params = {}):
 
     # perform clustering
     Z = scipy.cluster.hierarchy.linkage (condensed_distances)
-    clusters = scipy.cluster.hierarchy.fcluster (Z, params['threshold'], 'distance')
+    clusters = scipy.cluster.hierarchy.fcluster (Z, params['cluster_threshold'], 'distance')
     logging.debug('clusters: ' + str(clusters))
 
     # get centers as simple mean
@@ -223,7 +235,7 @@ def hierarchicalClusterPolygons (polygons, params):
     if not polygons:         return [], []
     elif len(polygons) == 1: return [polygon2roi(polygons[0])], [0]
 
-    params = setupHelper.setParamUnlessThere (params, 'debug_clustering', False)
+    params = helperSetup.setParamUnlessThere (params, 'debug_clustering', False)
 
     N = len(polygons)
     pairwise_distances = np.zeros((N,N), dtype = float)
@@ -234,7 +246,7 @@ def hierarchicalClusterPolygons (polygons, params):
 
     # perform clustering
     Z = scipy.cluster.hierarchy.linkage (condensed_distances)
-    clusters = scipy.cluster.hierarchy.fcluster (Z, params['threshold'], 'distance')
+    clusters = scipy.cluster.hierarchy.fcluster (Z, params['cluster_threshold'], 'distance')
     logging.debug ('clusters: ' + str(clusters))
 
     # get centers as simple mean polygon
@@ -257,7 +269,7 @@ def hierarchicalClusterPolygons (polygons, params):
 
 
 
-
+# to remove
 def readImagefile (cursor, imagefile):
     imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
     if not op.exists (imagepath):
@@ -265,6 +277,7 @@ def readImagefile (cursor, imagefile):
     return cv2.imread(imagepath)
 
 
+# to remove
 def createDirs (home_dir, name):
     if not op.exists(op.join(os.getenv('CITY_DATA_PATH'), home_dir)):
         raise Exception ('home_dir does not exist: ' + home_dir)
@@ -282,6 +295,8 @@ def createDirs (home_dir, name):
     except: pass
 
 
+# to remove
+#
 # extract homedir and folder from the somefile:
 #   somefile = labelmedir / <'Images'/'Databases'/etc.> / folder / filename
 #
@@ -290,4 +305,3 @@ def somefile2dirs (somefile):
     labelmedir = op.dirname (op.dirname(folderpath))
     folder = op.basename (folderpath)
     return (labelmedir, folder)
-

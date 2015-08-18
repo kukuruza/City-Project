@@ -1,8 +1,8 @@
 import logging
 import os, sys
 sys.path.insert(0, os.path.abspath('..'))
-from setupHelper import setupLogging
-import exporting
+from helperSetup import setupLogging
+import dbExport
 
 
 setupLogging ('log/learning/clusterGhosts.log', logging.INFO, 'a')
@@ -15,5 +15,5 @@ out_dir      = 'clustering/test'
 #exporting.collectGhostsTask (in_db_path, filters_path, out_dir)
 
 # new way -- hdf5 files:
-params={'constraint': 'name == "truck"', 'write_samples': 1}
-exporting.collectGhostsTaskHDF5 (in_db_path, filters_path, out_dir, params)
+params={'constraint': 'name == "truck"', 'write_samples': 0}
+dbExport.collectGhostsTaskHDF5 (in_db_path, filters_path, out_dir, params)

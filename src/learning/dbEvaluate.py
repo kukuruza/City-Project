@@ -7,11 +7,12 @@ import json
 import sqlite3
 import cv2
 import time
-from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
-from dbInterface import queryField
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from dbBase import BaseProcessor
+from helperDb import queryField
+import helperDb
+import helperSetup
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/violajones'))
+from opencvInterface import loadJson, ExperimentsBuilder
 
 
 
@@ -42,6 +43,7 @@ def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
         best_dist = 1
         for t in truth:
             best_dist = min (1 - overlapRatio(d,t), best_dist)
+        logging.debug('id: %d, its best distance: %f' % (queryField(car_entry,'id'), best_dist) )
         if best_dist < params['dist_thresh']:
             hits += 1
             misses -= 1
@@ -61,46 +63,52 @@ def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
                 drawRoi (img, roi, '', (0,0,255))
         for roi in truth:
             drawRoi (img, roi, '', (255,0,0))
-        cv2.imshow('green - matched, red - not matched, blue - ground truth', img)
+        cv2.imshow('evaluateDetector: green: matched, red: not matched, blue: truth', img)
         cv2.waitKey(-1)
 
     return (hits, misses, falses)
 
 
 
-class EvaluateProcessor (BaseProcessor):
+def evaluateDetector (c, cursor_true, params):
+    '''
+    Compare bboxes for the ground truth db and the db under evaluation
+    Returns a list of (hits, misses, false positives)
+    '''
+    logging.info ('==== evaluateDetector ====')
+    helperSetup.setParamUnlessThere (params, 'debug_show', False)
+    helperSetup.setParamUnlessThere (params, 'dist_thresh', 0.5)
 
-    def evaluateDetector (self, db_true_path, params):
-        '''
-        Compare bboxes for the ground truth db and the db under evaluation
-        Returns a list of (hits, misses, false positives)
-        '''
-        logging.info ('==== evaluateDetector ====')
-        c = self.cursor
+    c.execute('SELECT imagefile FROM images')
+    image_entries = c.fetchall()
 
-        params = self.setParamUnlessThere (params, 'debug_show', False)
-        params = self.setParamUnlessThere (params, 'dist_thresh', 0.5)
+    # evaluate
+    result = (0,0,0) 
+    for (imagefile,) in image_entries:
+        logging.debug ('evaluating image: ' + imagefile)
+        result_im = __evaluateForImage__ (c, cursor_true, imagefile, params)
+        result = tuple(map(sum,zip(result, result_im)))
+    return result
 
-        # open ground truth db
-        db_true_path = op.join (self.CITY_DATA_PATH, db_true_path)
-        if not op.exists (db_true_path):
-            raise Exception ('db_true_path does not exist: ' + db_true_path)
-        conn_true = sqlite3.connect (db_true_path)
-        cursor_true = conn_true.cursor()
 
-        c.execute('SELECT imagefile FROM images')
-        image_entries = c.fetchall()
+def evaluateDetectorPath (c, db_true_path, params):
+    '''
+    Thin wrapper around 'evaluateDetector'.
+    Open ground_truth db, and pass its cursor further
+    '''
 
-        # evaluate
-        result = (0,0,0) 
-        for (imagefile,) in image_entries:
-            logging.debug ('evaluating image: ' + imagefile)
-            result_im = __evaluateForImage__ (c, cursor_true, imagefile, params)
-            result = tuple(map(sum,zip(result, result_im)))
+    # check ground truth db
+    db_true_path = op.join (os.getenv('CITY_DATA_PATH'), db_true_path)
+    if not op.exists (db_true_path):
+        raise Exception ('db_true_path does not exist: ' + db_true_path)
 
-        conn_true.close()
+    # connect and do work
+    conn_true = sqlite3.connect (db_true_path)
+    cursor_true = conn_true.cursor()
+    result = evaluateDetectorFromConn (c, cursor_true, params)
+    conn_true.close()
 
-        return result
+    return result
 
 
 
@@ -111,11 +119,9 @@ def dbEvaluateTask (task_path, db_true_path, db_eval_dir, params):
     db_eval_dir must have db-s with names in the form: model_name.db
     '''
 
-    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-
     # save results as lines in the output file
     if 'result_path' in params.keys():
-        result_path = op.join (CITY_DATA_PATH, params['result_path'])
+        result_path = op.join (os.getenv('CITY_DATA_PATH'), params['result_path'])
         #if op.exists(result_path):
         #    os.remove(result_path)
         f = open(result_path, 'a')
@@ -123,17 +129,19 @@ def dbEvaluateTask (task_path, db_true_path, db_eval_dir, params):
 
     # evaluate each db from the task
     for task in ExperimentsBuilder(loadJson(task_path)).getResult():
-        model_dir = op.join (CITY_DATA_PATH, task['model_dir'])
+        model_dir = op.join (os.getenv('CITY_DATA_PATH'), task['model_dir'])
         if 'model_name' in task.keys():
             model_name = task['model_name']
         else:
             model_name = op.basename(task['model_dir'])
 
         db_in_path = op.join (db_eval_dir, model_name + '.db')
-        if not op.exists( op.join(CITY_DATA_PATH, db_in_path)):
+        if not op.exists( op.join(os.getenv('CITY_DATA_PATH'), db_in_path)):
             raise Exception ('db_in_path does not exist: ' + db_in_path)
         logging.info ('evaluating task: ' + op.basename(db_in_path))
-        result = EvaluateProcessor(db_in_path).evaluateDetector(db_true_path, params)
+        (conn, cursor) = helperSetup.dbInit(db_in_path)
+        result = evaluateDetectorPath(cursor, db_true_path, params)
+        conn.close()
         
         # (hits, misses, falses) to file
         f.write (op.basename(db_in_path) + ': \t' + str(result) + '\n')
@@ -144,6 +152,4 @@ def dbEvaluateTask (task_path, db_true_path, db_eval_dir, params):
 def dbDisplayTask (task_path):
     experiments = ExperimentsBuilder(loadJson(task_path)).getResult()
     print (json.dumps(experiments, indent=4))
-
-
 
