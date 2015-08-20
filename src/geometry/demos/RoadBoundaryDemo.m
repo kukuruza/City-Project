@@ -31,7 +31,6 @@ for i = 1:noFrames
     numOfValidFiles = i;
     norient = 36;
     
-    
     tic
     % Detecting the vanishingpoint
     [vanishPt, orientationMap] = ...
@@ -40,11 +39,14 @@ for i = 1:noFrames
     toc
     
     % Detecting the boundary
-    [roadImg, displayImg] = ...
-        geom.detectRoadBoundary(grayImg, colorImg, vanishPt, orientationMap, ...
+    [newVanishPoint, boundaries, displayImg] = ...
+        geom.detectRoadBoundary(colorImg, vanishPt, orientationMap, ...
                                 outputPath, numOfValidFiles);
     
-    %figure(1); imshow(displayImg)
+    fprintf('Vanishing points: (%f , %f) (%f , %f)\nBoundaries : (%f , %f)\n', ...
+                    vanishPt(1), vanishPt(2), newVanishPoint(1), newVanishPoint(2), ...
+                                boundaries(1), boundaries(2));
+    figure(1); imshow(displayImg)
     %figure(2); imagesc(roadImg)
     %pause(0.1)
 end

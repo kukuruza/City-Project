@@ -14,7 +14,7 @@ function[newVanishPoint, dominantEdges, displayImg] = detectRoadBoundary(...
     % Default output parameters
     roadBinaryImage = uint8(zeros(size(colorImg, 1), size(colorImg, 2)));
     
-    greyImg = rgb2gray(colorImg);
+    grayImg = rgb2gray(colorImg);
     displayImg = colorImg;
     
     % Initializing the size
