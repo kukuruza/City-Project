@@ -47,7 +47,7 @@ class DeploymentPatches:
         
         self.net.blobs['data'].data[...] = self.transformer.preprocess('data', patch)
         out = self.net.forward()
-        return out['prob'].argmax()
+        return out['output']
 
 
 if __name__ == "__main__":
