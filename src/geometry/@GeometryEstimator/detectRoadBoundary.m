@@ -1,5 +1,11 @@
-function[roadBinaryImage, displayImg] = detectRoadBoundary(...
-    grayImg, colorImg, vanishPoint, orientationMap, outputPath, numOfValidFiles, fileDump)                            
+function[newVanishPoint, dominantEdges, displayImg] = detectRoadBoundary(...
+        colorImg, vanishPoint, orientationMap, outputPath, numOfValidFiles, fileDump)
+% function[roadBinaryImage, displayImg] = detectRoadBoundary(...
+%     grayImg, colorImg, vanishPoint, orientationMap, outputPath, numOfValidFiles, fileDump)                            
+    % Instead of returning the images, we return:
+    % modified vanishingPoint, the two dominant edges
+    % (newC, newR) = new vanishing point
+    % (angleTheta1 and mean_forClustering) = two dominant edges
     
     % If files should be dumped for debugging
     if(nargin < 7)
@@ -7,8 +13,9 @@ function[roadBinaryImage, displayImg] = detectRoadBoundary(...
     end
     % Default output parameters
     roadBinaryImage = uint8(zeros(size(colorImg, 1), size(colorImg, 2)));
-    displayImg = colorImg;
     
+    greyImg = rgb2gray(colorImg);
+    displayImg = colorImg;
     
     % Initializing the size
     [imageH, imageW] = size(grayImg);
@@ -17,17 +24,14 @@ function[roadBinaryImage, displayImg] = detectRoadBoundary(...
     imCopyH = imageH;
     imCopyW = imageW;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-votingArea = zeros(imCopyH,imCopyW);  %%%%%%%%%%%%%%%%%%%%%%%%%%%%% voting area
-% Vanishing point co-ordinates
+    votingArea = zeros(imCopyH,imCopyW);  %%%%%%%%%%%%%%%%%%%%%%%%%%%%% voting area
+    % Vanishing point co-ordinates
     c = vanishPoint(1);
     r = vanishPoint(2);
-
-
 
 %%%%% searching for the most possible road (or road border) direction
 tmpVal = zeros(31,1);
 tempDist1 = zeros(31,1);
-
 
 angleInterval = 5;
 
@@ -64,7 +68,6 @@ for i=3:33
                 if abs(ori-tmpAngle1)<=angleInterval*2;
                     tmpCounter = tmpCounter+1;
                 end
-
             end
         end
 
@@ -77,11 +80,8 @@ for i=3:33
                 tmpCounter = tmpCounter+1;
             end
         end
-
     end
-
     tmpVal(i-2) = tmpCounter/tmpCounter1;
-
 end
 
 %%%% select the top 8 edges
@@ -272,7 +272,6 @@ if angleCC<60
                 emptyImg(y:imCopyH,x)=2;
             end
         end
-
     end
 elseif angleCC>120
     if angleCC>150
@@ -1149,7 +1148,6 @@ end
                         largestCluster = forClustering_sort(clusterSeg(clusterNum-1)+1:finalNum);
                     end
                 end
-
             else
                 for xx=1:finalNum-1
                     if abs(forClustering_sort(xx)-forClustering_sort(xx+1))>5
@@ -1383,7 +1381,7 @@ end
     % imwrite(uint8(doim1), [outputPath,int2str(numOfValidFiles),'vpMap_Road1.jpg'], 'jpg');
 end
     
-    angleTheta1
+    %angleTheta1
                 
     % If files need to be dumped    
     if(fileDump)
@@ -1394,4 +1392,10 @@ end
                 sprintf('%d_vpRoadMap.jpg', numOfValidFiles)), 'jpg');
     end
     displayImg = uint8(doim);
+    
+    % (newC, newR) = new vanishing point
+    % (angleTheta1 and mean_forClustering) = two dominant edges
+    % newVanishPoint, dominantEdges
+    newVanishPoint = [newC, newR];
+    dominantEdges = [angleTheta1, mean_forClustering];
 end
