@@ -1,4 +1,4 @@
-%function [args] = author(grayImg,colorImg, norient, outputPath_final, numOfValidFiles)
+function [args] = authorsource(grayImg,colorImg, norient, outputPath_final, numOfValidFiles)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 grayImgCopy = grayImg;
@@ -1836,3 +1836,4 @@ tic
                         % imwrite(uint8(doim1), [outputPath,int2str(numOfValidFiles),'vpMap_Road1.jpg'], 'jpg');
             
             end
+end
