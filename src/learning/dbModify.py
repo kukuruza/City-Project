@@ -503,7 +503,7 @@ def merge (c, cursor_add, params = {}):
             logging.warning ('duplicate image found ' + imagefile) 
             continue
         # insert image
-        c.execute('INSERT INTO images VALUES (?,?,?,?,?,?,?);', image_entry)
+        c.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
     
     # copy cars
     cursor_add.execute('SELECT * FROM cars')

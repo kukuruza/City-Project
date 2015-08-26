@@ -32,7 +32,7 @@ def video2database (in_video_path, out_image_dir, out_db_path, params):
 
     # create and empty db
     conn = sqlite3.connect(out_db_path)
-    helperDb.createDbFromConn(conn)
+    helperDb.createDb(conn)
     c = conn.cursor()
 
     video = cv2.VideoCapture(in_video_path)

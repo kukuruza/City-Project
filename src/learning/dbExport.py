@@ -25,6 +25,20 @@ import helperH5
 import helperImg
 
 
+'''
+Patch-helpers are responsible to write down a collection of patches.
+
+Different patch-helper classes write patches in different formats:
+  1) as a collection of .png files or 2) as an hdf5 file.
+
+Ability to write patches in different ways in the language of architecture
+  introduces a "point of variability". That means that we want to be able
+  to switch between these two classes or write another one easily.
+
+The motivation for the point of variability here is that we use images for
+  violajones and will use hdf5 format for CNN.
+'''
+
 class PatchHelperBase (object):
     ''' Declaration of interface functions '''
 
@@ -120,7 +134,7 @@ class PatchHelperHDF5 (PatchHelperBase):
 # the end of PatchHelper-s #
 
 
-def collectGhosts (c, out_dataset, params = {}):
+def collectPatches (c, out_dataset, params = {}):
     '''
     Save car ghosts into out_dir. 
     Each db entry which satisfies the provided filters is saved as an image.
@@ -137,19 +151,17 @@ def collectGhosts (c, out_dataset, params = {}):
     car_entries = c.fetchall()
     logging.info ('found %d patches' % len(car_entries))
 
-    # write a ghost for each entry
+    # write a patch for each entry
     for car_entry in car_entries:
 
-        # get ghost
+        # get patch
         imagefile = queryField (car_entry, 'imagefile')
-        c.execute('SELECT ghostfile FROM images WHERE imagefile=?', (imagefile,))
-        (ghostfile,) = c.fetchone()
-        ghost = params['image_processor'].imread(imagefile)
+        image = params['image_processor'].imread(imagefile)
 
         # extract patch
         bbox = queryField(car_entry, 'bbox')
         roi = bbox2roi(bbox)
-        patch = ghost [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+        patch = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
 
         # resize if necessary. params['resize'] == (width,height)
         if 'resize' in params.keys():
@@ -165,7 +177,7 @@ def collectGhosts (c, out_dataset, params = {}):
 
 # FIXME: not tested
 #
-def collectGhostsTask (db_path, filters_path, out_dir, params = {}):
+def collectPatchesTask (db_path, filters_path, out_dir, params = {}):
     '''
     Cluster cars and save the patches in bulk, by "task".
     Use filters to cluster and transform, and save the ghosts 
@@ -219,7 +231,7 @@ def collectGhostsTask (db_path, filters_path, out_dir, params = {}):
         filter_params = params.copy()
         filter_params.update(filter_group)
 
-        collectGhosts (c, op.join(out_dir, filter_group['filter']), filter_params)
+        collectPatches (c, op.join(out_dir, filter_group['filter']), filter_params)
 
     conn.close()
 

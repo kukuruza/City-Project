@@ -80,11 +80,11 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertEqual (c.fetchone()[0], 0)
         c.execute ('SELECT COUNT(*) FROM images')
         self.assertEqual (c.fetchone()[0], 3)
-        c.execute ('SELECT ghostfile FROM images')
-        ghostfiles = c.fetchall()
-        self.assertEqual (ghostfiles[0][0], 'testdata/test/ghost1')
-        self.assertEqual (ghostfiles[1][0], 'testdata/test/ghost2')
-        self.assertEqual (ghostfiles[2][0], 'testdata/test/ghost3')
+        c.execute ('SELECT imagefile FROM images')
+        imagefiles = c.fetchall()
+        self.assertEqual (imagefiles[0][0], 'testdata/test/img1')
+        self.assertEqual (imagefiles[1][0], 'testdata/test/img2')
+        self.assertEqual (imagefiles[2][0], 'testdata/test/img3')
 
     def test_negativeGrayspots_circle (self):
         params = self.params_negativeGrayspots

@@ -116,12 +116,12 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         if op.exists ('testdata/patches.h5'): os.remove ('testdata/patches.h5')
 
 
-    def test_collectGhosts_hdf5 (self):
+    def test_collectPatches_hdf5 (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
-        collectGhosts (self.conn.cursor(), out_dataset, params)
+        collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
@@ -129,12 +129,12 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
             self.assertEqual (helperH5.getImageDims(f), (18,24,3))
 
 
-    def test_collectGhosts_folder (self):
+    def test_collectPatches_folder (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperFolder({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
-        collectGhosts (self.conn.cursor(), out_dataset, params)
+        collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches'))
         self.assertTrue (op.exists('testdata/patches/00000001.png'))
@@ -144,13 +144,13 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertFalse(op.exists('testdata/patches/label.txt'))
 
 
-    def test_collectGhosts_hdf5_constraint (self):
+    def test_collectPatches_hdf5_constraint (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         params['constraint'] = 'name = "truck"'
-        collectGhosts (self.conn.cursor(), out_dataset, params)
+        collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
@@ -158,13 +158,13 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
             self.assertEqual (helperH5.getImageDims(f), (18,24,3))
 
 
-    def test_collectGhosts_folder_constraint (self):
+    def test_collectPatches_folder_constraint (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperFolder({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         params['constraint'] = 'name = "truck"'
-        collectGhosts (self.conn.cursor(), out_dataset, params)
+        collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches'))
         self.assertFalse(op.exists('testdata/patches/00000001.png'))

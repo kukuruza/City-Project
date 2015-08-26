@@ -15,7 +15,7 @@ class TestEmptyDb (unittest.TestCase):
 
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(self.conn)
+        helperDb.createDb (self.conn)
 
     def tearDown (self):
         self.conn.close()
@@ -388,7 +388,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_merge_addEmpty (self):
         # create and empty db
         conn_empty = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(conn_empty)
+        helperDb.createDb (conn_empty)
         cursor_empty = conn_empty.cursor()
         # merge
         c = self.conn.cursor()
@@ -411,7 +411,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_merge_toEmpty (self):
         # create and empty db
         conn_empty = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(conn_empty)
+        helperDb.createDb (conn_empty)
         cursor_empty = conn_empty.cursor()
         # merge
         c = self.conn.cursor()
@@ -424,12 +424,12 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertEqual (car_entries[1], ('truck', 44))
         self.assertEqual (car_entries[2], ('truck', 24))
         # images
-        c.execute('SELECT imagefile FROM images')
+        c.execute('SELECT imagefile,src FROM images')
         image_entries = c.fetchall()
         self.assertEqual (len(image_entries), 3)
-        self.assertEqual (image_entries[0], ('img1',))
-        self.assertEqual (image_entries[1], ('img2',))
-        self.assertEqual (image_entries[2], ('img3',))
+        self.assertEqual (image_entries[0], ('img1','src'))
+        self.assertEqual (image_entries[1], ('img2','src'))
+        self.assertEqual (image_entries[2], ('img3','src'))
         # matches
         c.execute('''SELECT imagefile,name FROM cars WHERE id IN 
                     (SELECT carid FROM matches WHERE match == 2)''')

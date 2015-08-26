@@ -37,7 +37,7 @@ def _generateNoiseMask_ ((height, width, depth), level, avg_pixelation):
     return noise.astype(float)
 
 
-def _grayCircle_ (c, imagefile, out_ghosts_dir, params):
+def _grayCircle_ (c, imagefile, out_images_dir, params):
 
     helperSetup.assertParamIsThere  (params, 'blur_sigma')
     helperSetup.assertParamIsThere  (params, 'noise_level')
@@ -46,12 +46,10 @@ def _grayCircle_ (c, imagefile, out_ghosts_dir, params):
     helperSetup.setParamUnlessThere (params, 'debug_show',   False)
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
 
-    c.execute('SELECT ghostfile FROM images WHERE imagefile = ?', (imagefile,))
-    (ghostfile,) = c.fetchone()
-    ghost = params['image_processor'].imread(ghostfile)
+    image = params['image_processor'].imread(imagefile)
 
     # create an empty mask
-    mask = np.zeros(ghost.shape, dtype=np.uint8)
+    mask = np.zeros(image.shape, dtype=np.uint8)
 
     c.execute ('SELECT * FROM cars WHERE imagefile = ?', (imagefile,))
     car_entries = c.fetchall()
@@ -72,16 +70,16 @@ def _grayCircle_ (c, imagefile, out_ghosts_dir, params):
         cv2.waitKey()
 
     # add pixelated color noise
-    noise = _generateNoiseMask_ (ghost.shape, params['noise_level'], params['pixelation'])
+    noise = _generateNoiseMask_ (image.shape, params['noise_level'], params['pixelation'])
 
     mask = mask.astype(np.float) / 255.0
-    ghost = np.multiply(ghost, 1 - mask) + np.multiply(noise, mask)
+    image = np.multiply(image, 1 - mask) + np.multiply(noise, mask)
 
-    params['image_processor'].imwrite (ghost, op.join(out_ghosts_dir, op.basename(ghostfile)))
+    params['image_processor'].imwrite (image, op.join(out_images_dir, op.basename(imagefile)))
 
 
 
-def _grayMasked_ (c, imagefile, out_ghosts_dir, params):
+def _grayMasked_ (c, imagefile, out_images_dir, params):
 
     helperSetup.assertParamIsThere  (params, 'blur_sigma')
     helperSetup.assertParamIsThere  (params, 'noise_level')
@@ -93,9 +91,7 @@ def _grayMasked_ (c, imagefile, out_ghosts_dir, params):
     helperSetup.setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
 
-    c.execute('SELECT ghostfile FROM images WHERE imagefile = ?', (imagefile,))
-    (ghostfile,) = c.fetchone()
-    ghost = params['image_processor'].imread(ghostfile)
+    image = params['image_processor'].imread(imagefile)
 
     c.execute ('SELECT * FROM cars WHERE imagefile = ?', (imagefile,))
     car_entries = c.fetchall()
@@ -158,23 +154,23 @@ def _grayMasked_ (c, imagefile, out_ghosts_dir, params):
         cv2.waitKey()
 
     # add pixelated color noise
-    noise = _generateNoiseMask_ (ghost.shape, params['noise_level'], params['pixelation'])
+    noise = _generateNoiseMask_ (image.shape, params['noise_level'], params['pixelation'])
 
     mask = np.asarray(np.dstack((mask, mask, mask)))
     mask = mask.astype(np.float) / 255.0
-    ghost = np.multiply(ghost, 1 - mask) + np.multiply(noise, mask)
+    image = np.multiply(image, 1 - mask) + np.multiply(noise, mask)
 
-    params['image_processor'].imwrite (ghost, op.join(out_ghosts_dir, op.basename(ghostfile)))
+    params['image_processor'].imwrite (image, op.join(out_images_dir, op.basename(imagefile)))
 
 
 
-def negativeGrayspots (c, out_ghosts_dir, params = {}):
+def negativeGrayspots (c, out_images_dir, params = {}):
     '''
     Add some gray to the foreground of the source images.
-    Save resulting images in 'out_ghosts_dir'. Also save the new .db with new images
+    Save resulting images in 'out_images_dir'. Also save the new .db with new images
     '''
     logging.info ('=== negatives.negativeGrayspots ===')
-    logging.info ('out_ghosts_dir: %s' % out_ghosts_dir)
+    logging.info ('out_images_dir: %s' % out_images_dir)
     helperSetup.setParamUnlessThere (params, 'method',      'mask')
     helperSetup.setParamUnlessThere (params, 'debug_show',  False)
     helperSetup.setParamUnlessThere (params, 'noise_level', 30)
@@ -182,24 +178,24 @@ def negativeGrayspots (c, out_ghosts_dir, params = {}):
     helperSetup.setParamUnlessThere (params, 'blur_sigma',  2)
     helperSetup.setParamUnlessThere (params, 'relpath',     os.getenv('CITY_DATA_PATH'))
 
-    out_ghosts_dir = op.join(params['relpath'], out_ghosts_dir)
-    if not op.exists (out_ghosts_dir):
-        os.makedirs (out_ghosts_dir)
+    out_images_dir = op.join(params['relpath'], out_images_dir)
+    if not op.exists (out_images_dir):
+        os.makedirs (out_images_dir)
 
-    c.execute('SELECT imagefile, ghostfile FROM images')
+    c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
 
-    for (imagefile, ghostfile) in image_entries:
+    for (imagefile,) in image_entries:
         if params['method'] == 'circle':
-            _grayCircle_ (c, imagefile, out_ghosts_dir, params)
+            _grayCircle_ (c, imagefile, out_images_dir, params)
         elif params['method'] == 'mask':
-            _grayMasked_ (c, imagefile, out_ghosts_dir, params)
+            _grayMasked_ (c, imagefile, out_images_dir, params)
         else:
             raise Exception ('can not recognize method: %s' % params['method'])
 
-        # change the ghostfile entry in the db
-        new_ghostfile = op.relpath(op.join(out_ghosts_dir, op.basename(ghostfile)), params['relpath'])
-        c.execute('UPDATE images SET ghostfile=? WHERE imagefile=?', (new_ghostfile, imagefile))
+        # change the imagefile entry in the db
+        new_imagefile = op.relpath(op.join(out_images_dir, op.basename(imagefile)), params['relpath'])
+        c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (new_imagefile, imagefile))
 
     c.execute('DELETE FROM cars')
     c.execute('DELETE FROM matches')
@@ -254,7 +250,7 @@ def _getBboxesFromImage_ (image, num, params):
 def fillNegativeDbWithBboxes (c, params = {}):
     '''
     Populate negative db with negative bboxes.
-    The negative db contains ghostfiles which are ready negatives frames.
+    The negative db contains imagefiles which are ready negatives frames.
       Bboxes are extracted from there.
     '''
     logging.info ('=== negatives.fillNegativeDbWithBboxes ===')
@@ -282,16 +278,16 @@ def fillNegativeDbWithBboxes (c, params = {}):
 
     random.seed()
 
-    # get all ghostfiles
-    c.execute('SELECT imagefile, ghostfile FROM images')
+    # get all imagefiles
+    c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
     num_per_image = int(params['number'] / len(image_entries)) + 1
 
-    # find some good negative bboxes in each ghostfile. Insert them into the output db
+    # find some good negative bboxes in each imagefile. Insert them into the output db
     counter = 0
-    for (imagefile,ghostfile) in image_entries:
-        ghost = params['image_processor'].imread(ghostfile)
-        for bbox in _getBboxesFromImage_(ghost, num_per_image, params):
+    for (imagefile,) in image_entries:
+        image = params['image_processor'].imread(imagefile)
+        for bbox in _getBboxesFromImage_(image, num_per_image, params):
             logging.debug ('fillNegativeDbWithBboxes: writing bbox')
             s = 'cars(imagefile,name,x1,y1,width,height)'
             entry = (imagefile, 'negative', bbox[0], bbox[1], bbox[2], bbox[3])

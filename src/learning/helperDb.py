@@ -3,16 +3,17 @@ import json
 import sqlite3
 
 
-def checkTableExists (cursor, name):
+def checkTableExists (cursor, table):
     cursor.execute('''SELECT count(*) FROM sqlite_master 
-                      WHERE name=? AND type='table';''', (name,))
+                      WHERE name=? AND type='table';''', (table,))
     return cursor.fetchone()[0] != 0
 
 
-def checkEntryExists (cursor, table, field, value):
-    cursor.execute('SELECT count(*) FROM ? WHERE ? = ?', (table,field,value))
-    if cursor.fetchone()[0] == 0:
-        raise Exception ('table %s does not have %s = %s' % (table,field,str(value)))
+def isColumnInTable (cursor, table, column):
+    if not checkTableExists(cursor, table):
+        raise Exception ('table %s does not exist' % table)
+    cursor.execute('PRAGMA table_info(%s)' % table)
+    return column in [x[1] for x in cursor.fetchall()]
 
 
 def createTableImages (cursor):
@@ -21,7 +22,6 @@ def createTableImages (cursor):
                       src TEXT, 
                       width INTEGER, 
                       height INTEGER,
-                      ghostfile TEXT,
                       maskfile TEXT,
                       time TIMESTAMP
                       );''')
@@ -60,28 +60,22 @@ def createTableMatches (cursor):
                      );''')
 
 
-def createDbFromConn (conn):
+def createDb (conn):
     cursor = conn.cursor()
 
+    conn.execute('PRAGMA user_version = 2')
     #createTableSets(cursor)
     createTableImages(cursor)
     createTableCars(cursor)
     createTableMatches(cursor)
 
 
-# remove this
-def createDb (db_path):
-    conn = sqlite3.connect (db_path)
-    createDbFromConn (conn)
-    conn.commit()
-    conn.close()
-
-
-
 def createLabelmeDb (db_path):
     conn = sqlite3.connect (db_path)
     cursor = conn.cursor()
 
+    conn.execute('PRAGMA user_version = 2')
+    #createTableSets(cursor)
     createTableImages(cursor)
     createTableCars(cursor)
     createTablePolygons(cursor)
@@ -163,9 +157,8 @@ def getImageField (image, field):
     if field == 'src':       return image[1] 
     if field == 'width':     return image[2] 
     if field == 'height':    return image[3] 
-    if field == 'ghostfile': return image[4] 
-    if field == 'maskfile':  return image[5] 
-    if field == 'time':      return image[6] 
+    if field == 'maskfile':  return image[4] 
+    if field == 'time':      return image[5] 
     return None
 
 

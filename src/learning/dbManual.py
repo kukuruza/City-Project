@@ -186,16 +186,16 @@ def classifyName (c, params = {}):
     else:
         index_im = 0
 
-    c.execute('SELECT imagefile, ghostfile FROM images')
+    c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
 
     car_statuses = {}
     button = 0
     index_car = 0
     while button != 27 and index_im < len(image_entries):
-        (imagefile, ghostfile) = image_entries[index_im]
+        (imagefile,) = image_entries[index_im]
 
-        ghost = params['image_processor'].imread(ghostfile)
+        image = params['image_processor'].imread(imagefile)
 
         c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['car_constraint'], (imagefile,))
         car_entries = c.fetchall()
@@ -217,7 +217,7 @@ def classifyName (c, params = {}):
                 if label == 'object': label = ''
             logging.debug ('label: "' + (label or '') + '"')
 
-            display = ghost.copy()
+            display = image.copy()
             drawRoi (display, roi, label)
 
             disp_scale = params['disp_scale']

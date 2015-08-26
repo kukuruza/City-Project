@@ -13,7 +13,7 @@ class TestEmptyDb (unittest.TestCase):
 
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        createDbFromConn(self.conn)
+        createDb(self.conn)
 
     def tearDown (self):
         self.conn.close()
@@ -27,6 +27,17 @@ class TestEmptyDb (unittest.TestCase):
 
 
 class TestMicroDb (helperTesting.TestMicroDbBase):
+
+    def test_checkTableExists (self):
+        self.assertTrue  (checkTableExists(self.conn.cursor(), 'images'))
+        self.assertFalse (checkTableExists(self.conn.cursor(), 'dummy'))
+
+    def test_isColumnInTable (self):
+        c = self.conn.cursor()
+        self.assertTrue (isColumnInTable(c, 'images', 'width'))
+        self.assertFalse (isColumnInTable(c, 'images', 'dummy_column'))
+        with self.assertRaises(Exception): 
+            isColumnInTable(c, 'dummy_table', 'dummy')
     
     def test_queryField_normal (self):
         c = self.conn.cursor()
@@ -69,8 +80,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertEqual (getImageField(image_entry,'imagefile'), 'img1')
         self.assertEqual (getImageField(image_entry,'width'), 100)
         self.assertEqual (getImageField(image_entry,'height'), 100)
-        self.assertEqual (getImageField(image_entry,'src'), 'test')
-        self.assertEqual (getImageField(image_entry,'ghostfile'), 'ghost1')
+        self.assertEqual (getImageField(image_entry,'src'), 'src')
         self.assertEqual (getImageField(image_entry,'maskfile'), 'mask1')
         self.assertEqual (getImageField(image_entry,'time'), '2015-08-21 01:01:01.000')
 

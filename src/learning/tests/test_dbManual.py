@@ -15,7 +15,7 @@ class TestEmptyDb (unittest.TestCase):
 
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(self.conn)
+        helperDb.createDb (self.conn)
 
     def tearDown (self):
         self.conn.close()

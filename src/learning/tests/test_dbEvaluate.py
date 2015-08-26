@@ -12,7 +12,7 @@ class TestEmptyDb (unittest.TestCase):
 
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(self.conn)
+        helperDb.createDb (self.conn)
 
     def tearDown (self):
         self.conn.close()
@@ -34,7 +34,7 @@ class TestMicroDb (unittest.TestCase):
     def setUp (self):
 
         self.conn1 = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(self.conn1)
+        helperDb.createDb (self.conn1)
         c1 = self.conn1.cursor()
 
         s = 'images(imagefile,width,height)'
@@ -51,7 +51,7 @@ class TestMicroDb (unittest.TestCase):
 
 
         self.conn2 = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDbFromConn(self.conn2)
+        helperDb.createDb (self.conn2)
         c2 = self.conn2.cursor()
 
         s = 'images(imagefile,width,height)'
