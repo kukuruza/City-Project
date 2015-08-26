@@ -3,14 +3,14 @@ import json
 import sqlite3
 
 
-def checkTableExists (cursor, table):
+def doesTableExist (cursor, table):
     cursor.execute('''SELECT count(*) FROM sqlite_master 
                       WHERE name=? AND type='table';''', (table,))
     return cursor.fetchone()[0] != 0
 
 
 def isColumnInTable (cursor, table, column):
-    if not checkTableExists(cursor, table):
+    if not doesTableExist(cursor, table):
         raise Exception ('table %s does not exist' % table)
     cursor.execute('PRAGMA table_info(%s)' % table)
     return column in [x[1] for x in cursor.fetchall()]
@@ -85,53 +85,16 @@ def createLabelmeDb (db_path):
 
 
 
-
-
-#
-# delete one car keeping db consistancy
-#
 def deleteCar (cursor, carid):
+    ''' delete all information about a single car '''
     cursor.execute('DELETE FROM cars WHERE id=?;', (carid,));
-    if checkTableExists (cursor, 'polygons'):
+    cursor.execute('DELETE FROM matches  WHERE carid=?;', (carid,));
+    if doesTableExist (cursor, 'polygons'):
         cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
-    if checkTableExists (cursor, 'matches'):
-        cursor.execute('DELETE FROM matches  WHERE carid=?;', (carid,));
 
 
-
-
-#
-# delete everything associated with an imagefile from the db
-#
-def deleteAll4imagefile (cursor, imagefile):
-    #
-    # find and delete image file
-    cursor.execute('DELETE FROM images WHERE imagefile=(?)', (imagefile,));
-    #
-    # find and delete cars
-    cursor.execute('SELECT id FROM cars WHERE imagefile=(?);', (imagefile,));
-    carids = cursor.fetchall()
-    carids = [str(carid[0]) for carid in carids]
-    carids_str = '(' + ','.join(carids) + ')'
-    cursor.execute('DELETE FROM cars     WHERE id IN ' + carids_str);
-    #
-    # delete polygons for cars
-    cursor.execute('DELETE FROM polygons WHERE carid IN ' + carids_str);
-    #
-    # find and delete the matches
-    cursor.execute('SELECT match FROM matches WHERE carid IN ' + carids_str);
-    matches = cursor.fetchall()
-    matches = [str(match[0]) for match in matches]
-    matches_str = '(' + ','.join(matches) + ')'
-    cursor.execute('DELETE FROM matches  WHERE match IN ' + matches_str);
-    #
-    logging.debug ('delete cars, polygons, matches from table: ' + ','.join(carids))
-
-
-#
-# all knowledge about 'cars' table is here
-#
-def queryField (car, field):
+def carField (car, field):
+    ''' all knowledge about 'cars' table is here '''
     if field == 'id':        return car[0]
     if field == 'imagefile': return car[1] 
     if field == 'name':      return car[2] 
@@ -152,7 +115,7 @@ def queryField (car, field):
     return None
 
 
-def getImageField (image, field):
+def imageField (image, field):
     if field == 'imagefile': return image[0] 
     if field == 'src':       return image[1] 
     if field == 'width':     return image[2] 
@@ -162,7 +125,7 @@ def getImageField (image, field):
     return None
 
 
-def getPolygonField (polygon, field):
+def polygonField (polygon, field):
     if field == 'id':        return polygon[0]
     if field == 'carid':     return polygon[1]
     if field == 'x':         return polygon[2]

@@ -9,10 +9,10 @@ import glob
 import shutil
 import sqlite3
 sys.path.insert(0, os.path.abspath('..'))
-from helperDb import createLabelmeDb, deleteAll4imagefile, getImageField, queryField
+from helperDb import createLabelmeDb, queryField
 import helperDb
 import utilities
-from utilities import roi2bbox, image2ghost, getCenter, bbox2roi
+from utilities import roi2bbox, getCenter, bbox2roi
 import helperSetup
 
 sys.path.insert(0, os.path.abspath('annotations'))
@@ -302,8 +302,8 @@ def __processPair__ (c, imagefile1, imagefile2, params):
             c.execute('SELECT x1,y1,width,height FROM cars WHERE id = ?', (pair[1],))
             bbox2 = c.fetchone()
             bbox2 = (bbox2[0], bbox2[1]+height, bbox2[2], bbox2[3])
-            center1 = tuple(reversed(list(getCenter(bbox2roi(bbox1)))))
-            center2 = tuple(reversed(list(getCenter(bbox2roi(bbox2)))))
+            center1 = getCenter(bbox2roi(bbox1)
+            center2 = getCenter(bbox2roi(bbox2)
             cv2.line (imgpair, center1, center2, (255,0,0))
 
     if not pairs: logging.warning ('file has no valid polygons: ' + annotation_file)

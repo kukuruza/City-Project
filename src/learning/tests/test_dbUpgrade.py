@@ -5,7 +5,7 @@ import logging
 import sqlite3
 import unittest
 import helperTesting
-from helperDb import checkTableExists, isColumnInTable
+from helperDb import doesTableExist, isColumnInTable
 from dbUpgrade import *
 
 

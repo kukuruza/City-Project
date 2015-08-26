@@ -16,7 +16,7 @@ import json
 import sqlite3
 import numpy as np, cv2
 import helperDb
-from helperDb import queryField
+from helperDb import carField
 from utilities import bbox2roi
 import helperSetup
 import h5py
@@ -136,7 +136,7 @@ class PatchHelperHDF5 (PatchHelperBase):
 
 def collectPatches (c, out_dataset, params = {}):
     '''
-    Save car ghosts into out_dir. 
+    Save car patches into out_dir. 
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
@@ -155,11 +155,11 @@ def collectPatches (c, out_dataset, params = {}):
     for car_entry in car_entries:
 
         # get patch
-        imagefile = queryField (car_entry, 'imagefile')
+        imagefile = carField (car_entry, 'imagefile')
         image = params['image_processor'].imread(imagefile)
 
         # extract patch
-        bbox = queryField(car_entry, 'bbox')
+        bbox = carField(car_entry, 'bbox')
         roi = bbox2roi(bbox)
         patch = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
 
@@ -169,7 +169,7 @@ def collectPatches (c, out_dataset, params = {}):
             patch = cv2.resize(patch, params['resize'])
 
         # write patch
-        carid = queryField(car_entry, 'id')
+        carid = carField(car_entry, 'id')
         params['patch_helper'].writePatch(patch, carid, params['label'])
 
     params['patch_helper'].closeDataset()
@@ -180,7 +180,7 @@ def collectPatches (c, out_dataset, params = {}):
 def collectPatchesTask (db_path, filters_path, out_dir, params = {}):
     '''
     Cluster cars and save the patches in bulk, by "task".
-    Use filters to cluster and transform, and save the ghosts 
+    Use filters to cluster and transform, and save the patches 
     '''
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
     db_path      = op.join (params['relpath'], db_path)
@@ -213,7 +213,6 @@ def collectPatchesTask (db_path, filters_path, out_dir, params = {}):
         shutil.rmtree (out_dir)
     os.makedirs (out_dir)
 
-    ghostfile0 = None
     for filter_group in filters_groups:
         assert ('filter' in filter_group)
         logging.info ('filter group %s' % filter_group['filter'])
@@ -288,11 +287,11 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
 
         info_file = open(op.join(out_dir, filter_group['filter'] + '.dat'), 'w')
 
-        cursor.execute('SELECT imagefile, ghostfile FROM images')
+        cursor.execute('SELECT imagefile FROM images')
         imagefiles = cursor.fetchall()
 
         counter = 0
-        for (imagefile, ghostfile) in imagefiles:
+        for (imagefile,) in imagefiles:
             filter_group_im = dict(filter_group)
 
             if not 'constraint' in filter_group_im.keys():
@@ -308,12 +307,12 @@ def writeInfoFile (db_path, filters_path, out_dir, params = {}):
             if not car_entries:
                 continue
 
-            ghostpath = op.join (os.getenv('CITY_DATA_PATH'), ghostfile)
-            info_file.write (op.relpath(ghostpath, out_dir))
+            imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+            info_file.write (op.relpath(imagepath, out_dir))
             info_file.write (' ' + str(len(car_entries)))
 
             for car_entry in car_entries:
-                bbox = queryField(car_entry, 'bbox')
+                bbox = carField(car_entry, 'bbox')
                 # write several times, for generation multiple objects
                 for i in range(dupl_num):
                     info_file.write ('   ' + ' '.join(str(e) for e in bbox))

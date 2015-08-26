@@ -18,19 +18,19 @@ class TestEmptyDb (unittest.TestCase):
     def tearDown (self):
         self.conn.close()
 
-    def test_checkTableExists (self):
-        self.assertTrue  (checkTableExists (self.conn.cursor(), 'cars'))
-        self.assertTrue  (checkTableExists (self.conn.cursor(), 'images'))
-        self.assertTrue  (checkTableExists (self.conn.cursor(), 'matches'))
-        self.assertFalse (checkTableExists (self.conn.cursor(), 'dummy'))
+    def test_doesTableExist (self):
+        self.assertTrue  (doesTableExist (self.conn.cursor(), 'cars'))
+        self.assertTrue  (doesTableExist (self.conn.cursor(), 'images'))
+        self.assertTrue  (doesTableExist (self.conn.cursor(), 'matches'))
+        self.assertFalse (doesTableExist (self.conn.cursor(), 'dummy'))
 
 
 
 class TestMicroDb (helperTesting.TestMicroDbBase):
 
-    def test_checkTableExists (self):
-        self.assertTrue  (checkTableExists(self.conn.cursor(), 'images'))
-        self.assertFalse (checkTableExists(self.conn.cursor(), 'dummy'))
+    def test_doesTableExist (self):
+        self.assertTrue  (doesTableExist(self.conn.cursor(), 'images'))
+        self.assertFalse (doesTableExist(self.conn.cursor(), 'dummy'))
 
     def test_isColumnInTable (self):
         c = self.conn.cursor()
@@ -39,52 +39,52 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         with self.assertRaises(Exception): 
             isColumnInTable(c, 'dummy_table', 'dummy')
     
-    def test_queryField_normal (self):
+    def test_carField_normal (self):
         c = self.conn.cursor()
         # query car
         c.execute ('SELECT * FROM cars WHERE id == 1')
         car_entry = c.fetchone()
         self.assertIsNotNone (car_entry)
         # primary fields
-        self.assertEqual (queryField(car_entry,'id'), 1)
-        self.assertEqual (queryField(car_entry,'imagefile'), 'img1')
-        self.assertEqual (queryField(car_entry,'name'), 'sedan')
-        self.assertEqual (queryField(car_entry,'x1'), 24)
-        self.assertEqual (queryField(car_entry,'y1'), 42)
-        self.assertEqual (queryField(car_entry,'width'), 6)
-        self.assertEqual (queryField(car_entry,'height'), 6)
-        self.assertEqual (queryField(car_entry,'score'), 1)
-        self.assertEqual (queryField(car_entry,'yaw'), 180)
-        self.assertEqual (queryField(car_entry,'pitch'), 45)
-        self.assertEqual (queryField(car_entry,'color'), 'blue')
+        self.assertEqual (carField(car_entry,'id'), 1)
+        self.assertEqual (carField(car_entry,'imagefile'), 'img1')
+        self.assertEqual (carField(car_entry,'name'), 'sedan')
+        self.assertEqual (carField(car_entry,'x1'), 24)
+        self.assertEqual (carField(car_entry,'y1'), 42)
+        self.assertEqual (carField(car_entry,'width'), 6)
+        self.assertEqual (carField(car_entry,'height'), 6)
+        self.assertEqual (carField(car_entry,'score'), 1)
+        self.assertEqual (carField(car_entry,'yaw'), 180)
+        self.assertEqual (carField(car_entry,'pitch'), 45)
+        self.assertEqual (carField(car_entry,'color'), 'blue')
         # complex fields
-        self.assertEqual (queryField(car_entry,'bbox'), [24,42,6,6])
-        self.assertEqual (queryField(car_entry,'roi'),  [42,24,47,29])
+        self.assertEqual (carField(car_entry,'bbox'), [24,42,6,6])
+        self.assertEqual (carField(car_entry,'roi'),  [42,24,47,29])
 
-    def test_queryField_none (self):
+    def test_carField_none (self):
         c = self.conn.cursor()
         # query car
         c.execute ('SELECT * FROM cars WHERE id == 2')
         car_entry = c.fetchone()
         self.assertIsNotNone (car_entry)
         # primary fields
-        self.assertIsNone (queryField(car_entry,'color'))
+        self.assertIsNone (carField(car_entry,'color'))
 
-    def test_getImageField (self):
+    def test_imageField (self):
         c = self.conn.cursor()
         # query image
         c.execute ('SELECT * FROM images WHERE imagefile == "img1"')
         image_entry = c.fetchone()
         self.assertIsNotNone (image_entry)
         # fields
-        self.assertEqual (getImageField(image_entry,'imagefile'), 'img1')
-        self.assertEqual (getImageField(image_entry,'width'), 100)
-        self.assertEqual (getImageField(image_entry,'height'), 100)
-        self.assertEqual (getImageField(image_entry,'src'), 'src')
-        self.assertEqual (getImageField(image_entry,'maskfile'), 'mask1')
-        self.assertEqual (getImageField(image_entry,'time'), '2015-08-21 01:01:01.000')
+        self.assertEqual (imageField(image_entry,'imagefile'), 'img1')
+        self.assertEqual (imageField(image_entry,'width'), 100)
+        self.assertEqual (imageField(image_entry,'height'), 100)
+        self.assertEqual (imageField(image_entry,'src'), 'src')
+        self.assertEqual (imageField(image_entry,'maskfile'), 'mask1')
+        self.assertEqual (imageField(image_entry,'time'), '2015-08-21 01:01:01.000')
 
-    def test_getPolygonField (self):
+    def test_polygonField (self):
         c = self.conn.cursor()
         # add polygons, table and values
         createTablePolygons(c)
@@ -96,10 +96,10 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         polygon_entry = c.fetchone()
         self.assertIsNotNone (polygon_entry)
         # fields
-        self.assertEqual (getPolygonField(polygon_entry,'id'), 1)
-        self.assertEqual (getPolygonField(polygon_entry,'carid'), 1)
-        self.assertEqual (getPolygonField(polygon_entry,'x'), 10)
-        self.assertEqual (getPolygonField(polygon_entry,'y'), 10)
+        self.assertEqual (polygonField(polygon_entry,'id'), 1)
+        self.assertEqual (polygonField(polygon_entry,'carid'), 1)
+        self.assertEqual (polygonField(polygon_entry,'x'), 10)
+        self.assertEqual (polygonField(polygon_entry,'y'), 10)
 
 
 

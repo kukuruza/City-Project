@@ -31,9 +31,9 @@ class TestVideo (unittest.TestCase):
         c.execute ('SELECT * FROM images')
         image_entries = c.fetchall()
         self.assertEqual (len(image_entries), 3)
-        imagefile0 = helperDb.getImageField(image_entries[0], 'imagefile')
+        imagefile0 = helperDb.imageField(image_entries[0], 'imagefile')
         self.assertEqual (imagefile0, 'testdata/video/test/000000.jpg')
-        imagefile2 = helperDb.getImageField(image_entries[2], 'imagefile')
+        imagefile2 = helperDb.imageField(image_entries[2], 'imagefile')
         self.assertEqual (imagefile2, 'testdata/video/test/000002.jpg')
         conn.close()
 

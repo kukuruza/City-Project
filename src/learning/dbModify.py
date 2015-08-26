@@ -9,7 +9,7 @@ import os.path as op
 import glob
 import shutil
 import sqlite3
-from helperDb import deleteCar, queryField, checkTableExists, getImageField
+from helperDb import deleteCar, carField, imageField
 import helperDb
 import utilities
 from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio, drawRoi
@@ -52,15 +52,15 @@ def ratioProbability (roi, params):
 
 def __filterBorderCar__ (c, car_entry, params):
 
-    carid = queryField(car_entry, 'id')
-    roi = bbox2roi (queryField(car_entry, 'bbox'))
-    imagefile = queryField(car_entry, 'imagefile')
+    carid = carField(car_entry, 'id')
+    roi = bbox2roi (carField(car_entry, 'bbox'))
+    imagefile = carField(car_entry, 'imagefile')
 
     c.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
     (width,height) = c.fetchone()
 
     border_prob = 1
-    if checkTableExists(c, 'polygons'):
+    if helperDb.doesTableExist(c, 'polygons'):
         # get polygon
         c.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
         polygon_entries = c.fetchall()
@@ -93,9 +93,9 @@ def __filterBorderCar__ (c, car_entry, params):
 
 def __filterRatioCar__ (c, car_entry, params):
 
-    carid = queryField(car_entry, 'id')
-    roi = bbox2roi (queryField(car_entry, 'bbox'))
-    imagefile = queryField(car_entry, 'imagefile')
+    carid = carField(car_entry, 'id')
+    roi = bbox2roi (carField(car_entry, 'bbox'))
+    imagefile = carField(car_entry, 'imagefile')
 
     # get current score
     c.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
@@ -116,9 +116,9 @@ def __filterRatioCar__ (c, car_entry, params):
 
 def __filterSizeCar__ (c, car_entry, params):
 
-    carid = queryField(car_entry, 'id')
-    roi = bbox2roi (queryField(car_entry, 'bbox'))
-    imagefile = queryField(car_entry, 'imagefile')
+    carid = carField(car_entry, 'id')
+    roi = bbox2roi (carField(car_entry, 'bbox'))
+    imagefile = carField(car_entry, 'imagefile')
 
     # get current score
     c.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
@@ -141,9 +141,9 @@ def __expandCarBbox__ (c, car_entry, params):
 
     expand_perc = params['expand_perc']
     target_ratio = params['target_ratio']
-    carid = queryField(car_entry, 'id')
-    roi = bbox2roi (queryField(car_entry, 'bbox'))
-    imagefile = queryField(car_entry, 'imagefile')
+    carid = carField(car_entry, 'id')
+    roi = bbox2roi (carField(car_entry, 'bbox'))
+    imagefile = carField(car_entry, 'imagefile')
 
     c.execute('SELECT height, width FROM images WHERE imagefile=?', (imagefile,))
     (height, width) = c.fetchone()
@@ -181,9 +181,9 @@ def __clusterBboxes__ (c, imagefile, params):
     rois = []
     scores = []
     for car_entry in car_entries:
-        carid = queryField(car_entry, 'id')
-        roi = bbox2roi (queryField(car_entry, 'bbox'))
-        score = queryField(car_entry, 'score')
+        carid = carField(car_entry, 'id')
+        roi = bbox2roi (carField(car_entry, 'bbox'))
+        score = carField(car_entry, 'score')
         rois.append (roi)
         scores.append (score)
 
@@ -204,7 +204,7 @@ def __clusterBboxes__ (c, imagefile, params):
 
     # update db
     for car_entry in car_entries:
-        deleteCar (c, queryField(car_entry, 'id'))
+        deleteCar (c, carField(car_entry, 'id'))
     for i in range(len(rois_clustered)):
         roi = rois_clustered[i]
         score = scores[i]
@@ -438,8 +438,8 @@ def assignOrientations (c, params):
     car_entries = c.fetchall()
 
     for car_entry in car_entries:
-        carid = queryField (car_entry, 'id')
-        roi = bbox2roi (queryField (car_entry, 'bbox'))
+        carid = carField (car_entry, 'id')
+        roi = bbox2roi (carField (car_entry, 'bbox'))
         bc = bottomCenter(roi)
         if size_map[bc[0], bc[1]] > 0:
             yaw   = float(yaw_map   [bc[0], bc[1]])
@@ -447,7 +447,7 @@ def assignOrientations (c, params):
             c.execute('UPDATE cars SET yaw=?, pitch=? WHERE id=?', (yaw, pitch, carid))
 
 
-
+# to be removed
 def moveDir (c, params):
     logging.info ('==== moveDir ====')
 
@@ -461,16 +461,6 @@ def moveDir (c, params):
             newfile = op.join (params['images_dir'], op.basename (oldfile))
             c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
             c.execute('UPDATE cars SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
-
-    if 'ghosts_dir' in params:
-
-        c.execute('SELECT ghostfile FROM images ')
-        ghostfiles = c.fetchall()
-
-        for (oldfile,) in ghostfiles:
-            # op.basename (op.dirname(oldfile)), 
-            newfile = op.join (params['ghosts_dir'], op.basename (oldfile))
-            c.execute('UPDATE images SET ghostfile=? WHERE ghostfile=?', (newfile, oldfile))
 
     if 'masks_dir' in params:
 
@@ -510,7 +500,7 @@ def merge (c, cursor_add, params = {}):
     car_entries = cursor_add.fetchall()
 
     for car_entry in car_entries:
-        carid = queryField (car_entry, 'id')
+        carid = carField (car_entry, 'id')
         s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
         c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
 
@@ -535,9 +525,9 @@ def maskScores (c, params = {}):
     car_entries = c.fetchall()
 
     for car_entry in car_entries:
-        carid = queryField (car_entry, 'id')
-        bbox  = queryField (car_entry, 'bbox')
-        score = queryField (car_entry, 'score')
+        carid = carField (car_entry, 'id')
+        bbox  = carField (car_entry, 'bbox')
+        score = carField (car_entry, 'score')
         if not score: score = 1 
 
         center = bottomCenter(bbox2roi(bbox))
@@ -556,7 +546,7 @@ def polygonsToMasks (c, params = {}):
     c.execute('SELECT * FROM images')
     image_entries = c.fetchall()
 
-    imagefile = getImageField (image_entries[0], 'imagefile')
+    imagefile = imageField (image_entries[0], 'imagefile')
     folder = op.basename(op.dirname(imagefile))
     labelme_dir = op.dirname(op.dirname(op.dirname(imagefile)))
     maskdir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'Masks', folder)
@@ -567,7 +557,7 @@ def polygonsToMasks (c, params = {}):
     # copy images and possibly masks
     for image_entry in image_entries:
 
-        imagefile = getImageField (image_entry, 'imagefile')
+        imagefile = imageField (image_entry, 'imagefile')
         imagename = op.basename(imagefile)
         maskname = op.splitext(imagename)[0] + '.png'
         folder = op.basename(op.dirname(imagefile))
@@ -576,8 +566,8 @@ def polygonsToMasks (c, params = {}):
 
         c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
 
-        height = getImageField (image_entry, 'height')
-        width = getImageField (image_entry, 'width')
+        height = imageField (image_entry, 'height')
+        width = imageField (image_entry, 'width')
         mask = np.zeros((height, width), dtype=np.uint8)
 
         c.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))

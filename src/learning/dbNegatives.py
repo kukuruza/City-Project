@@ -56,10 +56,10 @@ def _grayCircle_ (c, imagefile, out_images_dir, params):
     logging.debug ('%d objects found in %s' % (len(car_entries), imagefile))
 
     for car_entry in car_entries:
-        bbox = helperDb.queryField(car_entry, 'bbox')
+        bbox = helperDb.carField(car_entry, 'bbox')
         spot_scale = params['spot_scale']
         axes = (int(bbox[2] * spot_scale / 2), int(bbox[3] * spot_scale / 2))
-        (cy, cx) = getCenter(bbox2roi(bbox))
+        (cx, cy) = getCenter(bbox2roi(bbox))
         cv2.ellipse (mask, (cx, cy), axes, 0, 0, 360, (255,255,255), -1)
 
     # blur the mask a little

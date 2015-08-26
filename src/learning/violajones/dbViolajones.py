@@ -12,7 +12,7 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import helperSetup
 from opencvInterface import loadJson, execCommand, ExperimentsBuilder
 from utilities import bbox2roi, drawRoi, drawScoredRoi, overlapRatio, expandRoiFloat, roi2bbox
-from helperDb import queryField, checkTableExists
+from helperDb import queryField, doesTableExist
 
 
 
@@ -60,9 +60,9 @@ def detectViolajones (c, model_path, params):
 
     # remove the ground truth
     c.execute('DELETE FROM cars')
-    if checkTableExists(c, 'matches'):
+    if doesTableExist(c, 'matches'):
         c.execute('DELETE FROM matches')
-    if checkTableExists(c, 'polygons'):
+    if doesTableExist(c, 'polygons'):
         c.execute('DROP TABLE polygons')
 
     c.execute('SELECT imagefile FROM images')
