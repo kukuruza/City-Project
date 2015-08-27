@@ -136,7 +136,7 @@ class PatchHelperHDF5 (PatchHelperBase):
 
 def collectPatches (c, out_dataset, params = {}):
     '''
-    Save car patches into out_dir. 
+    Save car patches into 'out_dataset', with provided label if any
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
@@ -147,12 +147,9 @@ def collectPatches (c, out_dataset, params = {}):
 
     params['patch_helper'].initDataset(out_dataset)
 
-    c.execute('SELECT * FROM cars WHERE %s' % params['constraint'])
-    car_entries = c.fetchall()
-    logging.info ('found %d patches' % len(car_entries))
-
     # write a patch for each entry
-    for car_entry in car_entries:
+    c.execute('SELECT * FROM cars WHERE %s' % params['constraint'])
+    for car_entry in c.fetchall():
 
         # get patch
         imagefile = carField (car_entry, 'imagefile')
@@ -173,6 +170,59 @@ def collectPatches (c, out_dataset, params = {}):
         params['patch_helper'].writePatch(patch, carid, params['label'])
 
     params['patch_helper'].closeDataset()
+
+
+def collectByMatch (c, out_dataset, params = {}):
+    '''
+    Save car patches into 'out_dataset', labeled by matches
+    Each db entry which satisfies the provided filters is saved as an image.
+    '''
+    logging.info ('==== collectGhosts ====')
+    helperSetup.setParamUnlessThere (params, 'label', None)
+    helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+
+    params['patch_helper'].initDataset(out_dataset)
+
+    # if 'matches' table is empty, add a match per car
+    c.execute('SELECT COUNT(*) FROM matches')
+    if c.fetchone()[0] == 0:
+        c.execute('SELECT id FROM cars')
+        for (carid,) in c.fetchall():
+            c.execute('INSERT INTO matches(match, carid) VALUES (?,?)', (carid, carid))
+
+    # get the list of matches
+    c.execute('SELECT DISTINCT(match) FROM matches')
+    match_entries = c.fetchall()
+
+    for (match,) in match_entries:
+        c.execute('''SELECT * FROM cars WHERE id IN 
+                     (SELECT carid FROM matches WHERE match == ?)''', (match,))
+
+        # write a patch for each entry
+        for car_entry in c.fetchall():
+    
+            # get patch
+            imagefile = carField (car_entry, 'imagefile')
+            image = params['image_processor'].imread(imagefile)
+
+            # extract patch
+            bbox = carField(car_entry, 'bbox')
+            roi = bbox2roi(bbox)
+            patch = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+
+            # resize if necessary. params['resize'] == (width,height)
+            if 'resize' in params.keys():
+                assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
+                patch = cv2.resize(patch, params['resize'])
+
+            # write patch
+            carid = carField(car_entry, 'id')
+            params['patch_helper'].writePatch(patch, carid, label=match)
+
+    params['patch_helper'].closeDataset()
+
+
 
 
 # FIXME: not tested

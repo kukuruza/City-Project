@@ -174,6 +174,43 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertFalse(op.exists('testdata/patches/label.txt'))
 
 
+    def test_collectByMatch (self):
+        out_dataset = 'testdata/patches'
+        patchHelper = PatchHelperHDF5({'relpath': '.'})
+        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
+        collectByMatch (self.conn.cursor(), out_dataset, params)
+
+        self.assertTrue (op.exists('testdata/patches.h5'))
+        with h5py.File ('testdata/patches.h5') as f:
+            self.assertEqual (helperH5.getNum(f), 3)
+            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+
+            self.assertEqual (helperH5.getLabel(f, 0), 1)
+            self.assertEqual (helperH5.getLabel(f, 1), 2)
+            self.assertEqual (helperH5.getLabel(f, 2), 2)
+
+
+    def test_collectByMatch_matchesEmpty (self):
+        # clear the matches table
+        self.conn.cursor().execute ('DELETE FROM matches')
+
+        out_dataset = 'testdata/patches'
+        patchHelper = PatchHelperHDF5({'relpath': '.'})
+        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
+        collectByMatch (self.conn.cursor(), out_dataset, params)
+
+        self.assertTrue (op.exists('testdata/patches.h5'))
+        with h5py.File ('testdata/patches.h5') as f:
+            self.assertEqual (helperH5.getNum(f), 3)
+            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+
+            self.assertEqual (helperH5.getLabel(f, 0), 1)
+            self.assertEqual (helperH5.getLabel(f, 1), 2)
+            self.assertEqual (helperH5.getLabel(f, 2), 3)
+
+
     
 
 if __name__ == '__main__':

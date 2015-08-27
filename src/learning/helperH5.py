@@ -35,6 +35,7 @@ def getImageDims (f):
     return (dims[1], dims[2], dims[0])
 
 def getNum (f):
+    if 'data' not in f: return 0
     return f['data'].len()
 
 

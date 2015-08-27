@@ -61,6 +61,11 @@ class TestHDF5 (unittest.TestCase):
     def test_getNum (self):
         self.assertEqual (getNum(self.f), 8)
 
+    def test_getNum_empty (self):
+        f = h5py.File ('empty', driver='core', backing_store=False)
+        self.assertEqual (getNum(f), 0)
+        h5py.File.close(f)
+
 
     def test_writeNextPatch (self):
         numImages = 100
