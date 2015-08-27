@@ -1,26 +1,26 @@
-% A thin wrapper around vision.ForegroundDetector and vision.BlobAnalysis
+classdef Background < BackgroundInterface
+    % Background takes in a video frame by frame and generates 
+    % A thin wrapper around vision.ForegroundDetector
+    %
+    % Can generate 
 
-classdef BackgroundGMM < BackgroundInterface
      properties
+         % matlab underlying object
          detector;
-         blob;
-         shapeInserter;
-
+         
          % one of two modes
          AdaptLearningRate;
          LearningRate;
          
          % mask refinement
+         denoise;
          fn_level = 22;
          fp_level = 1;
-         
-         % store result after every step
-         result = [];
 
      end % properties
      
      methods
-        function BS = BackgroundGMM (varargin)
+        function BS = Background (varargin)
             % parse and validate input
             parser = inputParser;
             addParameter(parser, 'AdaptLearningRate', true, @islogical);
@@ -29,16 +29,19 @@ classdef BackgroundGMM < BackgroundInterface
             addParameter(parser, 'MinimumBackgroundRatio', 0.9, @isscalar);
             addParameter(parser, 'NumGaussians', 2, @isscalar);
             addParameter(parser, 'InitialVariance', 15^2, @isscalar);
+            addParameter(parser, 'denoise', false, @islogical);
             addParameter(parser, 'fn_level', 22, @isscalar);
             addParameter(parser, 'fp_level', 1, @isscalar);
             addParameter(parser, 'minimum_blob_area', 50, @isscalar);
-            addParameter(parser, 'pretrain_video_path', '', @ischar);
-            addParameter(parser, 'pretrain_back_path', '', @ischar);
             parse (parser, varargin{:});
             parsed = parser.Results;
             
+            % used in both 'detector' init and the step
             BS.AdaptLearningRate = parsed.AdaptLearningRate;
             BS.LearningRate = parsed.LearningRate;
+            
+            % used if denoising is necessary
+            BS.denoise = parsed.denoise;
             BS.fn_level = parsed.fn_level;
             BS.fp_level = parsed.fp_level;
 
@@ -57,39 +60,14 @@ classdef BackgroundGMM < BackgroundInterface
                        'NumGaussians', parsed.NumGaussians, ...
                        'InitialVariance', parsed.InitialVariance);
             end
-                
-            BS.blob = vision.BlobAnalysis(...
-                   'CentroidOutputPort', false, ...
-                   'AreaOutputPort', false, ...
-                   'BoundingBoxOutputPort', true, ...
-                   'MinimumBlobAreaSource', 'Property', ...
-                   'MinimumBlobArea', parsed.minimum_blob_area);
-            BS.shapeInserter = vision.ShapeInserter(...
-                   'BorderColor','White', ...
-                   'Fill',true, ...
-                   'FillColor','White', ...
-                   'Opacity',0.2);
-               
-            if ~isempty(parsed.pretrain_video_path)
-                if ~isempty(parsed.pretrain_back_path)
-                    backimage = imread(parsed.pretrain_back_path);
-                    pretrainBackground (BS, parsed.pretrain_video_path, 'backimage', backimage);
-                else
-                    pretrainBackground (BS, parsed.pretrain_video_path);
-                end
-            else
-                warning ('BackgroundGMM careted but not pre-trained');
-            end
         end
          
          
-        function mask = subtract (BS, image, varargin)
+        function mask = step (BS, image)
             % parse and validate input
             parser = inputParser;
             addRequired(parser, 'image', @(x) ndims(x) == 3 && size(x,3) == 3);
-            addParameter(parser, 'denoise', false, @islogical);
-            parse (parser, image, varargin{:});
-            parsed = parser.Results;
+            parse (parser, image);
 
             % actual subtraction
             if BS.AdaptLearningRate == true
@@ -98,38 +76,10 @@ classdef BackgroundGMM < BackgroundInterface
                 mask = step(BS.detector, image, BS.LearningRate);
             end
 
-            % store result
-            BS.result = mask;
-
-            if parsed.denoise
+            if BS.denoise
                 mask = denoiseMask(mask, BS.fn_level, BS.fp_level);
             end
          end
-         
-        % bbox [x,y,w,h] 
-         function bboxes = mask2bboxes (BS, mask)
-             bboxes = step(BS.blob, mask);
-         end 
-         
-         
-         function im_out = drawboxes (BS, image, bboxes)
-             bboxes = [bboxes(:,1), bboxes(:,2), bboxes(:,3), bboxes(:,4)];
-             im_out = step(BS.shapeInserter, image, bboxes);
-         end
-
-         
-         % saving vision.ForegroundDetector is not trivial
-%          function save (BS, path)
-%             % parse and validate input
-%             parser = inputParser;
-%             addRequired(parser, 'path', @(x) exist(fileparts(x), 'dir'));
-%             parse (parser, path);
-%             
-%             feature('SystemObjectsFullSaveLoad',1);
-%             BS.
-% 
-%          end
-             
          
      end % methods
 

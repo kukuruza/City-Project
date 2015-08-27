@@ -35,7 +35,7 @@ while etime(t, t0) < numMinutes * 60
     frameWriter.writeNextFrame (frame);
     if t == t0, imwrite (frame, sampleImagePath); end
     t = clock;
-    fprintf(fid, '%f %f %f %f %f %f \n', t(1), t(2), t(3), t(4), t(5), t(6));
+    fprintf(fid, '%s', matlab2dbTime (t));
     toc
 end
 

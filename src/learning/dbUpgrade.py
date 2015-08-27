@@ -67,10 +67,30 @@ def upgrade2_paths (db_in_path):
     conn_ghost.close()
 
 
+def upgradeTimeFile (in_time_path, backup = True):
+    logging.info ('working with file: %s' % in_time_path)
+    with open(in_time_path) as f:
+        lines = f.readlines()
+    timestamps = []
+    for line in lines:
+        try:
+            timestamps.append('%04d-%02d-%02d %02d:%02d:%09.6f\n' % tuple([float(x) for x in line.split()]))
+        except Exception:
+            logging.info ('file is not a timestamps file')
+            return
+
+    if backup: shutil.copy(in_time_path, in_time_path + '.old')
+    with open(in_time_path, 'w') as f:
+        for timestamp in timestamps:
+            f.write (timestamp)
+        
+
+
+
 if __name__ == '__main__':
     setupLogging ('log/learning/UpgradeDb.log', logging.INFO, 'a')
-    #path = '/Users/evg/projects/City-Project/data/datasets/sparse/Databases/119-Apr09-13h-copy'
-    path = os.getenv('CITY_DATA_PATH')
-    for db_in_path in _find_files_ (path, '*.db'):
-        upgrade2_paths (db_in_path)
+    path = '/Users/evg/projects/City-Project/data/camdata'
+    #path = os.getenv('CITY_DATA_PATH')
+    for db_in_path in _find_files_ (path, '*.txt'):
+        upgradeTimeFile (db_in_path)
 

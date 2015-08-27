@@ -5,7 +5,7 @@ import helperDb
 
 
 def makeMicroDbVer2 ():
-    ''' Make a db of OLD that is used in many test cases '''
+    ''' Make a db that is used in many test cases '''
     conn = sqlite3.connect(':memory:')  # in RAM
     helperDb.createDb(conn)
     c = conn.cursor()
