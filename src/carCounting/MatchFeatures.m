@@ -18,10 +18,19 @@ sqlite3.open (db_path);
 
 %% input features
 features_path = fullfile(CITY_DATA_PATH, 'cnn/features/572-Oct30-17h-pair-ip1.txt');
-ids_and_features = dlmread(features_path);
-featureids = ids_and_features(:,1);     % the first column is car ids
-features  = ids_and_features(:,2:end);  % the rest is the features
+
+ids_and_features = importdata(features_path);
+featureID = ids_and_features.textdata;
+features  = ids_and_features.data;
 fprintf ('have read %d features, each of length %d.\n', size(features));
+count = length(featureID);
+
+featureids = zeros(count,1);
+for i = 1:count
+ s1 = featureID(i);
+ s2 = strrep(s1,'.png','');
+ featureids(i,1) = str2num(cell2mat(s2));
+end
 
 
 %% get all positives
@@ -53,21 +62,19 @@ for match = [matches.match];
             
             % a single positive sample
             positive = [feature1 feature2];
-            
-            % --- Shanghang's code to do smth with 'positive' ---
-            
             counter_pos = counter_pos + 1;
+            PosCase(counter_pos,:) = positive;
         end
     end
 end
-
+save('PosCase.mat', 'PosCase');
 fprintf ('found %d positive samples\n', counter_pos);
  
 
 %% get some negatives
 
 % required number of negatives
-numNegatives = 1000;
+numNegatives = 4000;
 
 % find the number of all cars
 numcars = length(featureids);
@@ -104,14 +111,13 @@ for i = 1 : size(randomPairs,2)
     % a single negative sample
     negative = [feature1 feature2];
             
-    % --- Shanghang's code to do smth with 'negative' ---
-            
     % condition to exit the loop
     if counter_neg == numNegatives, break, end
     
     counter_neg = counter_neg + 1;
+    NegCase(counter_neg,:) = negative;
 end
-
+save('NegCase.mat', 'NegCase');
 fprintf ('found %d negative samples\n', counter_neg);
 
 
