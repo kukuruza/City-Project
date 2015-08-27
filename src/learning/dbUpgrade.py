@@ -74,7 +74,7 @@ def upgradeTimeFile (in_time_path, backup = True):
     timestamps = []
     for line in lines:
         try:
-            timestamps.append('%04d-%02d-%02d %02d:%02d:%09.6f\n' % tuple([float(x) for x in line.split()]))
+            timestamps.append('%04d-%02d-%02d %02d:%02d:%02.6f\n' % tuple([float(x) for x in line.split()]))
         except Exception:
             logging.info ('file is not a timestamps file')
             return

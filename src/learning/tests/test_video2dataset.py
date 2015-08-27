@@ -25,6 +25,18 @@ class TestVideo (unittest.TestCase):
         self.conn.close()
 
 
+    def test_video2database_wrongTimeFormat (self):
+        c = self.conn.cursor()
+
+        video_path    = 'testdata/video/cam119.avi'
+        time_path    = 'testdata/video/wrongtime.txt'
+        out_image_dir = 'testdata/video/test/images'
+        out_mask_dir = 'testdata/video/test/masks'
+        params = {'relpath': '.', 'image_processor': self.imgProcessor}
+        with self.assertRaises(Exception): 
+            _video2dataset_ (c, video_path, video_path, time_path, out_image_dir, out_mask_dir, '', params)
+
+
     def test_video2database (self):
         c = self.conn.cursor()
 

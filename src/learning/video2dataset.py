@@ -4,6 +4,7 @@ import os, sys
 import os.path as op
 import logging
 import sqlite3
+import datetime
 import helperSetup
 import helperDb
 import helperImg
@@ -50,9 +51,15 @@ def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir,
         params['image_processor'].imwrite (frame, imagefile)
         params['image_processor'].maskwrite (mask, maskfile)
 
+        # get and validate time
+        timestamp = timestamps[counter].rstrip()
+        try:
+            datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        except ValueError:
+            raise ValueError('incorrect time "%s", expected YYYY-MM-DD HH-MM-SS.ffffff' % timestamp)
+
         # write .db entry
         (w,h) = frame.shape[0:2]
-        timestamp = timestamps[counter]
         s = 'images(imagefile,maskfile,src,width,height,time)'
         c.execute ('INSERT INTO %s VALUES (?,?,?,?,?,?)' % s, (imagefile,maskfile,name,w,h,timestamp))
 
