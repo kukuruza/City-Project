@@ -1,7 +1,7 @@
 % Go througb images and generate candidate regions to classify as car / not
 % The result is saved as SQL
 
-clear all
+clear all;
 
 % set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set

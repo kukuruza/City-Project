@@ -192,9 +192,9 @@ classdef GeometryEstimator < GeometryInterface
                 colorImg, norient, outputPath, numOfValidFiles, fileDump);
         
         % Detecting the extremes of the road    
-        [roadBinaryImage, displayImg] = detectRoadBoundary(grayImg,...
-        colorImg, vanishPoint, orientationMap, outputPath, numOfValidFiles, fileDump);                            
-    
+        [newVanishPoint, dominantEdges, displayImg] = detectRoadBoundary(...
+            colorImg, vanishPoint, orientationMap, outputPath, numOfValidFiles, fileDump)
+
         % Estimate the vanishingpoint and extremes of the lane
         % (based on several frames, offline processing)
         [vanishPoint, boundaryLanes, regionMask, debugImage] = ...

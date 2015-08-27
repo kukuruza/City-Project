@@ -8,12 +8,12 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % Reading the image and mask
 %camId = 572;
-image = imread(fullfile(CITY_DATA_PATH, 'models/cam572/cam572.png'));
+% image = imread(fullfile(CITY_DATA_PATH, 'models/cam572/cam572.png'));
+% mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
 
-mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam572/mapSize.tiff'));
 %camId = 671;
-% image = imread(fullfile(CITY_DATA_PATH, 'models/cam671/backimage-Mar24-12h.png'));
-% mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam671/mapSize.tiff'));
+image = imread(fullfile(CITY_DATA_PATH, 'models/cam671/backimage-Mar24-12h.png'));
+mapSize = imread(fullfile(CITY_DATA_PATH, 'models/cam671/mapSize.tiff'));
 
 % imagesc(mapSize)
 % waitforbuttonpress()
@@ -45,7 +45,7 @@ N = 50;
 if(~shuffle)
     debugImg = cands.drawCandidates(bboxes, image);
     imshow(debugImg)
-else 
+else
     % % Shuffle to output randomly
     bboxes = bboxes(randperm(size(bboxes,1)), :);
 
@@ -55,5 +55,5 @@ else
         debugImg = cands.drawCandidates(subset, image);
         figure(3); imshow(debugImg)
         waitforbuttonpress();
-    end    
+    end
 end

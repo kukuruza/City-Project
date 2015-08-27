@@ -12,7 +12,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input db
-db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed.db');
+db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed-image.db');
 sqlite3.open (db_path);
 
 

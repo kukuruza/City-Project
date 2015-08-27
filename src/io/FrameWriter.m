@@ -7,7 +7,7 @@ classdef FrameWriter < handle
         % writeNextFrame combines frameImgs into a single image
         %   as specified by interface implementation,
         %   and writes that frame
-        writeNextFrame(FW, images)
+        step (FW, images)
         
     end
 

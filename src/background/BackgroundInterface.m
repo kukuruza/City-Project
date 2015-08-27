@@ -10,13 +10,7 @@ classdef BackgroundInterface < handle
          % parameters:
          %   'denoise', {true, false}
          %   'merge', {true, false}
-         mask = subtract (BS, image, varargin)
-         
-         % given a mask, get boxes
-         bboxes = mask2bboxes (BS, mask)
-         
-         % draw provided boxes in the provided image
-         im_out = drawboxes (BS, image, bboxes)
+         mask = step (BS, image, varargin)
 
     end % methods
 end

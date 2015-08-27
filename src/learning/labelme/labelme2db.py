@@ -9,10 +9,11 @@ import glob
 import shutil
 import sqlite3
 sys.path.insert(0, os.path.abspath('..'))
-from dbInterface import createLabelmeDb, deleteAll4imagefile, getImageField, queryField
+from helperDb import createLabelmeDb, queryField
+import helperDb
 import utilities
-from utilities import roi2bbox, image2ghost, getCenter, bbox2roi
-import setupHelper
+from utilities import roi2bbox, getCenter, bbox2roi
+import helperSetup
 
 sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
@@ -29,16 +30,7 @@ def __pointsOfPolygon__ (annotation):
     return xs, ys
 
 
-def __createPolygonsTable__ (cursor):
-    cursor.execute('''CREATE TABLE IF NOT EXISTS polygons
-                     (id INTEGER PRIMARY KEY,
-                      carid TEXT, 
-                      x INTEGER,
-                      y INTEGER
-                      );''')
-
-
-def __processFrame__ (cursor, imagefile, params):
+def __processFrame__ (c, imagefile, params):
 
     # get paths and names
     (labelme_dir, folder) = utilities.somefile2dirs (imagefile)
@@ -106,12 +98,12 @@ def __processFrame__ (cursor, imagefile, params):
 
         # write to db
         s = 'cars(imagefile,name,x1,y1,width,height)'
-        cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
+        c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
 
-        carid = cursor.lastrowid
+        carid = c.lastrowid
         for i in range(len(xs)):
             polygon = (carid, xs[i], ys[i])
-            cursor.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
+            c.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
 
         if params['debug_show']: 
             #utilities.drawRoi (img, roi, (0,0), name, (255,255,255))
@@ -125,32 +117,20 @@ def __processFrame__ (cursor, imagefile, params):
 
 
 
-def folder2frames (db_in_path, db_out_path, params):
+def folder2frames (c, params):
 
-    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
-    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
-    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
-
-    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'folder2frames')
-    setupHelper.setupCopyDb (db_in_path, db_out_path)
-
-    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
+    logging.info ('==== folder2frames ====')
+    helperSetup.setParamUnlessThere (params, 'debug_show', False)
     params['parser'] = FrameParser()
 
-    conn = sqlite3.connect (db_out_path)
-    cursor = conn.cursor()
+    helperDb.createPolygonsTable(c)
 
-    __createPolygonsTable__(cursor)
-
-    cursor.execute('SELECT imagefile FROM images')
-    imagefiles = cursor.fetchall()
+    c.execute('SELECT imagefile FROM images')
+    imagefiles = c.fetchall()
 
     for (imagefile,) in imagefiles:
         logging.debug ('processing imagefile: ' + imagefile)
-        __processFrame__ (cursor, imagefile, params)
-
-    conn.commit()
-    conn.close()
+        __processFrame__ (c, imagefile, params)
 
 
 
@@ -162,14 +142,6 @@ def folder2frames (db_in_path, db_out_path, params):
 #   Each image is two vertically stacked frames
 #   Labelme annotations signify matches between frames
 #
-
-
-def __createMatchesTable__ (cursor):
-    cursor.execute('''CREATE TABLE IF NOT EXISTS matches
-                     (id INTEGER PRIMARY KEY,
-                      match INTEGER,
-                      carid INTEGER
-                      );''')
 
 
 def __bypartiteMatch__ (captions_t, captions_b, cars_t, cars_b, file_name):
@@ -217,7 +189,7 @@ def __bypartiteMatch__ (captions_t, captions_b, cars_t, cars_b, file_name):
 
 
 
-def __processPair__ (cursor, imagefile1, imagefile2, params):
+def __processPair__ (c, imagefile1, imagefile2, params):
 
     # get annotations
     (labelme_dir, folder) = utilities.somefile2dirs (imagefile1)
@@ -233,8 +205,8 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
     cars_t = []
     cars_b = []
 
-    cursor.execute('SELECT width,height FROM images WHERE imagefile = ?', (imagefile1,))
-    (width,height) = cursor.fetchone()
+    c.execute('SELECT width,height FROM images WHERE imagefile = ?', (imagefile1,))
+    (width,height) = c.fetchone()
 
     if params['debug_show']:
         amazonpair_name = imagename1strip + '-' + imagename2strip + '.jpg'
@@ -297,11 +269,11 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
 
         # write car to db
         s = 'cars(imagefile,name,x1,y1,width,height)'
-        cursor.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
-        carid = cursor.lastrowid
+        c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
+        carid = c.lastrowid
         for i in range(len(xs)):
             polygon = (carid,xs[i],ys[i])
-            cursor.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
+            c.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
 
         # write to either top or bottom stack
         if is_top:
@@ -316,22 +288,22 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
     # write matches to db
     for pair in pairs:
         # take the largest 'match' number
-        cursor.execute('SELECT MAX(match) FROM matches')
-        match = cursor.fetchone()[0]
+        c.execute('SELECT MAX(match) FROM matches')
+        match = c.fetchone()[0]
         match = 0 if match is None else match + 1
         # insert a match entry for every car. Matched car will have the same match.
         if pair[0]:
-            cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[0]))
+            c.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[0]))
         if pair[1]:
-            cursor.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[1]))
+            c.execute('INSERT INTO matches(match,carid) VALUES (?,?);', (match,pair[1]))
         if pair[0] and pair[1] and params['debug_show']:
-            cursor.execute('SELECT x1,y1,width,height FROM cars WHERE id = ?', (pair[0],))
-            bbox1 = cursor.fetchone()
-            cursor.execute('SELECT x1,y1,width,height FROM cars WHERE id = ?', (pair[1],))
-            bbox2 = cursor.fetchone()
+            c.execute('SELECT x1,y1,width,height FROM cars WHERE id = ?', (pair[0],))
+            bbox1 = c.fetchone()
+            c.execute('SELECT x1,y1,width,height FROM cars WHERE id = ?', (pair[1],))
+            bbox2 = c.fetchone()
             bbox2 = (bbox2[0], bbox2[1]+height, bbox2[2], bbox2[3])
-            center1 = tuple(reversed(list(getCenter(bbox2roi(bbox1)))))
-            center2 = tuple(reversed(list(getCenter(bbox2roi(bbox2)))))
+            center1 = getCenter(bbox2roi(bbox1)
+            center2 = getCenter(bbox2roi(bbox2)
             cv2.line (imgpair, center1, center2, (255,0,0))
 
     if not pairs: logging.warning ('file has no valid polygons: ' + annotation_file)
@@ -342,21 +314,21 @@ def __processPair__ (cursor, imagefile1, imagefile2, params):
 
 
 
-def __mergeSameCars__ (cursor, imagefile, params):
+def __mergeSameCars__ (c, imagefile, params):
 
-    cursor.execute('SELECT height,width FROM images WHERE imagefile=?', (imagefile,))
-    (height,width) = cursor.fetchone()
+    c.execute('SELECT height,width FROM images WHERE imagefile=?', (imagefile,))
+    (height,width) = c.fetchone()
     params['imgshape'] = (height,width)
 
-    cursor.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
-    carids = cursor.fetchall()
+    c.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
+    carids = c.fetchall()
     logging.debug (str(len(carids)) + ' objects found for ' + op.basename(imagefile))
 
     # collect polygons from all cars
     polygons = []
     for (carid,) in carids:
-        cursor.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
-        polygons.append(cursor.fetchall())
+        c.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
+        polygons.append(c.fetchall())
 
     # cluster rois
     rois_clustered, assignments = utilities.hierarchicalClusterPolygons (polygons, params)
@@ -396,74 +368,61 @@ def __mergeSameCars__ (cursor, imagefile, params):
         # change 1st car bbox to the cluster center
         bbox0 = roi2bbox(roi0)
         entry = (bbox0[0], bbox0[1], bbox0[2], bbox0[3], carid0)
-        cursor.execute('UPDATE cars SET x1=?, y1=?, width=?, height=? WHERE id=?', entry)
+        c.execute('UPDATE cars SET x1=?, y1=?, width=?, height=? WHERE id=?', entry)
 
         # check the names
         names = []
         for carid in cluster:
-            cursor.execute('SELECT name FROM cars WHERE id = ?', (carid,))
-            (name,) = cursor.fetchone()
+            c.execute('SELECT name FROM cars WHERE id = ?', (carid,))
+            (name,) = c.fetchone()
             names.append(name)
         if len(set(names)) > 1:
             logging.warning ('carid: ' + str(carid0) + ' has several names: ' + str(names))
 
         # get the match of the 1st car
-        cursor.execute('SELECT match FROM matches WHERE carid = ?', (carid0,))
-        match0 = cursor.fetchone()
+        c.execute('SELECT match FROM matches WHERE carid = ?', (carid0,))
+        match0 = c.fetchone()
         if match0 is None: continue;   # it was a duplicate car (error in labelling)
 
         # all other cars in cluster -- update all that match with them and then delete them
         for j in range(1, len(cluster)):
             carid = cluster[j]
-            cursor.execute('DELETE FROM cars WHERE id = ?', (carid,));
-            cursor.execute('SELECT match FROM matches WHERE carid = ?', (carid,))
-            match = cursor.fetchone()
+            c.execute('DELETE FROM cars WHERE id = ?', (carid,));
+            c.execute('SELECT match FROM matches WHERE carid = ?', (carid,))
+            match = c.fetchone()
             if match is None: continue;   # it was a duplicate car (error in labelling)
-            cursor.execute('UPDATE matches SET match = ? WHERE match = ?', (match0[0], match[0]))
-            cursor.execute('DELETE FROM matches WHERE carid = ?', (carid,));
+            c.execute('UPDATE matches SET match = ? WHERE match = ?', (match0[0], match[0]))
+            c.execute('DELETE FROM matches WHERE carid = ?', (carid,));
 
-        cursor.execute('SELECT carid FROM matches WHERE match = ?', match0)
-        newids = cursor.fetchall()
+        c.execute('SELECT carid FROM matches WHERE match = ?', match0)
+        newids = c.fetchall()
         logging.debug ('match: ' + str(match0[0]) + ' has cars: ' + str(newids))
 
 
 
-def folder2pairs (db_in_path, db_out_path, params):
+def folder2pairs (c, params):
 
-    CITY_DATA_PATH = setupHelper.get_CITY_DATA_PATH()
-    db_in_path   = op.join(CITY_DATA_PATH, db_in_path)
-    db_out_path  = op.join(CITY_DATA_PATH, db_out_path)
-
-    setupHelper.setupLogHeader (db_in_path, db_out_path, params, 'folder2pairs')
-    setupHelper.setupCopyDb (db_in_path, db_out_path)
-
-    params = setupHelper.setParamUnlessThere (params, 'debug_show', False)
-    params = setupHelper.setParamUnlessThere (params, 'threshold', 0.6)
+    logging.info ('==== folder2pairs ====')
+    helperSetup.setParamUnlessThere (params, 'debug_show', False)
+    helperSetup.setParamUnlessThere (params, 'threshold', 0.6)
     params['parser'] = PairParser()
 
-    conn = sqlite3.connect (db_out_path)
-    cursor = conn.cursor()
+    helperDb.createPolygonsTable (c)
 
-    __createPolygonsTable__(cursor)
-    __createMatchesTable__(cursor)
-
-    cursor.execute('SELECT imagefile FROM images')
-    imagefiles = cursor.fetchall()
+    c.execute('SELECT imagefile FROM images')
+    imagefiles = c.fetchall()
 
     # match top and bottom of every image
     for i in range(len(imagefiles)-1):
         (imagefile1,) = imagefiles[i]
         (imagefile2,) = imagefiles[i+1]
         logging.debug ('processing imagepair: ' + imagefile1 + ' - ' + imagefile2)
-        __processPair__ (cursor, imagefile1, imagefile2, params)
+        __processPair__ (c, imagefile1, imagefile2, params)
 
     # merge bottom-image1 to top-image2
     for (imagefile,) in imagefiles:
         logging.debug ('merging cars in imagefile: ' + imagefile)
-        __mergeSameCars__ (cursor, imagefile, params)
+        __mergeSameCars__ (c, imagefile, params)
 
-    cursor.execute('DROP TABLE polygons')
-
-    conn.commit()
-    conn.close()
+    c.execute('DROP TABLE polygons')
 
