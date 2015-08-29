@@ -17,12 +17,13 @@ import sqlite3
 import numpy as np, cv2
 import helperDb
 from helperDb import carField
-from utilities import bbox2roi
+from utilities import bbox2roi, expandRoiFloat
 import helperSetup
 import h5py
 import datetime  # to print creation timestamp in readme.txt
 import helperH5
 import helperImg
+import helperKeys
 
 
 '''
@@ -134,6 +135,92 @@ class PatchHelperHDF5 (PatchHelperBase):
 # the end of PatchHelper-s #
 
 
+
+
+
+from scipy.ndimage.interpolation import rotate
+from scipy.ndimage import gaussian_filter
+
+def _distortPatch_ (image, roi, params = {}):
+    '''
+    Distort original patch in several ways. 
+    Write down all 'number' output patches.
+    Constrast +/- is not supported at the moment.
+    '''
+    helperSetup.setParamUnlessThere (params, 'number', 1)
+    helperSetup.setParamUnlessThere (params, 'flip', False)
+    helperSetup.setParamUnlessThere (params, 'blur',        0)
+    helperSetup.setParamUnlessThere (params, 'contrast',    0)
+    helperSetup.setParamUnlessThere (params, 'color',       0)
+    helperSetup.setParamUnlessThere (params, 'scale',       0)
+    helperSetup.setParamUnlessThere (params, 'rotate_deg',  0)
+    helperSetup.setParamUnlessThere (params, 'transl_perc', 0)
+    helperSetup.setParamUnlessThere (params, 'debug', False)
+    helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
+    assert len(image.shape) == 3 and image.shape[2] == 3
+    N = params['number']
+
+    # trivial case
+    if N == 1: return [image[roi[0]:roi[2], roi[1]:roi[3], :]]
+
+    # take care of the borders
+    # TODO: is 'edge' or 'constant' padding is better?
+    #
+    pad = max(roi[3]-roi[1], roi[2]-roi[0]) * 1
+    padded = np.pad(image, ((pad,pad),(pad,pad),(0,0)), 'edge')
+    assert padded.shape[2] == 3
+
+    # extract a bigger patch, and make an array of them
+    roiBig = [roi[0], roi[1], roi[2]+2*pad, roi[3]+2*pad]
+    patch0 = padded[roiBig[0]:roiBig[2], roiBig[1]:roiBig[3], :]
+
+    # make random modifying parameters
+    flips  = np.random.choice ([False, True], size=N)
+    degs   = np.random.uniform (-params['rotate_deg'], params['rotate_deg'], size=N)
+    scales = np.random.uniform (-params['scale'], params['scale'], size=N)
+    blurs  = abs(np.random.randn(N)) * params['blur']
+    colors = np.random.uniform (-params['color'] * 255, params['color'] * 255, size=N)
+    dmax   = params['transl_perc'] * pad
+    dws    = np.random.uniform (low = -dmax, high = dmax, size=N)
+    dhs    = np.random.uniform (low = -dmax, high = dmax, size=N)
+
+    patches = []
+
+    # apply modifications
+    for i in range(N):
+        roiSm  = [pad, pad, patch0.shape[0]-pad, patch0.shape[1]-pad]
+        patch = patch0.copy()
+        if params['flip'] and flips[i]: 
+            patch = np.fliplr(patch)
+        if params['rotate_deg']: 
+            patch = rotate (patch, degs[i], axes=(1,0), reshape=False)
+        if params['blur']:
+            patch = gaussian_filter(patch, sigma=blurs[i])
+        if params['transl_perc']: 
+            roiSm = [roiSm[0]+dhs[i], roiSm[1]+dws[i], roiSm[2]+dhs[i], roiSm[3]+dws[i]]
+        if params['scale']:
+            roiSm = expandRoiFloat (roiSm, patch.shape[0:2], (scales[i], scales[i]))
+        if params['color']:
+            patch = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
+            patch[:,:,0] += colors[i]
+            patch = cv2.cvtColor(patch, cv2.COLOR_HSV2BGR)
+
+        # crop to correct size
+        patch = patch[roiSm[0]:roiSm[2], roiSm[1]:roiSm[3], :]
+        if params['scale']: patch = cv2.resize(patch, (roi[3]-roi[1], roi[2]-roi[0]))
+
+        # display patch
+        if params['debug'] and ('key' not in locals() or key != 27):
+            cv2.imshow('debug', patch)
+            key = params['key_reader'].readKey()
+            if key == 27: cv2.destroyWindow('debug')
+
+        patches.append(patch)
+
+    return patches
+
+
+
 def collectPatches (c, out_dataset, params = {}):
     '''
     Save car patches into 'out_dataset', with provided label if any
@@ -156,20 +243,22 @@ def collectPatches (c, out_dataset, params = {}):
         image = params['image_processor'].imread(imagefile)
 
         # extract patch
-        bbox = carField(car_entry, 'bbox')
-        roi = bbox2roi(bbox)
-        patch = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+        roi = carField(car_entry, 'roi')
+        patches = _distortPatch_ (image, roi, params)
 
-        # resize if necessary. params['resize'] == (width,height)
-        if 'resize' in params.keys():
-            assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
-            patch = cv2.resize(patch, params['resize'])
+        for patch in patches:
 
-        # write patch
-        carid = carField(car_entry, 'id')
-        params['patch_helper'].writePatch(patch, carid, params['label'])
+            # resize if necessary. params['resize'] == (width,height)
+            if 'resize' in params.keys():
+                assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
+                patch = cv2.resize(patch, params['resize'])
+
+            # write patch
+            carid = carField(car_entry, 'id')
+            params['patch_helper'].writePatch(patch, carid, params['label'])
 
     params['patch_helper'].closeDataset()
+
 
 
 def collectByMatch (c, out_dataset, params = {}):
@@ -207,18 +296,19 @@ def collectByMatch (c, out_dataset, params = {}):
             image = params['image_processor'].imread(imagefile)
 
             # extract patch
-            bbox = carField(car_entry, 'bbox')
-            roi = bbox2roi(bbox)
-            patch = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+            roi = carField(car_entry, 'roi')
+            patches = _distortPatch_ (image, roi, params)
 
-            # resize if necessary. params['resize'] == (width,height)
-            if 'resize' in params.keys():
-                assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
-                patch = cv2.resize(patch, params['resize'])
+            for patch in patches:
 
-            # write patch
-            carid = carField(car_entry, 'id')
-            params['patch_helper'].writePatch(patch, carid, label=match)
+                # resize if necessary. params['resize'] == (width,height)
+                if 'resize' in params.keys():
+                    assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
+                    patch = cv2.resize(patch, params['resize'])
+
+                # write patch
+                carid = carField(car_entry, 'id')
+                params['patch_helper'].writePatch(patch, carid, label=match)
 
     params['patch_helper'].closeDataset()
 

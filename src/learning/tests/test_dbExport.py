@@ -7,6 +7,7 @@ import unittest
 import helperTesting
 import shutil
 from dbExport import *
+from dbExport import _distortPatch_
 
 
 class TestPatchHelperFolder (unittest.TestCase):
@@ -108,6 +109,57 @@ class TestPatchHelperHDF5 (unittest.TestCase):
 
 
 
+class TestDistortPatch (unittest.TestCase):
+
+    def setUp (self):
+        self.Malevich = np.ones((100,100,3), dtype=np.uint8) * 255
+        self.bluePatch = np.zeros((20,10,3), dtype=np.uint8)
+        self.bluePatch[:,:,0] = 100
+        self.Malevich[40:60,45:55,:] = self.bluePatch
+        self.params = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
+                       'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
+
+    def test_distortPatch_trivial (self) :
+        patches = _distortPatch_ (self.Malevich, [40,45,60,55])
+        self.assertIsInstance (patches, list)
+        self.assertEqual (len(patches), 1)
+        self.assertTrue (np.array_equal(patches[0], self.bluePatch))
+
+    def test_distortPatch_allOnWhite (self):
+        white = np.ones((100,100,3), dtype=np.uint8) * 255
+        patches = _distortPatch_ (white, [40,45,60,55], self.params)
+        self.assertIsInstance (patches, list)
+        self.assertEqual (len(patches), 10)
+        for patch in patches:
+            self.assertEqual (patch.shape, (20,10,3))
+            self.assertTrue (np.mean(patch) > 250)
+
+    def test_distortPatch_Malevich (self):
+        patches = _distortPatch_ (self.Malevich, [40,45,60,55], self.params)
+        self.assertIsInstance (patches, list)
+        self.assertEqual (len(patches), 10)
+        for patch in patches:
+            self.assertTrue (patch.dtype == np.uint8)
+            self.assertEqual (patch.shape, (20,10,3))
+            self.assertTrue (np.mean(patch[:,:,1:2]) < 100)
+
+    def test_distortPatch_border (self):
+        white = np.ones((100,100,3), dtype=np.uint8) * 255
+        patches = _distortPatch_ (white, [0,0,20,10], self.params)
+        self.assertIsInstance (patches, list)
+        self.assertEqual (len(patches), 10)
+        for patch in patches:
+            self.assertEqual (patch.shape, (20,10,3))
+            self.assertTrue (np.mean(patch) > 250)
+
+    def test_distortPatch_debugSeveral (self):
+        sequence = [32, 32, 27]
+        self.params['key_reader'] = helperKeys.KeyReaderSequence(sequence)
+        self.params['debug'] = True
+        patches = _distortPatch_ (self.Malevich, [40,45,60,55], self.params)
+
+
+
 class TestMicroDb (helperTesting.TestMicroDbBase):
 
     def tearDown (self):
@@ -174,6 +226,23 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertFalse(op.exists('testdata/patches/label.txt'))
 
 
+    def test_collectPatches_hdf5_distort (self):
+        out_dataset = 'testdata/patches'
+        patchHelper = PatchHelperHDF5({'relpath': '.'})
+        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
+        paramsDist = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
+                      'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
+        params.update(paramsDist)
+        collectPatches (self.conn.cursor(), out_dataset, params)
+
+        self.assertTrue (op.exists('testdata/patches.h5'))
+        with h5py.File ('testdata/patches.h5') as f:
+            self.assertEqual (helperH5.getNum(f), 30)
+            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+
+
+
     def test_collectByMatch (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
@@ -209,6 +278,23 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
             self.assertEqual (helperH5.getLabel(f, 0), 1)
             self.assertEqual (helperH5.getLabel(f, 1), 2)
             self.assertEqual (helperH5.getLabel(f, 2), 3)
+
+
+    def test_collectByMatch_distort (self):
+        out_dataset = 'testdata/patches'
+        patchHelper = PatchHelperHDF5({'relpath': '.'})
+        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
+        paramsDist = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
+                      'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
+        params.update(paramsDist)
+        collectByMatch (self.conn.cursor(), out_dataset, params)
+
+        self.assertTrue (op.exists('testdata/patches.h5'))
+        with h5py.File ('testdata/patches.h5') as f:
+            self.assertEqual (helperH5.getNum(f), 30)
+            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+
 
 
     
