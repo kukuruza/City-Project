@@ -1,5 +1,5 @@
-import os, sys, os.path as op
-sys.path.insert(0, os.path.abspath('..'))
+import os, sys
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import random
 import logging
 import sqlite3
@@ -21,7 +21,7 @@ class TestVideo (unittest.TestCase):
         self.conn = conn
 
     def tearDown(self):
-        if op.exists('testdata/video/test'): shutil.rmtree ('testdata/video/test')
+        if os.path.exists('testdata/video/test'): shutil.rmtree ('testdata/video/test')
         self.conn.close()
 
 

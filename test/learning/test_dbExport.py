@@ -1,5 +1,5 @@
 import os, sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import random
 import logging
 import sqlite3
@@ -116,7 +116,7 @@ class TestDistortPatch (unittest.TestCase):
         self.bluePatch = np.zeros((20,10,3), dtype=np.uint8)
         self.bluePatch[:,:,0] = 100
         self.Malevich[40:60,45:55,:] = self.bluePatch
-        self.params = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
+        self.params = {'number': 10, 'flip': True, 'blur': 0.25, 'color': 0.05,
                        'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
 
     def test_distortPatch_trivial (self) :

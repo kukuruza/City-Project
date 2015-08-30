@@ -1,5 +1,5 @@
 import os, sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import random
 import logging
 import sqlite3
