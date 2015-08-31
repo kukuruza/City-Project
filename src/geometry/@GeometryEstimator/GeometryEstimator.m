@@ -166,8 +166,6 @@ classdef GeometryEstimator < GeometryInterface
         % position of the car and overlaying for visualization
         [probMap, overlaidImg] = generateProbMap(obj, carOrPoint, frameDiff, image);
         
-        % Drawing the lanes according to the belief
-        
     end
     
     %% Methods that are hidden and private to the class
@@ -199,5 +197,10 @@ classdef GeometryEstimator < GeometryInterface
         % (based on several frames, offline processing)
         [vanishPoint, boundaryLanes, regionMask, debugImage] = ...
                             estimateRoad(frame, binaryImgPath, noFrames);
+                        
+        % RANSAC methods for vanishing point and line segment
+        [inliers, vPts] = ransacLineSegments(lines, imSize);
+        
+        [bestVP, inliers] = ransacVanishPoint(lines, image, offset);
     end
 end

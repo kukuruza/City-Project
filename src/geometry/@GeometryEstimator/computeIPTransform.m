@@ -29,7 +29,7 @@ function ipHomography  = computeIPTransform(obj, image, laneRatio, laneWidth)
     
     % Vanishing points go to each other
     % Center of the frame at the current y of vanishPt
-    % pts1 = [imageSize(2)/2; obj.road.vanishPt(2)]; 
+    % pts1 = [imageSize(2)/2; obj.road.vanishPt(2)];
     % pts2 = obj.road.vanishPt;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
