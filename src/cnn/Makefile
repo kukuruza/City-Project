@@ -14,7 +14,8 @@ LIBRARY = -L/usr/lib/x86_64-linux-gnu/ -lprotobuf \
 					-L ${HOME}/src/caffe-rc2/build/lib/ -lcaffe
 
 all:
-	$(CC) $(INCLUDE) predict.cpp -o predict $(LIBRARY)
-	$(CC) $(INCLUDE) extract_features.cpp -o extract_features $(LIBRARY)
-	$(CC) $(INCLUDE) extract_features_text.cpp -o extract_features_text $(LIBRARY)
+	mkdir -p $(CITY_PATH)/build/cnn
+	$(CC) $(INCLUDE) predict.cpp -o $(CITY_PATH)/build/cnn/predict $(LIBRARY)
+	$(CC) $(INCLUDE) extract_features.cpp -o $(CITY_PATH)/build/cnn/extract_features $(LIBRARY)
+	$(CC) $(INCLUDE) extract_features_text.cpp -o $(CITY_PATH)/build/cnn/extract_features_text $(LIBRARY)
 	
