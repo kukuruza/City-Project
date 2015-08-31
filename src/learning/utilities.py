@@ -28,9 +28,7 @@ def image2ghost (image, backimage):
     return np.uint8((np.int32(image) - np.int32(backimage)) / 2 + 128)
 
 def getCenter (roi):
-    return (int((roi[0] + roi[2]) * 0.5), int((roi[1] + roi[3]) * 0.5))
-
-def getOpencvCenter (roi):
+    ''' returns (x,y) '''
     return (int((roi[1] + roi[3]) * 0.5), int((roi[0] + roi[2]) * 0.5))
 
 def bottomCenter (roi):

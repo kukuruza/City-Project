@@ -6,7 +6,7 @@ import glob
 import json
 import sqlite3
 import numpy as np, cv2
-from dbInterface import queryCars, queryField
+from dbInterface import carField
 from utilities import bbox2roi
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/cnn'))
 from DeploymentPatches import DeploymentPatches
@@ -72,19 +72,17 @@ class CnnClassifier:
 
         for car_entry in car_entries:
 
-            # get the ghost
-            imagefile = queryField(car_entry, 'imagefile')
-            c.execute('SELECT ghostfile FROM images WHERE imagefile = ?', (imagefile,))
-            (ghostfile,) = c.fetchone()
-            ghostpath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-            if not op.exists (ghostpath):
-                raise Exception ('ghostfile does not exist: %s' % ghostpath)
-            ghost = cv2.imread(ghostpath)
+            # get the image
+            imagefile = carField(car_entry, 'imagefile')
+            imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
+            if not op.exists (imagepath):
+                raise Exception ('imagepath does not exist: %s' % imagepath)
+            image = cv2.imread(imagepath)
 
             # extract patch
-            bbox = queryField(car_entry, 'bbox')
+            bbox = carField(car_entry, 'bbox')
             roi = bbox2roi(bbox)
-            patch = ghost [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+            patch = image [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
             # resize
             patch = cv2.resize(patch, tuple(params['resize']))
 
@@ -92,6 +90,6 @@ class CnnClassifier:
             label = self.deployment.classify(patch)
 
             # save label
-            carid = queryField(car_entry, 'id')
+            carid = carField(car_entry, 'id')
             c.execute('UPDATE cars SET name=? WHERE id=?', (label, carid))
 

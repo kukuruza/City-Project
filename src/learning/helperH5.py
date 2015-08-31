@@ -35,10 +35,11 @@ def getImageDims (f):
     return (dims[1], dims[2], dims[0])
 
 def getNum (f):
+    if 'data' not in f: return 0
     return f['data'].len()
 
 
-def writeNextPatch (f, image, image_id, label = None):
+def writeNextPatch (f, image, image_id, label):
     ''' Write a patch to open hdf5 file 'f', with its id and label. '''
 
     image = np.transpose(image.astype('float32'), (2,0,1)) # will be CHxHxW
@@ -49,56 +50,63 @@ def writeNextPatch (f, image, image_id, label = None):
     if 'data' not in f:
         dset_data = f.create_dataset('data', (0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(500,d1,d2,d3))
         dset_ids  = f.create_dataset('ids',  (0,1,1,1),    maxshape=(None,1,1,1), chunks=(500,1,1,1))
-        if label is not None:
-            dset_label = f.create_dataset('label', (0,1,1,1), maxshape=(None,1,1,1), chunks=(500,1,1,1))
+        dset_label = f.create_dataset('label', (0,1,1,1), maxshape=(None,1,1,1), chunks=(500,1,1,1))
 
     # resize to one more
     numImages = getNum (f)
     f['data'].resize  (numImages+1, axis=0)
     f['ids'].resize   (numImages+1, axis=0)
-    if label is not None:
-        f['label'].resize (numImages+1, axis=0)
+    f['label'].resize (numImages+1, axis=0)
 
     f['data'][numImages,:,:,:] = image
     f['ids'] [numImages,0,0,0] = image_id
-    if label is not None:
-        f['label'][numImages,0,0,0] = label
+    f['label'][numImages,0,0,0] = label
 
 
 
-def mergeH5 (in_f1, in_f2, out_f):
+def mergeH5 (in_f1, in_f2, out_f, params = {}):
     ''' Concatenate 'in_f2' to the end of 'in_f1'. Save the output as 'out_f'. '''
     logging.info ('=== exporting.mergeHDF5 ===')
+    helperSetup.setParamUnlessThere (params, 'shuffle', False)
 
     data1  = in_f1['data'][:]
     ids1   = in_f1['ids'][:]
-    label1 = in_f1['label'][:] if 'label' in in_f1 else None
+    label1 = in_f1['label'][:]
     assert data1.size != 0
     assert ids1.size != 0
     assert len(ids1.shape) == 4
-    assert label1 is None or len(label1.shape) == 4
+    assert len(label1.shape) == 4
 
     data2  = in_f2['data'][:]
     ids2   = in_f2['ids'][:]
-    label2 = in_f2['label'][:] if 'label' in in_f2 else None
+    label2 = in_f2['label'][:]
     assert data2.size != 0
     assert ids2.size != 0
     assert len(ids2.shape) == 4
-    assert label2 is None or len(label2.shape) == 4
+    assert len(label2.shape) == 4
 
     # make sure the patches have the same dimensions
     assert (list(data1.shape)[1:] == list(data2.shape)[1:])
     # make sure labels are present or not present in both files
-    assert (label1 is not None and label2 is not None) or (label1 is None and label2 is None)
+    assert label1 is not None and label2 is not None
     # make sure ids are present in both files
     assert ids1 is not None and ids2 is not None
 
     # TODO: if dataset are too big, need to avoid adding them in memory
 
-    out_f['data'] = np.vstack((data1, data2))
-    out_f['ids']  = np.vstack((ids1, ids2))
-    if label1 is not None: 
-        out_f['label']  = np.vstack((label1, label2))
+    data = np.vstack((data1, data2))
+    ids = np.vstack((ids1, ids2))
+    labels = np.vstack((label1, label2))
+
+    if params['shuffle']:
+        order = np.random.permutation(data.shape[0])
+        data = data[order,:,:,:]
+        ids = ids[order,:,:,:]
+        labels = labels[order,:,:,:]
+
+    out_f['data'] = data
+    out_f['ids']  = ids
+    out_f['label']  = labels
 
 
 

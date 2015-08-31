@@ -21,7 +21,7 @@ sqlite3.open (db_path);
 
 % read imagefiles
 imagefiles = sqlite3.execute('SELECT imagefile,time FROM images');
-a = zeros(100, 1);
+
 for i = 1 : length(imagefiles)
     imagefile = imagefiles(i).imagefile;
     img = imread(fullfile(CITY_DATA_PATH, imagefile));
@@ -40,13 +40,12 @@ for i = 1 : length(imagefiles)
         car = Car (bbox, timestamp, car_entry.name);
         img = car.drawCar (img);
     end
-    a(i) = length(car_entries);
     
-   % imshow(img)
-   % waitforbuttonpress
-    
+    imshow(img)
+
+   waitforbuttonpress
 end
-save('DetectionCount.mat','a');
+
 sqlite3.close();
 
 

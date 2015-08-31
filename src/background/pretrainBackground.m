@@ -1,32 +1,27 @@
 function pretrainBackground (background, videoPath, varargin)
-% train the background model from video using GHOST frames.
-%   it is a workaround for the Matlab bug in saving / loading background
-%   Hopefully, will find a solution to save the trained background
+% Train the background model using the first 100 frames of a video, 
+%   so that the mask is ok right from the beginning of the main video
 %
 % input:
-%   background - object of BackgroundGMM
-%   videoDir
-%   'ghost', true/false. If true (default) will use ghost image to train
+%   background - object of Background
+%   videoPath
 
 % validate inputs
 parser = inputParser;
-addRequired(parser, 'background', @(x) isa(x, 'BackgroundGMM'));
+addRequired(parser, 'background', @(x) isa(x, 'Background'));
 addRequired(parser, 'videoPath', @(x) exist(x, 'file'));
-addParameter(parser, 'backimage', []);
 addParameter(parser, 'verbose', 0, @isscalar);
 parse (parser, background, videoPath, varargin{:});
 parsed = parser.Results;
 
-frameReader = FrameReaderVideo (videoPath); 
+inVideo  = vision.VideoFileReader(videoPath, 'VideoOutputDataType','uint8');
 for t = 1 : 100
-    [img, ~] = frameReader.getNewFrame();
-    if ~isempty(parsed.backimage)
-        img = image2ghost(img, parsed.backimage);
-    end
-    result = background.subtract(img, 'denoise', false);
+    [frame, eof] = step(inVideo);
+    if eof, break; end
+    result = background.step (frame);
     if parsed.verbose
-        imshow([img uint8(result(:,:,[1 1 1]))*255])
+        imshow([frame uint8(result(:,:,[1 1 1]))*255])
         waitforbuttonpress
     end
 end
-clear frameReader
+clear inVideo

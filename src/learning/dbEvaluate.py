@@ -8,7 +8,7 @@ import sqlite3
 import cv2
 import time
 from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
-from helperDb import queryField
+from helperDb import carField
 import helperDb
 import helperSetup
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/violajones'))
@@ -24,14 +24,14 @@ def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
     car_entries = cursor_true.fetchall()
     truth = []
     for car_entry in car_entries:
-        truth.append( bbox2roi (queryField(car_entry, 'bbox')) )
+        truth.append( bbox2roi (carField(car_entry, 'bbox')) )
 
     # roi-s from detections
     cursor_eval.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = cursor_eval.fetchall()
     detected = []
     for car_entry in car_entries:
-        detected.append( bbox2roi (queryField(car_entry, 'bbox')) )
+        detected.append( bbox2roi (carField(car_entry, 'bbox')) )
 
     # performance on this image
     hits   = 0
@@ -43,7 +43,7 @@ def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
         best_dist = 1
         for t in truth:
             best_dist = min (1 - overlapRatio(d,t), best_dist)
-        logging.debug('id: %d, its best distance: %f' % (queryField(car_entry,'id'), best_dist) )
+        logging.debug('id: %d, its best distance: %f' % (carField(car_entry,'id'), best_dist) )
         if best_dist < params['dist_thresh']:
             hits += 1
             misses -= 1

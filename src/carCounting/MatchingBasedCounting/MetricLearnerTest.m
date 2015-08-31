@@ -12,7 +12,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input and ground truth
 
 % input images
-imDir = ['camera572/'];
+imDir = [CITY_DATA_PATH '2-min/camera572/'];
 imPath{1} = [imDir 'image0000.jpg'];
 imPath{2} = [imDir 'image0002.jpg'];
 imPath{3} = [imDir 'image0003.jpg'];
@@ -63,6 +63,17 @@ corresp{2} = ...
  0 0 0 0 0; ...
  0 0 0 0 0 ...
 ];
+% 
+% corresp{3} = ...
+% [
+%  1 0 0 0 0 0 0 0; ...
+%  0 0 0 1 0 0 0 0; ...
+%  0 0 0 0 1 0 0 0; ...
+%  0 0 0 0 0 1 0 0; ...
+%  0 0 0 0 0 0 0 0; ...
+%  0 0 0 0 0 0 0 0 ...
+% ];
+
 corresp{3} = ...
 [
  1 0 0 0 0 0 0 ; ...
@@ -72,6 +83,21 @@ corresp{3} = ...
  0 0 0 0 0 0 0 ; ...
  0 0 0 0 0 0 0  ...
 ];
+
+
+%% check that input patches are correct
+% 
+% for iIm = 1 : 3
+%     im = imread(imPath{iIm});
+%     imshow(im);
+%     waitforbuttonpress
+%     for j = 1 : size(bboxes{iIm},1)
+%         bbox = bboxes{iIm}(j,:);
+%         patch = im (bbox(2) : bbox(2)+bbox(4)-1, bbox(1) : bbox(1)+bbox(3)-1, :);
+%         imshow(patch);
+%         waitforbuttonpress
+%     end
+% end
 
 
 %% do computation
@@ -88,7 +114,6 @@ objectFile = 'GeometryObject_Camera_572.mat';
 load(objectFile);
 fprintf(strcat('Read Geometry object from file, might not be the latest version\n' , ...
     'Update if made changes to GeometryEstimator class\n'));
-
 counting = MetricLearner(geom); % pass necessary arguments to constructor
 count0 = size(bboxes{1},1); % initial should be the number of cars in the first frame
 

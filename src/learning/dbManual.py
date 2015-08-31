@@ -3,7 +3,7 @@ import cv2
 import os, sys
 import os.path as op
 import logging
-from helperDb import deleteCar, queryField
+from helperDb import deleteCar, carField
 import helperDb
 from utilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi
 import utilities
@@ -38,10 +38,10 @@ def show (c, params = {}):
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
         for car_entry in car_entries:
-            carid     = queryField(car_entry, 'id')
-            roi       = bbox2roi (queryField(car_entry, 'bbox'))
-            score     = queryField(car_entry, 'score')
-            #name      = queryField(car_entry, 'name')
+            carid     = carField(car_entry, 'id')
+            roi       = bbox2roi (carField(car_entry, 'bbox'))
+            score     = carField(car_entry, 'score')
+            #name      = carField(car_entry, 'name')
 
             logging.debug ('roi: ' + str(roi) + ', score: %f' % score)
 
@@ -112,11 +112,11 @@ def examine (c, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid     = queryField(car_entry, 'id')
-            roi       = bbox2roi (queryField(car_entry, 'bbox'))
-            imagefile = queryField(car_entry, 'imagefile')
-            name      = queryField(car_entry, 'name')
-            color     = queryField(car_entry, 'color')
+            carid     = carField(car_entry, 'id')
+            roi       = bbox2roi (carField(car_entry, 'bbox'))
+            imagefile = carField(car_entry, 'imagefile')
+            name      = carField(car_entry, 'name')
+            color     = carField(car_entry, 'color')
 
             # TODO: color based on score
 
@@ -186,16 +186,16 @@ def classifyName (c, params = {}):
     else:
         index_im = 0
 
-    c.execute('SELECT imagefile, ghostfile FROM images')
+    c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
 
     car_statuses = {}
     button = 0
     index_car = 0
     while button != 27 and index_im < len(image_entries):
-        (imagefile, ghostfile) = image_entries[index_im]
+        (imagefile,) = image_entries[index_im]
 
-        ghost = params['image_processor'].imread(ghostfile)
+        image = params['image_processor'].imread(imagefile)
 
         c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['car_constraint'], (imagefile,))
         car_entries = c.fetchall()
@@ -205,19 +205,19 @@ def classifyName (c, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid = queryField(car_entry, 'id')
-            roi = bbox2roi (queryField(car_entry, 'bbox'))
-            imagefile = queryField(car_entry, 'imagefile')
+            carid = carField(car_entry, 'id')
+            roi = bbox2roi (carField(car_entry, 'bbox'))
+            imagefile = carField(car_entry, 'imagefile')
 
             # assign label for display
             if carid in car_statuses.keys():
                 label = car_statuses[carid]
             else:
-                label = queryField(car_entry, 'name')
+                label = carField(car_entry, 'name')
                 if label == 'object': label = ''
             logging.debug ('label: "' + (label or '') + '"')
 
-            display = ghost.copy()
+            display = image.copy()
             drawRoi (display, roi, label)
 
             disp_scale = params['disp_scale']
@@ -320,15 +320,15 @@ def classifyColor (c, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid     = queryField(car_entry, 'id')
-            roi       = bbox2roi (queryField(car_entry, 'bbox'))
-            imagefile = queryField(car_entry, 'imagefile')
+            carid     = carField(car_entry, 'id')
+            roi       = bbox2roi (carField(car_entry, 'bbox'))
+            imagefile = carField(car_entry, 'imagefile')
 
             # assign label for display
             if carid in car_statuses.keys():
                 label = car_statuses[carid]
             else:
-                label = queryField(car_entry, 'color')
+                label = carField(car_entry, 'color')
             logging.debug ('label: "' + (label or '') + '"')
 
             img_show = img.copy()
@@ -408,14 +408,14 @@ def __drawMatch__ (img, roi1, roi2):
     roi2[2] += offsetY
     drawRoi (img, roi1, None, color)
     drawRoi (img, roi2, None, color)
-    center1 = utilities.getOpencvCenter(roi1)
-    center2 = utilities.getOpencvCenter(roi2)
+    center1 = utilities.getCenter(roi1)
+    center2 = utilities.getCenter(roi2)
     cv2.line(img, center1, center2, color)
 
 
 def __findPressedCar__ (x, y, cars):
     for i in range(len(cars)):
-        roi = queryField(cars[i], 'roi')
+        roi = carField(cars[i], 'roi')
         if x >= roi[1] and x < roi[3] and y >= roi[0] and y < roi[2]:
             return i
     return None 
@@ -487,8 +487,8 @@ def labelMatches (c, params = {}):
         logging.info ('%d cars found for %s' % (len(cars2), imagefile2))
 
         # draw cars in both images
-        for car in cars1: drawRoi (img1, queryField(car, 'roi'))
-        for car in cars2: drawRoi (img2, queryField(car, 'roi'))
+        for car in cars1: drawRoi (img1, carField(car, 'roi'))
+        for car in cars2: drawRoi (img2, carField(car, 'roi'))
 
         i1 = i2 = None
 
@@ -513,12 +513,12 @@ def labelMatches (c, params = {}):
                         s = '''SELECT match FROM matches WHERE carid = ?
                                INTERSECT
                                SELECT match FROM matches WHERE carid = ?'''
-                        c.execute(s, (queryField(car1, 'id'), queryField(car2, 'id')))
+                        c.execute(s, (carField(car1, 'id'), carField(car2, 'id')))
                         matches = c.fetchall()
                         if len(matches) > 0:
                             assert len(matches) == 1  # no duplicate matches
-                            roi1 = queryField(car1, 'roi')
-                            roi2 = queryField(car2, 'roi')
+                            roi1 = carField(car1, 'roi')
+                            roi2 = carField(car2, 'roi')
                             __drawMatch__ (img_stack, roi1, roi2)
                             matchesOf1[j1] = matches[0][0]
                             matchesOf2[j2] = matches[0][0]
@@ -559,8 +559,8 @@ def labelMatches (c, params = {}):
 
                 else:
                     # add the match to the list
-                    carid1 = queryField(cars1[i1], 'id')
-                    carid2 = queryField(cars2[i2], 'id')
+                    carid1 = carField(cars1[i1], 'id')
+                    carid2 = carField(cars2[i2], 'id')
                     logging.debug ('i1 = %d, i2 = %d' % (i1, i2))
                     logging.info ('detected a match')
 
@@ -572,8 +572,8 @@ def labelMatches (c, params = {}):
                     c.execute('INSERT INTO matches(match, carid) VALUES (?,?)', (matchid, carid2))
 
                     # display the match
-                    roi1 = queryField(cars1[i1], 'roi')
-                    roi2 = queryField(cars2[i2], 'roi')
+                    roi1 = carField(cars1[i1], 'roi')
+                    roi2 = carField(cars2[i2], 'roi')
                     roi2[0] += yoffset
                     roi2[1] += yoffset
                     __drawMatch__ (img_stack, roi1, roi2)
@@ -599,7 +599,7 @@ def labelMatches (c, params = {}):
             # if any car was selected, and it is matched
             if i1 is not None and i1 in matchesOf1:
                 match = matchesOf1[i1]
-                carid1 = queryField(cars1[i1], 'id')
+                carid1 = carField(cars1[i1], 'id')
                 logging.info ('deleting match %d' % match)
                 c.execute('DELETE FROM matches WHERE match = ? AND carid = ?', (match, carid1))
             else:
