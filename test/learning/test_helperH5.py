@@ -23,8 +23,7 @@ class TestHDF5 (unittest.TestCase):
         ids = np.arange (numImages, dtype=int)
         ids = np.reshape (ids, (numImages,1,1,1))
         # labels
-        labels = np.arange (numImages, dtype=int)
-        labels = np.reshape (labels, (numImages,1,1,1))
+        labels = ids.copy()
         # create in-memory hdf5 file with 'numImages' of shape WxH = 24x18
         self.f = h5py.File ('in', driver='core', backing_store=False)
         self.f['data']  = data
@@ -92,16 +91,6 @@ class TestHDF5 (unittest.TestCase):
             for i in range(numImages):
                 writeNextPatch (out_f, image, image_id=i, label=i)
 
-    def test_writeNextPatch_noLabel (self):
-        numImages = 100
-        image = np.arange (18*24*3, dtype=np.uint8)
-        image = np.reshape (image, (18,24,3))
-        with h5py.File ('out', driver='core', backing_store=False) as out_f:
-            for i in range(numImages):
-                writeNextPatch (out_f, image, image_id=i, label=None)
-            self.assertEqual (getNum(out_f), numImages)
-            with self.assertRaises(Exception): getLabel(out_f, 0)
-
 
     def test_viewPatches_sequential (self):
         keys = helperKeys.getCalibration()
@@ -129,8 +118,24 @@ class TestHDF5 (unittest.TestCase):
             self.assertEqual (getImageDims(out_f), (18,24,3))
             self.assertEqual (out_f['label'][:].shape, (16,1,1,1))
             self.assertEqual (out_f['ids'][:].shape,   (16,1,1,1))
-            self.assertEqual (getLabel(out_f, 4), 4)
-            self.assertEqual (getLabel(out_f, 12), 4) # the same as label[12-8]
+            for i in range(8):
+                self.assertEqual (getLabel(out_f, i), i)
+                self.assertEqual (getLabel(out_f, i+8), i)
+
+
+    def test_mergeH5_shuffle (self):
+        # create in-memory hdf5 file for output
+        with h5py.File ('out', driver='core', backing_store=False) as out_f:
+            mergeH5 (self.f, self.f, out_f, {'shuffle': True})
+            self.assertEqual (getNum(out_f), 16)
+            self.assertIsNotNone (out_f['data'][:])
+            self.assertIsNotNone (out_f['label'][:])
+            self.assertIsNotNone (out_f['ids'][:])
+            self.assertEqual (getImageDims(out_f), (18,24,3))
+            self.assertEqual (out_f['label'][:].shape, (16,1,1,1))
+            self.assertEqual (out_f['ids'][:].shape,   (16,1,1,1))
+            for i in range(16):
+                self.assertEqual (getLabel(out_f, i), getId(out_f, i))
 
 
 

@@ -104,8 +104,8 @@ class TestPatchHelperHDF5 (unittest.TestCase):
             self.assertEqual (helperH5.getImageDims(f), (18,24,3))
             self.assertEqual (helperH5.getId(f, 0), 0)
             self.assertEqual (helperH5.getId(f, 1), 1)
-            with self.assertRaises(Exception): helperH5.getLabel(f, 0)
-            with self.assertRaises(Exception): helperH5.getLabel(f, 1)
+            self.assertEqual (helperH5.getLabel(f, 0), 3141592)
+            self.assertEqual (helperH5.getLabel(f, 1), 3141592)
 
 
 

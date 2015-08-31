@@ -128,6 +128,7 @@ class PatchHelperHDF5 (PatchHelperBase):
         h5py.File.close (self.f)
 
     def writePatch (self, patch, carid, label = None):
+        if label is None: label = 3141592  # magic dummy label is always written to hdf5
         logging.debug ('writing patch #%d' % carid)
         helperH5.writeNextPatch (self.f, patch, carid, label)
 
