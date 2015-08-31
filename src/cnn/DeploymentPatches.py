@@ -21,8 +21,10 @@ class DeploymentPatches:
         self.net = caffe.Net(network_path, model_path, caffe.TEST)
 
         self.transformer = caffe.io.Transformer({'data': self.net.blobs['data'].data.shape})
-        self.transformer.set_transpose('data', (2,0,1))
-        if not scaled_training:
+	self.transformer.set_transpose('data', (2,0,1))
+        self.transformer.set_channel_swap('data', (2,1,0))
+	self.transformer.set_mean_value('data',0.5)
+	if not scaled_training:
             self.transformer.set_raw_scale('data', 255)  # reference model operates on [0,255] range instead of [0,1]
 
         # Flip channels takes place because model is trained aand expects OpenCV representation of BGR.
@@ -43,17 +45,21 @@ class DeploymentPatches:
         assert patch.shape[2] == 3  # 3-channels
         assert patch.dtype == np.dtype('uint8')
 
-        patch = patch.astype(np.float32) / 255
+        patch = patch.astype(np.float32)/ 255
         
         self.net.blobs['data'].data[...] = self.transformer.preprocess('data', patch)
         out = self.net.forward()
-        return out['output']
+	#print out['prob'].argmax()
+	#print 'hi: ', out
+	print("Predicted class is #{}.".format(out['prob'].argmax()))
+	#print 'NEXT'
+        return out['prob']
 
 
 if __name__ == "__main__":
     network_path = op.join(os.getenv('CITY_DATA_PATH'), 'cnn/prototxt-files/deploy_python.prototxt')
     model_path   = op.join(os.getenv('CITY_DATA_PATH'), 'cnn/models/city_quick_iter_4000.caffemodel')
-    deployment = DeploymentPatches(network_path, model_path)
-    patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/negative-40x30.png'))
+    deployment = DeploymentPatches(network_path, model_path,True)
+    patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/car-40x30.png'))
     label = deployment.classify(patch)
     print("Predicted class is #{}.".format(label))
