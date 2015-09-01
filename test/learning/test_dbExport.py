@@ -296,6 +296,22 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
             self.assertEqual (helperH5.getImageDims(f), (18,24,3))
 
 
+    def test_collectByMatch_constraint (self):
+        out_dataset = 'testdata/patches'
+        patchHelper = PatchHelperHDF5({'relpath': '.'})
+        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
+        params['constraint'] = 'name = "truck"'
+        paramsDist = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
+                      'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
+        params.update(paramsDist)
+        collectByMatch (self.conn.cursor(), out_dataset, params)
+
+        self.assertTrue (op.exists('testdata/patches.h5'))
+        with h5py.File ('testdata/patches.h5') as f:
+            self.assertEqual (helperH5.getNum(f), 20)
+            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+
 
     
 

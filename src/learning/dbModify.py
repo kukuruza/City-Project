@@ -493,6 +493,7 @@ def merge (c, cursor_add, params = {}):
             logging.warning ('duplicate image found ' + imagefile) 
             continue
         # insert image
+        logging.info ('merge: insert imagefile: %s' % (imagefile,))
         c.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
     
     # copy cars

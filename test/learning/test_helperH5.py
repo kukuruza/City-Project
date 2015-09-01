@@ -26,9 +26,12 @@ class TestHDF5 (unittest.TestCase):
         labels = ids.copy()
         # create in-memory hdf5 file with 'numImages' of shape WxH = 24x18
         self.f = h5py.File ('in', driver='core', backing_store=False)
-        self.f['data']  = data
-        self.f['ids']   = ids
-        self.f['label'] = labels
+        self.f.create_dataset('data',  (8,3,18,24), maxshape=(None,3,18,24))
+        self.f.create_dataset('ids',   (8,1,1,1),   maxshape=(None,1,1,1))
+        self.f.create_dataset('label', (8,1,1,1),   maxshape=(None,1,1,1))
+        self.f['data'][:]  = data
+        self.f['ids'][:]   = ids
+        self.f['label'][:] = labels
 
     def tearDown (self):
         h5py.File.close(self.f)
@@ -107,10 +110,10 @@ class TestHDF5 (unittest.TestCase):
         viewPatches (self.f, params = {'random': True, 'key_reader': keyReader})
 
 
-    def test_mergeH5 (self):
+    def test_merge (self):
         # create in-memory hdf5 file for output
         with h5py.File ('out', driver='core', backing_store=False) as out_f:
-            mergeH5 (self.f, self.f, out_f)
+            merge (self.f, self.f, out_f)
             self.assertEqual (getNum(out_f), 16)
             self.assertIsNotNone (out_f['data'][:])
             self.assertIsNotNone (out_f['label'][:])
@@ -123,19 +126,32 @@ class TestHDF5 (unittest.TestCase):
                 self.assertEqual (getLabel(out_f, i+8), i)
 
 
-    def test_mergeH5_shuffle (self):
-        # create in-memory hdf5 file for output
-        with h5py.File ('out', driver='core', backing_store=False) as out_f:
-            mergeH5 (self.f, self.f, out_f, {'shuffle': True})
-            self.assertEqual (getNum(out_f), 16)
-            self.assertIsNotNone (out_f['data'][:])
-            self.assertIsNotNone (out_f['label'][:])
-            self.assertIsNotNone (out_f['ids'][:])
-            self.assertEqual (getImageDims(out_f), (18,24,3))
-            self.assertEqual (out_f['label'][:].shape, (16,1,1,1))
-            self.assertEqual (out_f['ids'][:].shape,   (16,1,1,1))
-            for i in range(16):
-                self.assertEqual (getLabel(out_f, i), getId(out_f, i))
+    def test_multipleOf (self):
+        multipleOf (self.f, multiple = 3)
+        self.assertEqual (getNum(self.f), 6)
+        self.assertIsNotNone (self.f['data'][:])
+        self.assertIsNotNone (self.f['label'][:])
+        self.assertIsNotNone (self.f['ids'][:])
+        self.assertEqual (getImageDims(self.f), (18,24,3))
+        self.assertEqual (self.f['label'][:].shape, (6,1,1,1))
+        self.assertEqual (self.f['ids'][:].shape,   (6,1,1,1))
+        for i in range(6):
+            self.assertEqual (getLabel(self.f, i), getId(self.f, i))
+
+
+    def test_shuffle (self):
+        shuffle (self.f)
+        self.assertEqual (getNum(self.f), 8)
+        self.assertIsNotNone (self.f['data'][:])
+        self.assertIsNotNone (self.f['label'][:])
+        self.assertIsNotNone (self.f['ids'][:])
+        self.assertEqual (getImageDims(self.f), (18,24,3))
+        self.assertEqual (self.f['label'][:].shape, (8,1,1,1))
+        self.assertEqual (self.f['ids'][:].shape,   (8,1,1,1))
+        for i in range(8):
+            self.assertEqual (getLabel(self.f, i), getId(self.f, i))
+
+
 
 
 

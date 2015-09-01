@@ -64,10 +64,39 @@ def writeNextPatch (f, image, image_id, label):
 
 
 
-def mergeH5 (in_f1, in_f2, out_f, params = {}):
+def shuffle (f):
+    ''' Shuffle data, labels, and ids in input 'f' '''
+    logging.info ('=== helperH5.shuffle ===')
+
+    data   = f['data'][:]
+    ids    = f['ids'][:]
+    labels = f['label'][:]
+
+    order = np.random.permutation(data.shape[0])
+    f['data'][:]  = data[order,:,:,:]
+    f['ids'][:]   = ids[order,:,:,:]
+    f['label'][:] = labels[order,:,:,:]
+
+
+
+def multipleOf (f, multiple):
+    ''' Make the number of patches to be a multiple of 'multiple'. Discard the rest. '''
+    logging.info ('=== helperH5.multipleOf ===')
+    assert isinstance(multiple, int) and multiple > 0
+
+    nowN = f['data'].shape[0]
+    wantN = nowN / multiple * multiple
+    logging.info ('out of %d patches will leave %d' % (nowN, wantN))
+
+    f['data'].resize (wantN, 0)
+    f['ids'].resize (wantN, 0)
+    f['label'].resize (wantN, 0)
+
+
+
+def merge (in_f1, in_f2, out_f, params = {}):
     ''' Concatenate 'in_f2' to the end of 'in_f1'. Save the output as 'out_f'. '''
-    logging.info ('=== exporting.mergeHDF5 ===')
-    helperSetup.setParamUnlessThere (params, 'shuffle', False)
+    logging.info ('=== helperH5.merge ===')
 
     data1  = in_f1['data'][:]
     ids1   = in_f1['ids'][:]
@@ -98,12 +127,6 @@ def mergeH5 (in_f1, in_f2, out_f, params = {}):
     ids = np.vstack((ids1, ids2))
     labels = np.vstack((label1, label2))
 
-    if params['shuffle']:
-        order = np.random.permutation(data.shape[0])
-        data = data[order,:,:,:]
-        ids = ids[order,:,:,:]
-        labels = labels[order,:,:,:]
-
     out_f['data'] = data
     out_f['ids']  = ids
     out_f['label']  = labels
@@ -114,6 +137,7 @@ def viewPatches (f, params = {}):
     '''
     Browse through images/labels from an opened hdf5 file
     '''
+    logging.info ('=== helperH5.viewPatches ===')
     helperSetup.setParamUnlessThere (params, 'random', False)
     helperSetup.setParamUnlessThere (params, 'scale', 1)
     helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())

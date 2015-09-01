@@ -1,7 +1,7 @@
 import logging
 import os, sys, os.path as op
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import setupLogging
+from helperSetup import setupLogging, _setupCopyDb_
 import sqlite3
 import shutil
 import fnmatch
@@ -32,6 +32,7 @@ def upgrade2 (c_image, c_ghost):
     c_ghost.execute('CREATE TABLE images(imagefile,src,width,height,maskfile,time)')
     c_ghost.execute('INSERT INTO images SELECT ghostfile,src,width,height,maskfile,time FROM backup')
     c_ghost.execute('DROP TABLE backup')
+
 
 
 def upgrade2_paths (db_in_path):
@@ -67,30 +68,54 @@ def upgrade2_paths (db_in_path):
     conn_ghost.close()
 
 
-def upgradeTimeFile (in_time_path, backup = True):
-    logging.info ('working with file: %s' % in_time_path)
-    with open(in_time_path) as f:
-        lines = f.readlines()
-    timestamps = []
-    for line in lines:
-        try:
-            timestamps.append('%04d-%02d-%02d %02d:%02d:%02.6f\n' % tuple([float(x) for x in line.split()]))
-        except Exception:
-            logging.info ('file is not a timestamps file')
-            return
 
-    if backup: shutil.copy(in_time_path, in_time_path + '.old')
-    with open(in_time_path, 'w') as f:
-        for timestamp in timestamps:
-            f.write (timestamp)
-        
+def fixVer2_1 (c):
 
+    c.execute('SELECT imagefile FROM images')
+    truefiles = c.fetchall()
+    truenames = [op.basename(x[0]) for x in truefiles]
+
+    c.execute('SELECT id,imagefile FROM cars')
+    for (carid,imagefile) in c.fetchall():
+
+        imagename = op.basename(imagefile)
+        if imagename not in truenames:
+            logging.error ('imagename %s not in truenames' % imagename)
+            raise Exception()
+
+        index = truenames.index(imagename)
+        c.execute('UPDATE cars SET imagefile=? WHERE id=?', (truefiles[index][0], carid))
+
+
+
+def fixVer2_1_path (db_in_path):
+
+    _setupCopyDb_ (db_in_path, db_in_path)
+
+    logging.info ('db_in_path: %s' % db_in_path)
+
+    # check that it's not the new file
+    conn = sqlite3.connect (db_in_path)
+    version = conn.execute('PRAGMA user_version').fetchone()
+    if version is not None and version[0] == 3: 
+        logging.info ('db is already upgraded to version 3')
+        return
+    
+    try:
+        fixVer2_1(conn.cursor())
+    except Exception:
+        logging.error ('Exception in file: %s' % db_in_path)
+
+    conn.execute('PRAGMA user_version = 3')
+
+    conn.commit()
+    conn.close()
 
 
 if __name__ == '__main__':
-    setupLogging ('log/learning/UpgradeDb.log', logging.INFO, 'a')
-    path = '/Users/evg/projects/City-Project/data/camdata'
-    #path = os.getenv('CITY_DATA_PATH')
-    for db_in_path in _find_files_ (path, '*.txt'):
-        upgradeTimeFile (db_in_path)
-
+    setupLogging ('log/learning/UpgradeDb.log', logging.DEBUG, 'a')
+    #path = '/Users/evg/projects/City-Project/data/camdata'
+    path = os.getenv('CITY_DATA_PATH')
+    for db_in_path in _find_files_ (path, '*.db'):
+        fixVer2_1_path (db_in_path)
+    #fixVer2_1_path(op.join(os.getenv('CITY_DATA_PATH'), 'candidates/databaseWriterDemo-ghost.db'))

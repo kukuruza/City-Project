@@ -230,6 +230,7 @@ def collectPatches (c, out_dataset, params = {}):
     logging.info ('==== collectGhosts ====')
     helperSetup.setParamUnlessThere (params, 'constraint', '1')
     helperSetup.setParamUnlessThere (params, 'label', None)
+    helperSetup.assertParamIsThere  (params, 'resize')
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
 
@@ -250,9 +251,8 @@ def collectPatches (c, out_dataset, params = {}):
         for patch in patches:
 
             # resize if necessary. params['resize'] == (width,height)
-            if 'resize' in params.keys():
-                assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
-                patch = cv2.resize(patch, params['resize'])
+            assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
+            patch = cv2.resize(patch, params['resize'])
 
             # write patch
             carid = carField(car_entry, 'id')
@@ -268,7 +268,8 @@ def collectByMatch (c, out_dataset, params = {}):
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
-    helperSetup.setParamUnlessThere (params, 'label', None)
+    helperSetup.setParamUnlessThere (params, 'constraint', '1')
+    helperSetup.assertParamIsThere  (params, 'resize')
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
 
@@ -283,11 +284,12 @@ def collectByMatch (c, out_dataset, params = {}):
 
     # get the list of matches
     c.execute('SELECT DISTINCT(match) FROM matches')
-    match_entries = c.fetchall()
 
-    for (match,) in match_entries:
-        c.execute('''SELECT * FROM cars WHERE id IN 
-                     (SELECT carid FROM matches WHERE match == ?)''', (match,))
+    for (match,) in c.fetchall():
+        logging.info ('processing match %d' % match)
+
+        c.execute('''SELECT * FROM cars WHERE (%s) AND id IN 
+                     (SELECT carid FROM matches WHERE match == ?)''' % params['constraint'], (match,))
 
         # write a patch for each entry
         for car_entry in c.fetchall():
@@ -303,9 +305,8 @@ def collectByMatch (c, out_dataset, params = {}):
             for patch in patches:
 
                 # resize if necessary. params['resize'] == (width,height)
-                if 'resize' in params.keys():
-                    assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
-                    patch = cv2.resize(patch, params['resize'])
+                assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
+                patch = cv2.resize(patch, params['resize'])
 
                 # write patch
                 carid = carField(car_entry, 'id')

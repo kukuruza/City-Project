@@ -35,6 +35,7 @@ class ProcessorImagefile (ProcessorBase):
 
     def readImageImpl (self, image_id):
         imagepath = op.join (self.relpath, image_id)
+        logging.debug ('imagepath: %s' % imagepath)
         if not op.exists (imagepath):
             raise Exception ('ProcessorImagefile: image does not exist at path: "%s"' % imagepath)
         img = cv2.imread(imagepath)
