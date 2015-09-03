@@ -90,7 +90,7 @@ def fixVer2_1 (c):
 
 def fixVer2_1_path (db_in_path):
 
-    _setupCopyDb_ (db_in_path, db_in_path)
+    #_setupCopyDb_ (db_in_path, db_in_path)
 
     logging.info ('db_in_path: %s' % db_in_path)
 
@@ -98,7 +98,7 @@ def fixVer2_1_path (db_in_path):
     conn = sqlite3.connect (db_in_path)
     version = conn.execute('PRAGMA user_version').fetchone()
     if version is not None and version[0] == 3: 
-        logging.info ('db is already upgraded to version 3')
+        logging.warning ('db is already upgraded to version 3')
         return
     
     try:
@@ -113,7 +113,7 @@ def fixVer2_1_path (db_in_path):
 
 
 if __name__ == '__main__':
-    setupLogging ('log/learning/UpgradeDb.log', logging.DEBUG, 'a')
+    setupLogging ('log/learning/UpgradeDb.log', logging.WARNING, 'a')
     #path = '/Users/evg/projects/City-Project/data/camdata'
     path = os.getenv('CITY_DATA_PATH')
     for db_in_path in _find_files_ (path, '*.db'):
