@@ -66,7 +66,7 @@ class PatchHelperFolder (PatchHelperBase):
         self.relpath = params['relpath']
 
 
-    def initDataset (self, name):
+    def initDataset (self, name, params = {}):
 
         self.out_dir = op.join(self.relpath, name)
         logging.info ('creating folder at %s' % self.out_dir)
@@ -96,13 +96,15 @@ class PatchHelperFolder (PatchHelperBase):
 
 
     def writePatch (self, patch, carid, label = None):
-        logging.debug ('writing patch #%d' % carid)
+        logging.debug ('writing carid #%d' % carid)
         assert len(patch.shape) == 3 and patch.shape[2] == 3
         imagepath = op.join (self.out_dir, '%08d.png' % carid)
         cv2.imwrite (imagepath, patch)
         self.f_ids.write ('%08d\n' % carid)
         if label is not None:
             self.f_label.write ('%d\n' % label)
+
+    # TODO: implement readPatch
 
 
 
@@ -112,29 +114,68 @@ class PatchHelperHDF5 (PatchHelperBase):
         helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.params = params
 
-    def initDataset (self, name):
+    def initDataset (self, name, params = {}):
+        helperSetup.setParamUnlessThere (params, 'mode', 'r')
+
         out_h5_path = op.join (self.params['relpath'], '%s.h5' % name)
         # remove hdf5 file if exists
-        if op.exists (out_h5_path):
+        if params['mode'] == 'w' and op.exists (out_h5_path):
+            logging.warning ('will delete existing hdf5 file: %s' % name)
             os.remove (out_h5_path)
         # create the parent directory for hdf5 file if necessary
         if not op.exists (op.dirname(out_h5_path)):
             os.makedirs (op.dirname(out_h5_path))
-        # create hdf5 file
-        logging.info ('creating hdf5 file at %s' % out_h5_path)
+        # create/open hdf5 file
+        logging.info ('creating/opening hdf5 file at %s' % out_h5_path)
         self.f = h5py.File (out_h5_path)
 
     def closeDataset (self):
         h5py.File.close (self.f)
 
     def writePatch (self, patch, carid, label = None):
-        logging.debug ('writing patch #%d' % carid)
+        logging.debug ('writing carid %d' % carid)
         helperH5.writeNextPatch (self.f, patch, carid, label)
+
+    def readPatch (self):
+        # increment the current index
+        logging.debug ('reading patch from hdf5')
+        try:
+            self.patch_index += 1
+        except AttributeError:
+            logging.debug ('init the first patch')
+            self.patch_index = 0
+        # actually read patch
+        logging.debug ('reading patch #%d' % self.patch_index)
+        return helperH5.readPatch(self.f, self.patch_index)
 
 
 # the end of PatchHelper-s #
 
 
+def convertFormat (in_dataset, out_dataset, params):
+    '''
+    Convert one image-storage format to another 
+      (e.g. folder with images to hdf5 file)
+    '''
+    # it's a little ugly to pass essential things in parameters
+    logging.info ('==== convertFormat ====')
+    helperSetup.assertParamIsThere (params,  'in_patch_helper')
+    helperSetup.assertParamIsThere (params, 'out_patch_helper')
+
+    params[ 'in_patch_helper'].initDataset(in_dataset)
+    params['out_patch_helper'].initDataset(out_dataset, {'mode': 'w'})
+
+    for i in range(10000000):
+        try:
+            (patch, carid, label) = params['in_patch_helper'].readPatch()
+            # need to write them in the same order as they wre in the hdf5
+            params['out_patch_helper'].writePatch(patch, i, label)
+        except:
+            logging.debug ('done')
+            break
+
+    params['in_patch_helper'].closeDataset()
+    params['out_patch_helper'].closeDataset()
 
 
 

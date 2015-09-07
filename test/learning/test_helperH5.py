@@ -103,6 +103,20 @@ class TestHDF5 (unittest.TestCase):
             with self.assertRaises(Exception): getLabel(out_f, 0)
 
 
+    def test_readNextPatch (self):
+        (image, image_id, label) = readPatch (self.f, 1)
+        self.assertEqual (image.shape, (18, 24, 3))
+        self.assertEqual (label, 1)
+        self.assertEqual (image_id, 1)
+        (image, image_id, label) = readPatch (self.f, 0)
+        self.assertEqual (image.shape, (18, 24, 3))
+        self.assertEqual (label, 0)
+        self.assertEqual (image_id, 0)
+
+    def test_readNextPatch_badIndex (self):
+        with self.assertRaises(Exception): readPatch (self.f, 8)
+
+
     def test_viewPatches_sequential (self):
         keys = helperKeys.getCalibration()
         key_sequence = 20*[keys['right']] + 20*[keys['left']] + 5*[keys['right']] + [keys['esc']]
