@@ -66,6 +66,14 @@ def writeNextPatch (f, image, image_id, label = None):
         f['label'][numImages,0,0,0] = label
 
 
+def readPatch (f, index):
+    ''' Read a patch, id, and label '''
+    # TODO: do we need to read image id
+
+    assert index < getNum(f)
+    return (getImage(f,index), getId(f,index), getLabel(f,index))
+
+
 
 def mergeH5 (in_f1, in_f2, out_f):
     ''' Concatenate 'in_f2' to the end of 'in_f1'. Save the output as 'out_f'. '''
@@ -102,6 +110,17 @@ def mergeH5 (in_f1, in_f2, out_f):
         out_f['label']  = np.vstack((label1, label2))
 
 
+def exportLabels (f, f_out, params = {}):
+    '''
+    Write labels to a file
+    '''
+    numImages = getNum(f)
+    logging.info ('dataset has %d images' % numImages)
+
+    for index in range(numImages):
+        logging.info ('image label: %d' % getLabel(f, index))
+        f_out.write('%d\n' % getLabel(f, index))
+        
 
 def viewPatches (f, params = {}):
     '''
@@ -123,7 +142,7 @@ def viewPatches (f, params = {}):
         logging.debug ('image dims: %d x %d x %d' % image.shape)
 
         logging.info ('index: %d' % index)
-        if 'label' in f: logging.info ('image label: %d' % getLabel(f, index))
+        logging.info ('image label: %d' % getLabel(f, index))
 
         display = cv2.resize(image, (0,0), fx=params['scale'], fy=params['scale'])
         cv2.imshow ('show', display)

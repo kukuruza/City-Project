@@ -16,12 +16,12 @@ class TestPatchHelperFolder (unittest.TestCase):
         if op.exists ('testdata/patches'): shutil.rmtree ('testdata/patches')
 
     def test_PatchHelperFolder (self):
-        patch = np.arange (18*24*3, dtype=np.uint8)
-        patch = np.reshape (patch, (18,24,3))
 
         patchHelper = PatchHelperFolder({'relpath': '.'})
-        patchHelper.initDataset ('testdata/patches')
+        patchHelper.initDataset ('testdata/patches', {'mode': 'w'})
+        patch = np.zeros ((18,24,3), dtype=np.uint8)
         patchHelper.writePatch (patch, 0, 1)
+        patch = np.ones  ((18,24,3), dtype=np.uint8)
         patchHelper.writePatch (patch, 1, 1)
         patchHelper.closeDataset ()
 
@@ -43,13 +43,15 @@ class TestPatchHelperFolder (unittest.TestCase):
         self.assertEqual (lines[0], '00000000\n')
         self.assertEqual (lines[1], '00000001\n')
 
+        # TODO: implement readPatch
+
 
     def test_PatchHelperFolder_nolabel (self):
         patch = np.arange (18*24*3, dtype=np.uint8)
         patch = np.reshape (patch, (18,24,3))
 
         patchHelper = PatchHelperFolder({'relpath': '.'})
-        patchHelper.initDataset ('testdata/patches')
+        patchHelper.initDataset ('testdata/patches', {'mode': 'w'})
         patchHelper.writePatch (patch, 0, None)
         patchHelper.writePatch (patch, 1, None)
         patchHelper.closeDataset ()
@@ -64,15 +66,16 @@ class TestPatchHelperHDF5 (unittest.TestCase):
         if op.exists ('testdata/patches.h5'): os.remove ('testdata/patches.h5')
 
     def test_TestPatchHelperHDF5 (self):
-        patch = np.arange (18*24*3, dtype=np.uint8)
-        patch = np.reshape (patch, (18,24,3))
 
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        patchHelper.initDataset ('testdata/patches')
+        patchHelper.initDataset ('testdata/patches', {'mode': 'w'})
+        patch = np.zeros ((18,24,3), dtype=np.uint8)
         patchHelper.writePatch (patch, 0, 1)
+        patch = np.ones  ((18,24,3), dtype=np.uint8)
         patchHelper.writePatch (patch, 1, 1)
         patchHelper.closeDataset ()
 
+        # test writePatch
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
             self.assertEqual (helperH5.getNum(f), 2)
@@ -81,11 +84,24 @@ class TestPatchHelperHDF5 (unittest.TestCase):
             self.assertEqual (helperH5.getId(f, 1), 1)
             self.assertEqual (helperH5.getLabel(f, 0), 1)
             self.assertEqual (helperH5.getLabel(f, 1), 1)
-            image = helperH5.getImage(f, 0)
-            self.assertGreaterEqual (np.min(image), 0)
-            self.assertLessEqual    (np.max(image), 255)
-            self.assertGreater     (np.mean(image), 100)
-            self.assertLess        (np.mean(image), 150)
+            patch = helperH5.getImage(f, 0)
+            self.assertEqual (np.mean(patch), 0)
+            patch = helperH5.getImage(f, 1)
+            self.assertEqual (np.mean(patch), 1)
+
+        # test readPatch
+        patchHelper.initDataset ('testdata/patches')
+        (patch, carid, label) = patchHelper.readPatch()
+        self.assertEqual (patch.shape, (18, 24, 3))
+        self.assertEqual (np.mean(patch), 0)
+        self.assertEqual (label, 1)
+        self.assertEqual (carid, 0)
+        (patch, carid, label) = patchHelper.readPatch()
+        self.assertEqual (patch.shape, (18, 24, 3))
+        self.assertEqual (np.mean(patch), 1)
+        self.assertEqual (label, 1)
+        self.assertEqual (carid, 1)
+        patchHelper.closeDataset ()
 
 
     def test_TestPatchHelperHDF5_nolabel (self):
@@ -93,7 +109,7 @@ class TestPatchHelperHDF5 (unittest.TestCase):
         patch = np.reshape (patch, (18,24,3))
 
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        patchHelper.initDataset ('testdata/patches')
+        patchHelper.initDataset ('testdata/patches', {'mode': 'w'})
         patchHelper.writePatch (patch, 0, None)
         patchHelper.writePatch (patch, 1, None)
         patchHelper.closeDataset ()
@@ -297,8 +313,62 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
 
 
 
+class TestConvertFormat (unittest.TestCase):
+
+    def setUp (self):
+        super(TestConvertFormat, self).setUp()
+        os.makedirs ('testdata/patches')
+
+    def tearDown (self):
+        super(TestConvertFormat, self).tearDown()
+        if op.exists ('testdata/patches'): shutil.rmtree ('testdata/patches')
+        if op.exists ('testdata/patches.h5'): os.remove ('testdata/patches.h5')
+
+
+    def test_convertFormat_hdf5_to_folder (self):
+
+        numImages = 8
+        # data
+        data = np.arange (18*24*3*numImages, dtype=np.uint8)
+        data = np.reshape (data, (numImages,18,24,3))
+        data = np.transpose(data.astype('float32'), (0,3,1,2)) # will be NUMxCHxHxW
+        data /= 255
+        data -= 0.5
+        # ids
+        ids = np.arange (numImages, dtype=int)
+        ids = np.reshape (ids, (numImages,1,1,1))
+        # labels
+        labels = np.arange (numImages, dtype=int)
+        labels = np.reshape (labels, (numImages,1,1,1))
+        # create in-memory hdf5 file with 'numImages' of shape WxH = 24x18
+        with h5py.File ('testdata/patches.h5') as f:
+            f['data']  = data
+            f['ids']   = ids
+            f['label'] = labels
+        self.assertTrue (op.exists('testdata/patches.h5'))
+
+        # convert
+        params = {}
+        params[ 'in_patch_helper'] = PatchHelperHDF5({'relpath': '.'})
+        params['out_patch_helper'] = PatchHelperFolder({'relpath': '.'})
+        convertFormat ('testdata/patches', 'testdata/patches', params)
+
+        # test
+        self.assertTrue (op.exists('testdata/patches'))
+        self.assertTrue (op.exists('testdata/patches/00000001.png'))
+        self.assertTrue (op.exists('testdata/patches/00000002.png'))
+        self.assertTrue (op.exists('testdata/patches/00000003.png'))
+        self.assertTrue (op.exists('testdata/patches/ids.txt'))
+        self.assertTrue (op.exists('testdata/patches/label.txt'))
+    
+
+        
+
+
+
+
     
 
 if __name__ == '__main__':
-    logging.basicConfig (level=logging.ERROR)
+    logging.basicConfig (level=logging.WARNING)
     unittest.main()
