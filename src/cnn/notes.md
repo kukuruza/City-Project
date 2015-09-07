@@ -23,7 +23,7 @@ HOW TO RUN:
     _NOTE:_ It uses deploy_cpp.prototxt. The test examples are listed in the file data/cnn/city-data/test-rgb-b.txt. You need to mention this file in the deploy_cpp.prototxt along with number of batches == number of test examples
 
 6. Python Deployment
-	`python src/cnn/Deployment.py`
+	`python src/cnn/DeploymentPatches.py`
 
 _NOTE:_ Network prototxt files are in data/cnn/architectures.
 

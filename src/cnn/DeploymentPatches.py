@@ -1,8 +1,8 @@
 import os, sys, os.path as op
 import numpy as np
 import cv2
-sys.path.insert(0, os.getenv('CAFFE_TOOLS'))
 import logging
+sys.path.insert(0, os.getenv('CAFFE_TOOLS'))
 
 
 def _setCaffeLoggingLevel_ ():
@@ -16,20 +16,31 @@ def _setCaffeLoggingLevel_ ():
     os.environ['GLOG_minloglevel'] = level_caffe
 
 
-
 class DeploymentPatches:
+    '''
+    Use this class for predicting labels or extracting features from intermediate levels.
+    Currently the exact taks is regulated by the netweork architecture.
+    '''
 
-    def __init__ (self, network_path, model_path, use_cpu = True):
+    def __init__ (self, network_path, model_path, params = {}):
 
-        _setCaffeLoggingLevel_()
-        import caffe    # 'import caffe' is after setting the log level
+        # set default values of parameters
+        if not 'use_cpu' in params: params['use_cpu'] = True
+        if not 'relpath' in params: params['relpath'] = os.getenv('CITY_DATA_PATH')
+
+        # from relative to absolute paths
+        network_path = op.join(params['relpath'], network_path)
+        model_path   = op.join(params['relpath'], model_path)
 
         if not op.exists(network_path):
             raise Exception ('network file does not exit: %s' % network_path)
         if not op.exists(model_path):
             raise Exception ('model file does not exit: %s' % model_path)
 
-        if use_cpu:
+        _setCaffeLoggingLevel_()    # setting the log level is before 'import caffe'
+        import caffe
+
+        if params['use_cpu']:
             caffe.set_mode_cpu()
         else:
             caffe.set_mode_gpu()
@@ -52,9 +63,12 @@ class DeploymentPatches:
 
         logging.info ('network initialized')
 
-    def classify (self, patch):
+
+    def forward (self, patch):
         '''
+        Get the result from the last layer from the forward pass.
         Expect patch to be color, 3-channels, [0,255], dtype of np.uint8
+        Returns a 1-dim numpy array
         '''
         assert patch is not None
         assert patch.ndim == 3     # color image
@@ -65,35 +79,25 @@ class DeploymentPatches:
 
         self.net.blobs['data'].data[...] = self.transformer.preprocess('data', patch)
         out = self.net.forward()
-        return int(out['output'][0][0][0][0])
+
+        # represent output as a 1-dim numpy array
+        assert isinstance(out, dict) and len(out) == 1
+        value = list(out.values())[0]
+        value = value.reshape((value.size))
+        
+        return value
 
 
 if __name__ == "__main__":
+    ''' Example of usage '''
 
     logging.basicConfig (stream=sys.stdout, level=logging.INFO)
 
-    network_path = op.join(os.getenv('CITY_DATA_PATH'), 'cnn/architectures/hdf5-sedan-deploy-py.prototxt')
-    model_path   = op.join(os.getenv('CITY_DATA_PATH'), 'cnn/models/hdf5-sedan_iter_4000.caffemodel')
-    deployment = DeploymentPatches (network_path, model_path, use_cpu = True)
+    network_path = 'cnn/architectures/sedan-h5-deploy-py.prototxt'
+    model_path   = 'cnn/models/sedan-h5_iter_4000.caffemodel'
+    deployment = DeploymentPatches (network_path, model_path)
 
-    import re
-    png_dir = op.join(os.getenv('CITY_DATA_PATH'), 'patches/try-hdf5/testing-40x30')
-    png_names = [ f for f in os.listdir(png_dir) if re.search('(.png)$', f) ]
-
-    with open(op.join(os.getenv('CITY_DATA_PATH'), 'patches/try-hdf5/predicted-py.txt'), 'w') as f:
-        for png_name in png_names:
-            png_path = op.join(png_dir, png_name)
-
-            patch = cv2.imread(png_path)
-            label = deployment.classify(patch)
-
-            f.write ('%d\n' % label)
-
-    # patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/car-40x30.png'))
-    # label = deployment.classify(patch)
-    # patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/taxi-40x30.png'))
-    # label = deployment.classify(patch)
-    # patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/negative-40x30.png'))
-    # label = deployment.classify(patch)
-    # patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/negative-40x30-2.png'))
-    # label = deployment.classify(patch)
+    patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/sedan-40x30.png'))
+    print deployment.forward(patch)
+    patch = cv2.imread(op.join(os.getenv('CITY_PATH'), 'src/cnn/testdata/negative-40x30.png'))
+    print deployment.forward(patch)

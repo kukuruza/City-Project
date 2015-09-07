@@ -137,6 +137,7 @@ class PatchHelperHDF5 (PatchHelperBase):
         helperH5.writeNextPatch (self.f, patch, carid, label)
 
     def readPatch (self):
+        ''' Read next patch. Return (patch, carid, label). '''
         # increment the current index
         logging.debug ('reading patch from hdf5')
         try:
