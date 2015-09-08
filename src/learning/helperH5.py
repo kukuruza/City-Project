@@ -48,9 +48,9 @@ def writeNextPatch (f, image, image_id, label):
 
     # if the file is new and empty, create datasets
     if 'data' not in f:
-        dset_data = f.create_dataset('data', (0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(500,d1,d2,d3))
-        dset_ids  = f.create_dataset('ids',  (0,1,1,1),    maxshape=(None,1,1,1), chunks=(500,1,1,1))
-        dset_label = f.create_dataset('label', (0,1,1,1), maxshape=(None,1,1,1), chunks=(500,1,1,1))
+        f.create_dataset('data', (0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(100,d1,d2,d3))
+        f.create_dataset('ids',  (0,1,1,1),    maxshape=(None,1,1,1), chunks=(100,1,1,1))
+        f.create_dataset('label', (0,1,1,1), maxshape=(None,1,1,1), chunks=(100,1,1,1))
 
     # resize to one more
     numImages = getNum (f)
@@ -91,6 +91,31 @@ def multipleOf (f, multiple):
     f['data'].resize (wantN, 0)
     f['ids'].resize (wantN, 0)
     f['label'].resize (wantN, 0)
+
+
+def crop (f_in, f_out, number, params = {}):
+    ''' Keep first 'number' elements. Crop the rest. '''
+    logging.info ('=== helperH5.crop ===')
+    helperSetup.setParamUnlessThere (params, 'chunk', 100)
+    assert isinstance(number, int) and number > 0
+
+    if number > getNum(f_in):
+        raise Exception ('provided number = %d > N elements = %d' % (number, getNum(f)))
+
+    # if the file is new and empty, create datasets
+    if 'data' not in f_out:
+        (d0,d1,d2,d3) = f_in['data'].shape
+        ch = params['chunk']
+        f_out.create_dataset('data', (0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(ch,d1,d2,d3))
+        f_out.create_dataset('ids',  (0,1,1,1),    maxshape=(None,1,1,1), chunks=(ch,1,1,1))
+        f_out.create_dataset('label', (0,1,1,1), maxshape=(None,1,1,1), chunks=(ch,1,1,1))
+
+    f_out['data'].resize (number, 0)
+    f_out['ids'].resize (number, 0)
+    f_out['label'].resize (number, 0)
+    f_out['data'][:]  = f_in['data'][:number]
+    f_out['ids'][:]   = f_in['ids'][:number]
+    f_out['label'][:] = f_in['label'][:number]
 
 
 
@@ -148,9 +173,9 @@ def merge (in_f1, in_f2, out_f, params = {}):
         out_f['label'].resize (wantNum, axis=0)
     else:
         (d0,d1,d2,d3) = data.shape
-        dset_data  = out_f.create_dataset('data', (d0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(500,d1,d2,d3))
-        dset_ids   = out_f.create_dataset('ids',  (d0,1,1,1),    maxshape=(None,1,1,1), chunks=(500,1,1,1))
-        dset_label = out_f.create_dataset('label',(d0,1,1,1),    maxshape=(None,1,1,1), chunks=(500,1,1,1))
+        out_f.create_dataset('data', (d0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(100,d1,d2,d3))
+        out_f.create_dataset('ids',  (d0,1,1,1),    maxshape=(None,1,1,1), chunks=(100,1,1,1))
+        out_f.create_dataset('label',(d0,1,1,1),    maxshape=(None,1,1,1), chunks=(100,1,1,1))
 
     out_f['data'][:] = data
     out_f['ids'][:]  = ids
