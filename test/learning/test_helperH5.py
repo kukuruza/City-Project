@@ -50,7 +50,7 @@ class TestHDF5 (unittest.TestCase):
     def test_getLabel (self):
         label = getLabel (self.f, 4)
         self.assertEqual (label, 4)
-        self.assertIsInstance (label, int)
+        self.assertIsInstance (label, float)
 
     def test_getId (self):
         imageid = getId (self.f, 4)
@@ -84,6 +84,18 @@ class TestHDF5 (unittest.TestCase):
         self.assertLess        (np.mean(image), 150)
         self.assertGreaterEqual (np.min(image), 0)
         self.assertLessEqual    (np.max(image), 255)
+
+    def test_writeNextPatch_noLabel (self):
+        ''' Empty label should be automatically replaced with a dummy np.pi '''
+        numImages = 100
+        image = np.arange (18*24*3, dtype=np.uint8)
+        image = np.reshape (image, (18,24,3))
+        with h5py.File ('out', driver='core', backing_store=False) as out_f:
+            for i in range(numImages):
+                writeNextPatch (out_f, image, image_id=i, label=None)
+            self.assertEqual (getNum(out_f), numImages)
+            for i in range(numImages):
+                self.assertAlmostEqual (getLabel(out_f, i), np.pi, places=4)
 
 
     def test_writeNextPatch_many (self):

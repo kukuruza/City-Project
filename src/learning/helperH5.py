@@ -27,8 +27,8 @@ def getId (f, index):
 
 def getLabel (f, index):
     # no check if label is in the dataset. Let it raise an exception
-    label = f['label'][index,0,0,0]
-    return int(label)
+    label = f['label'][index,0,0,0].item()
+    return label
 
 def getImageDims (f):
     dims = tuple( list(f['data'].shape)[1:] )
@@ -41,6 +41,8 @@ def getNum (f):
 
 def writeNextPatch (f, image, image_id, label):
     ''' Write a patch to open hdf5 file 'f', with its id and label. '''
+    assert image_id is not None
+    if label is None: label = np.pi
 
     image = np.transpose(image.astype('float32'), (2,0,1)) # will be CHxHxW
     image /= 255.0

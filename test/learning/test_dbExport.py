@@ -1,3 +1,4 @@
+
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import random
@@ -120,8 +121,8 @@ class TestPatchHelperHDF5 (unittest.TestCase):
             self.assertEqual (helperH5.getImageDims(f), (18,24,3))
             self.assertEqual (helperH5.getId(f, 0), 0)
             self.assertEqual (helperH5.getId(f, 1), 1)
-            self.assertEqual (helperH5.getLabel(f, 0), int(np.pi))
-            self.assertEqual (helperH5.getLabel(f, 1), int(np.pi))
+            self.assertAlmostEqual (helperH5.getLabel(f, 0), np.pi, places=4)
+            self.assertAlmostEqual (helperH5.getLabel(f, 1), np.pi, places=4)
 
 
 
@@ -157,7 +158,7 @@ class TestDistortPatch (unittest.TestCase):
         for patch in patches:
             self.assertTrue (patch.dtype == np.uint8)
             self.assertEqual (patch.shape, (20,10,3))
-            self.assertTrue (np.mean(patch[:,:,1:2]) < 100)
+            self.assertTrue (np.mean(patch[:,:,1:2]) < 120)
 
     def test_distortPatch_border (self):
         white = np.ones((100,100,3), dtype=np.uint8) * 255
