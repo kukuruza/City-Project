@@ -104,8 +104,8 @@ class TestPatchHelperHDF5 (unittest.TestCase):
             self.assertEqual (helperH5.getImageDims(f), (18,24,3))
             self.assertEqual (helperH5.getId(f, 0), 0)
             self.assertEqual (helperH5.getId(f, 1), 1)
-            self.assertEqual (helperH5.getLabel(f, 0), 3141592)
-            self.assertEqual (helperH5.getLabel(f, 1), 3141592)
+            self.assertEqual (helperH5.getLabel(f, 0), int(np.pi))
+            self.assertEqual (helperH5.getLabel(f, 1), int(np.pi))
 
 
 
@@ -157,6 +157,17 @@ class TestDistortPatch (unittest.TestCase):
         self.params['key_reader'] = helperKeys.KeyReaderSequence(sequence)
         self.params['debug'] = True
         patches = _distortPatch_ (self.Malevich, [40,45,60,55], self.params)
+
+
+
+class TestWriteReadme (unittest.TestCase):
+
+    def tearDown (self):
+        if op.exists ('testdata/writeReadme'): shutil.rmtree ('testdata/writeReadme')
+
+    def test_newDir (self):
+        ''' 'writeReadme' should create dir tree, if does not exist '''
+        writeReadme ('myDb', 'testdata/writeReadme/dummy', params = {'relpath': '.'})
 
 
 

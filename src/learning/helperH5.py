@@ -98,19 +98,33 @@ def merge (in_f1, in_f2, out_f, params = {}):
     ''' Concatenate 'in_f2' to the end of 'in_f1'. Save the output as 'out_f'. '''
     logging.info ('=== helperH5.merge ===')
 
-    data1  = in_f1['data'][:]
-    ids1   = in_f1['ids'][:]
-    label1 = in_f1['label'][:]
-    assert data1.size != 0
-    assert ids1.size != 0
+    # one of in_f1 or in_f2 should be non empty
+    if   'data' in in_f1:
+        dims = tuple( list(in_f1['data'].shape)[1:] )
+    elif 'data' in in_f2:
+        dims = tuple( list(in_f2['data'].shape)[1:] )
+    else:
+        raise Exception('both in_f1 and in_f2 can\'t be empty')
+
+    if 'data' in in_f1 and 'ids' in in_f1 and 'label' in in_f1:
+        data1  = in_f1['data'][:]
+        ids1   = in_f1['ids'][:]
+        label1 = in_f1['label'][:]
+    else:
+        data1  = np.empty((0,dims[0],dims[1],dims[2]), dtype=float)
+        ids1   = np.empty((0,1,1,1), dtype=float)
+        label1 = np.empty((0,1,1,1), dtype=float)
     assert len(ids1.shape) == 4
     assert len(label1.shape) == 4
 
-    data2  = in_f2['data'][:]
-    ids2   = in_f2['ids'][:]
-    label2 = in_f2['label'][:]
-    assert data2.size != 0
-    assert ids2.size != 0
+    if 'data' in in_f2 and 'ids' in in_f2 and 'label' in in_f2:
+        data2  = in_f2['data'][:]
+        ids2   = in_f2['ids'][:]
+        label2 = in_f2['label'][:]
+    else:
+        data2  = np.empty((0,dims[0],dims[1],dims[2]), dtype=float)
+        ids2   = np.empty((0,1,1,1), dtype=float)
+        label2 = np.empty((0,1,1,1), dtype=float)
     assert len(ids2.shape) == 4
     assert len(label2.shape) == 4
 
@@ -127,9 +141,20 @@ def merge (in_f1, in_f2, out_f, params = {}):
     ids = np.vstack((ids1, ids2))
     labels = np.vstack((label1, label2))
 
-    out_f['data'] = data
-    out_f['ids']  = ids
-    out_f['label']  = labels
+    if 'data' in out_f and 'ids' in out_f and 'label' in out_f:
+        wantNum = data.shape[0]
+        out_f['data'].resize  (wantNum, axis=0)
+        out_f['ids'].resize   (wantNum, axis=0)
+        out_f['label'].resize (wantNum, axis=0)
+    else:
+        (d0,d1,d2,d3) = data.shape
+        dset_data  = out_f.create_dataset('data', (d0,d1,d2,d3), maxshape=(None,d1,d2,d3), chunks=(500,d1,d2,d3))
+        dset_ids   = out_f.create_dataset('ids',  (d0,1,1,1),    maxshape=(None,1,1,1), chunks=(500,1,1,1))
+        dset_label = out_f.create_dataset('label',(d0,1,1,1),    maxshape=(None,1,1,1), chunks=(500,1,1,1))
+
+    out_f['data'][:] = data
+    out_f['ids'][:]  = ids
+    out_f['label'][:] = labels
 
 
 

@@ -125,6 +125,41 @@ class TestHDF5 (unittest.TestCase):
                 self.assertEqual (getLabel(out_f, i), i)
                 self.assertEqual (getLabel(out_f, i+8), i)
 
+    def test_merge_toFirst (self):
+        ''' 'merge' must be able to operate when in1 == out or in2 == out '''
+        merge (self.f, self.f, self.f)
+        self.assertEqual (getNum(self.f), 16)
+        self.assertIsNotNone (self.f['data'][:])
+        self.assertIsNotNone (self.f['label'][:])
+        self.assertIsNotNone (self.f['ids'][:])
+        self.assertEqual (getImageDims(self.f), (18,24,3))
+        self.assertEqual (self.f['label'][:].shape, (16,1,1,1))
+        self.assertEqual (self.f['ids'][:].shape,   (16,1,1,1))
+        for i in range(8):
+            self.assertEqual (getLabel(self.f, i), i)
+            self.assertEqual (getLabel(self.f, i+8), i)
+
+    def test_merge_toEmpty (self):
+        ''' 'merge' must be able to add empty and add to empty dataset '''
+        # create in-memory empty hdf5 file
+        with h5py.File ('out', driver='core', backing_store=False) as out_f:
+            merge (out_f, self.f, out_f)
+            self.assertEqual (getNum(out_f), 8)
+            self.assertIsNotNone (out_f['data'][:])
+            self.assertIsNotNone (out_f['label'][:])
+            self.assertIsNotNone (out_f['ids'][:])
+            self.assertEqual (getImageDims(out_f), (18,24,3))
+            self.assertEqual (out_f['label'][:].shape, (8,1,1,1))
+            self.assertEqual (out_f['ids'][:].shape,   (8,1,1,1))
+            for i in range(8):
+                self.assertEqual (getLabel(out_f, i), i)
+
+    def test_merge_twoEmpty (self):
+        ''' 'merge' should raise exception when both inputs are empty '''
+        # create in-memory empty hdf5 file
+        with h5py.File ('out', driver='core', backing_store=False) as out_f:
+            with self.assertRaises(Exception): merge (out_f, out_f, out_f)
+
 
     def test_multipleOf (self):
         multipleOf (self.f, multiple = 3)

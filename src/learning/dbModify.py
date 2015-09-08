@@ -217,7 +217,7 @@ def __clusterBboxes__ (c, imagefile, params):
 
 
 
-def filterByBorder (c, params):
+def filterByBorder (c, params = {}):
     '''
     Zero 'score' of bboxes that is closer than 'min_width' from the border
     '''
@@ -250,7 +250,7 @@ def filterByBorder (c, params):
 
 
 
-def filterByRatio (c, params):
+def filterByRatio (c, params = {}):
     '''
     Reduce score of boxes, for which height/width is too different than 'target_ratio'
     Score reduction factor is controlled with 'ratio_acceptance'
@@ -285,7 +285,7 @@ def filterByRatio (c, params):
 
 
 
-def filterBySize (c, params):
+def filterBySize (c, params = {}):
     '''
     Reduce score of boxes, whose size is too different than predicted by 'size_map'
     Score reduction factor is controlled with 'size_acceptance'
@@ -355,7 +355,7 @@ def thresholdScore (c, params = {}):
 
 
 
-def expandBboxes (c, params={}):
+def expandBboxes (c, params = {}):
     '''
     Expand bbox in every direction.
     If 'keep_ratio' flag is set, the smaller of width and height will be expanded more

@@ -6,6 +6,7 @@
 # Format of output dataset can be different for different packages.
 #
 
+from __future__ import print_function
 import abc
 import logging
 import os, sys
@@ -128,7 +129,7 @@ class PatchHelperHDF5 (PatchHelperBase):
         h5py.File.close (self.f)
 
     def writePatch (self, patch, carid, label = None):
-        if label is None: label = 3141592  # magic dummy label is always written to hdf5
+        if label is None: label = np.pi  # magic dummy label is always written to hdf5
         logging.debug ('writing patch #%d' % carid)
         helperH5.writeNextPatch (self.f, patch, carid, label)
 
@@ -136,6 +137,18 @@ class PatchHelperHDF5 (PatchHelperBase):
 # the end of PatchHelper-s #
 
 
+
+
+
+def writeReadme (in_db_path, dataset_name, params = {}):
+    '''
+    Write info about exported dataset and params into a text file 
+    '''
+    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    os.makedirs (op.join(params['relpath'], op.dirname(dataset_name)))
+    with open(op.join(params['relpath'], dataset_name + '.txt'), 'w') as readme:
+        readme.write('from database: %s\n' % in_db_path)
+        readme.write('with params: \n%s \n' % json.dumps(params, indent=4))
 
 
 
@@ -313,184 +326,3 @@ def collectByMatch (c, out_dataset, params = {}):
                 params['patch_helper'].writePatch(patch, carid, label=match)
 
     params['patch_helper'].closeDataset()
-
-
-
-
-# FIXME: not tested
-#
-def collectPatchesTask (db_path, filters_path, out_dir, params = {}):
-    '''
-    Cluster cars and save the patches in bulk, by "task".
-    Use filters to cluster and transform, and save the patches 
-    '''
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    db_path      = op.join (params['relpath'], db_path)
-    filters_path = op.join (params['relpath'], filters_path)
-    out_dir      = op.join (params['relpath'], out_dir)
-
-    logging.info ('=== exporting.collectGhostsTask ===')
-    logging.info ('db_path: '      + db_path)
-    logging.info ('filters_path: ' + filters_path)
-    logging.info ('out_dir: '      + out_dir)
-    logging.info ('params: ' + str(params))
-    logging.info ('')
-
-    # open db
-    if not op.exists (db_path):
-        raise Exception ('db does not exist: ' + db_path)
-    conn = sqlite3.connect (db_path)
-    c = conn.cursor()
-
-    # load clusters
-    if not op.exists(filters_path):
-        raise Exception('filters_path does not exist: ' + filters_path)
-    filters_file = open(filters_path)
-    filters_groups = json.load(filters_file)
-    filters_file.close()
-
-    # delete 'out_dir' dir, and recreate it
-    logging.warning ('will delete existing out dir: ' + out_dir)
-    if op.exists (out_dir):
-        shutil.rmtree (out_dir)
-    os.makedirs (out_dir)
-
-    for filter_group in filters_groups:
-        assert ('filter' in filter_group)
-        logging.info ('filter group %s' % filter_group['filter'])
-
-        # merge constraints from 'params' and 'filter_group'
-        constraint = 'WHERE 1'
-        if 'constraint' in filter_group.keys(): 
-            constraint += ' AND (%s)' % filter_group['constraint']
-        if 'constraint' in params.keys(): 
-            assert params['constraint'][0:5] != 'WHERE'  # prevent old format
-            constraint += ' AND (%s)' % params['constraint']
-        logging.info ('constraint: %s' % constraint)
-        filter_group['constraint'] = constraint
-
-        filter_params = params.copy()
-        filter_params.update(filter_group)
-
-        collectPatches (c, op.join(out_dir, filter_group['filter']), filter_params)
-
-    conn.close()
-
-    # write info
-    with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
-        readme.write('created at: %s\n' % datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y"))
-        readme.write('from database %s\n' % db_path)
-        readme.write('with input constraint: %s\n' % params['constraint'])
-        readme.write('with filters %s\n' % json.dumps(filters_groups, indent=4))
-
-
-
-# TODO: write unittests
-#
-def writeInfoFile (db_path, filters_path, out_dir, params = {}):
-    '''
-    Write .dat file for Violajones. It is a file used to produce .vec positives
-    Each line corresponds to some imagefile from a dataset, may be several bboxes 
-    Currently not used due to some dat -> vec problems, as far as I remember
-    '''
-    logging.info ('==== writeInfoFile ====')
-    logging.info ('db_path: '      + db_path)
-    logging.info ('filters_path: ' + filters_path)
-    logging.info ('out_dir: '      + out_dir)
-    logging.info ('params: ' + str(params))
-
-    db_path      = op.join(os.getenv('CITY_DATA_PATH'), db_path)
-    filters_path = op.join(os.getenv('CITY_DATA_PATH'), filters_path)
-    out_dir      = op.join(os.getenv('CITY_DATA_PATH'), out_dir)
-
-    dupl_num = params['dupl_num'] if 'dupl_num' in params.keys() else 1
-
-    # open db
-    if not op.exists (db_path):
-        raise Exception ('db does not exist: ' + db_path)
-    conn = sqlite3.connect (db_path)
-    cursor = conn.cursor()
-
-    # load clusters
-    if not op.exists(filters_path):
-        raise Exception('filters_path does not exist: ' + filters_path)
-    filters_file = open(filters_path)
-    filters_groups = json.load(filters_file)
-    filters_file.close()
-
-    # delete 'out_dir' dir, and recreate it
-    logging.warning ('will delete existing out dir: ' + out_dir)
-    if op.exists (out_dir):
-        shutil.rmtree (out_dir)
-    os.makedirs (out_dir)
-
-    for filter_group in filters_groups:
-        assert ('filter' in filter_group)
-
-        info_file = open(op.join(out_dir, filter_group['filter'] + '.dat'), 'w')
-
-        cursor.execute('SELECT imagefile FROM images')
-        imagefiles = cursor.fetchall()
-
-        counter = 0
-        for (imagefile,) in imagefiles:
-            filter_group_im = dict(filter_group)
-
-            if not 'constraint' in filter_group_im.keys():
-                filter_group_im['constraint'] = 'WHERE imagefile="' + imagefile + '"'
-            else:
-                filter_group_im['constraint'] += ' AND imagefile="' + imagefile + '"'
-
-            # get db entries
-            car_entries = queryCars (cursor, filter_group_im)
-            counter += len(car_entries)
-
-            # skip if there are no objects
-            if not car_entries:
-                continue
-
-            imagepath = op.join (os.getenv('CITY_DATA_PATH'), imagefile)
-            info_file.write (op.relpath(imagepath, out_dir))
-            info_file.write (' ' + str(len(car_entries)))
-
-            for car_entry in car_entries:
-                bbox = carField(car_entry, 'bbox')
-                # write several times, for generation multiple objects
-                for i in range(dupl_num):
-                    info_file.write ('   ' + ' '.join(str(e) for e in bbox))
-
-            info_file.write('\n')
-
-        logging.info ('instances of ' + filter_group['filter'] + ': ' + str(counter))
-
-    info_file.close()
-    conn.close()
-
-    # write info
-    with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
-        readme.write('from database ' + db_path + '\n')
-        readme.write('with filters \n' + json.dumps(filters_groups, indent=4) + '\n')
-
-
-
-# TODO: write unittests
-#
-def patches2datFile (dir_in, dat_out_path):
-    '''
-    Write .dat file for Violajones. It is a file used to produce .vec positives
-    Input is a bunch of patches in clustering
-    It writes one bbox for each patch it gets on input.
-    '''
-    dir_in       = op.join(os.getenv('CITY_DATA_PATH'), dir_in)
-    dat_out_path = op.join(os.getenv('CITY_DATA_PATH'), dat_out_path)
-
-    image_paths = glob.glob(op.join(dir_in, '*.png'))
-    logging.info ('found ' + str(len(image_paths)) + ' files')
-
-    with open(dat_out_path, 'w') as dat_file:
-        for image_path in image_paths:
-            img = cv2.imread(image_path)
-            assert (img is not None)
-            (height,width,depth) = img.shape
-            str_roi = '  1  0 0 ' + str(width) + ' ' + str(height)
-            dat_file.write( op.relpath(image_path, op.dirname(dat_out_path)) + str_roi + '\n')
