@@ -185,7 +185,7 @@ from scipy.ndimage import gaussian_filter
 
 def _distortPatch_ (image, roi, params = {}):
     '''
-    Distort original patch in several ways. 
+    Distort original patch in several ways. Default is just take original patch.
     Write down all 'number' output patches.
     Constrast +/- is not supported at the moment.
     '''
@@ -271,8 +271,10 @@ def collectPatches (c, out_dataset, params = {}):
     logging.info ('==== collectGhosts ====')
     helperSetup.setParamUnlessThere (params, 'constraint', '1')
     helperSetup.setParamUnlessThere (params, 'label', None)
+    helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
     params['patch_helper'].initDataset(out_dataset)
 
@@ -290,13 +292,9 @@ def collectPatches (c, out_dataset, params = {}):
 
         for patch in patches:
 
-            # resize if necessary. params['resize'] == (width,height)
-            if 'resize' in params.keys():
-                assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
-                patch = cv2.resize(patch, params['resize'])
-
             # write patch
             carid = carField(car_entry, 'id')
+            patch = cv2.resize(patch, params['resize'])
             params['patch_helper'].writePatch(patch, carid, params['label'])
 
     params['patch_helper'].closeDataset()
@@ -310,8 +308,10 @@ def collectByMatch (c, out_dataset, params = {}):
     '''
     logging.info ('==== collectGhosts ====')
     helperSetup.setParamUnlessThere (params, 'label', None)
+    helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
     params['patch_helper'].initDataset(out_dataset)
 
@@ -343,13 +343,9 @@ def collectByMatch (c, out_dataset, params = {}):
 
             for patch in patches:
 
-                # resize if necessary. params['resize'] == (width,height)
-                if 'resize' in params.keys():
-                    assert (isinstance(params['resize'], tuple) and len(params['resize']) == 2)
-                    patch = cv2.resize(patch, params['resize'])
-
                 # write patch
                 carid = carField(car_entry, 'id')
+                patch = cv2.resize(patch, params['resize'])
                 params['patch_helper'].writePatch(patch, carid, label=match)
 
     params['patch_helper'].closeDataset()
