@@ -1,6 +1,5 @@
 import logging
 import os, sys, os.path as op
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import setupLogging, _setupCopyDb_
 import sqlite3
 import shutil
