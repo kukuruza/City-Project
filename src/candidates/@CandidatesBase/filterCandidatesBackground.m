@@ -1,6 +1,8 @@
 function filteredBoxes = filterCandidatesBackground(self, bboxes, background)
     % Filtering the candidates based on the background occupancy
     
+    assert (ismatrix(background));
+    
     % Flag to keep the box
     keepBox = false(size(bboxes, 1), 1);
     bground = double(background);

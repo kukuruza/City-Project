@@ -1,4 +1,14 @@
 classdef CandidatesBase < CandidatesInterface
+    properties (SetAccess = public, GetAccess = public)
+        % Threshold for checking for background occupancy to filter candidates
+        occupancyThreshold
+    end
+    
+    methods
+        % Filter candidates by candidate
+        filteredBoxes = filterCandidatesBackground(self, bboxes, background);
+    end
+    
     methods(Static)
         % Visualizing the candidates
         function debugImg = drawCandidates (bboxes, image)
@@ -49,23 +59,6 @@ classdef CandidatesBase < CandidatesInterface
                 
                 % Close the file
                 fclose(fileId);
-            end
-        end
-        
-        % Dumping the candidate images to a folder for CNN testing
-        function dumpCandidateImages(image, bboxes, savePath)
-            if(~exist(savePath, 'dir'))
-                mkdir(savePath);
-            end
-            
-            filePath = fullfile(savePath, 'candidate_%05d.png');
-            for i = 1:size(bboxes, 1)
-                % saving the image after resizing
-                subImg = image(bboxes(i, 2) + (0:bboxes(i, 4)-1), ...
-                                bboxes(i, 1) + (0:bboxes(i, 3)-1), :);
-                subImg = imresize(subImg, [18, 24]);
-                
-                imwrite(subImg, sprintf(filePath, i), 'png');
             end
         end
         

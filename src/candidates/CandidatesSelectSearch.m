@@ -67,9 +67,12 @@ classdef CandidatesSelectSearch < CandidatesBase
             addParameter(parser, 'colorType', 1);
             addParameter(parser, 'mapSize', []);
             addParameter(parser, 'SizeAllowance', [0.3, 3], @(x) isvector(x) && length(x) == 2);
+            addParameter(parser, 'occupancy', 0.05, @isscalar);
             parse (parser, varargin{:});
             parsed = parser.Results;
-            
+
+            self.occupancyThreshold = parsed.occupancy;
+
             assert (~isempty(parsed.mapSize));
             
             addpath (genpath(fullfile(getenv('CITY_PATH'), '3rd-party/SelectiveSearchCodeIJCV')));

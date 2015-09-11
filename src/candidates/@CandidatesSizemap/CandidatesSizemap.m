@@ -10,10 +10,6 @@ classdef CandidatesSizemap < CandidatesBase
         interval         % interval between candidate bboxes, pxl
         
         bboxes  % generated at the time of contructing the object
-        
-        % Threshold for checking for background occupancy to filter
-        % candidates
-        occupancyThreshold;
     end
     
     methods
@@ -42,9 +38,6 @@ classdef CandidatesSizemap < CandidatesBase
         % Initializing the candidates
         self = initializeCandidates(self);
 
-        % Filter candidates by candidate
-        filteredBoxes = filterCandidatesBackground(self, bboxes, background);
-        
         % Getting the candidate boxes, using size map of the given camera
         function bboxes = getCandidates (self, varargin)
             bboxes = self.bboxes;
