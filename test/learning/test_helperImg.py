@@ -9,6 +9,259 @@ import shutil
 from scipy.spatial import distance
 from helperImg import *
 
+
+class TestReaderVideo (unittest.TestCase):
+
+    def setUp (self):
+        self.reader = ReaderVideo ({'relpath': '.'})
+
+    def _compareImages_ (self, src, trg):
+        self.assertIsNotNone (src)
+        self.assertEqual (src.shape, trg.shape)
+        diff = np.abs(src.astype(int) - trg.astype(int))
+        self.assertAlmostEqual (np.mean(diff) / 255.0, 0, 1)
+        #cv2.imshow('show', np.hstack((src, trg)))
+        #cv2.waitKey(-1)
+        # TODO: why for these tiny images image1read has artifacts on the right side??
+
+    def test_readImageImpl_sequence (self):
+        image1read = self.reader.readImageImpl ('testdata/Cassini/images/000000dummy', False)
+        image1true = cv2.imread                ('testdata/Cassini/images/000000.jpg')
+        self._compareImages_ (image1read, image1true)
+        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+        image2true = cv2.imread                ('testdata/Cassini/images/000001.jpg')
+        self._compareImages_ (image2read, image2true)
+        self.assertEqual (len(self.reader.image_video), 1)
+        self.assertTrue ('testdata/Cassini/images.avi' in self.reader.image_video)
+
+    def test_readImageImpl_inverseSequence (self):
+        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+        image2true = cv2.imread                ('testdata/Cassini/images/000001.jpg')
+        self._compareImages_ (image2read, image2true)
+        image1read = self.reader.readImageImpl ('testdata/Cassini/images/000000dummy', False)
+        image1true = cv2.imread                ('testdata/Cassini/images/000000.jpg')
+        self._compareImages_ (image1read, image1true)
+
+    def test_readImageImpl_same (self):
+        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+        # repeat image2read again
+        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+        image2true = cv2.imread                ('testdata/Cassini/images/000001.jpg')
+        self._compareImages_ (image2read, image2true)
+
+    def test_readImageImpl_badPath (self):
+        with self.assertRaises(Exception): 
+            self.reader.readImageImpl ('dummy/path', False)
+
+    def test_readImageImpl_badImageid (self):
+        with self.assertRaises(Exception): 
+            self.reader.readImageImpl ('testdata/Cassini/images/100', False)
+
+
+    def test_imread_sequence (self):
+        image1read = self.reader.imread ('testdata/Cassini/images/000000dummy')
+        image1true = cv2.imread         ('testdata/Cassini/images/000000.jpg')
+        self._compareImages_ (image1read, image1true)
+        image2read = self.reader.imread ('testdata/Cassini/images/000001dummy')
+        image2true = cv2.imread         ('testdata/Cassini/images/000001.jpg')
+        self._compareImages_ (image2read, image2true)
+
+    def test_imread_cache (self):
+        image2read = self.reader.imread ('testdata/Cassini/images/000001dummy')
+        image2true = cv2.imread         ('testdata/Cassini/images/000001.jpg')
+        self.assertTrue ('testdata/Cassini/images/000001dummy' in self.reader.image_cache)
+        image2cached = self.reader.image_cache['testdata/Cassini/images/000001dummy']
+        self._compareImages_ (image2cached, image2true)
+        image2read = self.reader.imread ('testdata/Cassini/images/000001dummy')
+        self._compareImages_ (image2read, image2true)
+
+    def test_imread_twoVideos (self):
+        image2read = self.reader.imread ('testdata/Cassini/images/000001dummy')
+        image5read = self.reader.imread ('testdata/Moon/images/000002dummy')
+        image5true = cv2.imread         ('testdata/Moon/images/000002.jpg')
+        self._compareImages_ (image5read, image5true)
+        image1read = self.reader.imread ('testdata/Cassini/images/000000dummy')
+        image1true = cv2.imread         ('testdata/Cassini/images/000000.jpg')
+        self._compareImages_ (image1read, image1true)
+        image3read = self.reader.imread ('testdata/Moon/images/000000dummy')
+        image3true = cv2.imread         ('testdata/Moon/images/000000.jpg')
+        self._compareImages_ (image3read, image3true)
+        self.assertTrue ('testdata/Moon/images/000000dummy' in self.reader.image_cache)
+        self.assertEqual (len(self.reader.image_video), 2)
+        self.assertTrue ('testdata/Cassini/images.avi' in self.reader.image_video)
+        self.assertTrue ('testdata/Moon/images.avi'    in self.reader.image_video)
+
+
+    def test_maskread_sequence (self):
+        mask1read = self.reader.maskread ('testdata/Cassini/masks/000000dummy')
+        mask1true = cv2.imread           ('testdata/Cassini/masks/000000.png', 0)
+        self._compareImages_ (mask1read, mask1true)
+        mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
+        mask2true = cv2.imread           ('testdata/Cassini/masks/000001.png', 0)
+        self._compareImages_ (mask2read, mask2true)
+
+    def test_maskread_cache (self):
+        mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
+        mask2true = cv2.imread           ('testdata/Cassini/masks/000001.png', 0)
+        self.assertTrue ('testdata/Cassini/masks/000001dummy' in self.reader.mask_cache)
+        mask2cached = self.reader.mask_cache['testdata/Cassini/masks/000001dummy']
+        self._compareImages_ (mask2cached, mask2true)
+        mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
+        self._compareImages_ (mask2read, mask2true)
+
+    def test_maskread_twoVideos (self):
+        mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
+        mask5read = self.reader.maskread ('testdata/Moon/masks/000002dummy')
+        mask5true = cv2.imread           ('testdata/Moon/masks/000002.png', 0)
+        self._compareImages_ (mask5read, mask5true)
+        mask1read = self.reader.maskread ('testdata/Cassini/masks/000000dummy')
+        mask1true = cv2.imread           ('testdata/Cassini/masks/000000.png', 0)
+        self._compareImages_ (mask1read, mask1true)
+        mask3read = self.reader.maskread ('testdata/Moon/masks/000000dummy')
+        mask3true = cv2.imread           ('testdata/Moon/masks/000000.png', 0)
+        self._compareImages_ (mask3read, mask3true)
+        self.assertTrue ('testdata/Moon/masks/000000dummy' in self.reader.mask_cache)
+        self.assertEqual (len(self.reader.mask_video), 2)
+        self.assertTrue ('testdata/Cassini/masks.avi' in self.reader.mask_video)
+        self.assertTrue ('testdata/Moon/masks.avi'    in self.reader.mask_video)
+
+
+class TestProcessorVideo (unittest.TestCase):
+
+    def setUp (self):
+        self.processor = ProcessorVideo \
+           ({'relpath': '.', 
+             'out_dataset': {'testdata/Cassini/images.avi': 'testdata/Cassini/imwrite.avi',
+                             'testdata/Cassini/masks.avi': 'testdata/Cassini/maskwrite.avi',
+                             'testdata/Moon/images.avi': 'testdata/Moon/imwrite.avi',
+                             'testdata/Moon/masks.avi': 'testdata/Moon/maskwrite.avi'}
+            })
+
+    def tearDown (self):
+        if op.exists('testdata/Cassini/imwrite.avi'): os.remove('testdata/Cassini/imwrite.avi')
+        if op.exists('testdata/Cassini/maskwrite.avi'): os.remove('testdata/Cassini/maskwrite.avi')
+        if op.exists('testdata/Moon/imwrite.avi'): os.remove('testdata/Moon/imwrite.avi')
+        if op.exists('testdata/Moon/maskwrite.avi'): os.remove('testdata/Moon/maskwrite.avi')
+
+    def _compareImages_ (self, src, trg):
+        self.assertIsNotNone (src)
+        self.assertEqual (src.shape, trg.shape)
+        diff = np.abs(src.astype(int) - trg.astype(int))
+        self.assertAlmostEqual (np.mean(diff) / 255.0, 0, 1)
+        #cv2.imshow('show', np.hstack((src, trg)))
+        #cv2.waitKey(-1)
+        # TODO: why for these tiny images image1read has artifacts on the right side??
+
+    def test_writeImageImpl_sequence (self):
+        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
+        self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000000', False)
+        self.assertEqual (len(self.processor.frame_size), 1)
+        self.assertEqual (len(self.processor.out_image_video), 1)
+        self.assertEqual (self.processor.frame_size['testdata/Cassini/imwrite.avi'], (100, 100))
+
+        image2read = self.processor.readImageImpl ('testdata/Cassini/images/000001', False)
+        self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000001', False)
+        self.assertEqual (len(self.processor.frame_size), 1)
+        self.assertEqual (len(self.processor.out_image_video), 1)
+        self.assertEqual (self.processor.frame_size['testdata/Cassini/imwrite.avi'], (100, 100))
+
+    def test_writeImageImpl_twoVideos (self):
+        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
+        self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000000', False)
+        image2read = self.processor.readImageImpl ('testdata/Moon/images/000000', False)
+        self.processor.writeImageImpl (image2read, 'testdata/Moon/images/000000', False)
+        self.assertEqual (len(self.processor.frame_size), 2)
+        self.assertEqual (len(self.processor.out_image_video), 2)
+
+        image3read = self.processor.readImageImpl ('testdata/Cassini/images/000001', False)
+        self.processor.writeImageImpl (image3read, 'testdata/Cassini/images/000001', False)
+        image4read = self.processor.readImageImpl ('testdata/Moon/images/000001', False)
+        self.processor.writeImageImpl (image4read, 'testdata/Moon/images/000001', False)
+        self.assertEqual (len(self.processor.frame_size), 2)
+        self.assertEqual (len(self.processor.out_image_video), 2)
+
+    def test_writeImageImpl_badFramesize (self):
+        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
+        image2read = self.processor.readImageImpl ('testdata/Moon/images/000000', False)
+        with self.assertRaises (Exception):
+            self.processor.writeImageImpl (image1read, 'testdata/Moon/images/000000', False)
+
+    def test_writeImageImpl_existingVideofile (self):
+        self.processor = ProcessorVideo \
+           ({'relpath': '.', 
+             'out_dataset': {'testdata/Cassini/images.avi': 'testdata/Cassini/empty.avi'}
+            })
+        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
+        with self.assertRaises (Exception):
+            self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000000', False)
+
+    def test_imwrite (self):
+        image1read = self.processor.imread ('testdata/Cassini/images/000000')
+        self.processor.imwrite (image1read, 'testdata/Cassini/images/000000')
+        image2read = self.processor.imread ('testdata/Moon/images/000000')
+        self.processor.imwrite (image2read, 'testdata/Moon/images/000000')
+        #
+        image3read = self.processor.imread ('testdata/Cassini/images/000001')
+        self.processor.imwrite (image3read, 'testdata/Cassini/images/000001')
+        image4read = self.processor.imread ('testdata/Moon/images/000001')
+        self.processor.imwrite (image4read, 'testdata/Moon/images/000001')
+        #
+        self.processor.close()
+        video = cv2.VideoCapture('testdata/Cassini/imwrite.avi')
+        retval, image1saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(image1read, image1saved)
+        retval, image3saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(image3read, image3saved)
+        video.release()
+        #
+        self.processor.close()
+        video = cv2.VideoCapture('testdata/Moon/imwrite.avi')
+        retval, image2saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(image2read, image2saved)
+        retval, image4saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(image4read, image4saved)
+        video.release()
+
+    def test_maskwrite (self):
+        mask1read = self.processor.maskread ('testdata/Cassini/masks/000000')
+        self.processor.maskwrite (mask1read, 'testdata/Cassini/masks/000000')
+        mask2read = self.processor.maskread ('testdata/Moon/masks/000000')
+        self.processor.maskwrite (mask2read, 'testdata/Moon/masks/000000')
+        #
+        mask3read = self.processor.maskread ('testdata/Cassini/masks/000001')
+        self.processor.maskwrite (mask3read, 'testdata/Cassini/masks/000001')
+        mask4read = self.processor.maskread ('testdata/Moon/masks/000001')
+        self.processor.maskwrite (mask4read, 'testdata/Moon/masks/000001')
+        #
+        self.processor.close()
+        video = cv2.VideoCapture('testdata/Cassini/maskwrite.avi')
+        retval, mask1saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(mask1read, mask1saved[:,:,0])
+        retval, mask3saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(mask3read, mask3saved[:,:,0])
+        video.release()
+        #
+        self.processor.close()
+        video = cv2.VideoCapture('testdata/Moon/maskwrite.avi')
+        retval, mask2saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(mask2read, mask2saved[:,:,0])
+        retval, mask4saved = video.read()
+        self.assertTrue (retval)
+        self._compareImages_(mask4read, mask4saved[:,:,0])
+        video.release()
+
+
+
+
+
+
 class TestProcessorImagefile (unittest.TestCase):
 
     def setUp (self):
@@ -71,7 +324,7 @@ class TestProcessorImagefile (unittest.TestCase):
         self.assertAlmostEqual (dist, 0, 2)  # only 'almost' because of JPEG compression
         shutil.rmtree('testdata/test')
 
-    def test_imwrite (self):
+    def test_maskwrite (self):
         imagepath = 'testdata/test/mask.png'
         mask1 = cv2.imread('testdata/Cassini/masks/000000.png')
         self.processor.imwrite (mask1, imagepath)
@@ -81,7 +334,6 @@ class TestProcessorImagefile (unittest.TestCase):
         dist = distance.euclidean (mask1.ravel(), mask2.ravel()) / mask1.size
         self.assertAlmostEqual (dist, 0, 2)  # only 'almost' because of JPEG compression
         shutil.rmtree('testdata/test')
-
 
 
 
