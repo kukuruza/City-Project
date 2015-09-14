@@ -7,16 +7,17 @@ import dbEvaluate
 
 helperSetup.setupLogging ('log/detector/EvaluateDetections.log', logging.INFO, 'a')
 
-task_path = 'learning/violajones/tasks/Apr04-circle.json'
-db_eval_path = 'datasets/labelme/Databases/572/distinct-frames.db'
-result_path = os.path.join('learning/violajones/models', 
-                           os.path.splitext(os.path.basename(task_path))[0], 'eval-d0.7.txt')
+db_eval_path = 'candidates/572-Oct30-17h-pair_sizemap.db'
+db_true_path = 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed-e0.1.db'
 
-params = { 'debug_show': False,
-           'show_experiments': False,
-           'result_path': result_path,
-           'dist_thresh': 0.7
-           #'model': '40x30-e0.1-circle'
+params = { 'debug': True,
+           'dist_thresh': 0.0
          }
 
-dbEvaluate.evaluateTask (task_path, db_eval_path, params)
+(conn_eval, cursor_eval) = helperSetup.dbInit(os.path.join(os.getenv('CITY_DATA_PATH'), db_eval_path))
+(conn_true, cursor_true) = helperSetup.dbInit(os.path.join(os.getenv('CITY_DATA_PATH'), db_true_path))
+
+dbEvaluate.evaluateDetector (cursor_eval, cursor_true, params)
+
+conn_eval.close()
+conn_true.close()

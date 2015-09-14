@@ -13,36 +13,36 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % What to do
-show = false;
+write = false;
+show = true;
 
 % Setting up the paths for input and reference database
-%dbPath = fullfile(CITY_DATA_PATH, 'candidates', '671-Mar24-12h_selective.db');
-dbPath = fullfile(CITY_DATA_PATH, 'candidates', '671-Mar24-12h_sizemap.db');
-refPath = fullfile(CITY_DATA_PATH, 'datasets/sparse/Databases/671-Mar24-12h',...
-                    'src-ghost.db');
+dbPath = fullfile(CITY_DATA_PATH, 'candidates', '572-Oct30-17h-pair_selective.db');
+%dbPath = fullfile(CITY_DATA_PATH, 'candidates', '572-Oct30-17h-pair_sizemap.db');
+refPath = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/init-ghost.db');
 
 % Size map
-sizeMapPath = fullfile(CITY_DATA_PATH, 'models/cam671/', 'mapSize.tiff');
+sizeMapPath = fullfile(CITY_DATA_PATH, 'models/cam572/', 'mapSize.tiff');
 
 
 %% Work
 
 % Creating a simple DatabaseWriter instance
-writer = DatabaseWriter(dbPath, refPath);
+if write
+    writer = DatabaseWriter(dbPath, refPath);
+end
 
 % Size map
 mapSize = imread(sizeMapPath);
 
 % Reading the image listing from the db
-imagefiles = sqlite3.execute(writer.dbId, 'SELECT imagefile FROM images');
+dbRefId = sqlite3.open(refPath);
+imagefiles = sqlite3.execute(dbRefId, 'SELECT imagefile FROM images');
 fprintf('found %d frames in the db.\n', length(imagefiles));
 
-% Getting the boxes before for the camera (only if based on sizemap candidates)
-cands = CandidatesSizemap (mapSize);
-bboxes = cands.getCandidates();
-
-% Selective Search candidates
-%cands = CandidatesSelectSearch('mapSize', mapSize);
+% Candidates object
+%cands = CandidatesSizemap (mapSize);
+cands = CandidatesSelectSearch('mapSize', mapSize);
     
 for i = 1:length(imagefiles)
     imagefile = imagefiles(i).imagefile;
@@ -50,12 +50,13 @@ for i = 1:length(imagefiles)
     % Reading the ghost
     image = imread (fullfile(CITY_DATA_PATH, imagefile));
     
-    % Getting the candidates (selective search)
-    %bboxes = cands.getCandidates('image', image);
+    % Getting the candidates
+    %bboxes = cands.getCandidates();
+    bboxes = cands.getCandidates('image', image);
 
     % Get the mask
     query = 'SELECT maskfile FROM images WHERE imagefile = ?';
-    maskfile = sqlite3.execute(writer.dbId, query, imagefile);
+    maskfile = sqlite3.execute(dbRefId, query, imagefile);
     mask = imread(fullfile(CITY_DATA_PATH, maskfile.maskfile));
     assert (ismatrix(mask));
     
@@ -69,10 +70,15 @@ for i = 1:length(imagefiles)
     end
     
     % Writing the candidates
-    writer.saveBoxesToDatabase(fildtersBboxes, imagefile, 'candidate');
+    if write
+        writer.saveBoxesToDatabase(fildtersBboxes, imagefile, 'candidate');
+    end
     
     fprintf('%s: %d candidates\n', imagefile, size(fildtersBboxes,1));
 end
 
 % Closing the database / DatabaseWriter
-writer.closeDatabase();
+sqlite3.close(dbRefId);
+if write
+    writer.closeDatabase();
+end

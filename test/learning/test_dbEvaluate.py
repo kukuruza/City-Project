@@ -27,6 +27,14 @@ class TestEmptyDb (unittest.TestCase):
         result = evaluateDetector (c, c, {})
         self.assertEqual (result, (0,0,0))
 
+    def test_debug_all (self):
+        c = self.conn.cursor()
+        params = {'debug': True,
+                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)}),
+                  'key_reader': helperKeys.KeyReaderSequence([])}
+        evaluateDetector (c, c, params)
+        
+
 
 
 class TestMicroDb (unittest.TestCase):
@@ -92,6 +100,24 @@ class TestMicroDb (unittest.TestCase):
         c2 = self.conn2.cursor()
         result = evaluateDetector (c2, c1, {'dist_thresh': 0.9})
         self.assertEqual (result, (1,1,1))
+
+    def test_debug_all (self):
+        c1 = self.conn1.cursor()
+        c2 = self.conn2.cursor()
+        params = {'debug': True,
+                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)}),
+                  'key_reader': helperKeys.KeyReaderSequence([32, 32, 32])}
+        evaluateDetector (c2, c1, params)
+        
+    def test_debug_several (self):
+        ''' images should be displayed until a user hits Esc '''
+        c1 = self.conn1.cursor()
+        c2 = self.conn2.cursor()
+        params = {'debug': True,
+                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)}),
+                  'key_reader': helperKeys.KeyReaderSequence([32, 27])}
+        evaluateDetector (c2, c1, params)
+        
 
 
 

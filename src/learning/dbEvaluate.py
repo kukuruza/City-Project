@@ -11,17 +11,23 @@ from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
 from helperDb import carField
 import helperDb
 import helperSetup
+import helperImg
+import helperKeys
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/violajones'))
 from opencvInterface import loadJson, ExperimentsBuilder
 
 
 
 
-def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
+def _evaluateForImage_ (cursor_eval, cursor_true, imagefile, params):
+    helperSetup.setParamUnlessThere (params, 'debug',            False)
+    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
 
     # roi-s from ground truth
     cursor_true.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = cursor_true.fetchall()
+    logging.info ('found %d ground-true objects' % len(car_entries))
     truth = []
     for car_entry in car_entries:
         truth.append( bbox2roi (carField(car_entry, 'bbox')) )
@@ -29,33 +35,47 @@ def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
     # roi-s from detections
     cursor_eval.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = cursor_eval.fetchall()
+    logging.info ('found %d detected    objects' % len(car_entries))
     detected = []
     for car_entry in car_entries:
         detected.append( bbox2roi (carField(car_entry, 'bbox')) )
 
     # performance on this image
     hits   = 0
-    misses = len(truth)
+    misses_array = [True] * len(truth)
     falses = 0
     # TODO: get the best pairwise assignment (now, it's naive)
     statuses = {}
     for d in detected:
         best_dist = 1
-        for t in truth:
-            best_dist = min (1 - overlapRatio(d,t), best_dist)
+        best_i = None
+        for i in range(len(truth)):
+            dist = 1 - overlapRatio(d, truth[i])
+            if dist < best_dist:
+                best_i = i
+                best_dist = dist
         logging.debug('id: %d, its best distance: %f' % (carField(car_entry,'id'), best_dist) )
         if best_dist < params['dist_thresh']:
             hits += 1
-            misses -= 1
+            misses_array[best_i] = False
             statuses[tuple(d)] = True
         else:
             falses += 1
             statuses[tuple(d)] = False
+    # get the number of misses from separate numbers
+    misses = sum(misses_array)
 
     logging.info (op.basename(imagefile) + ': ' + str((hits, misses, falses)))
 
-    if params['debug_show']:
-        img = cv2.imread(op.join (os.getenv('CITY_DATA_PATH'), imagefile))
+    # for detection multiple pos may stand for the same true (before NMS), so calculate fps:
+    if truth:
+        fps = float(len(truth) - misses) / len(truth)
+        logging.info ('fps: %f' % fps)
+    else:
+        logging.info ('fps: no truth in this image')
+
+    if params['debug']:
+        img = params['image_processor'].imread(imagefile)
         for roi in detected:
             if statuses[tuple(roi)]:
                 drawRoi (img, roi, '', (0,255,0))
@@ -64,7 +84,9 @@ def __evaluateForImage__ (cursor_eval, cursor_true, imagefile, params):
         for roi in truth:
             drawRoi (img, roi, '', (255,0,0))
         cv2.imshow('evaluateDetector: green: matched, red: not matched, blue: truth', img)
-        cv2.waitKey(-1)
+        if params['key_reader'].readKey() == 27:
+            cv2.destroyWindow('debug')
+            params['debug'] = False
 
     return (hits, misses, falses)
 
@@ -76,7 +98,6 @@ def evaluateDetector (c, cursor_true, params):
     Returns a list of (hits, misses, false positives)
     '''
     logging.info ('==== evaluateDetector ====')
-    helperSetup.setParamUnlessThere (params, 'debug_show', False)
     helperSetup.setParamUnlessThere (params, 'dist_thresh', 0.5)
 
     c.execute('SELECT imagefile FROM images')
@@ -86,7 +107,7 @@ def evaluateDetector (c, cursor_true, params):
     result = (0,0,0) 
     for (imagefile,) in image_entries:
         logging.debug ('evaluating image: ' + imagefile)
-        result_im = __evaluateForImage__ (c, cursor_true, imagefile, params)
+        result_im = _evaluateForImage_ (c, cursor_true, imagefile, params)
         result = tuple(map(sum,zip(result, result_im)))
     return result
 
