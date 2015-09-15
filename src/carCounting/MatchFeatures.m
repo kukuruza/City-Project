@@ -3,6 +3,7 @@
 %
 
 clear all
+sqlite3.close();
 
 %% set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
@@ -12,25 +13,19 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input db
-db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed-image.db');
+db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed-e0.1.db');
+assert (exist(db_path, 'file') ~= 0);
 sqlite3.open (db_path);
 
 
 %% input features
-features_path = fullfile(CITY_DATA_PATH, 'cnn/features/572-Oct30-17h-pair-ip1.txt');
+features_path = fullfile(CITY_DATA_PATH, 'counting/features/572-Oct30-17h-pair/features-ip2.txt');
 
-ids_and_features = importdata(features_path);
-featureID = ids_and_features.textdata;
-features  = ids_and_features.data;
+ids_and_features = dlmread (features_path);
+featureids = ids_and_features(:,1);
+features   = ids_and_features(:,2:end);
 fprintf ('have read %d features, each of length %d.\n', size(features));
-count = length(featureID);
-
-featureids = zeros(count,1);
-for i = 1:count
- s1 = featureID(i);
- s2 = strrep(s1,'.png','');
- featureids(i,1) = str2num(cell2mat(s2));
-end
+count = length(featureids);
 
 
 %% get all positives
@@ -52,9 +47,17 @@ for match = [matches.match];
     for carid1 = [carids.carid]
         for carid2 = [carids.carid]
 
+            % extract geometry features
+            geom1 = sqlite3.execute('SELECT width FROM cars WHERE id = ?', carid1);
+            geom2 = sqlite3.execute('SELECT width FROM cars WHERE id = ?', carid2);
+
+            % skip cars for there's no features (e.g. too small, when name=='double')
+            if ~nnz(featureids == carid1), continue; end
+            if ~nnz(featureids == carid2), continue; end
+            
             % find carid1 and carid2 in the features
-            feature1 = features (featureids == carid1, :);
-            feature2 = features (featureids == carid2, :);
+            feature1 = [features(featureids == carid1, :), geom1.width];
+            feature2 = [features(featureids == carid2, :), geom2.width];
             % not all the cars get a feature, there are filters on size, type, etc
             if isempty(feature1) || isempty(feature2), continue, end
             % there can be only one feature with this index
@@ -67,7 +70,7 @@ for match = [matches.match];
         end
     end
 end
-save('PosCase.mat', 'PosCase');
+save (fullfile(CITY_DATA_PATH, 'counting/PosCase.mat'), 'PosCase');
 fprintf ('found %d positive samples\n', counter_pos);
  
 
@@ -105,8 +108,12 @@ for i = 1 : size(randomPairs,2)
     found_match = sqlite3.execute(query, carid1, carid2);
     if found_match.count, continue, end
     
-    feature1 = features (randomPair(1),:);
-    feature2 = features (randomPair(2),:);
+    % extract geometry features
+    geom1 = sqlite3.execute('SELECT width FROM cars WHERE id = ?', carid1);
+    geom2 = sqlite3.execute('SELECT width FROM cars WHERE id = ?', carid2);
+    
+    feature1 = [features(randomPair(1),:), geom1.width];
+    feature2 = [features(randomPair(2),:), geom1.width];
     
     % a single negative sample
     negative = [feature1 feature2];
@@ -117,7 +124,7 @@ for i = 1 : size(randomPairs,2)
     counter_neg = counter_neg + 1;
     NegCase(counter_neg,:) = negative;
 end
-save('NegCase.mat', 'NegCase');
+save(fullfile(CITY_DATA_PATH, 'counting/NegCase.mat'), 'NegCase');
 fprintf ('found %d negative samples\n', counter_neg);
 
 
