@@ -1,6 +1,7 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import logging
-import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import dbCnn
 import helperSetup
 import helperImg

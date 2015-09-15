@@ -1,13 +1,13 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/cnn'))
 import logging
-import os, sys
-import os.path as op
 import shutil
 import glob
 import json
 import sqlite3
 import numpy as np, cv2
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/cnn'))
 from helperDb import carField
 from utilities import bbox2roi
 from DeploymentPatches import DeploymentPatches

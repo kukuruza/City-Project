@@ -1,11 +1,11 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import math
 import numpy as np
 import cv2
 from datetime import datetime
-import os, sys
 import collections
 import logging
-import os.path as op
 import glob
 import shutil
 import sqlite3
@@ -580,3 +580,27 @@ def polygonsToMasks (c, params = {}):
     
         logging.info ('saving mask to file: ' + maskfile)
         cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), maskfile), mask)
+
+
+def decrementNumbering (c, params = {}):
+    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+
+    c.execute('SELECT imagefile,maskfile FROM images')
+    for (old_imagefile, old_maskfile) in c.fetchall():
+        old_imagepath = op.join(params['relpath'], imagefile)
+        old_maskpath  = op.join(params['relpath'], maskfile)
+
+        old_imagename = op.basename(old_imagefile)
+        old_imagenun = int(filter(lambda x: x.isdigit(), old_imagename))
+        new_imagename = '%06d.jpg' % (old_imagenun - 1)
+        new_imagefile = op.join(op.dirname(old_imagefile), new_imagename)
+
+        old_maskname = op.basename(old_maskfile)
+        old_masknun = int(filter(lambda x: x.isdigit(), old_maskname))
+        new_maskname = '%06d.jpg' % (old_masknun - 1)
+        new_maskfile = op.join(op.dirname(old_maskfile), new_maskname)
+
+        c.execute('UPDATE images SET maskfile=?  WHERE imagefile=?', (new_maskfile,  old_imagefile))
+        c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
+        c.execute('UPDATE cars   SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
+

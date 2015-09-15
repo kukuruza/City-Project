@@ -6,11 +6,11 @@
 # Format of output dataset can be different for different packages.
 #
 
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 from __future__ import print_function
 import abc
 import logging
-import os, sys
-import os.path as op
 import shutil
 import glob
 import json

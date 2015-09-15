@@ -24,38 +24,38 @@ class TestReaderVideo (unittest.TestCase):
         #cv2.waitKey(-1)
         # TODO: why for these tiny images image1read has artifacts on the right side??
 
-    def test_readImageImpl_sequence (self):
-        image1read = self.reader.readImageImpl ('testdata/Cassini/images/000000dummy', False)
+    def test_readImpl_sequence (self):
+        image1read = self.reader.readImpl ('testdata/Cassini/images/000000dummy', False)
         image1true = cv2.imread                ('testdata/Cassini/images/000000.jpg')
         self._compareImages_ (image1read, image1true)
-        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+        image2read = self.reader.readImpl ('testdata/Cassini/images/000001dummy', False)
         image2true = cv2.imread                ('testdata/Cassini/images/000001.jpg')
         self._compareImages_ (image2read, image2true)
         self.assertEqual (len(self.reader.image_video), 1)
         self.assertTrue ('testdata/Cassini/images.avi' in self.reader.image_video)
 
-    def test_readImageImpl_inverseSequence (self):
-        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+    def test_readImpl_inverseSequence (self):
+        image2read = self.reader.readImpl ('testdata/Cassini/images/000001dummy', False)
         image2true = cv2.imread                ('testdata/Cassini/images/000001.jpg')
         self._compareImages_ (image2read, image2true)
-        image1read = self.reader.readImageImpl ('testdata/Cassini/images/000000dummy', False)
+        image1read = self.reader.readImpl ('testdata/Cassini/images/000000dummy', False)
         image1true = cv2.imread                ('testdata/Cassini/images/000000.jpg')
         self._compareImages_ (image1read, image1true)
 
-    def test_readImageImpl_same (self):
-        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+    def test_readImpl_same (self):
+        image2read = self.reader.readImpl ('testdata/Cassini/images/000001dummy', False)
         # repeat image2read again
-        image2read = self.reader.readImageImpl ('testdata/Cassini/images/000001dummy', False)
+        image2read = self.reader.readImpl ('testdata/Cassini/images/000001dummy', False)
         image2true = cv2.imread                ('testdata/Cassini/images/000001.jpg')
         self._compareImages_ (image2read, image2true)
 
-    def test_readImageImpl_badPath (self):
+    def test_readImpl_badPath (self):
         with self.assertRaises(Exception): 
-            self.reader.readImageImpl ('dummy/path', False)
+            self.reader.readImpl ('dummy/path', False)
 
-    def test_readImageImpl_badImageid (self):
+    def test_readImpl_badImageid (self):
         with self.assertRaises(Exception): 
-            self.reader.readImageImpl ('testdata/Cassini/images/100', False)
+            self.reader.readImpl ('testdata/Cassini/images/100', False)
 
 
     def test_imread_sequence (self):
@@ -152,48 +152,68 @@ class TestProcessorVideo (unittest.TestCase):
         #cv2.waitKey(-1)
         # TODO: why for these tiny images image1read has artifacts on the right side??
 
-    def test_writeImageImpl_sequence (self):
-        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
-        self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000000', False)
+    def test_writeImpl_sequence (self):
+        image1read = self.processor.readImpl ('testdata/Cassini/images/000000', False)
+        self.processor.writeImpl (image1read, 'testdata/Cassini/images/000000', False)
         self.assertEqual (len(self.processor.frame_size), 1)
         self.assertEqual (len(self.processor.out_image_video), 1)
         self.assertEqual (self.processor.frame_size['testdata/Cassini/imwrite.avi'], (100, 100))
 
-        image2read = self.processor.readImageImpl ('testdata/Cassini/images/000001', False)
-        self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000001', False)
+        image2read = self.processor.readImpl ('testdata/Cassini/images/000001', False)
+        self.processor.writeImpl (image1read, 'testdata/Cassini/images/000001', False)
         self.assertEqual (len(self.processor.frame_size), 1)
         self.assertEqual (len(self.processor.out_image_video), 1)
         self.assertEqual (self.processor.frame_size['testdata/Cassini/imwrite.avi'], (100, 100))
 
-    def test_writeImageImpl_twoVideos (self):
-        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
-        self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000000', False)
-        image2read = self.processor.readImageImpl ('testdata/Moon/images/000000', False)
-        self.processor.writeImageImpl (image2read, 'testdata/Moon/images/000000', False)
+    def test_writeImpl_twoVideos (self):
+        image1read = self.processor.readImpl ('testdata/Cassini/images/000000', False)
+        self.processor.writeImpl (image1read, 'testdata/Cassini/images/000000', False)
+        image2read = self.processor.readImpl ('testdata/Moon/images/000000', False)
+        self.processor.writeImpl (image2read, 'testdata/Moon/images/000000', False)
         self.assertEqual (len(self.processor.frame_size), 2)
         self.assertEqual (len(self.processor.out_image_video), 2)
 
-        image3read = self.processor.readImageImpl ('testdata/Cassini/images/000001', False)
-        self.processor.writeImageImpl (image3read, 'testdata/Cassini/images/000001', False)
-        image4read = self.processor.readImageImpl ('testdata/Moon/images/000001', False)
-        self.processor.writeImageImpl (image4read, 'testdata/Moon/images/000001', False)
+        image3read = self.processor.readImpl ('testdata/Cassini/images/000001', False)
+        self.processor.writeImpl (image3read, 'testdata/Cassini/images/000001', False)
+        image4read = self.processor.readImpl ('testdata/Moon/images/000001', False)
+        self.processor.writeImpl (image4read, 'testdata/Moon/images/000001', False)
         self.assertEqual (len(self.processor.frame_size), 2)
         self.assertEqual (len(self.processor.out_image_video), 2)
 
-    def test_writeImageImpl_badFramesize (self):
-        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
-        image2read = self.processor.readImageImpl ('testdata/Moon/images/000000', False)
+    def test_writeImpl_badFramesize (self):
+        image1read = self.processor.readImpl ('testdata/Cassini/images/000000', False)
+        image2read = self.processor.readImpl ('testdata/Moon/images/000000', False)
         with self.assertRaises (Exception):
-            self.processor.writeImageImpl (image1read, 'testdata/Moon/images/000000', False)
+            self.processor.writeImpl (image1read, 'testdata/Moon/images/000000', False)
 
-    def test_writeImageImpl_existingVideofile (self):
+    def test_writeImpl_badFramesize (self):
+        image1read = self.processor.readImpl ('testdata/Cassini/images/000000', False)
+        with self.assertRaises (Exception):
+            self.processor.writeImpl (image1read, 'testdata/Moon/images/000000', False)
+
+    def test_writeImpl_existingVideofile (self):
+        open('testdata/Cassini/empty.avi', 'a').close()  # create empty dummy file
         self.processor = ProcessorVideo \
            ({'relpath': '.', 
              'out_dataset': {'testdata/Cassini/images.avi': 'testdata/Cassini/empty.avi'}
             })
-        image1read = self.processor.readImageImpl ('testdata/Cassini/images/000000', False)
+        image1read = self.processor.readImpl ('testdata/Cassini/images/000000', False)
         with self.assertRaises (Exception):
-            self.processor.writeImageImpl (image1read, 'testdata/Cassini/images/000000', False)
+            self.processor.writeImpl (image1read, 'testdata/Cassini/images/000000', False)
+        os.remove('testdata/Cassini/empty.avi')  # remove this dummy file
+
+    def test_writeImpl_notFirst (self):
+        image = self.processor.readImpl ('testdata/Moon/images/000002', False)
+        with self.assertRaises (Exception):
+            self.processor.writeImpl (image, 'testdata/Moon/images/000002', False)
+
+    def test_writeImpl_nonSequential (self):
+        image = self.processor.readImpl ('testdata/Moon/images/000000', False)
+        self.processor.writeImpl (image, 'testdata/Moon/images/000000', False)
+        image = self.processor.readImpl ('testdata/Moon/images/000002', False)
+        with self.assertRaises (Exception):
+            self.processor.writeImpl (image, 'testdata/Moon/images/000002', False)
+
 
     def test_imwrite (self):
         image1read = self.processor.imread ('testdata/Cassini/images/000000')
@@ -267,18 +287,18 @@ class TestProcessorImagefile (unittest.TestCase):
     def setUp (self):
         self.processor = ProcessorImagefile ({'relpath': '.'})
 
-    def test_readImageImpl (self):
-        image = self.processor.readImageImpl ('testdata/Cassini/images/000000.jpg')
+    def test_readImpl (self):
+        image = self.processor.readImpl ('testdata/Cassini/images/000000.jpg')
         self.assertIsNotNone (image)
         self.assertEqual (image.shape, (100, 100, 3))
 
-    def test_readImageImpl_badImagefile (self):
-        with self.assertRaises(Exception): self.processor.readImageImpl ('dummyname')
+    def test_readImpl_badImagefile (self):
+        with self.assertRaises(Exception): self.processor.readImpl ('dummyname')
 
-    def test_writeImageImpl (self):
-        imagepath = 'testdata/test/image.jpg'
+    def test_writeImpl (self):
         image1 = cv2.imread('testdata/Cassini/images/000000.jpg')
-        self.processor.writeImageImpl (image1, imagepath)
+        imagepath = 'testdata/test/image.jpg'
+        self.processor.writeImpl (image1, imagepath)
         image2 = cv2.imread (imagepath)
         self.assertIsNotNone (image2)
         self.assertEqual (image1.shape, image2.shape)
@@ -342,22 +362,22 @@ class TestProcessorFolder (unittest.TestCase):
     def setUp (self):
         self.processor = ProcessorFolder ({'relpath': '.'})
 
-    def test_readImageImpl (self):
-        image = self.processor.readImageImpl  ('000000.jpg', 'testdata/Cassini/images')
+    def test_readImpl (self):
+        image = self.processor.readImpl  ('000000.jpg', 'testdata/Cassini/images')
         self.assertIsNotNone (image)
         self.assertEqual (image.shape, (100, 100, 3))
 
-    def test_readImageImpl_badName (self):
+    def test_readImpl_badName (self):
         with self.assertRaises(Exception): 
-            self.processor.readImageImpl ('dummy', 'testdata/Cassini/images')
+            self.processor.readImpl ('dummy', 'testdata/Cassini/images')
 
-    def test_readImageImpl_badDataset (self):
+    def test_readImpl_badDataset (self):
         with self.assertRaises(Exception): 
-            self.processor.readImageImpl ('dummy', 'dummydir')
+            self.processor.readImpl ('dummy', 'dummydir')
 
-    def test_writeImageImpl (self):
+    def test_writeImpl (self):
         image1 = cv2.imread('testdata/Cassini/images/000000.jpg')
-        self.processor.writeImageImpl (image1, '000000.jpg', 'testdata/test')
+        self.processor.writeImpl (image1, '000000.jpg', 'testdata/test')
         image2 = cv2.imread ('testdata/test/000000.jpg')
         self.assertIsNotNone (image2)
         self.assertEqual (image1.shape, image2.shape)

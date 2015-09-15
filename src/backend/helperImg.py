@@ -20,6 +20,10 @@ class ProcessorBase (object):
         __metaclass__ = abc.ABCMeta
         return
 
+    @abc.abstractmethod
+    def close (self):
+        __metaclass__ = abc.ABCMeta
+        return
 
 
 class ReaderVideo (ProcessorBase):
@@ -50,7 +54,7 @@ class ReaderVideo (ProcessorBase):
             raise Exception('video failed to open: %s' % videopath)
         return handle
 
-    def readImageImpl (self, image_id, ismask):
+    def readImpl (self, image_id, ismask):
         # choose the dictionary, depending on whether it's image or mask
         video_dict = self.image_video if ismask else self.mask_video
         # video id set up
@@ -76,7 +80,7 @@ class ReaderVideo (ProcessorBase):
         if image_id in self.image_cache: 
             logging.debug ('imread: found image in cache')
             return self.image_cache[image_id]  # get cached image if possible
-        image = self.readImageImpl (image_id, ismask=False)
+        image = self.readImpl (image_id, ismask=False)
         logging.debug ('imread: new image, updating cache')
         self.image_cache = {image_id: image}   # currently only 1 image in the cache
         return image
@@ -85,7 +89,7 @@ class ReaderVideo (ProcessorBase):
         if mask_id in self.mask_cache: 
             logging.debug ('maskread: found mask in cache')
             return self.mask_cache[mask_id]  # get cached mask if possible
-        mask = self.readImageImpl (mask_id, ismask=True)
+        mask = self.readImpl (mask_id, ismask=True)
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         logging.debug ('imread: new mask, updating cache')
         self.mask_cache = {mask_id: mask}   # currently only 1 image in the cache
@@ -108,10 +112,10 @@ class ProcessorVideo (ReaderVideo):
         helperSetup.assertParamIsThere  (params, 'out_dataset')
         self.relpath = params['relpath']
         self.out_dataset = params['out_dataset']
-        self.out_image_video = {}   # map from image video name to VideoWriter object
-        self.out_mask_video = {}    # map from mask  video name to VideoWriter object
-        #self.out_current_frame = {} # map from video name to the frame id to be written
-        self.frame_size = {}
+        self.out_image_video = {}    # map from image video name to VideoWriter object
+        self.out_mask_video = {}     # map from mask  video name to VideoWriter object
+        self.out_current_frame = {}  # used for checks
+        self.frame_size = {}         # used for checks
 
     def _openVideoWriter_ (self, videofile, ref_video, ismask):
         ''' open a video for writing with parameters from the reference video (from reader) '''
@@ -122,6 +126,7 @@ class ProcessorVideo (ReaderVideo):
         frame_size = (width, height)
 
         self.frame_size[videofile] = frame_size
+        self.out_current_frame[videofile] = 0
 
         logging.info ('opening video: %s' % videofile)
         videopath = op.join (self.relpath, videofile)
@@ -135,7 +140,7 @@ class ProcessorVideo (ReaderVideo):
             self.out_image_video[videofile] = handler
 
 
-    def writeImageImpl (self, image, image_id, ismask):
+    def writeImpl (self, image, image_id, ismask):
         # choose the dictionary, depending on whether it's image or mask
         in_video_dict = self.mask_video if ismask else self.image_video
         # input video id
@@ -157,29 +162,27 @@ class ProcessorVideo (ReaderVideo):
         # choose the dictionary again, depending on whether it's image or mask
         out_video_dict = self.out_mask_video if ismask else self.out_image_video
         assert out_videopath in out_video_dict
-        # frame id
-        #frame_name = op.basename(image_id)
-        #frame_willbe  = int(filter(lambda x: x.isdigit(), frame_name))  # number
-        #frame_current = int(out_video_dict[out_videopath].get(cv2.cv.CV_CAP_PROP_POS_FRAMES))
-        #logging.debug ('from image_id %s, got frame_id %d' % (image_id, frame_willbe))
+
         # write the frame only if it is the next frame
-        #if frame_willbe == frame_current:
-#        print image.shape
-#        print out_videopath
+        frane_expected = self.out_current_frame[out_videopath]
+        frame_actual  = int(filter(lambda x: x.isdigit(), op.basename(image_id)))  # number
+        if frame_actual != frane_expected:
+            raise Exception('''Random access for writing is not supported now.
+                               New frame is #%d, but the expected frame is #%d''' % 
+                               (frame_actual, frane_expected))
+        self.out_current_frame[out_videopath] += 1  # update
+
+        # check frame size and write
         assert (image.shape[1], image.shape[0]) == self.frame_size[out_videopath]
         out_video_dict[out_videopath].write(image)
-        #else:
-        #    raise Exception('''Random access for writing is not supported now.
-        #                       New frame is #%d, but the expected frame is #%d''' % 
-        #                       (frame_willbe, frame_current))
 
     def imwrite (self, image, image_id):
         assert len(image.shape) == 3 and image.shape[2] == 3
-        self.writeImageImpl (image, image_id, ismask=False)
+        self.writeImpl (image, image_id, ismask=False)
 
     def maskwrite (self, mask, mask_id):
         assert len(mask.shape) == 2
-        self.writeImageImpl (mask, mask_id, ismask=True)
+        self.writeImpl (mask, mask_id, ismask=True)
 
     def close (self):
         for video in self.out_mask_video.itervalues():
@@ -200,7 +203,7 @@ class ProcessorImagefile (ProcessorBase):
         self.image_cache = {}   # cache of previously read image(s)
         self.mask_cache = {}    # cache of previously read mask(s)
 
-    def readImageImpl (self, image_id):
+    def readImpl (self, image_id):
         imagepath = op.join (self.relpath, image_id)
         logging.debug ('imagepath: %s' % imagepath)
         if not op.exists (imagepath):
@@ -210,7 +213,7 @@ class ProcessorImagefile (ProcessorBase):
             raise Exception ('image file exists, but failed to read it')
         return img
 
-    def writeImageImpl (self, image, image_id):
+    def writeImpl (self, image, image_id):
         imagepath = op.join (self.relpath, image_id)
         if image is None:
             raise Exception ('image to write is None')
@@ -222,7 +225,7 @@ class ProcessorImagefile (ProcessorBase):
         if image_id in self.image_cache: 
             logging.debug ('imread: found image in cache')
             return self.image_cache[image_id]  # get cached image if possible
-        image = self.readImageImpl (image_id)
+        image = self.readImpl (image_id)
         logging.debug ('imread: new image, updating cache')
         self.image_cache = {image_id: image}   # currently only 1 image in the cache
         return image
@@ -231,7 +234,7 @@ class ProcessorImagefile (ProcessorBase):
         if mask_id in self.mask_cache: 
             logging.debug ('maskread: found mask in cache')
             return self.mask_cache[mask_id]  # get cached mask if possible
-        mask = self.readImageImpl (mask_id)
+        mask = self.readImpl (mask_id)
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         logging.debug ('imread: new mask, updating cache')
         self.mask_cache = {mask_id: mask}   # currently only 1 image in the cache
@@ -239,11 +242,13 @@ class ProcessorImagefile (ProcessorBase):
 
     def imwrite (self, image, image_id):
         assert len(image.shape) == 3 and image.shape[2] == 3
-        self.writeImageImpl (image, image_id)
+        self.writeImpl (image, image_id)
 
     def maskwrite (self, mask, mask_id):
         assert len(mask.shape) == 2
-        self.writeImageImpl (mask, mask_id)
+        self.writeImpl (mask, mask_id)
+
+    def close (self): pass
 
 
 
@@ -260,7 +265,7 @@ class ProcessorFolder (ProcessorBase):
         self.image_cache = {}   # cache of previously read image(s)
         self.mask_cache = {}    # cache of previously read mask(s)
 
-    def readImageImpl (self, name, dataset):
+    def readImpl (self, name, dataset):
         imagepath = op.join (self.relpath, dataset, name)
         if not op.exists (imagepath):
             raise Exception ('ProcessorFolder: image does not exist at path: "%s"' % imagepath)
@@ -269,7 +274,7 @@ class ProcessorFolder (ProcessorBase):
             raise Exception ('ProcessorFolder: image file exists, but failed to read it')
         return img
 
-    def writeImageImpl (self, image, name, dataset):
+    def writeImpl (self, image, name, dataset):
         imagepath = op.join (self.relpath, dataset, name)
         if image is None:
             raise Exception ('ProcessorFolder: image to write is None')
@@ -282,7 +287,7 @@ class ProcessorFolder (ProcessorBase):
         if unique_id in self.image_cache: 
             logging.debug ('ProcessorFolder.imread: found image in cache')
             return self.image_cache[unique_id]  # get cached image if possible
-        image = self.readImageImpl ('%06d.jpg' % image_id, dataset) # image names are 6-digits
+        image = self.readImpl ('%06d.jpg' % image_id, dataset) # image names are 6-digits
         logging.debug ('ProcessorFolder.imread: new image, updating cache')
         self.image_cache = {unique_id: image}   # currently only 1 image in the cache
         return image
@@ -292,7 +297,7 @@ class ProcessorFolder (ProcessorBase):
         if unique_id in self.mask_cache: 
             logging.debug ('ProcessorFolder.maskread: found mask in cache')
             return self.mask_cache[unique_id]  # get cached image if possible
-        mask = self.readImageImpl ('%06d.png' % mask_id, dataset) # mask names are 6-digits
+        mask = self.readImpl ('%06d.png' % mask_id, dataset) # mask names are 6-digits
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
         logging.debug ('ProcessorFolder.maskread: new mask, updating cache')
         self.mask_cache = {unique_id: mask}   # currently only 1 image in the cache
@@ -300,11 +305,13 @@ class ProcessorFolder (ProcessorBase):
 
     def imwrite (self, image, image_id, dataset):
         assert len(image.shape) == 3 and image.shape[2] == 3
-        self.writeImageImpl (image, '%06d.jpg' % image_id, dataset)
+        self.writeImpl (image, '%06d.jpg' % image_id, dataset)
 
     def maskwrite (self, mask, mask_id, dataset):
         assert len(mask.shape) == 2
-        self.writeImageImpl (mask, '%06d.png' % mask_id, dataset)
+        self.writeImpl (mask, '%06d.png' % mask_id, dataset)
+
+    def close (self): pass
 
 
 
@@ -337,3 +344,6 @@ class ProcessorRandom (ProcessorBase):
     def maskwrite (self, mask, mask_id = None):
         assert len(mask.shape) == 2 and mask.shape == self.dims
         return
+
+    def close (self): pass
+

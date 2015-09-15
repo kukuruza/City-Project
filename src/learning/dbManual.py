@@ -1,7 +1,7 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import numpy as np
 import cv2
-import os, sys
-import os.path as op
 import logging
 from helperDb import deleteCar, carField
 import helperDb
