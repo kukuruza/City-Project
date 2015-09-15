@@ -227,7 +227,8 @@ def viewPatches (f, params = {}):
         logging.info ('index: %d' % index)
         logging.info ('image label: %d' % getLabel(f, index))
 
-        display = cv2.resize(image, (0,0), fx=params['scale'], fy=params['scale'])
+        sc = params['scale']
+        display = cv2.resize(image, (0,0), fx=sc, fy=sc, interpolation=cv2.INTER_NEAREST)
         cv2.imshow ('show', display)
         key = params['key_reader'].readKey()
 

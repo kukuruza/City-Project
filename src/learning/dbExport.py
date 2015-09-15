@@ -22,6 +22,7 @@ from utilities import bbox2roi, expandRoiFloat
 import helperSetup
 import h5py
 import datetime  # to print creation timestamp in readme.txt
+import copy
 import helperH5
 import helperImg
 import helperKeys
@@ -120,14 +121,19 @@ class PatchHelperHDF5 (PatchHelperBase):
 
         out_h5_path = op.join (self.params['relpath'], '%s.h5' % name)
         # remove hdf5 file if exists
-        if params['mode'] == 'w' and op.exists (out_h5_path):
-            logging.warning ('will delete existing hdf5 file: %s' % name)
-            os.remove (out_h5_path)
-        # create the parent directory for hdf5 file if necessary
-        if not op.exists (op.dirname(out_h5_path)):
-            os.makedirs (op.dirname(out_h5_path))
+        if params['mode'] == 'w':
+            if op.exists (out_h5_path):
+                logging.warning ('will delete existing hdf5 file: %s' % name)
+                os.remove (out_h5_path)
+            # create the parent directory for hdf5 file if necessary
+            if not op.exists (op.dirname(out_h5_path)):
+                os.makedirs (op.dirname(out_h5_path))
+            logging.info ('opening hdf5 file for writing at %s' % out_h5_path)
+        else:
+            if not op.exists(out_h5_path):
+                raise Exception ('hdf5 file %s does not exist', out_h5_path)
+            logging.info ('opening hdf5 file for reading at %s' % out_h5_path)
         # create/open hdf5 file
-        logging.info ('creating/opening hdf5 file at %s' % out_h5_path)
         self.f = h5py.File (out_h5_path)
 
     def closeDataset (self):
@@ -181,14 +187,30 @@ def convertFormat (in_dataset, out_dataset, params):
 
 
 
-def writeReadme (in_db_path, dataset_name, params = {}):
+def writeReadme (in_db_path, dataset_name, params_in = {}):
     '''
     Write info about exported dataset and params into a text file 
     '''
+    params = copy.deepcopy(params_in)
+
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    os.makedirs (op.join(params['relpath'], op.dirname(dataset_name)))
+    writeReadmeDir = op.join(params['relpath'], op.dirname(dataset_name))
+    if not op.exists(writeReadmeDir):
+        os.makedirs (writeReadmeDir)
     with open(op.join(params['relpath'], dataset_name + '.txt'), 'w') as readme:
         readme.write('from database: %s\n' % in_db_path)
+
+        # workaround to make params writable
+        if 'image_processor' in params:
+            readme.write('image_processor: %s \n' % params['image_processor'])
+            params.pop('image_processor', None)
+        if 'patch_helper' in params:
+            readme.write('patch_helper: %s \n' % params['patch_helper'])
+            params.pop('patch_helper', None)
+        if 'key_reader' in params:
+            readme.write('key_reader: %s \n' % params['key_reader'])
+            params.pop('key_reader', None)
+
         readme.write('with params: \n%s \n' % json.dumps(params, indent=4))
 
 
@@ -289,11 +311,14 @@ def collectPatches (c, out_dataset, params = {}):
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
-    params['patch_helper'].initDataset(out_dataset)
+    params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})
 
     # write a patch for each entry
     c.execute('SELECT * FROM cars WHERE %s' % params['constraint'])
-    for car_entry in c.fetchall():
+    car_entries = c.fetchall()
+    logging.info ('found %d cars' % len(car_entries))
+
+    for car_entry in car_entries:
 
         # get patch
         imagefile = carField (car_entry, 'imagefile')
@@ -326,7 +351,7 @@ def collectByMatch (c, out_dataset, params = {}):
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
-    params['patch_helper'].initDataset(out_dataset)
+    params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})
 
     # if 'matches' table is empty, add a match per car
     c.execute('SELECT COUNT(*) FROM matches')
@@ -343,9 +368,10 @@ def collectByMatch (c, out_dataset, params = {}):
 
         c.execute('''SELECT * FROM cars WHERE (%s) AND id IN 
                      (SELECT carid FROM matches WHERE match == ?)''' % params['constraint'], (match,))
+        car_entries = c.fetchall()
+        logging.info ('found %d cars' % len(car_entries))
 
-        # write a patch for each entry
-        for car_entry in c.fetchall():
+        for car_entry in car_entries:
     
             # get patch
             imagefile = carField (car_entry, 'imagefile')
@@ -363,3 +389,55 @@ def collectByMatch (c, out_dataset, params = {}):
                 params['patch_helper'].writePatch(patch, carid, label=match)
 
     params['patch_helper'].closeDataset()
+
+
+
+
+# FIXME: not tested
+#
+def collectGhostsTask (c, tasks_path, out_dir, params = {}):
+    '''
+    Cluster cars and save the patches in bulk, by "task".
+    Use filters to cluster and transform, and save the ghosts 
+    '''
+    logging.info ('=== exporting.collectGhostsTask ===')
+    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    helperSetup.setParamUnlessThere (params, 'constraint', '1')
+    tasks_path = op.join (params['relpath'], tasks_path)
+    out_dir    = op.join (params['relpath'], out_dir)
+
+    # for convenience, save 'constraint' separately, and remove from the dict
+    param_constraint = params['constraint']
+    params.pop('constraint', None)
+
+    # load tasks. Each task is a dictionary
+    if not op.exists(tasks_path):
+        raise Exception('tasks_path does not exist: %s' % tasks_path)
+    tasks_file = open(tasks_path)
+    tasks = json.load(tasks_file)
+    tasks_file.close()
+
+    # delete 'out_dir' dir, and recreate it
+    logging.warning ('will delete existing out dir: %s' % out_dir)
+    if op.exists (out_dir):
+        shutil.rmtree (out_dir)
+    os.makedirs (out_dir)
+
+    for task in tasks:
+        assert ('name' in task)
+        logging.info ('task name %s' % task['name'])
+        helperSetup.setParamUnlessThere (task, 'constraint', '1')
+
+        # merge constraints from 'params' and 'task'
+        task['constraint'] = '(%s) AND (%s)' % (param_constraint, task['constraint'])
+        logging.info ('full task constraint: %s' % task['constraint'])
+        task.update(params)
+
+        collectPatches (c, op.join(out_dir, task['name']), task)
+
+    # write info
+    with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
+        readme.write('created at: %s\n' % datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y"))
+        readme.write('with input constraint: %s\n' % param_constraint)
+        readme.write('with tasks %s\n' % json.dumps(tasks, indent=4))
+

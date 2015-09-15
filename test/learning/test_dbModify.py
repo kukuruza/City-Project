@@ -122,10 +122,10 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 1)
 
-    def test_filterByBorder_debugShow_all (self):
+    def test_filterByBorder_debug_all (self):
         filterByBorder (self.conn.cursor(), self._makeDebugParams_([32, 32, 32]))
         
-    def test_filterByBorder_debugShow_several (self):
+    def test_filterByBorder_debug_several (self):
         filterByBorder (self.conn.cursor(), self._makeDebugParams_([32, 27, 32]))
         
     # filterByRatio
@@ -162,10 +162,10 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 1)
 
-    def test_filterByRatio_debugShow_all (self):
+    def test_filterByRatio_debug_all (self):
         filterByRatio (self.conn.cursor(), self._makeDebugParams_([32, 32, 32]))
         
-    def test_filterByRatio_debugShow_several (self):
+    def test_filterByRatio_debug_several (self):
         filterByRatio (self.conn.cursor(), self._makeDebugParams_([32, 27]))
         
     # filterBySize
@@ -223,13 +223,13 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 1)
 
-    def test_filterBySize_debugShow_all (self):
+    def test_filterBySize_debug_all (self):
         params = self._makeDebugParams_([32, 32, 32])
         params['size_map_path'] = 'testdata/mapSize.tiff'
         params['relpath'] = '.'
         filterBySize (self.conn.cursor(), params)
         
-    def test_filterBySize_debugShow_several (self):
+    def test_filterBySize_debug_several (self):
         params = self._makeDebugParams_([32, 27])
         params['size_map_path'] = 'testdata/mapSize.tiff'
         params['relpath'] = '.'
@@ -309,10 +309,10 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (width,height) = c.fetchone()
         self.assertEqual ((width,height), (32,32))
 
-    def test_expandBboxes_debugShow_all (self):
+    def test_expandBboxes_debug_all (self):
         expandBboxes (self.conn.cursor(), self._makeDebugParams_(6*[32])) # one per car and one per image
         
-    def test_expandBboxes_debugShow_several (self):
+    def test_expandBboxes_debug_several (self):
         expandBboxes (self.conn.cursor(), self._makeDebugParams_([32, 27]))
         
 
@@ -334,10 +334,10 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 2)
 
-    def test_clusterBboxes_debugShow_all (self):
+    def test_clusterBboxes_debug_all (self):
         clusterBboxes (self.conn.cursor(), self._makeDebugParams_([32, 32, 32]))
         
-    def test_clusterBboxes_debugShow_several (self):
+    def test_clusterBboxes_debug_several (self):
         clusterBboxes (self.conn.cursor(), self._makeDebugParams_([32, 27]))
 
     # assignOrientations

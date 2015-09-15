@@ -14,15 +14,16 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % input
-in_image_videopath  = [CITY_DATA_PATH 'camdata/cam671/Jul28-17h.avi'];
-in_mask_videopath   = [CITY_DATA_PATH 'camdata/cam671/Jul28-17h-mask.avi'];
+in_image_video = 'camdata/cam572/Oct28-10h';
+in_image_videopath  = [CITY_DATA_PATH in_image_video '.avi'];
+in_mask_videopath   = [CITY_DATA_PATH in_image_video '-mask.avi'];
 %in_ref_backpath     = [CITY_DATA_PATH 'models/backimage.png'];
 
 kNew = 0.2;
 
 % output
-out_background_path = [CITY_DATA_PATH 'camdata/cam671/Jul28-17h-back.avi'];
-out_ghost_path      = [CITY_DATA_PATH 'camdata/cam671/Jul28-17h-ghost.avi'];
+out_background_path = [CITY_DATA_PATH in_image_video '-back.avi'];
+out_ghost_path      = [CITY_DATA_PATH in_image_video '-ghost.avi'];
 
 % what to do
 write = true;
@@ -52,6 +53,7 @@ for t = 1 : 1000000
     [frame, eof1] = frameReader.step();
     [mask,  eof2] = maskReader.step();
     assert (all(size(frame) == size(mask)));
+    mask = mask > 128; % deal with jpg compression artifacts
 
     % increase the mask size
     DilateRadius = 1;

@@ -14,10 +14,11 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % input
-in_image_videopath = [CITY_DATA_PATH 'camdata/cam671/Jul28-17h.avi'];
+in_image_video = 'camdata/cam572/Oct28-10h';
+in_image_videopath = [CITY_DATA_PATH in_image_video '.avi'];
 
 % output
-out_mask_videopath = [CITY_DATA_PATH 'camdata/cam671/Jul28-17h-mask.avi'];
+out_mask_videopath = [CITY_DATA_PATH in_image_video '-mask.avi'];
 
 % what to do
 write = true;

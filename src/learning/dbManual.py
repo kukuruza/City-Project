@@ -43,9 +43,8 @@ def show (c, params = {}):
             score     = carField(car_entry, 'score')
             #name      = carField(car_entry, 'name')
 
-            logging.debug ('roi: ' + str(roi) + ', score: %f' % score)
-
             if score is None: score = 1
+            logging.info ('roi: %s, score: %f' % (str(roi), score))
             drawScoredRoi (display, roi, '', score)
 
         f = params['display_scale']
