@@ -110,14 +110,17 @@ classdef ImgReaderVideo < ImgReaderInterface
             end
         end
         
+        
         function image = imread (self, image_id)
             image = self.readImpl (image_id, false);
         end
         
+        
         function mask = maskread (self, mask_id)
             mask = self.readImpl (mask_id, true);
-            mask = mask(:,:,1);
+            mask = mask(:,:,1) > 128;
         end
+        
         
         function close(self)
             videoKeys = keys(self.image_video);

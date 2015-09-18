@@ -1,4 +1,5 @@
 import os, sys
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/backend'))
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import random
 import logging
@@ -17,6 +18,7 @@ class TestReaderVideo (unittest.TestCase):
 
     def _compareImages_ (self, src, trg):
         self.assertIsNotNone (src)
+        self.assertEqual (src.dtype, trg.dtype)
         self.assertEqual (src.shape, trg.shape)
         diff = np.abs(src.astype(int) - trg.astype(int))
         self.assertAlmostEqual (np.mean(diff) / 255.0, 0, 1)
@@ -95,14 +97,17 @@ class TestReaderVideo (unittest.TestCase):
     def test_maskread_sequence (self):
         mask1read = self.reader.maskread ('testdata/Cassini/masks/000000dummy')
         mask1true = cv2.imread           ('testdata/Cassini/masks/000000.png', 0)
+        mask1true = (mask1true > 127)
         self._compareImages_ (mask1read, mask1true)
         mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
         mask2true = cv2.imread           ('testdata/Cassini/masks/000001.png', 0)
+        mask2true = (mask2true > 127)
         self._compareImages_ (mask2read, mask2true)
 
     def test_maskread_cache (self):
         mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
         mask2true = cv2.imread           ('testdata/Cassini/masks/000001.png', 0)
+        mask2true = (mask2true > 127)
         self.assertTrue ('testdata/Cassini/masks/000001dummy' in self.reader.mask_cache)
         mask2cached = self.reader.mask_cache['testdata/Cassini/masks/000001dummy']
         self._compareImages_ (mask2cached, mask2true)
@@ -113,12 +118,15 @@ class TestReaderVideo (unittest.TestCase):
         mask2read = self.reader.maskread ('testdata/Cassini/masks/000001dummy')
         mask5read = self.reader.maskread ('testdata/Moon/masks/000002dummy')
         mask5true = cv2.imread           ('testdata/Moon/masks/000002.png', 0)
+        mask5true = (mask5true > 127)
         self._compareImages_ (mask5read, mask5true)
         mask1read = self.reader.maskread ('testdata/Cassini/masks/000000dummy')
         mask1true = cv2.imread           ('testdata/Cassini/masks/000000.png', 0)
+        mask1true = (mask1true > 127)
         self._compareImages_ (mask1read, mask1true)
         mask3read = self.reader.maskread ('testdata/Moon/masks/000000dummy')
         mask3true = cv2.imread           ('testdata/Moon/masks/000000.png', 0)
+        mask3true = (mask3true > 127)
         self._compareImages_ (mask3read, mask3true)
         self.assertTrue ('testdata/Moon/masks/000000dummy' in self.reader.mask_cache)
         self.assertEqual (len(self.reader.mask_video), 2)
@@ -260,9 +268,11 @@ class TestProcessorVideo (unittest.TestCase):
         self.processor.close()
         video = cv2.VideoCapture('testdata/Cassini/maskwrite.avi')
         retval, mask1saved = video.read()
+        mask1saved = mask1saved > 127
         self.assertTrue (retval)
         self._compareImages_(mask1read, mask1saved[:,:,0])
         retval, mask3saved = video.read()
+        mask3saved = mask3saved > 127
         self.assertTrue (retval)
         self._compareImages_(mask3read, mask3saved[:,:,0])
         video.release()
@@ -270,9 +280,11 @@ class TestProcessorVideo (unittest.TestCase):
         self.processor.close()
         video = cv2.VideoCapture('testdata/Moon/maskwrite.avi')
         retval, mask2saved = video.read()
+        mask2saved = mask2saved > 127
         self.assertTrue (retval)
         self._compareImages_(mask2read, mask2saved[:,:,0])
         retval, mask4saved = video.read()
+        mask4saved = mask4saved > 127
         self.assertTrue (retval)
         self._compareImages_(mask4read, mask4saved[:,:,0])
         video.release()

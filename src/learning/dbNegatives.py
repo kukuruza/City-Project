@@ -99,7 +99,7 @@ def _grayMasked_ (c, imagefile, out_images_dir, params):
 
     c.execute ('SELECT maskfile FROM images WHERE imagefile = ?', (imagefile,))
     (maskfile,) = c.fetchone()
-    mask = params['image_processor'].maskread(maskfile)
+    mask = params['image_processor'].maskread(maskfile).astype(np.uint8)
 
     if 'size_map_path' in params:
         params['size_map_path'] = op.join(params['relpath'], params['size_map_path'])

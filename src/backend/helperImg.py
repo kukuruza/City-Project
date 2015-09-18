@@ -91,6 +91,7 @@ class ReaderVideo (ProcessorBase):
             return self.mask_cache[mask_id]  # get cached mask if possible
         mask = self.readImpl (mask_id, ismask=True)
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        mask = mask > 127
         logging.debug ('imread: new mask, updating cache')
         self.mask_cache = {mask_id: mask}   # currently only 1 image in the cache
         return mask
@@ -182,6 +183,8 @@ class ProcessorVideo (ReaderVideo):
 
     def maskwrite (self, mask, mask_id):
         assert len(mask.shape) == 2
+        assert mask.dtype == bool
+        mask = mask.copy().astype(np.uint8) * 255
         self.writeImpl (mask, mask_id, ismask=True)
 
     def close (self):
@@ -236,6 +239,7 @@ class ProcessorImagefile (ProcessorBase):
             return self.mask_cache[mask_id]  # get cached mask if possible
         mask = self.readImpl (mask_id)
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        mask = mask > 127
         logging.debug ('imread: new mask, updating cache')
         self.mask_cache = {mask_id: mask}   # currently only 1 image in the cache
         return mask
@@ -246,6 +250,8 @@ class ProcessorImagefile (ProcessorBase):
 
     def maskwrite (self, mask, mask_id):
         assert len(mask.shape) == 2
+        assert mask.dtype == bool
+        mask = mask.copy().astype(np.uint8) * 255
         self.writeImpl (mask, mask_id)
 
     def close (self): pass
@@ -299,6 +305,7 @@ class ProcessorFolder (ProcessorBase):
             return self.mask_cache[unique_id]  # get cached image if possible
         mask = self.readImpl ('%06d.png' % mask_id, dataset) # mask names are 6-digits
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
+        mask = mask > 127
         logging.debug ('ProcessorFolder.maskread: new mask, updating cache')
         self.mask_cache = {unique_id: mask}   # currently only 1 image in the cache
         return mask
@@ -332,7 +339,7 @@ class ProcessorRandom (ProcessorBase):
     def maskread (self, mask_id = None):
         ''' Generate a 2x2 checkerboard '''
         (height, width) = self.dims
-        mask = np.zeros (self.dims, dtype=np.uint8)
+        mask = np.zeros (self.dims, dtype=bool)
         mask[0:height/2, 0:width/2] = 255
         mask[height/2:height, width/2:width] = 255
         return mask

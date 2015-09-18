@@ -587,8 +587,8 @@ def decrementNumbering (c, params = {}):
 
     c.execute('SELECT imagefile,maskfile FROM images')
     for (old_imagefile, old_maskfile) in c.fetchall():
-        old_imagepath = op.join(params['relpath'], imagefile)
-        old_maskpath  = op.join(params['relpath'], maskfile)
+        old_imagepath = op.join(params['relpath'], old_imagefile)
+        old_maskpath  = op.join(params['relpath'], old_maskfile)
 
         old_imagename = op.basename(old_imagefile)
         old_imagenun = int(filter(lambda x: x.isdigit(), old_imagename))
@@ -603,4 +603,3 @@ def decrementNumbering (c, params = {}):
         c.execute('UPDATE images SET maskfile=?  WHERE imagefile=?', (new_maskfile,  old_imagefile))
         c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
         c.execute('UPDATE cars   SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
-

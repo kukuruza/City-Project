@@ -20,7 +20,7 @@ classdef test_ImgIOVideo < matlab.unittest.TestCase
     
         % clear all for convinience
         function setupOnce(~)
-            clc
+            %clc
         end
         
     end        
@@ -101,7 +101,8 @@ classdef test_ImgIOVideo < matlab.unittest.TestCase
 
         function test_maskread (self)
             mask_read = self.imgIO.maskread('testdata/Moon/masks/000000.png');
-            mask_true = imread('testdata/Moon/masks/000000.png');
+            mask_true = imread('testdata/Moon/masks/000000.png') > 128;
+            self.assertTrue (islogical(mask_read))
             self.compareImages (mask_read, mask_true);
         end
 
@@ -109,7 +110,8 @@ classdef test_ImgIOVideo < matlab.unittest.TestCase
                          self.imgIO.maskread('testdata/Moon/masks/000000.png');
                          self.imgIO.maskread('testdata/Moon/masks/000001.png');
             mask_read = self.imgIO.maskread('testdata/Moon/masks/000000.png');
-            mask_true = imread('testdata/Moon/masks/000000.png');
+            mask_true = imread('testdata/Moon/masks/000000.png') > 128;
+            self.assertTrue (islogical(mask_read))
             self.compareImages (mask_read, mask_true);
         end
 
