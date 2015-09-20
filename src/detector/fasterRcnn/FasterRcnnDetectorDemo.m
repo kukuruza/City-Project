@@ -10,29 +10,20 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 %% input
 image_path  = '../testdata/image00001.png';
-mask_path   = '../testdata/mask00001.png';
-
-mapSize_path = 'models/cam572/mapSize.tiff';
 
 
 %% init
 
-% size map
-size_map = imread(fullfile(CITY_DATA_PATH, mapSize_path));
-
 % detector
-frombackDetector = FrombackDetector(size_map);
-%frombackDetector.noFilter = true;
+fasterRcnnDetector = FasterRcnnDetector ('use_gpu', false);
 
 
 %% work 
 
 img =  imread(image_path);
-mask = imread(mask_path);
-mask = mask(:,:,1) > 127;
 
 tic
-cars = frombackDetector.detect(img, mask);
+cars = fasterRcnnDetector.detect(img, mask);
 toc
 
 cmap = colormap('Autumn');
@@ -41,5 +32,6 @@ for i = 1 : length(cars)
     color = cmap (colorindex, :) * 255;
     img = cars(i).drawCar(img, 'color', color);
 end
-imshow([mask2rgb(mask), img]);
+imwrite(img, 'resultdemo.jpg');
+%imshow([mask2rgb(mask), img]);
 
