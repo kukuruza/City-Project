@@ -15,15 +15,15 @@ image_path  = '../testdata/image00001.png';
 %% init
 
 % detector
-fasterRcnnDetector = FasterRcnnDetector ('use_gpu', false);
-
+fasterRcnnDetector = FasterRcnnDetector ('use_gpu', true);
 
 %% work 
 
 img =  imread(image_path);
 
 tic
-cars = fasterRcnnDetector.detect(img, mask);
+%fasterRcnnDetector.setVerbose(1);
+cars = fasterRcnnDetector.detect(img);
 toc
 
 cmap = colormap('Autumn');

@@ -82,8 +82,8 @@ for i = 1 : length(imagefiles)
     if write
         for j = 1 : length(cars)
             car = cars(j);
-            s = 'INSERT INTO cars(imagefile,name,x1,y1,width,height) VALUES (?,?,?,?,?,?)';
-            sqlite3.execute(s, imagefile, 'detected', car.bbox(1), car.bbox(2), car.bbox(3), car.bbox(4));
+            s = 'INSERT INTO cars(imagefile,name,score,x1,y1,width,height) VALUES (?,?,?,?,?,?,?)';
+            sqlite3.execute(s, imagefile, car.name, car.score, car.bbox(1), car.bbox(2), car.bbox(3), car.bbox(4));
         end
     end
 end
