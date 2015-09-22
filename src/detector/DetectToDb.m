@@ -16,9 +16,10 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % databases
 in_db_path  = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/init-image.db');
-out_db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/VOC0712_vgg_16layers.db');
+out_db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/VOC0712_ZF.db');
 
 % input
+model_dir = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_ZF');
 %mapSize_path = 'models/cam572/mapSize.tiff';
 
 % what to do
@@ -45,7 +46,7 @@ end
 imgReader = ImgReaderVideo();
 
 % detector
-detector = FasterRcnnDetector();
+detector = FasterRcnnDetector(model_dir, 'use_gpu', true);
 %detector = FrombackDetector(size_map);
 
 

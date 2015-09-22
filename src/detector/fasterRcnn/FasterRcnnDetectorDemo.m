@@ -9,13 +9,14 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
+model_dir = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_ZF');
 image_path  = '../testdata/image00001.png';
 
 
 %% init
 
 % detector
-fasterRcnnDetector = FasterRcnnDetector ('use_gpu', true);
+fasterRcnnDetector = FasterRcnnDetector (model_dir, 'use_gpu', true);
 
 %% work 
 

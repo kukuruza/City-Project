@@ -3,7 +3,7 @@ classdef FasterRcnnDetector < CarDetectorBase
         
         opts
 
-        model_dir  = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_vgg_16layers'); %% VGG-16
+        %model_dir  = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_vgg_16layers'); %% VGG-16
         %model_dir  = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_ZF'); %% ZF
 
         rpn_net
@@ -44,10 +44,11 @@ classdef FasterRcnnDetector < CarDetectorBase
     end
     methods
         
-        function self = FasterRcnnDetector (varargin)
+        function self = FasterRcnnDetector (model_dir, varargin)
             parser = inputParser;
+            addRequired(parser, 'model_dir', @ischar);
             addParameter(parser, 'use_gpu', true, @islogical);
-            parse (parser, varargin{:});
+            parse (parser, model_dir, varargin{:});
             parsed = parser.Results;
 
             assert (~isempty(getenv('FASTERRCNN_ROOT')));
@@ -71,7 +72,7 @@ classdef FasterRcnnDetector < CarDetectorBase
             self.opts.test_scales       = 600;
 
             % -------------------- INIT_MODEL --------------------
-            self.proposal_detection_model    = self.load_proposal_detection_model (self.model_dir);
+            self.proposal_detection_model    = self.load_proposal_detection_model (parsed.model_dir);
 
             self.proposal_detection_model.conf_proposal.test_scales = self.opts.test_scales;
             self.proposal_detection_model.conf_detection.test_scales = self.opts.test_scales;
@@ -155,7 +156,7 @@ classdef FasterRcnnDetector < CarDetectorBase
                 end
                 for j = 1:size(boxes_cell{i})
                     roiXY = boxes_cell{i}(j, 1:4);
-                    box = [roiXY(1), roiXY(2), roiXY(3)-roiXY(1), roiXY(4)-roiXY(2)];
+                    box = int32([roiXY(1), roiXY(2), roiXY(3)-roiXY(1), roiXY(4)-roiXY(2)]);
                     name = classes{i};
                     score = boxes_cell{i}(j, end);
                     car = Car('bbox', box, 'name', name, 'score', score);
@@ -166,7 +167,8 @@ classdef FasterRcnnDetector < CarDetectorBase
        
         function delete(self)
             caffe.reset_all();
-            %reset(self.opts.gpu_id);
+            clear mex;
+            gpuDevice([]);
         end
 
     end % methods
