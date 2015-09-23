@@ -4,14 +4,8 @@ classdef CarInterface < handle
     methods (Abstract)
         
         % constructor
-        % Car(bbox = [], timestamp = [0 0 0 0 0 0]);
+        % Car('bbox', [], 'timestamp', '');
  
-        % check if a car is valid. Sometimes invalid cars are necessary
-        ok = isOk (C);
-        
-        % compute ROI from car bbox
-        roi = getROI (C);  % [y1, x1, y2, x2]
-        
         % patch is a crop of the car from the provided image
         % parameters:
         %   'segment' {'none', 'maxflow', 'background'}, default is 'none'

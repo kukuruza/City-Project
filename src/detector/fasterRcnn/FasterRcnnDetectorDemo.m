@@ -9,30 +9,30 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
+model_dir = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_ZF');
 image_path  = '../testdata/image00001.png';
-mask_path   = '../testdata/mask00001.png';
 
 
 %% init
 
 % detector
-frombackDetector = FrombackDetector();
-%frombackDetector.noFilter = true;
-
+fasterRcnnDetector = FasterRcnnDetector (model_dir, 'use_gpu', true);
 
 %% work 
 
 img =  imread(image_path);
-mask = imread(mask_path);
-mask = mask(:,:,1) > 127;
 
 tic
-cars = frombackDetector.detect(img, mask);
+%fasterRcnnDetector.setVerbose(1);
+cars = fasterRcnnDetector.detect(img);
 toc
 
 cmap = colormap('Autumn');
 for i = 1 : length(cars)
-    img = cars(i).drawCar(img);
+    colorindex = floor(cars(i).score * size(cmap,1)) + 1;
+    color = cmap (colorindex, :) * 255;
+    img = cars(i).drawCar(img, 'color', color);
 end
-imshow([mask2rgb(mask), img]);
+imwrite(img, 'resultdemo.jpg');
+%imshow([mask2rgb(mask), img]);
 

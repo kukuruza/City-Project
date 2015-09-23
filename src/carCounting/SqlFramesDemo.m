@@ -12,8 +12,9 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-%db_path = [CITY_DATA_PATH 'datasets/labelme/Databases/572-Oct30-17h-fr/Apr01-masks-ex0.1-di0.3-er0.3.db'];
-db_path = [CITY_DATA_PATH, 'datasets/labelme/Databases/572-Nov28-10h-pair/detected/all-1.db'];
+db_path = [CITY_DATA_PATH, 'datasets/labelme/Databases/572-Nov28-10h-pair/detected/all-1-ghost.db'];
+assert (exist(db_path, 'file') > 0)
+
 %% show all information about every car in every image
 
 % open database
@@ -21,7 +22,6 @@ sqlite3.open (db_path);
 
 % read imagefiles
 imagefiles = sqlite3.execute('SELECT imagefile,time FROM images');
-a = zeros(100, 1);
 for i = 1 : length(imagefiles)
     imagefile = imagefiles(i).imagefile;
     img = imread(fullfile(CITY_DATA_PATH, imagefile));
@@ -40,13 +40,11 @@ for i = 1 : length(imagefiles)
         car = Car (bbox, timestamp, car_entry.name);
         img = car.drawCar (img);
     end
-    a(i) = length(car_entries);
     
    % imshow(img)
    % waitforbuttonpress
     
 end
-save('DetectionCount.mat','a');
 sqlite3.close();
 
 

@@ -5,15 +5,15 @@
 # Assumptions are: 1) all cars are labelled in each image (maybe several times)
 #
 
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import math
 import numpy as np
 import scipy.ndimage.filters
 import cv2
-import os, sys
 import collections
 import logging
 import json
-import os.path as op
 import glob
 import shutil
 import sqlite3
@@ -99,7 +99,7 @@ def _grayMasked_ (c, imagefile, out_images_dir, params):
 
     c.execute ('SELECT maskfile FROM images WHERE imagefile = ?', (imagefile,))
     (maskfile,) = c.fetchone()
-    mask = params['image_processor'].maskread(maskfile)
+    mask = params['image_processor'].maskread(maskfile).astype(np.uint8)
 
     if 'size_map_path' in params:
         params['size_map_path'] = op.join(params['relpath'], params['size_map_path'])

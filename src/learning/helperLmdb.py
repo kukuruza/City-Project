@@ -2,7 +2,8 @@ import sys, os, os.path as op
 import numpy as np
 import cv2
 import logging
-import h5py
+import lmdb
+import caffe
 import random  # for random browsing
 import helperKeys
 import helperSetup
@@ -13,6 +14,28 @@ Need some verification and processing to read/write images, get dimensions, etc
 '''
 
 
+class Extry:
+    def __init__ (self, image, entryId, label):
+        self.image = image
+        self.entryId = entryId
+        self.label = label
+
+    def write (f):
+        datum = caffe.proto.caffe_pb2.Datum()
+        datum.channels = self.image.shape[1]
+        datum.height   = self.image.shape[2]
+        datum.width    = self.image.shape[3]
+        datum.data     = self.image.tobytes()
+        datum.label    = int(self.label)
+        str_id = '{:08}'.format(self.entryId)
+
+        with f.begin(write=True) as txn:
+            # txn is a Transaction object
+            # The encode is only essential in Python 3
+            txn.put(str_id.encode('ascii'), datum.SerializeToString())
+
+    def read (f)
+
 
 def getImage (f, index):
     image = f['data'][index,:,:,:]
@@ -21,7 +44,7 @@ def getImage (f, index):
     return image
 
 def getId (f, index):
-    # no check if label is in the dataset. Let it raise an exception
+
     imageid = f['ids'][index,0,0,0]
     return int(imageid)
 
@@ -227,8 +250,7 @@ def viewPatches (f, params = {}):
         logging.info ('index: %d' % index)
         logging.info ('image label: %d' % getLabel(f, index))
 
-        sc = params['scale']
-        display = cv2.resize(image, (0,0), fx=sc, fy=sc, interpolation=cv2.INTER_NEAREST)
+        display = cv2.resize(image, (0,0), fx=params['scale'], fy=params['scale'])
         cv2.imshow ('show', display)
         key = params['key_reader'].readKey()
 

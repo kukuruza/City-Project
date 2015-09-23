@@ -184,7 +184,7 @@ class TestWriteReadme (unittest.TestCase):
 
     def test_newDir (self):
         ''' 'writeReadme' should create dir tree, if does not exist '''
-        writeReadme ('myDb', 'testdata/writeReadme/dummy', params = {'relpath': '.'})
+        writeReadme ('myDb', 'testdata/writeReadme/dummy', params_in = {'relpath': '.'})
 
 
 

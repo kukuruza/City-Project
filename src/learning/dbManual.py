@@ -1,7 +1,7 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import numpy as np
 import cv2
-import os, sys
-import os.path as op
 import logging
 from helperDb import deleteCar, carField
 import helperDb
@@ -35,17 +35,15 @@ def show (c, params = {}):
 
         c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['car_constraint'], (imagefile,))
         car_entries = c.fetchall()
-        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+        logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
         for car_entry in car_entries:
-            carid     = carField(car_entry, 'id')
             roi       = bbox2roi (carField(car_entry, 'bbox'))
             score     = carField(car_entry, 'score')
             #name      = carField(car_entry, 'name')
 
-            logging.debug ('roi: ' + str(roi) + ', score: %f' % score)
-
             if score is None: score = 1
+            logging.info ('roi: %s, score: %f' % (str(roi), score))
             drawScoredRoi (display, roi, '', score)
 
         f = params['display_scale']
@@ -112,7 +110,6 @@ def examine (c, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid     = carField(car_entry, 'id')
             roi       = bbox2roi (carField(car_entry, 'bbox'))
             imagefile = carField(car_entry, 'imagefile')
             name      = carField(car_entry, 'name')
