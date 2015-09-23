@@ -14,8 +14,6 @@ classdef FrombackDetector < CarDetectorBase
         %disable removing cars after filtering
         noFilter = false;
         
-        sizeMap;
-
         Heght2WidthLimits = [0.5 1.2];
         %SparseDist = 0.0;
         DensitySigma = 0.7;
@@ -158,16 +156,14 @@ classdef FrombackDetector < CarDetectorBase
     end
     methods
         
-        function self = FrombackDetector (size_map, varargin)
+        function self = FrombackDetector (varargin)
             parser = inputParser;
-            addRequired(parser, 'size_map', @ismatrix);
             addParameter(parser, 'minimum_blob_area', 50, @isscalar);
             addParameter(parser, 'verbose', 0, @isscalar);
-            parse (parser, size_map, varargin{:});
+            parse (parser, varargin{:});
             parsed = parser.Results;
             
             self.verbose = parsed.verbose;
-            self.sizeMap = parsed.size_map;
             
             self.blob = vision.BlobAnalysis(...
                    'CentroidOutputPort', false, ...
@@ -210,11 +206,6 @@ classdef FrombackDetector < CarDetectorBase
                 cars(i).bbox = expandBboxes (cars(i).bbox, self.ExpandPerc, img);
             end
             
-            % filter by size
-            if ~self.noFilter
-                cars = self.filterCarsBySize (cars, self.sizeMap, 'verbose', self.verbose);
-            end
-            
             % filters specific for backimagedetector
             if ~self.noFilter
                 statuses = self.filterByProportion (cars, statuses);
@@ -224,8 +215,6 @@ classdef FrombackDetector < CarDetectorBase
             
             if self.verbose
                 fprintf ('FrombackDetector\n');
-                fprintf ('    filtered bad size:     %d\n', ...
-                    length(self.findByStatus(statuses, 'bad size')));
                 fprintf ('    filtered proportions:  %d\n', ...
                     length(self.findByStatus(statuses, 'bad ratio')));
                 fprintf ('    filtered too dense:    %d\n', ...

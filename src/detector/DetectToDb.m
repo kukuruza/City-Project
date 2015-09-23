@@ -15,12 +15,11 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % databases
-in_db_path  = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/init-image.db');
-out_db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/VOC0712_ZF.db');
+in_db_path  = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Oct30-17h-pair/init-image.db');
+out_db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Oct30-17h-pair/detected/VOC0712_vgg_16layers.db');
 
 % input
-model_dir = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_ZF');
-%mapSize_path = 'models/cam572/mapSize.tiff';
+model_dir = fullfile(getenv('FASTERRCNN_ROOT'), 'output/faster_rcnn_final/faster_rcnn_VOC0712_vgg_16layers');
 
 % what to do
 write = true;
@@ -29,9 +28,6 @@ show = false;
 
 
 %% init
-
-% size map
-%size_map = imread(fullfile(CITY_DATA_PATH, mapSize_path));
 
 % copy input to output
 safeCopyFile (in_db_path, out_db_path);
@@ -47,7 +43,14 @@ imgReader = ImgReaderVideo();
 
 % detector
 detector = FasterRcnnDetector(model_dir, 'use_gpu', true);
-%detector = FrombackDetector(size_map);
+%detector = FrombackDetector();
+
+% features file
+assert (strcmp(out_db_path(end-2:end), '.db'));
+features_path = [out_db_path(1:end-3), '.txt'];
+if exist(features_path, 'file')
+    delete(features_path);
+end
 
 
 %% work 
@@ -64,17 +67,16 @@ for i = 1 : length(imagefiles)
     mask = imgReader.maskread(maskfile.maskfile);
     
     tic
-    cars = detector.detect(img);
-    %cars = detector.detect(img, mask);
+    %cars = detector.detect(img);
+    [cars, features] = detector.detect(img, mask);
+    %features = rand(length(cars), 10);
     toc
 
     if show
         cmap = colormap('Autumn');
         for j = 1 : length(cars)
             car = cars(j);
-            colorindex = floor(car.score * size(cmap,1)) + 1;
-            color = cmap (colorindex, :) * 255;
-            img = car.drawCar(img, 'color', color);
+            img = car.drawCar(img);
         end
         imshow([mask2rgb(mask), img]);
         waitforbuttonpress
@@ -86,6 +88,8 @@ for i = 1 : length(imagefiles)
             s = 'INSERT INTO cars(imagefile,name,score,x1,y1,width,height) VALUES (?,?,?,?,?,?,?)';
             sqlite3.execute(s, imagefile, car.name, car.score, car.bbox(1), car.bbox(2), car.bbox(3), car.bbox(4));
         end
+        
+        dlmwrite(features_path, features, '-append');
     end
 end
 
