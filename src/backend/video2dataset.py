@@ -1,13 +1,15 @@
+import os, sys, os.path as op
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/backend'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import numpy as np
 import cv2
-import os, sys
-import os.path as op
 import logging
 import sqlite3
 import datetime
 import helperSetup
 import helperDb
 import helperImg
+import utilities
 
 
 def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir, mask_dir, name, params):
@@ -16,7 +18,7 @@ def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir,
     '''
     logging.info ('==== video2dataset ====')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo(params))
 
     logging.info ('image path: %s' % image_video_path)
     logging.info ('mask path:  %s' % mask_video_path)
@@ -24,9 +26,9 @@ def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir,
 
     # get the full video paths
     if not op.exists (op.join(params['relpath'], image_video_path)):
-        raise Exception ('image video does not exist: %s' + image_video_path)
+        raise Exception ('image video does not exist: %s' % image_video_path)
     if not op.exists (op.join(params['relpath'], mask_video_path)):
-        raise Exception ('mask video does not exist: %s' + mask_video_path)
+        raise Exception ('mask video does not exist: %s' % mask_video_path)
 
     # read timestamps
     with open(op.join(params['relpath'], time_path)) as f:
@@ -78,7 +80,7 @@ def makeDataset (videos_prefix, dataset_dir, dataset_name, params = {}):
     helperSetup.setParamUnlessThere (params, 'mask_suffix',  '-mask.avi')
     helperSetup.setParamUnlessThere (params, 'time_suffix',  '.txt')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo(params))
 
     # form video and time paths
     image_video_path = op.join(videos_prefix + params['image_suffix'])
@@ -113,3 +115,28 @@ def makeDataset (videos_prefix, dataset_dir, dataset_name, params = {}):
     conn_ghost.close()
 
     
+
+def exportVideo (c, params = {}):
+    logging.info ('==== exportVideo ====')
+    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    helperSetup.assertParamIsThere  (params, 'image_processor')
+
+    c.execute('SELECT imagefile FROM images')
+    for (imagefile,) in c.fetchall():
+
+        frame = params['image_processor'].imread(imagefile)
+
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        for car_entry in c.fetchall():
+            roi       = utilities.bbox2roi (helperDb.carField(car_entry, 'bbox'))
+            imagefile = helperDb.carField (car_entry, 'imagefile')
+            name      = helperDb.carField (car_entry, 'name')
+            score     = helperDb.carField (car_entry, 'score')
+
+            if score is None: score = 1
+            logging.debug ('roi: %s, score: %f' % (str(roi), score))
+            utilities.drawScoredRoi (frame, roi, name, score)
+
+        params['image_processor'].imwrite(frame, imagefile)
+
+

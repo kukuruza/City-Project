@@ -12,16 +12,11 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 image_path  = '../testdata/image00001.png';
 mask_path   = '../testdata/mask00001.png';
 
-mapSize_path = 'models/cam572/mapSize.tiff';
-
 
 %% init
 
-% size map
-size_map = imread(fullfile(CITY_DATA_PATH, mapSize_path));
-
 % detector
-frombackDetector = FrombackDetector(size_map);
+frombackDetector = FrombackDetector();
 %frombackDetector.noFilter = true;
 
 
@@ -37,9 +32,7 @@ toc
 
 cmap = colormap('Autumn');
 for i = 1 : length(cars)
-    colorindex = floor(cars(i).score * size(cmap,1)) + 1;
-    color = cmap (colorindex, :) * 255;
-    img = cars(i).drawCar(img, 'color', color);
+    img = cars(i).drawCar(img);
 end
 imshow([mask2rgb(mask), img]);
 

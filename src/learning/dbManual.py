@@ -35,10 +35,9 @@ def show (c, params = {}):
 
         c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['car_constraint'], (imagefile,))
         car_entries = c.fetchall()
-        logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+        logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
         for car_entry in car_entries:
-            carid     = carField(car_entry, 'id')
             roi       = bbox2roi (carField(car_entry, 'bbox'))
             score     = carField(car_entry, 'score')
             #name      = carField(car_entry, 'name')
@@ -111,7 +110,6 @@ def examine (c, params = {}):
         else: index_car = 0
         while button != 27 and index_car >= 0 and index_car < len(car_entries):
             car_entry = car_entries[index_car]
-            carid     = carField(car_entry, 'id')
             roi       = bbox2roi (carField(car_entry, 'bbox'))
             imagefile = carField(car_entry, 'imagefile')
             name      = carField(car_entry, 'name')

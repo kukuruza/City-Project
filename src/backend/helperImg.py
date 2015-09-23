@@ -150,7 +150,8 @@ class ProcessorVideo (ReaderVideo):
         logging.debug ('in_videopath: %s' % in_videopath)
         assert in_videopath in in_video_dict
         # write only from videos, where we have the rule to make output video name
-        assert in_videopath in self.out_dataset
+        if in_videopath not in self.out_dataset:
+            raise Exception ('video %s is not in out_dataset' % in_videopath)
 
         # choose the dictionary, depending on whether it's image or mask
         out_video_dict = self.out_mask_video if ismask else self.out_image_video
