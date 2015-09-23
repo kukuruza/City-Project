@@ -104,7 +104,7 @@ classdef FasterRcnnDetector < CarDetectorBase
         end
 
         
-        function cars = detect (self, img)
+        function [cars, feature] = detect (self, img)
             parser = inputParser;
             addRequired(parser, 'img', @iscolorimage);
             parse (parser, img);
@@ -115,19 +115,23 @@ classdef FasterRcnnDetector < CarDetectorBase
             end
 
             % deploy proposal
-            [boxes, scores] = proposal_im_detect(self.proposal_detection_model.conf_proposal, self.rpn_net, img);
+            [boxes, scores] = proposal_im_detect (self.proposal_detection_model.conf_proposal, self.rpn_net, img);
             aboxes          = self.boxes_filter([boxes, scores], self.opts.per_nms_topN,   self.opts.nms_overlap_thres, ...
                                                                  self.opts.after_nms_topN, self.opts.use_gpu);
 
             % deploy detection
             if self.proposal_detection_model.is_share_feature
-                [boxes, scores] = fast_rcnn_conv_feat_detect(self.proposal_detection_model.conf_detection, self.fast_rcnn_net, img, ...
+                [boxes, scores] = fast_rcnn_conv_feat_detect (self.proposal_detection_model.conf_detection, self.fast_rcnn_net, img, ...
                     self.rpn_net.blobs(self.proposal_detection_model.last_shared_output_blob_name), ...
                     aboxes(:, 1:4), self.opts.after_nms_topN);
             else
-                [boxes, scores] = fast_rcnn_im_detect(self.proposal_detection_model.conf_detection, self.fast_rcnn_net, img, ...
+                [boxes, scores] = fast_rcnn_im_detect (self.proposal_detection_model.conf_detection, self.fast_rcnn_net, img, ...
                     aboxes(:, 1:4), self.opts.after_nms_topN);
             end
+            
+            % get feature
+            features = self.fast_rcnn_net.blobs('fc7').get_data();
+            size(features)
             
             classes = self.proposal_detection_model.classes;
             boxes_cell = cell(length(classes), 1);
