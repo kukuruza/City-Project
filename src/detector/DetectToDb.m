@@ -67,8 +67,8 @@ for i = 1 : length(imagefiles)
     mask = imgReader.maskread(maskfile.maskfile);
     
     tic
-    %cars = detector.detect(img);
-    [cars, features] = detector.detect(img, mask);
+    [cars, features] = detector.detect(img);
+    %cars = detector.detect(img, mask);
     %features = rand(length(cars), 10);
     toc
 
