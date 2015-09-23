@@ -104,7 +104,7 @@ classdef FasterRcnnDetector < CarDetectorBase
         end
 
         
-        function cars = detect (self, img)
+        function [cars, features] = detect (self, img)
             parser = inputParser;
             addRequired(parser, 'img', @iscolorimage);
             parse (parser, img);
@@ -129,6 +129,11 @@ classdef FasterRcnnDetector < CarDetectorBase
                     aboxes(:, 1:4), self.opts.after_nms_topN);
             end
             
+            % get feature
+            features_array = self.fast_rcnn_net.blobs('fc7').get_data();
+            features_array = features_array';
+
+            % boxes_cell -- one cell per class. Each cell has a number of ROIs
             classes = self.proposal_detection_model.classes;
             boxes_cell = cell(length(classes), 1);
             thres = 0.6;
@@ -136,6 +141,7 @@ classdef FasterRcnnDetector < CarDetectorBase
                 boxes_cell{i} = [boxes(:, (1+(i-1)*4):(i*4)), scores(:, i)];
                 boxes_cell{i} = boxes_cell{i}(nms(boxes_cell{i}, 0.3), :);
 
+                % select all good ROIs for this class
                 I = boxes_cell{i}(:, 5) >= thres;
                 boxes_cell{i} = boxes_cell{i}(I, :);
             end
@@ -150,9 +156,10 @@ classdef FasterRcnnDetector < CarDetectorBase
             
             % Faster-RCNN output format to Car objects
             cars = Car.empty;
-            for i = 1:length(boxes_cell)
+            features = [];
+            for i = 1:length(boxes_cell)  % for each class
                 if isempty(boxes_cell{i})
-                    continue;
+                    continue;   % most common case -- the ROI sucks for every class
                 end
                 for j = 1:size(boxes_cell{i})
                     roiXY = boxes_cell{i}(j, 1:4);
@@ -161,6 +168,7 @@ classdef FasterRcnnDetector < CarDetectorBase
                     score = boxes_cell{i}(j, end);
                     car = Car('bbox', box, 'name', name, 'score', score);
                     cars = [cars; car];  % naive O(n^2)
+                    features = [features; features_array(j,:)];
                 end
             end
         end

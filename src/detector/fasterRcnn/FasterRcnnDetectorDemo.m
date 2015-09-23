@@ -24,7 +24,7 @@ img =  imread(image_path);
 
 tic
 %fasterRcnnDetector.setVerbose(1);
-cars = fasterRcnnDetector.detect(img);
+[cars, features] = fasterRcnnDetector.detect(img);
 toc
 
 cmap = colormap('Autumn');
