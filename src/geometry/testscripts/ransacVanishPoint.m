@@ -1,5 +1,20 @@
 function [bestVP, inliers] = ransacVanishPoint(lines, image, offset)
     % Function RANSAC the vanishing point using the correction angle
+    % 
+    % Usage:
+    % [bestVP, inliers] = ransacVanishPoint(lines, image, offset)
+    %
+    % Input:
+    % lines = the lines of lines segments that are used for computing the VP
+    % image = the image for computing vanish point
+    % offset = the vertical offset (useful for segment-wise computation of VP)
+    %
+    % Output:
+    % bestVP = the estimate of the best vanishing point
+    % inliers = the inliers out of lines for the vanish point estimation through 
+    %           angle estimation
+    %
+
     imSize = size(image);
     noLines = size(lines, 1);
     
