@@ -44,7 +44,7 @@ def _grayCircle_ (c, imagefile, out_images_dir, params):
     helperSetup.assertParamIsThere  (params, 'pixelation')
     helperSetup.setParamUnlessThere (params, 'spot_scale',   0.6)
     helperSetup.setParamUnlessThere (params, 'debug_show',   False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.assertParamIsThere  (params, 'image_processor')
 
     image = params['image_processor'].imread(imagefile)
 
@@ -89,7 +89,7 @@ def _grayMasked_ (c, imagefile, out_images_dir, params):
     helperSetup.setParamUnlessThere (params, 'width_step',   0.5)
     helperSetup.setParamUnlessThere (params, 'debug_show',   False)
     helperSetup.setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.assertParamIsThere  (params, 'image_processor')
 
     image = params['image_processor'].imread(imagefile)
 
@@ -257,7 +257,7 @@ def fillNegativeDbWithBboxes (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'number', 100)
     helperSetup.setParamUnlessThere (params, 'debug_mask', False)
     helperSetup.setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
 
     # if 'size_map_path' provided, load it to further use as a mask
     if 'size_map_path' in params:

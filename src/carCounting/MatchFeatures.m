@@ -13,7 +13,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input db
-db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed-e0.1.db');
+db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Oct30-17h-pair/parsed-e0.1-ghost.db');
 assert (exist(db_path, 'file') ~= 0);
 sqlite3.open (db_path);
 

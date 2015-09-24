@@ -308,7 +308,7 @@ def collectPatches (c, out_dataset, params = {}):
     helperSetup.setParamUnlessThere (params, 'label', None)
     helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
     params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})
@@ -348,7 +348,7 @@ def collectByMatch (c, out_dataset, params = {}):
     helperSetup.setParamUnlessThere (params, 'constraint', '1')
     helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
     params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})

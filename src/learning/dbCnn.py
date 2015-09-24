@@ -32,7 +32,7 @@ class DbCnn:
         helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
         helperSetup.setParamUnlessThere (params, 'label_dict', {})
         helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+        helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
         assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
         c.execute('SELECT * FROM cars')

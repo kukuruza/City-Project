@@ -23,7 +23,7 @@ def show (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'display_scale',    1.0)
     helperSetup.setParamUnlessThere (params, 'image_constraint', '1')
     helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images WHERE (%s)' % params['image_constraint'])
@@ -62,7 +62,7 @@ def examine (c, params = {}):
     logging.info ('==== examine ====')
     helperSetup.setParamUnlessThere (params, 'disp_scale',       1.5)
     helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
     keys = helperKeys.getCalibration()
 
@@ -152,7 +152,7 @@ def classifyName (c, params = {}):
     logging.info ('==== classifyName ====')
     helperSetup.setParamUnlessThere (params, 'disp_scale',       1.5)
     helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
     keys = helperKeys.getCalibration()
 
@@ -263,7 +263,7 @@ def classifyColor (c, params = {}):
     logging.info ('==== classifyColor ====')
     helperSetup.setParamUnlessThere (params, 'disp_scale', 1.5)
     helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
     keys = helperKeys.getCalibration()
 
@@ -436,7 +436,7 @@ def labelMatches (c, params = {}):
     logging.info ('==== labelMatches ====')
     helperSetup.setParamUnlessThere (params, 'debug', False)
     helperSetup.setParamUnlessThere (params, 'disp_scale', 1.5)
-    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
     keys = helperKeys.getCalibration()
 

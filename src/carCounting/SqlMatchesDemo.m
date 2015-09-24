@@ -12,15 +12,17 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-% db_path = fullfile(CITY_DATA_PATH, 'datasets/labelme/Databases/572-Oct30-17h-pair/parsed.db');
-GT_db_path = [CITY_DATA_PATH, 'datasets/labelme/Databases/572-Nov28-10h-pair/parsed.db'];
-
+db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/parsed-ghost.db');
 
 
 %% show all information about every match in every image
 
+% tool to read images straight from video
+imgReader = ImgReaderVideo();
+
 % open database
-sqlite3.open (GT_db_path);
+sqlite3.open (db_path);
+assert (exist(db_path, 'file') == 2);
 
 % read imagefiles, each of them is a pair of images
 imagefiles = sqlite3.execute('SELECT imagefile FROM images');
@@ -33,7 +35,8 @@ for i = 1 : length(imagefiles)
     matches = sqlite3.execute(query, imagefile);
     fprintf ('%s: found %d matches.\n', imagefile, length(matches));
     
-    for match = [matches.match]
+    for j = 1 : length(matches)
+        match = matches(j).match;
 
         % find all cars, including from different frames, that do match
         carids = sqlite3.execute('SELECT carid FROM matches WHERE match = ?', match);
@@ -48,7 +51,7 @@ for i = 1 : length(imagefiles)
                 car_entry.id, bbox, car_entry.imagefile);
 
             % load that match from every image
-            % img = imread([CITY_DATA_PATH car_entry.imagefile]);
+            % img = imgReader.imread(car_entry.imagefile);
             % img = insertObjectAnnotation(img, 'rectangle', bbox, car_entry.name);
             % imshow(img)
             % waitforbuttonpress

@@ -12,37 +12,36 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 %% input
-db_path = [CITY_DATA_PATH, 'datasets/labelme/Databases/572-Nov28-10h-pair/detected/all-1-ghost.db'];
-assert (exist(db_path, 'file') > 0)
+db_path = [CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/parsed-ghost.db'];
+assert (exist(db_path, 'file') == 2);
 
 %% show all information about every car in every image
+
+% tool to read images straight from video
+imgReader = ImgReaderVideo();
 
 % open database
 sqlite3.open (db_path);
 
 % read imagefiles
-imagefiles = sqlite3.execute('SELECT imagefile,time FROM images');
-for i = 1 : length(imagefiles)
-    imagefile = imagefiles(i).imagefile;
-    img = imread(fullfile(CITY_DATA_PATH, imagefile));
-    
-    % we store time in different formats in Car and in .db for now
-    timestamp = db2matlabTime(imagefiles(i).time);
+image_entries = sqlite3.execute('SELECT imagefile,time FROM images');
+for image_entry = [image_entries]
+    img = imgReader.imread(image_entry.imagefile);
     
     % get all info about cars for this match
-    car_entries = sqlite3.execute('SELECT * FROM cars WHERE imagefile = ?', imagefile);
+    car_entries = sqlite3.execute('SELECT * FROM cars WHERE imagefile = ?', image_entry.imagefile);
 
     % parse the result and draw the car on the image
     for car_entry = [car_entries]
         
         % create and show Car object
         bbox = [car_entry.x1, car_entry.y1, car_entry.width, car_entry.height];
-        car = Car (bbox, timestamp, car_entry.name);
+        car = Car ('bbox', bbox, 'timestamp', image_entry.time, 'name', car_entry.name);
         img = car.drawCar (img);
     end
     
-   % imshow(img)
-   % waitforbuttonpress
+    imshow(img)
+    waitforbuttonpress
     
 end
 sqlite3.close();

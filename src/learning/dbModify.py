@@ -225,7 +225,7 @@ def filterByBorder (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'border_thresh_perc', 0.03)
     helperSetup.setParamUnlessThere (params, 'debug',              False)
     helperSetup.setParamUnlessThere (params, 'constraint',         '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
@@ -260,7 +260,7 @@ def filterByRatio (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'ratio_acceptance', 3)
     helperSetup.setParamUnlessThere (params, 'debug',            False)
     helperSetup.setParamUnlessThere (params, 'constraint',       '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
@@ -299,7 +299,7 @@ def filterBySize (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'constraint',      '1')
     helperSetup.assertParamIsThere  (params, 'size_map_path')
     helperSetup.setParamUnlessThere (params, 'relpath',         os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',      helperKeys.KeyReaderUser())
 
     # load size_map
@@ -366,7 +366,7 @@ def expandBboxes (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'target_ratio', 0.75)  # h / w
     helperSetup.setParamUnlessThere (params, 'keep_ratio', True)
     helperSetup.setParamUnlessThere (params, 'debug', False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
@@ -399,7 +399,7 @@ def clusterBboxes (c, params = {}):
     logging.info ('==== clusterBboxes ====')
     helperSetup.setParamUnlessThere (params, 'cluster_threshold', 0.2)
     helperSetup.setParamUnlessThere (params, 'debug',             False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()

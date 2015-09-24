@@ -21,7 +21,7 @@ from opencvInterface import loadJson, ExperimentsBuilder
 
 def _evaluateForImage_ (cursor_eval, cursor_true, imagefile, params):
     helperSetup.setParamUnlessThere (params, 'debug',            False)
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ProcessorImagefile())
+    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
 
     # roi-s from ground truth
