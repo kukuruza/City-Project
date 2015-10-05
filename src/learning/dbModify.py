@@ -1,5 +1,6 @@
 import os, sys, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/annotations'))
 import math
 import numpy as np
 import cv2
@@ -13,9 +14,11 @@ from helperDb import deleteCar, carField, imageField
 import helperDb
 import utilities
 from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio, drawRoi
+from terms import TermTree
 import helperSetup
 import helperKeys
 import helperImg
+import terms, json
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -50,7 +53,7 @@ def ratioProbability (roi, params):
 
 
 
-def __filterBorderCar__ (c, car_entry, params):
+def _filterBorderCar_ (c, car_entry, params):
 
     carid = carField(car_entry, 'id')
     roi = bbox2roi (carField(car_entry, 'bbox'))
@@ -91,7 +94,7 @@ def __filterBorderCar__ (c, car_entry, params):
 
 
 
-def __filterRatioCar__ (c, car_entry, params):
+def _filterRatioCar_ (c, car_entry, params):
 
     carid = carField(car_entry, 'id')
     roi = bbox2roi (carField(car_entry, 'bbox'))
@@ -114,7 +117,7 @@ def __filterRatioCar__ (c, car_entry, params):
 
 
 
-def __filterSizeCar__ (c, car_entry, params):
+def _filterSizeCar_ (c, car_entry, params):
 
     carid = carField(car_entry, 'id')
     roi = bbox2roi (carField(car_entry, 'bbox'))
@@ -137,7 +140,7 @@ def __filterSizeCar__ (c, car_entry, params):
 
 
 
-def __expandCarBbox__ (c, car_entry, params):
+def _expandCarBbox_ (c, car_entry, params):
 
     expand_perc = params['expand_perc']
     target_ratio = params['target_ratio']
@@ -169,9 +172,8 @@ def __expandCarBbox__ (c, car_entry, params):
 
 
 
-def __clusterBboxes__ (c, imagefile, params):
-
-    # TODO: now assigned 'vehicle' to all names, angles and color are reset to null
+def _clusterBboxes_ (c, imagefile, params):
+    helperSetup.assertParamIsThere (params, 'terms')
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
@@ -179,18 +181,44 @@ def __clusterBboxes__ (c, imagefile, params):
 
     # collect rois
     rois = []
-    scores = []
+    names = []
+    #scores = []
     for car_entry in car_entries:
-        carid = carField(car_entry, 'id')
         roi = bbox2roi (carField(car_entry, 'bbox'))
-        score = carField(car_entry, 'score')
+        name = carField(car_entry, 'name')
+        if name is None: name = 'vehicle'
+        #score = carField(car_entry, 'score')
         rois.append (roi)
-        scores.append (score)
+        names.append (name)
+        #scores.append (score)
 
     # cluster rois
     #params['scores'] = scores
-    values = utilities.hierarchicalClusterRoi (rois, params)
-    (rois_clustered, clusters, scores1) = values
+    (rois_clustered, clusters, scores) = utilities.hierarchicalClusterRoi (rois, params)
+
+    names_clustered = []
+    for cluster in list(set(clusters)):
+        names_in_cluster = [x for i, x in enumerate(names) if clusters[i] == cluster]
+        # try to be as specific about the name as possible
+        #for i in range(1, len(names_in_cluster)):
+        #    common_root = params['terms'].get_common_root(names_in_cluster[i], names_in_cluster[i-1])
+        # Start with two clusters
+        name = names_in_cluster[0]
+        if len(names_in_cluster) > 1:
+            common_root = params['terms'].get_common_root(names_in_cluster[0], names_in_cluster[1])
+            if names_in_cluster[0] == common_root:
+                # names_in_cluster[1] is more specific
+                name = names_in_cluster[1]
+            elif names_in_cluster[1] == common_root:
+                # names_in_cluster[0] is more specific
+                name = names_in_cluster[0]
+            else:
+                # they are not in the same branch
+                name = common_root
+            # upgrade to the 'known' name
+            name = params['terms'].best_match(name)
+            logging.info ('chose "%s" from names "%s"' % (name, ','.join(names_in_cluster)))
+        names_clustered.append(name)
 
     # draw roi on the 'display' image
     if params['debug']:
@@ -207,9 +235,10 @@ def __clusterBboxes__ (c, imagefile, params):
         deleteCar (c, carField(car_entry, 'id'))
     for i in range(len(rois_clustered)):
         roi = rois_clustered[i]
+        name = names_clustered[i]
         score = scores[i]
         bbox = roi2bbox(roi)
-        entry = (imagefile, 'vehicle', bbox[0], bbox[1], bbox[2], bbox[3], score)
+        entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], score)
         c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,score) 
                      VALUES (?,?,?,?,?,?,?);''', entry)
 
@@ -241,7 +270,7 @@ def filterByBorder (c, params = {}):
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
         for car_entry in car_entries:
-            __filterBorderCar__ (c, car_entry, params)
+            _filterBorderCar_ (c, car_entry, params)
 
         if params['debug'] and ('key' not in locals() or key != 27):
             cv2.imshow('debug', params['display'])
@@ -276,7 +305,7 @@ def filterByRatio (c, params = {}):
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
         for car_entry in car_entries:
-            __filterRatioCar__ (c, car_entry, params)
+            _filterRatioCar_ (c, car_entry, params)
 
         if params['debug'] and ('key' not in locals() or key != 27):
             cv2.imshow('debug', params['display'])
@@ -330,13 +359,27 @@ def filterBySize (c, params = {}):
         logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
         for car_entry in car_entries:
-            __filterSizeCar__ (c, car_entry, params)
+            _filterSizeCar_ (c, car_entry, params)
 
         if params['debug'] and ('key' not in locals() or key != 27):
             cv2.imshow('debug', params['display'])
             key = params['key_reader'].readKey()
             if key == 27: cv2.destroyWindow('debug')
 
+
+def filterUnknownNames (c):
+    ''' filter away car entries with unknown names '''
+    
+    # load terms tree
+    dictionary_path = op.join(os.getenv('CITY_PATH'), 'src/learning/annotations/dictionary.json')
+    json_file = open(dictionary_path);
+    terms = TermTree.from_dict(json.load(json_file))
+    json_file.close()
+
+    c.execute('SELECT id,name FROM cars')
+    for (carid,name) in c.fetchall():
+        if terms.best_match(name) == 'object':
+            c.execute('DELETE FROM cars WHERE id=?', (carid,))
 
 
 def thresholdScore (c, params = {}):
@@ -382,7 +425,7 @@ def expandBboxes (c, params = {}):
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
         for car_entry in car_entries:
-            __expandCarBbox__ (c, car_entry, params)
+            _expandCarBbox_ (c, car_entry, params)
 
         if params['debug'] and ('key' not in locals() or key != 27):
             cv2.imshow('debug', params['display'])
@@ -399,13 +442,21 @@ def clusterBboxes (c, params = {}):
     logging.info ('==== clusterBboxes ====')
     helperSetup.setParamUnlessThere (params, 'cluster_threshold', 0.2)
     helperSetup.setParamUnlessThere (params, 'debug',             False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
+    helperSetup.setParamUnlessThere (params, 'key_reader',        helperKeys.KeyReaderUser())
+    helperSetup.setParamUnlessThere (params, 'image_processor',   helperImg.ReaderVideo())
+
+    # load terms tree
+    dictionary_path = op.join(os.getenv('CITY_PATH'), 'src/learning/annotations/dictionary.json')
+    json_file = open(dictionary_path);
+    terms = TermTree.from_dict(json.load(json_file))
+    json_file.close()
+    params['terms'] = terms
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
 
     for (imagefile,) in image_entries:
-        __clusterBboxes__ (c, imagefile, params)
+        _clusterBboxes_ (c, imagefile, params)
 
 
 
@@ -447,7 +498,6 @@ def assignOrientations (c, params):
             c.execute('UPDATE cars SET yaw=?, pitch=? WHERE id=?', (yaw, pitch, carid))
 
 
-# to be removed
 def moveDir (c, params):
     logging.info ('==== moveDir ====')
 

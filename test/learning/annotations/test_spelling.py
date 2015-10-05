@@ -1,3 +1,5 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/annotations'))
 import random
 import unittest
 import logging
@@ -7,9 +9,11 @@ from spelling import SpellingCorrector
 
 class TestSpellCorrector (unittest.TestCase):
 
+    dictionary_path = op.join(os.getenv('CITY_PATH'), 'src/learning/annotations/dictionary.json')
+
     def setUp(self):
         self.corrector = SpellingCorrector()
-        self.corrector.train('dictionary.json');
+        self.corrector.train(self.dictionary_path);
 
     def test_correct_word(self):
         self.assertEqual(self.corrector.correct('spelling'), 'spelling',

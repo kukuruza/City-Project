@@ -114,9 +114,9 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertEqual (numLeft, 1)
 
     def test_filterByBorder_loose_constraint (self):
-        ''' Constraint to filter out only 'trucks', with very tight border_thresh_perc==1. '''
+        ''' Constraint to filter out only 'vehicle's, with very tight border_thresh_perc==1. '''
         c = self.conn.cursor()
-        params = {'border_thresh_perc': 1, 'constraint': 'name == "truck"'}
+        params = {'border_thresh_perc': 1, 'constraint': 'name == "vehicle"'}
         filterByBorder (c, params)
         c.execute('SELECT COUNT(*) FROM cars WHERE score > 0.5')
         (numLeft,) = c.fetchone()
@@ -319,7 +319,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     # clusterBboxes
 
     def test_clusterBboxes_tight (self):
-        ''' Tight 'cluster_threshold' won't let intersecting car1 and car2 get merged. '''
+        ''' Tight 'cluster_threshold' won't let car1 (sedan) and car2 (vehicle) get merged. '''
         c = self.conn.cursor()
         clusterBboxes (c, {'cluster_threshold': 0})
         c.execute('SELECT COUNT(*) FROM cars')
@@ -327,12 +327,14 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         self.assertEqual (numLeft, 3)
 
     def test_clusterBboxes_loose (self):
-        ''' Loose 'cluster_threshold' merges intersecting car1 and car2. '''
+        ''' Loose 'cluster_threshold' merges intersecting car1 (sedan) and car2 (vehicle). '''
         c = self.conn.cursor()
         clusterBboxes (c, {'cluster_threshold': 1000})
-        c.execute('SELECT COUNT(*) FROM cars')
-        (numLeft,) = c.fetchone()
-        self.assertEqual (numLeft, 2)
+        c.execute('SELECT name FROM cars')
+        names = c.fetchall()
+        self.assertEqual (len(names), 2)
+        self.assertEqual (names[0][0], 'sedan')
+        self.assertEqual (names[1][0], 'vehicle')
 
     def test_clusterBboxes_debug_all (self):
         clusterBboxes (self.conn.cursor(), self._makeDebugParams_([32, 32, 32]))
@@ -369,11 +371,11 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         car_entries = c.fetchall()
         self.assertEqual (len(car_entries), 6)
         self.assertEqual (car_entries[0], ('sedan', 24))
-        self.assertEqual (car_entries[1], ('truck', 44))
-        self.assertEqual (car_entries[2], ('truck', 24))
+        self.assertEqual (car_entries[1], ('vehicle', 44))
+        self.assertEqual (car_entries[2], ('vehicle', 24))
         self.assertEqual (car_entries[3], ('sedan', 24))
-        self.assertEqual (car_entries[4], ('truck', 44))
-        self.assertEqual (car_entries[5], ('truck', 24))
+        self.assertEqual (car_entries[4], ('vehicle', 44))
+        self.assertEqual (car_entries[5], ('vehicle', 24))
         # images
         c.execute('SELECT imagefile FROM images')
         image_entries = c.fetchall()
@@ -421,8 +423,8 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         car_entries = c.fetchall()
         self.assertEqual (len(car_entries), 3)
         self.assertEqual (car_entries[0], ('sedan', 24))
-        self.assertEqual (car_entries[1], ('truck', 44))
-        self.assertEqual (car_entries[2], ('truck', 24))
+        self.assertEqual (car_entries[1], ('vehicle', 44))
+        self.assertEqual (car_entries[2], ('vehicle', 24))
         # images
         c.execute('SELECT imagefile,src FROM images')
         image_entries = c.fetchall()
@@ -435,8 +437,8 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
                     (SELECT carid FROM matches WHERE match == 2)''')
         match_entries = c.fetchall()
         self.assertEqual (len(match_entries), 2)
-        self.assertEqual (match_entries[0], ('img1','truck'))
-        self.assertEqual (match_entries[1], ('img2','truck'))
+        self.assertEqual (match_entries[0], ('img1','vehicle'))
+        self.assertEqual (match_entries[1], ('img2','vehicle'))
         # close
         conn_empty.close()
 

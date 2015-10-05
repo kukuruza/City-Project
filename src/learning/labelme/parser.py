@@ -2,21 +2,18 @@
 #
 # 
 
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/annotations'))
 import re
 from spelling import SpellingCorrector
 from terms import TermTree
 import json
 import logging
-import os
 
 
 class BaseParser:
 
-    # idiotic python reference system make it necessary to be exlicit
-    __location__ = os.path.realpath(
-        os.path.join(os.getcwd(), os.path.dirname(__file__)))
-
-    dictionary_path = os.path.join (__location__, 'dictionary.json')
+    dictionary_path = op.join(os.getenv('CITY_PATH'), 'src/learning/annotations/dictionary.json')
 
     def __init__(self):
         

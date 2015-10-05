@@ -89,7 +89,6 @@ class TestClustering (unittest.TestCase):
     def test_hierarchicalCluster (self):
         params = { 'cluster_threshold': 0.1 }
         centers, clusters, scores = hierarchicalClusterRoi([[1,2,10,10], [4,5,15,15], [20,20,25,25]], params)
-        self.assertEqual (1, 1)
 
 
 if __name__ == '__main__':

@@ -229,7 +229,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         patchHelper = PatchHelperHDF5({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
-        params['constraint'] = 'name = "truck"'
+        params['constraint'] = 'name = "vehicle"'
         collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches.h5'))
@@ -243,7 +243,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         patchHelper = PatchHelperFolder({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
-        params['constraint'] = 'name = "truck"'
+        params['constraint'] = 'name = "vehicle"'
         collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches'))
@@ -329,7 +329,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         patchHelper = PatchHelperHDF5({'relpath': '.'})
         imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
-        params['constraint'] = 'name = "truck"'
+        params['constraint'] = 'name = "vehicle"'
         paramsDist = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
                       'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
         params.update(paramsDist)

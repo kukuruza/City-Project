@@ -88,8 +88,8 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_examine_carConstraint (self):
         keys = helperKeys.getCalibration()
         keyReader = helperKeys.KeyReaderSequence(2*[keys['right']])
-        carConstr = 'name = "truck"' 
-        params = {'image_processor': self.imageProcessor, 'key_reader': keyReader, 'car_constraint': carConstr}
+        constraint = 'name = "truck"' 
+        params = {'image_processor': self.imageProcessor, 'key_reader': keyReader, 'constraint': constraint}
         examine (self.conn.cursor(), params)
 
     # classifyName

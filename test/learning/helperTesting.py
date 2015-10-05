@@ -21,9 +21,9 @@ def makeMicroDbVer2 ():
     s = 'cars(id,imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
     v = (1,'img1','sedan',24,42,6,6,1,180,45,'blue')
     c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?)' % s, v)
-    v = (2,'img1','truck',44,52,20,15,1,None,None,None)  # default ratio
+    v = (2,'img1','vehicle',44,52,20,15,1,None,None,None)  # default ratio
     c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?)' % s, v)
-    v = (3,'img2','truck',24,42,16,16,1,None,None,None)
+    v = (3,'img2','vehicle',24,42,16,16,1,None,None,None)
     c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?)' % s, v)
 
     s = 'matches(id,carid,match)'

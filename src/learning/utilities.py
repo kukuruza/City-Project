@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import scipy.cluster.hierarchy
 import matplotlib.pyplot
+from math import atan
 import sys, os, os.path as op
 import logging
 import helperSetup
@@ -143,9 +144,9 @@ def gammaProb (x, max_value, shape):
 
 
 
-def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
+def overlapRatio (roi1, roi2):
     assert (len(roi1) == 4 and len(roi2) == 4)
-    if roi1 == roi2 and score1 == score2: return 1  # same object
+    if roi1 == roi2: return 1  # same object
     dy = min(roi1[2], roi2[2]) - max(roi1[0], roi2[0])
     dx = min(roi1[3], roi2[3]) - max(roi1[1], roi2[1])
     if dy <= 0 or dx <= 0: return 0
@@ -155,7 +156,7 @@ def overlapRatio (roi1, roi2, score1 = 1, score2 = 1):
     union  = area1 + area2 - inters
     logging.debug('inters: ' + str(inters) + ', union: ' +  str(union))
     assert (union >= inters and inters > 0)
-    return float(inters) / union * score1 * score2
+    return float(inters) / union
 
 
 def hierarchicalClusterRoi (rois, params = {}):
@@ -163,15 +164,13 @@ def hierarchicalClusterRoi (rois, params = {}):
     elif len(rois) == 1: return rois, [0], [1]
 
     helperSetup.setParamUnlessThere (params, 'debug_clustering', False)
-    #helperSetup.setParamUnlessThere (params, 'scores', [1]*len(rois))
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
-    sc_in = [1]*N #params['scores']
 
     for j in range(N):
         for i in range(N):
-            pairwise_distances[i][j] = 1 - overlapRatio(rois[i], rois[j], sc_in[i], sc_in[j])
+            pairwise_distances[i][j] = 1 - overlapRatio(rois[i], rois[j])
     condensed_distances = scipy.spatial.distance.squareform (pairwise_distances)
 
     # perform clustering
@@ -185,8 +184,7 @@ def hierarchicalClusterRoi (rois, params = {}):
     for cluster in list(set(clusters)):
         rois_cluster = [x for i, x in enumerate(rois) if clusters[i] == cluster]
         centers.append (list( np.mean(np.array(rois_cluster), 0).astype(int) ))
-        scores_cluster = [x for i, x in enumerate(sc_in) if clusters[i] == cluster]
-        scores.append (max(scores_cluster))
+        scores.append (atan(len(rois_cluster)) / (np.pi / 2))
     logging.debug ('centers: ' + str(centers))
     logging.info ('out of ' + str(len(clusters)) + ' ROIs left ' + str(len(centers)))
 

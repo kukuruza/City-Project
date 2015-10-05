@@ -9,6 +9,7 @@
 #
 
 from __future__ import print_function
+import logging
 
 
 class TermTree(dict):
@@ -23,14 +24,12 @@ class TermTree(dict):
         for child in self.children:
             child.printout ((indent or 0) + 2)
 
-
     @staticmethod
     def from_dict(dict_):
         """ Recursively (re)construct TreeNode-based tree from dictionary. """
         root = TermTree(dict_['name'], dict_['known'], dict_['children'])
         root.children = list(map(TermTree.from_dict, root.children))
         return root
-
 
     def check_uniqueness (self, pool = []):
         ''' check if elements of tree are unique '''
@@ -50,7 +49,7 @@ class TermTree(dict):
         else:
             # we need to go deeper
             for child in self.children:
-                match, found_known = child.best_match (query, ishead=False);
+                match, found_known = child.best_match (query, ishead=False)
                 if match:
                     break
         # at this point we either found a match or not.
@@ -65,6 +64,38 @@ class TermTree(dict):
         else:
             return match, found_known
 
+    def _get_path_to_node_ (self, query):
+        ''' returns the full path from the root of the tree to the  '''
+        match = None
+        if self.name == query:
+            # found the query
+            return [self.name]
+        else:
+            # we need to go deeper
+            for child in self.children:
+                path_to_node = child._get_path_to_node_ (query)
+                if path_to_node is not None:
+                    # some child returned a valid path
+                    return [self.name] + path_to_node
+        # at this point the match is abscent
+        return None
+
+    def get_common_root (self, query1, query2):
+        ''' get the deepest common element between two queries '''
+        # get path from the root for both queries
+        logging.debug ('finding common root between %s and %s' % (query1, query2))
+        path1 = self._get_path_to_node_(query1)
+        path2 = self._get_path_to_node_(query2)
+        if path1 is None or path2 is None:
+            raise Exception ('"%s" or "%s" is not in the tree' % (query1, query2))
+
+        # go through this path and find where it diverges
+        assert len(path1) >= 1 and len(path2) >= 1 and path1[0] == path2[0]
+        for i in range (max(len(path1), len(path2))):
+            if len(path1) <= i or len(path2) <= i or path1[i] != path2[i]:
+                logging.debug ('found common root = %s' % common_root)
+                return common_root
+            common_root = path1[i]
 
 
 if __name__ == '__main__':

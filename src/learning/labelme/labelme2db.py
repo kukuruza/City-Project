@@ -1,21 +1,18 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import numpy as np
 import cv2
 import xml.etree.ElementTree as ET
-import os, sys
 import collections
 import logging
-import os.path as op
 import glob
 import shutil
 import sqlite3
-sys.path.insert(0, os.path.abspath('..'))
 from helperDb import createLabelmeDb, queryField
 import helperDb
 import utilities
 from utilities import roi2bbox, getCenter, bbox2roi
 import helperSetup
-
-sys.path.insert(0, os.path.abspath('annotations'))
 from annotations.parser import FrameParser, PairParser
 
 

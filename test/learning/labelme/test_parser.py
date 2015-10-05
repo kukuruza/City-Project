@@ -1,14 +1,17 @@
+import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/labelme'))
 import random
 import unittest
-
 import logging
-from parser import BaseParser, FrameParser, PairParser
+
+import parser
+#from parser import BaseParser, FrameParser, PairParser
 
 
 class TestBaseParser (unittest.TestCase):
 
     def setUp(self):
-        self.parser = BaseParser ()
+        self.parser = parser.BaseParser ()
 
     def test_none(self):
         phrase = ' :)  :-(  ;-*';
@@ -39,7 +42,7 @@ class TestBaseParser (unittest.TestCase):
 class TestFrameParser (unittest.TestCase):
 
     def setUp(self):
-        self.parser = FrameParser()
+        self.parser = parser.FrameParser()
 
     def test_none(self):
         phrase = '555 6 \%~~--: =%^ ';
@@ -65,7 +68,7 @@ class TestFrameParser (unittest.TestCase):
 class TestPairParser (unittest.TestCase):
 
     def setUp(self):
-        self.parser = PairParser()
+        self.parser = parser.PairParser()
 
     def test_none(self):
         phrase = 'too many cars (car-s)';
@@ -92,13 +95,13 @@ class TestPairParser (unittest.TestCase):
         phrase = '4';
         (name, number) = self.parser.parse (phrase)
         self.assertTrue (type(name) == str)
-        self.assertTrue ((name, number) == ('car', 4),
+        self.assertTrue ((name, number) == ('sedan', 4),
             'Answered (' + name + ', ' + str(number) + ') on phrase: ' + phrase)
 
         phrase = '>>> 0  ';
         (name, number) = self.parser.parse (phrase)
         self.assertTrue (type(name) == str)
-        self.assertTrue ((name, number) == ('car', 0),
+        self.assertTrue ((name, number) == ('sedan', 0),
             'Answered (' + name + ', ' + str(number) + ') on phrase: ' + phrase)
 
 
@@ -106,7 +109,7 @@ class TestPairParser (unittest.TestCase):
         phrase = 'black cart 4 ';
         (name, number) = self.parser.parse (phrase)
         self.assertTrue (type(name) == str)
-        self.assertTrue ((name, number) == ('car', 4),
+        self.assertTrue ((name, number) == ('sedan', 4),
             'Answered (' + name + ', ' + str(number) + ') on phrase: ' + phrase)
 
         phrase = '>>> 0 object  ';
