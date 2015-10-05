@@ -7,7 +7,5 @@ classdef ImgReaderInterface < handle
         imread (self, image_id)
         
         maskread (self, mask_id)
-        
-        close (self)
     end
 end

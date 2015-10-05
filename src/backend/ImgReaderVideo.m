@@ -1,6 +1,5 @@
 classdef ImgReaderVideo < ImgReaderInterface
-    % Implementation of only in a dataset (TODO: write a writer)
-    %   based on storing images as a video
+    % Implementation of only in a dataset based on storing images as a video
     
     properties
         relpath = '.';
@@ -20,7 +19,7 @@ classdef ImgReaderVideo < ImgReaderInterface
 
         function video = openVideoReader (self, videopath)
             % Open video and set up bookkeeping
-            if self.verbose, fprintf ('opening video: %s', videopath); end
+            if self.verbose, fprintf ('opening video: %s\n', videopath); end
             videopath = fullfile (self.relpath, videopath);
             if ~exist(videopath, 'file')
                 error ('videopath does not exist: %s', videopath);
@@ -86,6 +85,7 @@ classdef ImgReaderVideo < ImgReaderInterface
             end
             % read the frame
             if expected_frame > frame_id
+                self.current_frames('mask')
                 error ('expected_frame=%d > frame_id=%d is not supported', ....
                        expected_frame, frame_id);
             end
@@ -112,11 +112,13 @@ classdef ImgReaderVideo < ImgReaderInterface
         
         
         function image = imread (self, image_id)
+            if self.verbose > 1, fprintf ('reading image.\n'); end
             image = self.readImpl (image_id, false);
         end
         
         
         function mask = maskread (self, mask_id)
+            if self.verbose > 1, fprintf ('reading mask.\n'); end
             mask = self.readImpl (mask_id, true);
             mask = mask(:,:,1) > 128;
         end
@@ -133,6 +135,9 @@ classdef ImgReaderVideo < ImgReaderInterface
             end
         end
         
+        function delete(self)
+            self.close()
+        end
     end
     
 end

@@ -77,8 +77,5 @@ classdef ImgIOFolder < ImgReaderInterface & ImgWriterInterface
             assert (ismatrix(mask));
             self.writeImpl (mask, mask_id);
         end
-
-        function close (~)
-        end
     end
 end

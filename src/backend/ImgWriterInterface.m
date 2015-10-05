@@ -7,7 +7,5 @@ classdef ImgWriterInterface < handle
         imwrite (self, image, image_id)
         
         maskwrite (self, mask, mask_id)
-        
-        close (self)
     end
 end
