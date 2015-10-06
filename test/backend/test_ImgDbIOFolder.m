@@ -1,4 +1,4 @@
-classdef test_ImgIOFolder < matlab.unittest.TestCase
+classdef test_ImgDbIOFolder < matlab.unittest.TestCase
    
     properties (Hidden)
         
@@ -19,7 +19,7 @@ classdef test_ImgIOFolder < matlab.unittest.TestCase
     methods (TestMethodSetup)       
         
         function setup (self)
-            self.imgIO = ImgIOFolder('relpath', '.');
+            self.imgIO = ImgDbIOFolder('relpath', '.');
         end
         
     end    

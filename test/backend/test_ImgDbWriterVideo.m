@@ -1,4 +1,4 @@
-classdef test_ImgWriterVideo < matlab.unittest.TestCase
+classdef test_ImgDbWriterVideo < matlab.unittest.TestCase
    
     properties (Hidden)
         
@@ -27,7 +27,7 @@ classdef test_ImgWriterVideo < matlab.unittest.TestCase
     methods (TestMethodSetup)
         
         function setup (self)
-            self.imgWriter = ImgWriterVideo ('relpath', '.', 'verbose', 0);
+            self.imgWriter = ImgDbWriterVideo ('relpath', '.', 'verbose', 0);
         end
         
     end    

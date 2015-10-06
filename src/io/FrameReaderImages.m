@@ -1,9 +1,9 @@
-% An implementation of FrameGetter for reading .jpg images from a dir
+% An implementation of FrameReaderInterface for reading .jpg images from a dir
 %   It implements an interface getNewFrame()
 %
 % It is essentially a thin wrapper of imread()
 
-classdef FrameReaderImages < FrameReader
+classdef FrameReaderImages < FrameReaderInterface
     properties (Hidden)
         imNames;
         imDir;
@@ -11,31 +11,38 @@ classdef FrameReaderImages < FrameReader
     end % properties
     
     methods
-        function FR = FrameReaderImages (imDir)
+        function self = FrameReaderImages (imDir, varargin)
+            parser = inputParser;
+            addRequired (parser, 'imDir', @ischar);
+            addParameter(parser, 'relpath', getenv('CITY_DATA_PATH'), @(x) ischar(x) && exist((x),'dir'));
+            addParameter(parser, 'ext', '.jpg', @ischar);
+            parse (parser, imDir, varargin{:});
+            parsed = parser.Results;
 
-            FR.imDir = imDir;
-            imTemplate = fullfile(FR.imDir, '*.jpg');
-            FR.imNames = dir (imTemplate);
-            FR.counter = 1;
+            % make paths relative to input 'relpath'
+            imDir = fullfile(parsed.relpath, imDir);
+
+            self.imDir = imDir;
+            imTemplate = fullfile(self.imDir, ['*' parsed.ext]);
+            self.imNames = dir (imTemplate);
+            self.counter = 1;
             
-            if ~exist(FR.imDir, 'file')
-                fprintf('FrameReaderImages(): FR.imDir = %s \n', FR.imDir);
-                error('FrameReaderImages(): imDir doesn''t exist');
+            if ~exist(self.imDir, 'dir')
+                error('FrameReaderImages(): imDir %s does not exist', imDir);
             end
             
-            if isempty(FR.imNames)
-                fprintf ('FrameReaderImages(): imTemplate = %s \n', imTemplate);
-                error('FrameReaderImages(): imNames is empty');
+            if isempty(self.imNames)
+                error('FrameReaderImages(): imNames is empty for template %s', imTemplate);
             end
         end
-        function [frame, timeinterval] = getNewFrame(FR)
-            if FR.counter > length(FR.imNames)
+        function [frame, timestamp] = getNewFrame(self)
+            if self.counter > length(self.imNames)
                 frame = [];
             else
-                frame = imread(fullfile(FR.imDir, FR.imNames(FR.counter).name));
+                frame = imread(fullfile(self.imDir, self.imNames(self.counter).name));
             end
-            FR.counter = FR.counter + 1;
-            timeinterval = 1;
+            self.counter = self.counter + 1;
+            timestamp = '';
         end
     end % methods
     

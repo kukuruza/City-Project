@@ -1,4 +1,4 @@
-classdef test_ImgReaderVideo < matlab.unittest.TestCase
+classdef test_ImgDbReaderVideo < matlab.unittest.TestCase
    
     properties (Hidden)
         
@@ -27,7 +27,7 @@ classdef test_ImgReaderVideo < matlab.unittest.TestCase
     methods (TestMethodSetup)
         
         function setup (self)
-            self.imgReader = ImgReaderVideo ('relpath', '.', 'verbose', 0);
+            self.imgReader = ImgDbReaderVideo ('relpath', '.', 'verbose', 0);
         end
         
     end    
@@ -68,7 +68,7 @@ classdef test_ImgReaderVideo < matlab.unittest.TestCase
         end
 
         function test_readImpl_stackloop (self)
-            self.imgReader = ImgReaderVideo ('relpath', '.', 'cache_size', 2);
+            self.imgReader = ImgDbReaderVideo ('relpath', '.', 'cache_size', 2);
                          self.imgReader.readImpl('testdata/Moon/images/000000.jpg', false);
                          self.imgReader.readImpl('testdata/Moon/images/000001.jpg', false);
             image_read = self.imgReader.readImpl('testdata/Moon/images/000002.jpg', false);

@@ -1,12 +1,10 @@
-function sampleAllCameras (dir_name)
+function sampleAllCameras (dirpath)
 % collect images from every camera
 
 % set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
 CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
 addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
-
-dirpath = [CITY_DATA_PATH dir_name];
 
 % file for output
 fout = fopen ([dirpath 'out.txt'], 'w');

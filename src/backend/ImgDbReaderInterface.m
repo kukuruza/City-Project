@@ -1,4 +1,4 @@
-classdef ImgReaderInterface < handle
+classdef ImgDbReaderInterface < handle
     % The backend for reading images from dataset
     % Diffrent implementations depending on how images are stored.
     %   Examples of storage is folder with images or video.

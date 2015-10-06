@@ -1,4 +1,4 @@
-classdef ImgWriterVideo < ImgWriterInterface
+classdef ImgDbWriterVideo < ImgDbWriterInterface
     % Implementation of only in a dataset based on storing images as a video
     
     properties
@@ -25,7 +25,7 @@ classdef ImgWriterVideo < ImgWriterInterface
     end
     methods 
         
-        function self = ImgWriterVideo (varargin)
+        function self = ImgDbWriterVideo (varargin)
             % 'verbose' -- level of output verbosity
             % 'relpath' -- relative path in all further functions
             parser = inputParser;

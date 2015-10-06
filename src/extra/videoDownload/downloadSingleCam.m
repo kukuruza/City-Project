@@ -16,26 +16,24 @@ addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search pa
 cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % where to write video and intervals
-videoPath = fullfile([CITY_DATA_PATH outFileTemplate, '.avi']);
-intervalsPath = fullfile([CITY_DATA_PATH outFileTemplate,'.txt']);
-sampleImagePath = fullfile([CITY_DATA_PATH outFileTemplate,'.jpg']);
+videoPath = [outFileTemplate, '.avi'];
+timestampPath = [outFileTemplate,'.txt'];
 
 fprintf ('Will write video to %s\n', videoPath);
-fprintf ('Will write time  to %s\n', intervalsPath);
+fprintf ('Will write time  to %s\n', timestampPath);
 
 frameReader = FrameReaderInternet (camNum);
-frameWriter = FrameWriterVideo (videoPath, 2, 1);
-fid = fopen(intervalsPath, 'w');
+frameWriter = FrameWriterVideo (videoPath, 2);
+fid = fopen(fullfile(CITY_DATA_PATH, timestampPath), 'w');
 
 t0 = clock;
 t = t0;
 while etime(t, t0) < numMinutes * 60
     tic
-    frame = frameReader.getNewFrame();
-    frameWriter.writeNextFrame (frame);
-    if t == t0, imwrite (frame, sampleImagePath); end
     t = clock;
-    fprintf(fid, '%s', matlab2dbTime (t));
+    [frame, timestamp] = frameReader.getNewFrame();
+    frameWriter.step (frame);
+    fprintf(fid, '%s\n', timestamp);
     toc
 end
 

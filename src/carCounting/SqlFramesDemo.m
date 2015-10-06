@@ -18,7 +18,7 @@ assert (exist(db_path, 'file') == 2);
 %% show all information about every car in every image
 
 % tool to read images straight from video
-imgReader = ImgReaderVideo();
+imgReader = ImgDbReaderVideo();
 
 % open database
 sqlite3.open (db_path);

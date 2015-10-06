@@ -1,4 +1,4 @@
-classdef ImgIOFolder < ImgReaderInterface & ImgWriterInterface
+classdef ImgDbIOFolder < ImgDbReaderInterface & ImgDbWriterInterface
     % Implementation of both reading and writing in a dataset
     %   based on storing imagefiles as .jpg (images) and .png (masks)
     
@@ -11,7 +11,7 @@ classdef ImgIOFolder < ImgReaderInterface & ImgWriterInterface
     end
     methods
         
-        function self = ImgIOFolder (varargin)
+        function self = ImgDbIOFolder (varargin)
             % 'verbose' -- level of output verbosity
             % 'relpath' -- relative path in all further functions
             parser = inputParser;

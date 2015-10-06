@@ -1,50 +1,64 @@
-% An implementation of FrameGetter for reading frames from a video
+% An implementation of FrameReaderInterface for reading frames from a video
 %   It implements an interface getNewFrame()
 %
 % It is essentially a thin wrapper of vision.VideoFileReader
 
-classdef FrameReaderVideo < FrameReader
+classdef FrameReaderVideo < FrameReaderInterface
     properties (Hidden)
-        videoSource
-        timesTable
-        counter = 1;
+        
+        videoFid
+        timesFid
         eof = false;
+        
+        verbose;
+        
     end % properties
     methods
-        function FR = FrameReaderVideo (videoPath, timeStampPath)
+        
+        function self = FrameReaderVideo (videoPath, timestampPath, varargin)
+            parser = inputParser;
+            addRequired(parser, 'videoPath', @ischar);
+            addRequired(parser, 'timestampPath', @(x) ischar(x) || isempty(x));
+            addParameter(parser, 'relpath', getenv('CITY_DATA_PATH'), @(x) ischar(x) && exist((x),'dir'));
+            parse (parser, videoPath, timestampPath, varargin{:});
+            parsed = parser.Results;
+            
             % usually timestamp has the same prefix as video, so make timestamp from videoPath
-            if nargin == 1
+            if isempty(timestampPath)
                 [dir, name, ~] = fileparts(videoPath);
-                timeStampPath = fullfile(dir, [name, '.txt']);
+                timestampPath = fullfile(dir, [name, '.txt']);
             end
             
-            if ~exist(videoPath,'file') || ~exist(timeStampPath, 'file')
-                fprintf ('FrameReaderVideo: files: %s, %s\n', videoPath, timeStampPath);
+            % make paths relative to input 'relpath'
+            videoPath     = fullfile(parsed.relpath, videoPath);
+            timestampPath = fullfile(parsed.relpath, timestampPath);
+
+            % check existance of files
+            if ~exist(videoPath,'file') || ~exist(timestampPath, 'file')
+                fprintf ('FrameReaderVideo: files: %s, %s\n', videoPath, timestampPath);
                 error (['FrameReaderVideo: videoPath or timeStampPath doesn''t exist: ' ...
-                        videoPath ', ' timeStampPath]);
+                        videoPath ', ' timestampPath]);
             end
-            FR.timesTable = dlmread(timeStampPath);
             
-            % Checking if the timestamp is indeed 6-elemented
-            if(size(FR.timesTable, 2) ~= 6)
-                error('FrameReaderVideo:Timestamp', ...
-                    'TimeStamps expected to be 6 elemented : yyyy mm dd hh:mm:ss');
-            end
-            FR.videoSource = vision.VideoFileReader(videoPath, ...
+            % open video and timestaamp files
+            self.timesFid = fopen(timestampPath);
+            self.videoFid = vision.VideoFileReader(videoPath, ...
                 'ImageColorSpace','RGB','VideoOutputDataType','uint8'); 
         end
-        function [frame, timeStamp] = getNewFrame(FR)
-            if ~FR.eof
-                [frame, FR.eof] = step(FR.videoSource);
-            end
-            if FR.eof
+        function [frame, timestamp] = getNewFrame(self)
+            if self.eof
                 frame = [];
-                timeStamp = [];
+                timestamp = [];
             else
-                timeStamp = FR.timesTable(FR.counter, :);
-                FR.counter = FR.counter + 1;
+                [frame, self.eof] = step(self.videoFid);
+                timestamp = fgetl(self.timesFid);
+                assert (ischar(timestamp)); % there should be enough timestamp entries
             end
         end
+        function delete(self)
+            fclose(self.timesFid);
+        end
+        
     end % methods
 
 end

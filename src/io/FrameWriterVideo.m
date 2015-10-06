@@ -1,5 +1,4 @@
-% An implementation of FrameWriter for writing frames to a video
-%   It implements an interface step()
+% An implementation of FrameWriterInterface for writing frames to a video
 %
 % It is essentially a wrapper of vision.VideoWriter
 %
@@ -7,23 +6,37 @@
 %
 
 
-classdef FrameWriterVideo < FrameWriter
+classdef FrameWriterVideo < FrameWriterInterface
     properties (Hidden)
         video          % output
-        counter = 0    % to know how much was written
+        
+        verbose;
     end % properties
     methods
         
-        function FW = FrameWriterVideo (videopath, framerate)
-            FW.video = VideoWriter(videopath);
-            FW.video.FrameRate = framerate;
-            open(FW.video);
+        function self = FrameWriterVideo (videopath, framerate, varargin)
+            parser = inputParser;
+            addRequired (parser, 'videopath', @ischar);
+            addRequired (parser, 'framerate', @isscalar);
+            addParameter(parser, 'relpath', getenv('CITY_DATA_PATH'), @(x) ischar(x) && exist((x),'dir'));
+            parse (parser, videopath, framerate, varargin{:});
+            parsed = parser.Results;
+            
+            % make paths relative to input 'relpath'
+            videopath = fullfile(parsed.relpath, videopath);
+            
+            if ~exist(fileparts(videopath), 'dir')
+                error('parent dir of %s does not exist', videopath);
+            end
+
+            self.video = VideoWriter(videopath);
+            self.video.FrameRate = framerate;
+            open(self.video);
         end
         
-        function step (FW, frame)
+        function step (self, frame)
             assert (~isempty(frame));
-            writeVideo (FW.video, frame);
-            FW.counter = FW.counter + 1;
+            writeVideo (self.video, frame);
         end
         
         function delete(FW)

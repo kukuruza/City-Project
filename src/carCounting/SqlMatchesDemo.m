@@ -18,7 +18,7 @@ db_path = fullfile(CITY_DATA_PATH, 'databases/labelme/572-Nov28-10h-pair/parsed-
 %% show all information about every match in every image
 
 % tool to read images straight from video
-imgReader = ImgReaderVideo();
+imgReader = ImgDbReaderVideo();
 
 % open database
 sqlite3.open (db_path);

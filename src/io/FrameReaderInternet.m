@@ -1,11 +1,11 @@
-% An implementation of FrameGetter for reading frames from the internet
+% An implementation of FrameReaderInterface for reading frames from the internet
 %   It implements an interface function getNewFrame()
 %
 % This class knows everything about cameras in NY,
 %   about how to get frames from there, that duplicate frames should be
 %   avoided and further on.
 
-classdef FrameReaderInternet < FrameReader
+classdef FrameReaderInternet < FrameReaderInterface
     properties (Hidden)
         % url of the web-viewer
         urlViewerPart = 'http://nyctmc.org/google_popup.php?cid=';
@@ -18,13 +18,15 @@ classdef FrameReaderInternet < FrameReader
         camNum            % number of the camera, given in constructor
         lastFrame = [];   % to compare against a new one. If same then wait
         lastCall = tic;   % time of the last call. If too close then wait
+        
+        verbose;
     end % properties
     
     methods
-        function FR = FrameReaderInternet (camNum)
+        function self = FrameReaderInternet (camNum)
             
             % open the viewer and read the html
-            urlViewer = [FR.urlViewerPart num2str(camNum)];
+            urlViewer = [self.urlViewerPart num2str(camNum)];
             content = urlread(urlViewer);
             
             % find the camera number in the html
@@ -34,44 +36,50 @@ classdef FrameReaderInternet < FrameReader
             assert (~isempty(match));
             
             % set the camera number and image url
-            FR.camNum = str2num( match{1}(27:end) );
-            FR.url = [FR.urlPart1 num2str(FR.camNum) FR.urlPart2];
+            self.camNum = str2num( match{1}(27:end) );
+            self.url = [self.urlPart1 num2str(self.camNum) self.urlPart2];
+            
+            self.verbose = 0;
         end
-        function [frame, timeinterval] = getNewFrame(FR)
+        function [frame, timestamp] = getNewFrame(self)
             % wait until new image is there
+            if self.verbose > 1, fprintf ('getting a new image from web server...\n'); end
             while true
                 
                 % save some server requests
-                while toc(FR.lastCall) < FR.CallDelay
-                    pause(FR.CallInterval);
+                while toc(self.lastCall) < self.CallDelay
+                    pause(self.CallInterval);
                 end
                 
+                if self.verbose > 1, fprintf ('trying to read...\n'); end
                 try
-                    frame = imread([FR.url num2str(now)]);
+                    frame = imread([self.url num2str(now)]);
                 catch
-                    frame = FR.lastFrame;
+                    if isempty(frame), continue; end
+                    frame = self.lastFrame;
                 end
                 
-                if isempty(FR.lastFrame)
-                    timeinterval = -1;
-                    FR.lastFrame = frame;
+                if isempty(self.lastFrame)
+                    self.lastFrame = frame;
+                    timestamp = matlab2dbTime(clock);
                     break
                 else
-                    if(ndims(FR.lastFrame) ~= ndims(frame))
+                    if(ndims(self.lastFrame) ~= ndims(frame))
                         continue;
                     end
-                    if nnz(FR.lastFrame - frame) ~= 0
-                        timeinterval = toc(FR.lastCall);
-                        FR.lastFrame = frame;
+                    if nnz(self.lastFrame - frame) ~= 0
+                        self.lastFrame = frame;
+                        timestamp = matlab2dbTime(clock);
                         break
                     end
                 end
                 %if ~isempty(FR.lastFrame), nnz(FR.lastFrame - frame), end
                 
-                pause(FR.CallInterval);
+                pause(self.CallInterval);
                 
             end
-            FR.lastCall = tic;
+            self.lastCall = tic;
+            if self.verbose > 0, fprintf ('got a new image from web server.\n'); end
         end
     end % methods
 end

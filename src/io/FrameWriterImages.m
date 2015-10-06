@@ -1,8 +1,5 @@
-% An implementation of FrameWriter for writing frames to a set of images
+% An implementation of FrameWriterInterface for writing frames to a set of images
 %   It implements an interface writeNextFrame()
-%
-% This class takes multiple images and puts them together in a grid
-%   as specified by layout
 %
 % It is essentially a wrapper of vision.VideoWriter
 %
@@ -10,58 +7,46 @@
 %
 
 
-classdef FrameWriterImages < FrameWriter
+classdef FrameWriterImages < FrameWriterInterface
     properties (Hidden)
-        ext = '.jpg';
-        layout = [1 1] % images grid in a frame. [nrows, ncols]
-        imDir          % output
-        counter = 0    % to know how much was written
-        framesz        % for debugging
+        ext;
+        imDir;          % output directory
+        counter = 0;
+        
+        verbose;
     end % properties
     methods
         
-        function FW = FrameWriterImages (imDir, layout, ext)
+        function self = FrameWriterImages (imDir, varargin)
+            parser = inputParser;
+            addRequired (parser, 'imDir', @ischar);
+            addParameter(parser, 'relpath', getenv('CITY_DATA_PATH'), @(x) ischar(x) && exist((x),'dir'));
+            addParameter(parser, 'ext', '.jpg', @ischar);
+            parse (parser, imDir, varargin{:});
+            parsed = parser.Results;
+
+            % make paths relative to input 'relpath'
+            imDir = fullfile(parsed.relpath, imDir);
+
             if ~exist(imDir, 'dir')
-                fprintf ('FrameWriterImages: imDir: %s\n', imDir);
-                error ('FrameWriterImages: imDir does not exist');
+                if ~exist(fileparts(imDir), 'dir')
+                    error ('FrameWriterImages: parent dir of %s does not exist', imDir);
+                end
+                mkdir(imDir);
             end
-            FW.imDir = imDir;
-            FW.layout = layout;
-            FW.ext = ext;
+            self.imDir = imDir;
+            self.ext = parsed.ext;
         end
         
-        % accepts one image (if layout == 1) or cell array of images
-        function writeNextFrame(FW, images)
-            % parse and validate input
+        function writeNextFrame(self, frame)
             parser = inputParser;
-            addRequired(parser, 'images', @(x) iscell(x) || ismatrix(x) || ndims(x) == 3 && size(x,3) == 3); % TODO: replace with iscolorimage when merged backDetector
+            addRequired(parser, 'frame', @iscolorimage);
             parse (parser, images);
-            assert (~iscell(images) || length(images) == FW.layout(1) * FW.layout(2));
 
-            nrows = FW.layout(1);
-            ncols = FW.layout(2);
-            if ~iscell(images)
-                frame = images;
-            elseif nrows == 1 && ncols == 1
-                frame = images{1};
-            elseif nrows == 2 && ncols == 1
-                frame = [images{1}; images{2}];
-            elseif nrows == 1 && ncols == 2
-                frame = [images{1}, images{2}];
-            elseif nrows == 1 && ncols == 3
-                frame = [images{1}, images{2}, images{3}];
-            elseif nrows == 3 && ncols == 1
-                frame = [images{1}; images{2}; images{3}];
-            elseif nrows == 2 && ncols == 2
-                frame = [images{1}, images{2}; images{3}, images{4}];
-            else
-                assert (0);
-            end
-
-            imPath = fullfile(FW.imDir, [sprintf('%06d', FW.counter) FW.ext]);
+            imPath = fullfile(self.imDir, [sprintf('%06d', self.counter) self.ext]);
             imwrite(frame, imPath);
 
-            FW.counter = FW.counter + 1;
+            self.counter = self.counter + 1;
         end
         
     end % methods

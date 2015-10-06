@@ -1,4 +1,4 @@
-classdef ImgReaderVideo < ImgReaderInterface
+classdef ImgDbReaderVideo < ImgDbReaderInterface
     % Implementation of only in a dataset based on storing images as a video
     
     properties
@@ -30,7 +30,7 @@ classdef ImgReaderVideo < ImgReaderInterface
     end
     methods 
         
-        function self = ImgReaderVideo (varargin)
+        function self = ImgDbReaderVideo (varargin)
             % 'verbose' -- level of output verbosity
             % 'relpath' -- relative path in all further functions
             parser = inputParser;
