@@ -12,6 +12,50 @@ import helperImg
 import utilities
 
 
+
+def _openVideo_ (videopath, params)
+    ''' Open video and set up bookkeeping '''
+    logging.info ('opening video: %s' % videopath)
+    videopath = op.join (params['relpath'], videopath)
+    if not op.exists (videopath):
+        raise Exception('videopath does not exist: %s' % videopath)
+    handle = cv2.VideoCapture(videopath)  # open video
+    if not handle.isOpened():
+        raise Exception('video failed to open: %s' % videopath)
+    return handle
+
+
+def initFromVideo (cursor, image_video_path, mask_video_path, time_path, params):
+    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    helperSetup.setParamUnlessThere (params, 'name', op.basename(op.dirname(image_video_path)))
+
+    image_video = _openVideo_(image_video_path, params)
+    mask_video  = _openVideo_(mask_video_path, params)
+
+    width     = int(image_video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
+    height    = int(image_video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
+    numframes = int(image_video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
+    assert (width     = int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)))
+    assert (height    = int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)))
+    assert (numframes = int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)))
+
+    # read timestamps
+    with open(op.join(params['relpath'], time_path)) as f:
+        timestamps = f.readlines()
+
+    for i in range(numframes):
+        imagefile = op.join (image_video_path, '%06d' % i)
+        maskfile  = op.join (mask_video_path,  '%06d' % i)
+        timestamp = timestamps[i]
+        s = 'images(imagefile,maskfile,src,width,height,time)'
+        cursor.execute('INSERT INTO %s VALUES (?,?,?,?,?,?)' % s, \
+            (imagefile,maskfile,name,width,height,timestamp))
+
+
+
+
+
+
 def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir, mask_dir, name, params):
     '''
     Take a video of 'images' and 'masks' and make a dataset out of it

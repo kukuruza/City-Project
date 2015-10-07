@@ -2,9 +2,13 @@
 
 classdef CarDetectorBase < CarDetectorInterface
     properties
+        
             % size distribution is considered gaussian
             sizeMean = 1.1;
             sizeSigma = 0.5;
+            
+            verbose = 0;
+            
     end
     methods (Hidden)
         
@@ -44,5 +48,11 @@ classdef CarDetectorBase < CarDetectorInterface
             cars(badindices) = [];
         end
         
+    end % methods (Hidden)
+    methods % methods
+        
+        function setVerbosity (self, verbose)
+            self.verbose = verbose;
+        end
     end
 end

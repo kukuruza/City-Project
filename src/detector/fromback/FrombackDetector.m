@@ -8,7 +8,6 @@ classdef FrombackDetector < CarDetectorBase
         % verbose = 0  no info
         %         = 1  how many filtered
         %         = 2  assign car indices to names, print indices at filter
-        verbose;
         
         % debugging
         %disable removing cars after filtering
@@ -18,31 +17,18 @@ classdef FrombackDetector < CarDetectorBase
         %SparseDist = 0.0;
         DensitySigma = 0.7;
         DensityRatio = 2.0;
-        DistToBorder = 20;
-        ExpandPerc = 0.0;
+        ExpandPerc = 0.1;
 
     end % properties
     methods (Hidden)
         
-        function indices = findByStatus (~, statuses, name)
-            indices = find(not(cellfun('isempty', strfind(statuses, name))));
-        end
-        
-        function indices = filterByStatus (~, statuses, name)
-            indices = find(cellfun('isempty', strfind(statuses, name)));
-        end
-        
-        
         % filter by bbox proportions
-        function statuses = filterByProportion (self, cars, statuses)
+        function filterByProportion (self, cars)
             for i = 1 : length(cars)
-                if ~strcmp(statuses{i}, 'ok'), continue, end
                 proportion = double(cars(i).bbox(4)) / double(cars(i).bbox(3));
                 if proportion < self.Heght2WidthLimits(1) || proportion > self.Heght2WidthLimits(2)
-                    if self.verbose > 1
-                        fprintf ('    car %d - bad ratio %f\n', i, proportion); 
-                    end
-                    statuses{i} = 'bad ratio';
+                    if self.verbose > 1, fprintf ('    car %d - bad ratio %f\n', i, proportion); end
+                    cars(i).score = 0;
                 end
             end
         end
@@ -63,17 +49,18 @@ classdef FrombackDetector < CarDetectorBase
         end
 
         
-        function statuses = filterBySparsity (self, mask, cars, statuses)
+        function filterBySparsity (self, mask, cars)
             parser = inputParser;
             addRequired(parser, 'mask', @(x) islogical(x) && ismatrix(x));
             addRequired(parser, 'cars', @(x) isempty(x) || isa(x, 'Car'));
-            addRequired(parser, 'statuses', @(x) isvector(x));
-            parse (parser, mask, cars, statuses);
+            parse (parser, mask, cars);
 
             whites = ones(size(mask,1),size(mask,2));
             for i = 1 : length(cars)
+                if cars(i).score == 0, continue; end
+                
                 center = cars(i).getCenter();
-                sigma = (cars(i).bbox(3) + cars(i).bbox(4)) / 2 * self.DensitySigma;
+                sigma = double((cars(i).bbox(3) + cars(i).bbox(4)) / 2 * self.DensitySigma);
                 sz = floor(sigma * 2.5);
                 gaussKernel = fspecial('gaussian', sz * 2 + 1, sigma);
                 
@@ -107,51 +94,13 @@ classdef FrombackDetector < CarDetectorBase
                     if self.verbose > 1
                         fprintf ('    car %d - density %f\n', i, density); 
                     end
-                    statuses{i} = 'too dense';
+                    cars(i).score = 0;
+                else
+                    cars(i).score = atan(density / self.DensityRatio) / (pi/2);
                 end
             end
         end
         
-        
-%         % filter too dense cars in the image
-%         function statuses = filterBySparsity (self, cars, statuses)
-%             for i = 1 : length(cars)
-%                 center = cars(i).getCenter(); % [y x]
-%                 expectedSize = self.sizeMap(center(1), center(2));
-%                 for k = 1 : length(cars)
-%                     if ~strcmp(statuses{i}, 'ok'), continue, end
-%                     if i ~= k && dist(center, cars(k).getCenter()') < expectedSize * self.SparseDist
-%                         if self.verbose > 1, fprintf ('    car %d - too dense\n', i); end
-%                         statuses{i} = 'too dense'; 
-%                         break
-%                     end
-%                 end
-%             end
-%         end
-        
-        
-        % filter too dense cars in the image
-%         function statuses = filterBySparsity2 (self, cars, statuses)
-%             for i = 1 : length(cars)
-%                 pdf = normpdf
-%         end
-        
-        % filter those too close to the border
-        function statuses = filterByBorder (self, cars, statuses)
-            % need at least DistToBorder pixels to border
-            sz = size(self.sizeMap);
-            for i = 1 : length(cars)
-                if ~strcmp(statuses{i}, 'ok'), continue, end
-                roi = cars(i).getROI();
-                distToBorder = min([roi(1:2), sz(1)-roi(3), sz(2)-roi(4)]);
-                if distToBorder < self.DistToBorder
-                    if self.verbose > 1, 
-                        fprintf ('    car %d - too close to border = %d\n', i, distToBorder); 
-                    end
-                    statuses{i} = 'close to border'; 
-                end
-            end
-        end
         
     end
     methods
@@ -174,17 +123,10 @@ classdef FrombackDetector < CarDetectorBase
         end
 
         
-        function setVerbosity (self, verbose)
-            self.verbose = verbose;
-        end
-
-        
-        function cars = detect (self, img, mask)
+        function cars = detect (self, mask)
             parser = inputParser;
-            addRequired(parser, 'img',  @iscolorimage);
             addRequired(parser, 'mask', @(x) ismatrix(x) && islogical(x));
-            parse (parser, img, mask);
-            assert (size(img,1) == size(mask,1) && size(img,2) == size(mask,2));
+            parse (parser, mask);
 
             if self.verbose > 1, fprintf ('FrombackDetector\n'); end
 
@@ -192,41 +134,26 @@ classdef FrombackDetector < CarDetectorBase
 
             N = size(bboxes,1);
             cars = Car.empty;
-            statuses = cell(N,1);
             for i = 1 : N
-                cars(i) = Car('bbox', bboxes(i,:), 'name', sprintf('%d',i));
-                statuses{i} = 'ok';
+                cars(i) = Car('bbox', bboxes(i,:), 'name', 'object', 'score', 1);
             end
             cars = cars';
-            %     mask = imerode (mask, strel('disk', 2));
-            %     mask = imdilate(mask, strel('disk', 2));
 
-             % expand boxes
-            for i = 1 : N
-                cars(i).bbox = expandBboxes (cars(i).bbox, self.ExpandPerc, img);
-            end
-            
             % filters specific for backimagedetector
             if ~self.noFilter
-                statuses = self.filterByProportion (cars, statuses);
-                statuses = self.filterBySparsity (mask, cars, statuses);
-                %statuses = self.filterByBorder (cars, statuses);
-            end
-            
-            if self.verbose
-                fprintf ('FrombackDetector\n');
-                fprintf ('    filtered proportions:  %d\n', ...
-                    length(self.findByStatus(statuses, 'bad ratio')));
-                fprintf ('    filtered too dense:    %d\n', ...
-                    length(self.findByStatus(statuses, 'too dense')));
-                fprintf ('    filtered close border: %d\n', ...
-                    length(self.findByStatus(statuses, 'close to border')));
-                fprintf ('    left ok:               %d\n', ...
-                    length(self.findByStatus(statuses, 'ok')));
+                self.filterByProportion (cars);
+                self.filterBySparsity (mask, cars);
             end
 
+            % expand boxes
+            for i = 1 : N
+                cars(i).bbox = expandBboxes (cars(i).bbox, self.ExpandPerc, mask);
+            end
+            
             % filter bad cars
-            cars (self.filterByStatus(statuses, 'ok')) = [];
+            scores = zeros(N,1);
+            for i = 1 : N, scores(i) = cars(i).score; end
+            cars (scores == 0) = [];
         end
 
     end % methods

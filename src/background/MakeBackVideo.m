@@ -19,7 +19,7 @@ in_image_videopath  = [CITY_DATA_PATH in_image_video '.avi'];
 in_mask_videopath   = [CITY_DATA_PATH in_image_video '-mask.avi'];
 %in_ref_backpath     = [CITY_DATA_PATH 'models/backimage.png'];
 
-kNew = 0.2;
+BackLearnR = 0.2;
 
 % output
 out_background_path = [CITY_DATA_PATH in_image_video '-back.avi'];
@@ -66,7 +66,7 @@ for t = 1 : 1000000
     end
     
     % paint the unmasked part of the image
-    backImage(~mask) = frame(~mask) * kNew + backImage(~mask) * (1 - kNew);
+    backImage(~mask) = frame(~mask) * BackLearnR + backImage(~mask) * (1 - BackLearnR);
     
     % use generateCleanBackground algorithm, if enabled
     if exist('refBackImage', 'var')

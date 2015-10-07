@@ -27,7 +27,7 @@ mask = imread(mask_path);
 mask = mask(:,:,1) > 127;
 
 tic
-cars = frombackDetector.detect(img, mask);
+cars = frombackDetector.detect(mask);
 toc
 
 cmap = colormap('Autumn');

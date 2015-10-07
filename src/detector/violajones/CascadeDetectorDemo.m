@@ -26,14 +26,10 @@ verbose = 0;
 
 %% detect and refine
 
-% geometry
-load([CITY_DATA_PATH, 'models/cam572/GeometryObject_Camera_572.mat']);
-roadCameraMap = geom.getCameraRoadMap();
+modelPath = 'learning/violajones/models/May17-high-yaw/ex0.1-noise1.5-pxl5/cascade.xml';
+minsize = [18 24];
 
-modelPath = 'violajones/models/model03-cr10.xml';
-minsize = [30 40];
-
-detector = CascadeCarDetector(modelPath, geom, 'minsize', minsize);
+detector = CascadeCarDetector(modelPath, 'minsize', minsize, 'cropPercent', 0.1);
 
 tic
 cars = detector.detect(img);
@@ -41,16 +37,16 @@ toc
 
 cmap = colormap('Autumn');
 for i = 1 : length(cars)
-    colorindex = floor(cars(i).score * size(cmap,1)) + 1;
+    colorindex = floor(cars(i).score * (size(cmap,1)-1)) + 1;
     color = cmap (colorindex, :) * 255;
     img = cars(i).drawCar(img, 'color', color);
 end
 
 % show detector's mask
 if verbose
-    bbox = roi2bbox(mask2roi(detector.sizeMap > 0));
+    bbox = roi2bbox(mask2roi(detector.mask > 0));
     img = insertObjectAnnotation(img, 'rectangle', bbox, 'sizeMap bbox', 'Color', 'blue');
-    mask = detector.sizeMap > 0;
+    mask = detector.mask > 0;
     img = img + 50 * uint8(mask(:,:,[1 1 1]));
 end
 

@@ -43,7 +43,7 @@ if write
 end
 
 % image reader backend
-imgReader = ImgReaderVideo();
+imgReader = ImgDbReaderVideo();
 
 % detector
 detector = FasterRcnnDetector(model_dir, 'use_gpu', true);

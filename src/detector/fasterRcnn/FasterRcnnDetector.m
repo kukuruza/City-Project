@@ -11,8 +11,6 @@ classdef FasterRcnnDetector < CarDetectorBase
 
         proposal_detection_model
 
-        verbose = 0
-
     end % properties
     methods (Hidden)
         
@@ -96,11 +94,6 @@ classdef FasterRcnnDetector < CarDetectorBase
                 caffe.set_mode_cpu();
             end
 
-        end
-        
-        
-        function setVerbosity (self, verbose)
-            self.verbose = verbose;
         end
 
         
