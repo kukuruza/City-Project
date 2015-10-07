@@ -96,8 +96,34 @@ classdef FasterRcnnDetector < CarDetectorBase
 
         end
 
-        
-        function cars = detect (self, img)
+
+        % given image and bboxes, extract features for bbox
+        function features = extractFeatures (self, img, bboxes) % [x, y, width, height]
+            parser = inputParser;
+            addRequired(parser, 'bboxes', @(x) ismatrix(x) && size(x,2) == 4);
+            parse (parser, bboxes);
+
+            % bboxes [x y width height] to FasterRcnn format [x1 y1 x2 y2]
+            aboxes = [bboxes(:,1), bboxes(:,2), bboxes(:,3)+bboxes(:,1), bboxes(:,4)+bboxes(:,2)];
+
+            % deploy detection
+            [boxes, ~] = fast_rcnn_im_detect (...
+                self.proposal_detection_model.conf_detection, ...
+                self.fast_rcnn_net, ...
+                img, ...
+                aboxes, ...
+                1000);
+            
+            % get feature
+            features_array = self.fast_rcnn_net.blobs('fc7').get_data();
+            features_array = features_array';
+
+            % boxes order probably changed. Get original order
+            %  do smth with boxes and bboxes
+            features = features_array;
+
+
+        function [cars, features] = detect (self, img)
             parser = inputParser;
             addRequired(parser, 'img', @iscolorimage);
             parse (parser, img);
@@ -114,14 +140,27 @@ classdef FasterRcnnDetector < CarDetectorBase
 
             % deploy detection
             if self.proposal_detection_model.is_share_feature
-                [boxes, scores] = fast_rcnn_conv_feat_detect(self.proposal_detection_model.conf_detection, self.fast_rcnn_net, img, ...
+                [boxes, scores] = fast_rcnn_conv_feat_detect (...
+                    self.proposal_detection_model.conf_detection, ...
+                    self.fast_rcnn_net, ...
+                    img, ...
                     self.rpn_net.blobs(self.proposal_detection_model.last_shared_output_blob_name), ...
-                    aboxes(:, 1:4), self.opts.after_nms_topN);
+                    aboxes(:, 1:4), ...
+                    self.opts.after_nms_topN);
             else
-                [boxes, scores] = fast_rcnn_im_detect(self.proposal_detection_model.conf_detection, self.fast_rcnn_net, img, ...
-                    aboxes(:, 1:4), self.opts.after_nms_topN);
+                [boxes, scores] = fast_rcnn_im_detect (...
+                    self.proposal_detection_model.conf_detection, ...
+                    self.fast_rcnn_net, ...
+                    img, ...
+                    aboxes(:, 1:4), ...
+                    self.opts.after_nms_topN);
             end
             
+            % get feature
+            features_array = self.fast_rcnn_net.blobs('fc7').get_data();
+            features_array = features_array';
+
+            % boxes_cell -- one cell per class. Each cell has a number of ROIs
             classes = self.proposal_detection_model.classes;
             boxes_cell = cell(length(classes), 1);
             thres = 0.6;
@@ -129,6 +168,7 @@ classdef FasterRcnnDetector < CarDetectorBase
                 boxes_cell{i} = [boxes(:, (1+(i-1)*4):(i*4)), scores(:, i)];
                 boxes_cell{i} = boxes_cell{i}(nms(boxes_cell{i}, 0.3), :);
 
+                % select all good ROIs for this class
                 I = boxes_cell{i}(:, 5) >= thres;
                 boxes_cell{i} = boxes_cell{i}(I, :);
             end
@@ -143,9 +183,10 @@ classdef FasterRcnnDetector < CarDetectorBase
             
             % Faster-RCNN output format to Car objects
             cars = Car.empty;
-            for i = 1:length(boxes_cell)
+            features = [];
+            for i = 1:length(boxes_cell)  % for each class
                 if isempty(boxes_cell{i})
-                    continue;
+                    continue;   % most common case -- the ROI sucks for every class
                 end
                 for j = 1:size(boxes_cell{i})
                     roiXY = boxes_cell{i}(j, 1:4);
@@ -154,6 +195,7 @@ classdef FasterRcnnDetector < CarDetectorBase
                     score = boxes_cell{i}(j, end);
                     car = Car('bbox', box, 'name', name, 'score', score);
                     cars = [cars; car];  % naive O(n^2)
+                    features = [features; features_array(j,:)];
                 end
             end
         end

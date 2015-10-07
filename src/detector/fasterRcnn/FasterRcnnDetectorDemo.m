@@ -24,7 +24,8 @@ img =  imread(image_path);
 
 tic
 %fasterRcnnDetector.setVerbose(1);
-cars = fasterRcnnDetector.detect(img);
+[cars, features] = fasterRcnnDetector.detect(img);
+size(features)
 toc
 
 cmap = colormap('Autumn');
@@ -35,4 +36,12 @@ for i = 1 : length(cars)
 end
 imwrite(img, 'resultdemo.jpg');
 %imshow([mask2rgb(mask), img]);
+
+
+% get feature from known bbox
+% size(img) is [480 704 3]
+bboxes = [600, 400, 100, 50; ...
+          10, 10, 100, 100];
+features = fasterRcnnDetector.extractFeatures(img, bboxes);
+size(features)
 
