@@ -4,6 +4,8 @@
 %
 % Reads a frame and detects bboxes using some detectors.
 %   If satisfied, saves the frame and bboxes to videos and to database
+%
+% 'Strategy' input
 
 
 clear all
@@ -22,6 +24,10 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 camera = 572;
 num_pretrain = 20;
 num_images = 18;
+
+% strategy
+%Strategy = 'AllCarsDetectedByBothDetectors';
+Strategy = 'DetectionByOneDetectorIsEnough';
 
 % parameters
 BackLearnR = 0.2;
@@ -129,8 +135,8 @@ for t = 0 : num_images-1
     cars2(scores2 < ThresholdScore) = [];
 
     if verbose
-        fprintf ('detected cars from background: %d\n', length(cars1));
-        fprintf ('detected cars from violajones: %d\n', length(cars2));
+        fprintf ('detected cars from detector1: %d\n', length(cars1));
+        fprintf ('detected cars from detector2: %d\n', length(cars2));
     end
 
     % find well-intersecting detections
@@ -146,22 +152,27 @@ for t = 0 : num_images-1
         continue;
     end
     
-    % if there are unmatched cars, ignore this frame
-    num_unmatched = 0;
-    for j = 1 : length(cars1)
-        if isempty(find(matches(:,1) == j, 1)) && cars1(j).bbox(3) > ThresholdWidth
-            num_unmatched = num_unmatched + 1;
+    if strcmp(Strategy, 'AllCarsDetectedByBothDetectors')
+        % if there are unmatched cars, ignore this frame
+        num_unmatched = 0;
+        for j = 1 : length(cars1)
+            if isempty(find(matches(:,1) == j, 1)) && cars1(j).bbox(3) > ThresholdWidth
+                num_unmatched = num_unmatched + 1;
+            end
         end
-    end
-    for j = 1 : length(cars2)
-        if isempty(find(matches(:,2) == j, 1)) && cars2(j).bbox(3) > ThresholdWidth
-            num_unmatched = num_unmatched + 1;
+        for j = 1 : length(cars2)
+            if isempty(find(matches(:,2) == j, 1)) && cars2(j).bbox(3) > ThresholdWidth
+                num_unmatched = num_unmatched + 1;
+            end
         end
-    end
-    if num_unmatched > 0
-        fprintf ('ignore frame -- %d unmatched cars.\n', num_unmatched);
-        continue;
-    end
+        if num_unmatched > 0
+            fprintf ('ignore frame -- %d unmatched cars.\n', num_unmatched);
+            continue;
+        end
+        
+    elseif strcmp(Strategy, 'DetectionByOneDetectorIsEnough')
+        % there is high probability of some cars left undetected
+        ; % do nothing
     
     fprintf ('approved this frame.\n');
     counter = counter + 1;
