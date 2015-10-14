@@ -25,9 +25,17 @@ addRequired(parser, 'camListPath', @ischar);
 addRequired(parser, 'numMinutes', @isscalar);
 addParameter(parser, 'relpath', CITY_DATA_PATH, @ischar);
 addParameter(parser, 'timeZone', 'America/New_York', @ischar);
+addParameter(parser, 'verbose', 1, @isscalar);
 parse (parser, camListPath, numMinutes, varargin{:});
 parsed = parser.Results;
 
+if parsed.verbose
+    fprintf ('CITY_DATA_PATH:        %s.\n', CITY_DATA_PATH);
+    fprintf ('numMinutes:            %d.\n', parsed.numMinutes);
+    fprintf ('timeZone:              %s.\n', parsed.timeZone);
+    fprintf ('relPath:               %s.\n', parsed.relpath);
+    fprintf ('camListPath full path: %s.\n', fullfile(parsed.relpath, camListPath));
+end
 
 %% work
 
