@@ -16,12 +16,12 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 
 frameReader = FrameReaderVideo (videoPath);
-frameWriter = FrameWriterImages (outDir, [1], '.jpg');
+frameWriter = FrameWriterImages (outDir);
 
 while true
     frame = frameReader.getNewFrame();
     if isempty(frame), break, end
-    frameWriter.writeNextFrame (frame);
+    frameWriter.step (frame);
 end
 
 clear frameReader frameWriter

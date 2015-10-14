@@ -1,4 +1,4 @@
-function downloadSingleCam (camNum, outFileTemplate, numMinutes)
+function counter = downloadSingleCam (camId, outFileTemplate, numMinutes, varargin)
 %DOWNLOADSINGLECAM (camNum, outFileTemplate, numMinutes) downloads images 
 % from internet and saves them in a video. 
 % Separetely write a text file with the time when the frame was created 
@@ -6,6 +6,14 @@ function downloadSingleCam (camNum, outFileTemplate, numMinutes)
 %
 % The filepaths are [outFileTemplate '.avi'] for video
 % and [outFileTemplate '.txt'] for text
+
+parser = inputParser;
+addRequired (parser, 'camId', @isscalar);
+addRequired (parser, 'outFileTemplate', @ischar);
+addRequired (parser, 'numMinutes', @isscalar);
+addParameter(parser, 'timeZone', 'America/New_York', @ischar);
+parse (parser, camId, outFileTemplate, numMinutes, varargin{:});
+parsed = parser.Results;
 
 clear frameWriter frameReader
 
@@ -22,10 +30,11 @@ timestampPath = [outFileTemplate,'.txt'];
 fprintf ('Will write video to %s\n', videoPath);
 fprintf ('Will write time  to %s\n', timestampPath);
 
-frameReader = FrameReaderInternet (camNum);
+frameReader = FrameReaderInternet (camId, 'timeZone', parsed.timeZone);
 frameWriter = FrameWriterVideo (videoPath, 2);
 fid = fopen(fullfile(CITY_DATA_PATH, timestampPath), 'w');
 
+counter = 0; % for output
 t0 = clock;
 t = t0;
 while etime(t, t0) < numMinutes * 60
@@ -35,6 +44,7 @@ while etime(t, t0) < numMinutes * 60
     frameWriter.step (frame);
     fprintf(fid, '%s\n', timestamp);
     toc
+    counter = counter + 1;
 end
 
 fclose(fid);

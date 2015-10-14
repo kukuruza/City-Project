@@ -15,31 +15,39 @@ classdef FrameReaderInternet < FrameReaderInterface
         CallDelay = 0.7; % min interval after the previous successful call
         CallInterval = 0.1; % min interval in seconds between calls
         url               % is made up from parts 
-        camNum            % number of the camera, given in constructor
+        camId             % number of the camera, given in constructor
         lastFrame = [];   % to compare against a new one. If same then wait
         lastCall = tic;   % time of the last call. If too close then wait
         
+        timeZone;
         verbose;
     end % properties
     
     methods
-        function self = FrameReaderInternet (camNum)
+        function self = FrameReaderInternet (camId, varargin)
+            parser = inputParser;
+            addRequired (parser, 'camId', @isscalar);
+            addParameter(parser, 'timeZone', 'America/New_York', @ischar);
+            addParameter(parser, 'verbose', 0, @isscalar);
+            parse (parser, camId, varargin{:});
+            parsed = parser.Results;
             
             % open the viewer and read the html
-            urlViewer = [self.urlViewerPart num2str(camNum)];
+            urlViewer = [self.urlViewerPart num2str(camId)];
             content = urlread(urlViewer);
             
             % find the camera number in the html
             match = regexp(content, 'http://207.251.86.238/cctv\d+', 'match');
-            
-            % 
             assert (~isempty(match));
             
             % set the camera number and image url
-            self.camNum = str2num( match{1}(27:end) );
-            self.url = [self.urlPart1 num2str(self.camNum) self.urlPart2];
+            self.camId = str2num( match{1}(27:end) );
+            self.url = [self.urlPart1 num2str(self.camId) self.urlPart2];
             
-            self.verbose = 0;
+            % the time will be in this timezone
+            self.timeZone = parsed.timeZone;
+            
+            self.verbose = parsed.verbose;
         end
         function [frame, timestamp] = getNewFrame(self)
             % wait until new image is there
@@ -61,7 +69,7 @@ classdef FrameReaderInternet < FrameReaderInterface
                 
                 if isempty(self.lastFrame)
                     self.lastFrame = frame;
-                    timestamp = matlab2dbTime(clock);
+                    timestamp = matlabDatetime2dbTime(datetime('now','TimeZone',self.timeZone));
                     break
                 else
                     if(ndims(self.lastFrame) ~= ndims(frame))
@@ -69,7 +77,7 @@ classdef FrameReaderInternet < FrameReaderInterface
                     end
                     if nnz(self.lastFrame - frame) ~= 0
                         self.lastFrame = frame;
-                        timestamp = matlab2dbTime(clock);
+                        timestamp = matlabDatetime2dbTime(datetime('now','TimeZone',self.timeZone));
                         break
                     end
                 end
