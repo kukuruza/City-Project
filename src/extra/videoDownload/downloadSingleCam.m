@@ -28,7 +28,7 @@ videoPath = [outFileTemplate, '.avi'];
 timestampPath = [outFileTemplate,'.txt'];
 
 % add status updates to remote monitor
-monitor = MonitorClient('config_path', 'etc/config.ini', 'cam_id', camId, 'verbose', 1);
+monitor = MonitorClient('config_path', 'etc/monitor.ini', 'cam_id', camId, 'verbose', 1);
 
 fprintf ('Will write video to %s\n', videoPath);
 fprintf ('Will write time  to %s\n', timestampPath);
