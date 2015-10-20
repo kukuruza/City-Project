@@ -41,12 +41,12 @@ counter = 0; % for output
 t0 = clock;
 t = t0;
 while etime(t, t0) < numMinutes * 60
-    %tic
+    tic
     t = clock;
     [frame, timestamp] = frameReader.getNewFrame();
     frameWriter.step (frame);
     fprintf(fid, '%s\n', timestamp);
-    %toc
+    toc
     counter = counter + 1;
     monitor.updateDownload();
 end

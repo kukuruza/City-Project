@@ -21,7 +21,7 @@ classdef test_MonitorClient < matlab.unittest.TestCase
         
         function test_updateDownload (self)
             success = self.monitor.updateDownload();
-            self.verifyGreaterThan (success, 0);
+            self.verifyTrue (success);
         end
    
     end
