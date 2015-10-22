@@ -31,7 +31,10 @@ classdef MonitorClient < handle
             % read config file
             config_path = fullfile(parsed.relpath, parsed.config_path);
             if ~exist(config_path, 'file')
-                error ('config file does not exist: "%s"\n', config_path);
+                warning ('MonitorClient(): config file does not exist: "%s"\n', config_path);
+                warning ('  will not send data to monitor server.');
+                self.enabled = false;
+                return
             end
             readKeys = {'monitor','','enable','i';...
                         'monitor','','server_address','';...
@@ -62,8 +65,8 @@ classdef MonitorClient < handle
             % update frame
             self.frame_num = self.frame_num + 1;
             
-            % get time where the computer is located
-            %machine_time = datestr(datetime());
+            % stop if not enabled
+            if ~self.enabled, success = true; return; end
             
             % get name of the program which called me
             s = dbstack;
