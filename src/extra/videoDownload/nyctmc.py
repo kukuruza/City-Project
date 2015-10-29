@@ -1,6 +1,6 @@
 # This class provides an interface to nyctmc cameras
 
-import sys, os
+import sys, os, os.path as op
 import logging
 import copy
 import re
@@ -13,8 +13,8 @@ import urllib2
 import numpy as np
 import cv2
 from random import randint
-sys.path.insert(0, os.path.abspath('../../learning'))
-from utilities import setupLogging
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+from helperSetup import setupLogging
 
 
 #def imreadUrl(self, url):
@@ -34,7 +34,7 @@ class Nyctmc:
     # url example: http://207.251.86.238/cctv360.jpg?rand=0988954345345
     urlPart1 = 'http://207.251.86.238/cctv'
     urlPart2 = '.jpg?rand='
-    CallDelay = 3.5      # min interval after the previous successful call
+    CallDelay = 1.0      # min interval after the previous successful call
     CallInterval = 0.1   # min interval in seconds between calls
 
     def __init__(self, cam_num):
@@ -125,8 +125,8 @@ def downloadSingleCam (camNum, outFileTemplate, numMinutes):
     '''
 
     # where to write video and intervals
-    videoPath     = outFileTemplate + '.avi'
-    intervalsPath = outFileTemplate + '.txt'
+    videoPath     = op.join(os.getenv('CITY_DATA_PATH'), outFileTemplate + '.avi')
+    intervalsPath = op.join(os.getenv('CITY_DATA_PATH'), outFileTemplate + '.txt')
 
     logging.info ('Will write video to ' + videoPath)
     logging.info ('Will write subtitles to ' + intervalsPath)
@@ -162,8 +162,9 @@ def downloadSingleCam (camNum, outFileTemplate, numMinutes):
         writer.write(im)
 
         #frame.save(p.stdin, 'JPEG')
+        t1 = t
         t = time.time()
-        logging.info ('wrote frame at second: ' + str(t - t0))
+        logging.info ('wrote frame at second: ' + str(t - t1))
 
 
 
@@ -182,7 +183,7 @@ def downloadSingleCam (camNum, outFileTemplate, numMinutes):
 
 if __name__ == '__main__':
 
-    setupLogging ('log/io/nyctmc.log', logging.INFO)
+    setupLogging ('log/io/nyctmc.log', logging.DEBUG)
 
-    downloadSingleCam (578, '/Users/evg/projects/City-Project/data/camdata/cam578/Mar11-19h', 10)
+    downloadSingleCam (578, 'camdata/test', 1)
 
