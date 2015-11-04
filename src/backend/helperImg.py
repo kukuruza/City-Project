@@ -266,7 +266,7 @@ class ProcessorFolder (ProcessorBase):
       'image_id' is a name of image in that folder
     '''
 
-    def __init__ (self, params):
+    def __init__ (self, params = {}):
         helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.relpath = params['relpath']
         self.image_cache = {}   # cache of previously read image(s)
