@@ -3,7 +3,7 @@ import sys, os, os.path as op
 import numpy as np
 import cv2
 import json
-from FasterRcnnDetector import FasterRcnnDetector
+from FasterRcnnDetector import FasterRcnnDetector, FasterRcnnExtractor
 import matplotlib.pyplot as plt
 from utils.timer import Timer
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/car'))
@@ -45,23 +45,36 @@ if __name__ == '__main__':
     model_dir = 'vgg16'
     image_path  = '../testdata/image00001.png'
 
-    # init
     logging.basicConfig (level=logging.INFO)
     im = cv2.imread(image_path)
+
+    # init detector
     detector = FasterRcnnDetector (model_dir, cpu_mode = True)
     detector.CONF_THRESH = 0.5
 
 
-    # work
+    # test detector
     timer = Timer()
     timer.tic()
-    cars = detector.detect(im)
+    cars, features = detector.detect(im)
     timer.toc()
     print 'detection took %.3f sec' % timer.total_time
-
     print 'got %d detections' % len(cars)
+    print 'features: \n', features
+
+    # init extractor
+    extractor = FasterRcnnExtractor (model_dir, cpu_mode = True)
+
+    # test extractor
+    bboxes = []
+    for car in cars: bboxes.append (car.bbox)
+    timer.tic()
+    features2 = extractor.extract_features (im, bboxes)
+    timer.toc()
+    print 'extraction took %.3f sec' % timer.total_time
+    print 'features2: \n', features2
 
     # visualize detections for each class
-    for car in cars:
-        print car.bbox, car.score, car.name
-    vis_detections(im, cars)
+    #for car in cars:
+    #    print car.bbox, car.score, car.name
+    #vis_detections(im, cars)
