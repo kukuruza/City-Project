@@ -139,7 +139,7 @@ def set_sun_angle (yaw, pitch):
 collection_dir = '/Users/evg/Downloads/7c7c2b02ad5108fe5f9082491d52810'
 png_dir = '/Users/evg/Downloads/patches/'
 
-NUM_SAMPLES = 3
+NUM_SAMPLES = 2
 
 SCALE_FACTOR = 1.5
 
@@ -195,12 +195,15 @@ info = json.load(open( op.join(collection_dir, '_info_.json') ))
 
 for vehicle_id, vehicle_info in enumerate(info['vehicles']):
 
-    print ('car name: "%s"' % vehicle_info['car_name'])
+    print ('car name: "%s"' % vehicle_info['model_name'])
+    if 'valid' in vehicle_info and vehicle_info['valid'] == False:
+        print ('this model is marked broken, continue')
+        continue
 
     car_ds = vehicle_info['dims']  # [x, y, z] in meters
     car_sz = sqrt(car_ds[0]*car_ds[0] + car_ds[1]*car_ds[1] + car_ds[2]*car_ds[2])
 
-    obj_path = op.join(collection_dir, 'obj/%s.obj' % vehicle_info['car_name'])
+    obj_path = op.join(collection_dir, 'obj/%s.obj' % vehicle_info['model_id'])
     import_car (obj_path, 'car_group')
 
     # make a photo session at sunny weather
