@@ -8,9 +8,21 @@ from numpy.random import normal, uniform
 from mathutils import Color, Euler
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 import common
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+from helperSetup import atcity
+
+'''
+Functions to parse blender output into images, masks, and annotations
+This file knows about how we store data in SQL
+'''
 
 render_satellite = False
 render_cars_as_cubes = False
+
+NORMAL_FILENAME   = 'normal.png'
+CARSONLY_FILENAME = 'cars-only.png'
+CAR_RENDER_TEMPL  = 'vehicle-'
+
 
 def position_car (car_group_name, x, y, yaw):
     '''Put the car to a certain position on the ground plane
@@ -35,18 +47,15 @@ def position_car (car_group_name, x, y, yaw):
 
 
 
-collection_dir = '/Users/evg/Downloads/7c7c2b02ad5108fe5f9082491d52810'
-render_dir = '/Users/evg/Desktop/3Dmodel/renders'
+collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
+render_dir = atcity('augmentation/render')
+traffic_file = 'augmentation/traffic/traffic-572.json'
 
 
 print ('start photo session script')
 
-# read the json file with cars data
-vehicle_info = json.load(open( op.join(collection_dir, '_info_.json') ))
-
 # read the json file with points to put
-frame_json_path = '/Users/evg/Desktop/3Dmodel/572-car-poses.json'
-frame_info = json.load(open( frame_json_path ))
+frame_info = json.load(open( atcity(traffic_file) ))
 points  = frame_info['poses']
 weather = frame_info['weather']
 
@@ -56,37 +65,50 @@ if 'Wet'    in weather: common.set_wet()
 if 'Cloudy' in weather: common.set_cloudy()
 if 'Sunny'  in weather: common.set_sunny()
 
-# render the image from satellite, when debuggin
+# render the image from satellite, when debuging
 bpy.data.objects['-Satellite'].hide_render = not render_satellite
 
-for i, point in enumerate(points):
+# place all cars
+for i,point in enumerate(points):
     if render_cars_as_cubes:
         location = (point['x'], point['y'], 0.1)
         bpy.ops.mesh.primitive_cube_add(location=location, radius=0.3)
     else:
-        model_id = vehicle_info['vehicles'][i]['model_id']
-        obj_path = op.join(collection_dir, 'obj/%s.obj' % model_id)
-        car_group_name = 'car_group_%d' % i
+        collection_id = point['collection_id']
+        model_id = point['model_id']
+        obj_path = atcity(op.join(collection_dir, 'obj/%s.obj' % model_id))
+        car_group_name = 'car_group_%i' % i
         common.import_car (obj_path, car_group_name)
         position_car (car_group_name, x=point['x'], y=point['y'], yaw=point['yaw'])
 
 
-# render cars and shadows
-shadows_path = op.join (render_dir, 'render-shadows.png')
-bpy.data.scenes['Scene'].render.filepath = shadows_path
-bpy.ops.render.render (write_still=True) 
 
-# make ground plane invisible
-sun = bpy.data.objects['-Ground']
-sun.hide_render = True
-sun.hide = True
+# render all cars and shadows
+common.render_scene(op.join(render_dir, NORMAL_FILENAME))
 
-# render cars only
-carsonly_path = op.join (render_dir, 'render-cars-only.png')
-bpy.data.scenes['Scene'].render.filepath = carsonly_path
-bpy.ops.render.render (write_still=True) 
+# render all cars without ground plane
+bpy.data.objects['-Ground'].hide_render = True
+common.render_scene(op.join(render_dir, CARSONLY_FILENAME))
 
-bpy.ops.wm.save_as_mainfile (filepath='/Users/evg/Desktop/3Dmodel/test.blend')
+# render just the car for each car (to extract bbox)
+if not render_cars_as_cubes:
+    # hide all cars
+    for i,point in enumerate(points):
+        car_group_name = 'car_group_%i' % i
+        common.hide_car (car_group_name)
+    # show, render, and hide each car one by one
+    for i,point in enumerate(points):
+        car_group_name = 'car_group_%i' % i
+        common.show_car (car_group_name)
+        common.render_scene( op.join(render_dir, '%s%d.png' % (CAR_RENDER_TEMPL, i)) )
+        common.hide_car (car_group_name)
+    # show all cars
+    for i,point in enumerate(points):
+        car_group_name = 'car_group_%i' % i
+        common.hide_car (car_group_name)
+
+
+#bpy.ops.wm.save_as_mainfile (filepath='/Users/evg/Desktop/3Dmodel/test.blend')
 
 
 

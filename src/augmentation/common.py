@@ -4,8 +4,23 @@ import sys
 import json
 from math import cos, sin, pi, sqrt
 import numpy as np
+import logging
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
+
+
+
+def dump(obj):
+   '''Helper function to output all properties of an object'''
+   for attr in dir(obj):
+       if hasattr( obj, attr ):
+           print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+
+
+
+def render_scene (filepath):
+    bpy.data.scenes['Scene'].render.filepath = filepath
+    bpy.ops.render.render (write_still=True) 
 
 
 
@@ -24,18 +39,15 @@ def delete_car (car_group_name):
     assert len(bpy.context.selected_objects) == 0
     assert len(bpy.data.groups['car_group'].objects) == 0
 
-    # TODO: remove group too
+    # remove group too
+    bpy.data.groups.remove(bpy.data.groups[car_group_name])
 
 
 def import_car (obj_path, car_group_name):
+    logging.debug ('importing group: %s from path: %s' % (car_group_name, obj_path))
+    assert car_group_name not in bpy.data.groups
 
-    # new or existing group
-    if car_group_name in bpy.data.groups:
-        # if exists, delete everything in there (TODO: change when group removed)
-        delete_car (car_group_name)
-        print ('group already existed, had to clean it first')
-    else:
-        car_group = bpy.data.groups.new(car_group_name)
+    car_group = bpy.data.groups.new(car_group_name)
 
     bpy.ops.import_scene.obj (filepath=obj_path)
 
@@ -47,6 +59,30 @@ def import_car (obj_path, car_group_name):
     assert car_group_name in bpy.data.groups
     print ('in group "%s" there are %d objects' % 
            (car_group_name, len(bpy.data.groups[car_group_name].objects)))
+
+
+def hide_car (car_group_name):
+    '''Tags each object in a car group invisible'''
+    logging.debug ('deleting group: %s from path: %s' % (car_group_name, obj_path))
+    assert car_group_name in bpy.data.groups
+
+    # hide each object in the group
+    for obj in bpy.data.groups[car_group_name].objects:
+        bpy.data.objects[obj.name].hide = True
+        bpy.data.objects[obj.name].hide_render = True
+
+
+def show_car (car_group_name):
+    '''Tags each object in a car group visible'''
+    assert car_group_name in bpy.data.groups
+
+    # hide each object in the group
+    for obj in bpy.data.groups[car_group_name].objects:
+        bpy.data.objects[obj.name].hide = False
+        bpy.data.objects[obj.name].hide_render = False
+
+
+
 
 
 def set_wet ():

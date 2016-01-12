@@ -8,19 +8,14 @@ from numpy.random import normal, uniform
 from mathutils import Color, Euler
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 import common
-
-def dump(obj):
-   '''Helper function to output all properties of an object'''
-   for attr in dir(obj):
-       if hasattr( obj, attr ):
-           print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+from helperSetup import atcity
 
 
+collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
+patches_dir = 'augmentation/patches/'
 
-collection_dir = '/Users/evg/Downloads/7c7c2b02ad5108fe5f9082491d52810'
-png_dir = '/Users/evg/Downloads/patches/'
-
-NUM_SAMPLES = 2
+num_per_model = 1
 
 SCALE_FACTOR = 1.5
 
@@ -31,17 +26,17 @@ SUN_PITCH_LOW  = 20 * pi / 180
 SUN_PITCH_HIGH = 70 * pi / 180
 
 
-def car_photo_session (car_sz, id_offset):
-    '''Generate NUM_SAMPLES renders of the car which is currently in the scene
+def car_photo_session (num_per_model, car_sz, id_offset):
+    '''Generate num_per_model renders of the car which is currently in the scene
     '''
-    scales      = normal (1, SCALE_NOISE_SIGMA, size=NUM_SAMPLES)
-    yaws        = uniform (low=0, high=2*pi, size=NUM_SAMPLES)
-    pitches     = uniform (low=PITCH_LOW, high=PITCH_HIGH, size=NUM_SAMPLES)
+    scales      = normal (1, SCALE_NOISE_SIGMA, size=num_per_model)
+    yaws        = uniform (low=0, high=2*pi, size=num_per_model)
+    pitches     = uniform (low=PITCH_LOW, high=PITCH_HIGH, size=num_per_model)
 
-    sun_yaws    = uniform (low=0, high=2*pi, size=NUM_SAMPLES)
-    sun_pitches = uniform (low=SUN_PITCH_LOW, high=SUN_PITCH_HIGH, size=NUM_SAMPLES)
+    sun_yaws    = uniform (low=0, high=2*pi, size=num_per_model)
+    sun_pitches = uniform (low=SUN_PITCH_LOW, high=SUN_PITCH_HIGH, size=num_per_model)
 
-    for i in range(NUM_SAMPLES):
+    for i in range(num_per_model):
 
         scale = scales[i]
         yaw   = yaws[i]
@@ -56,14 +51,14 @@ def car_photo_session (car_sz, id_offset):
         print ('scale: %.2f, yaw: %.2f, pitch: %.2f, roll: %.2f'
                % (scale, yaw, pitch, roll))
 
-        png_name = '%08d.png' % (id_offset * NUM_SAMPLES + i)
+        png_name = '%08d.png' % (id_offset * num_per_model + i)
         x = dist * cos(yaw) * cos(pitch)
         y = dist * sin(yaw) * cos(pitch)
         z = dist * sin(pitch)
 
         bpy.data.objects['-Camera'].location = (x,y,z)
 
-        bpy.data.scenes['Scene'].render.filepath = op.join (png_dir, png_name)
+        bpy.data.scenes['Scene'].render.filepath = atcity(op.join(patches_dir, png_name))
         bpy.ops.render.render (write_still=True) 
 
 
@@ -72,9 +67,9 @@ def car_photo_session (car_sz, id_offset):
 print ('start photo session script')
 
 # read the json file with cars data
-info = json.load(open( op.join(collection_dir, '_info_.json') ))
+collection = json.load(open( atcity(op.join(collection_dir, '_collection_.json')) ))
 
-for vehicle_id, vehicle_info in enumerate(info['vehicles']):
+for vehicle_id, vehicle_info in enumerate(collection['vehicles']):
 
     print ('car name: "%s"' % vehicle_info['model_name'])
     if 'valid' in vehicle_info and vehicle_info['valid'] == False:
@@ -84,23 +79,23 @@ for vehicle_id, vehicle_info in enumerate(info['vehicles']):
     car_ds = vehicle_info['dims']  # [x, y, z] in meters
     car_sz = sqrt(car_ds[0]*car_ds[0] + car_ds[1]*car_ds[1] + car_ds[2]*car_ds[2])
 
-    obj_path = op.join(collection_dir, 'obj/%s.obj' % vehicle_info['model_id'])
+    obj_path = atcity(op.join(collection_dir, 'obj/%s.obj' % vehicle_info['model_id']))
     common.import_car (obj_path, 'car_group')
 
     # make a photo session at sunny weather
     common.set_dry()
     common.set_sunny()
-    car_photo_session (car_sz, vehicle_id * 3)
+    car_photo_session (num_per_model, car_sz, vehicle_id * 3)
 
     # make a photo session at cloudy weather
     common.set_dry()
     common.set_cloudy()
-    car_photo_session (car_sz, vehicle_id * 3 + 1)
+    car_photo_session (num_per_model, car_sz, vehicle_id * 3 + 1)
 
     # make a photo session at rainy weather
     common.set_wet()
     common.set_cloudy()
-    car_photo_session (car_sz, vehicle_id * 3 + 2)
+    car_photo_session (num_per_model, car_sz, vehicle_id * 3 + 2)
 
     common.delete_car ('car_group')
 

@@ -1,10 +1,12 @@
-import os.path as op
+import os, os.path as op
 import sys
 import json
 from math import cos, sin, pi, sqrt, pow
 import numpy as np
 import cv2
-from numpy.random import normal, uniform
+from numpy.random import normal, uniform, choice
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+from helperSetup import atcity
 
 def sq(x): return pow(x,2)
 
@@ -52,6 +54,21 @@ def put_random_points (yaw_map, num, lane_width_pxl, min_intercar_dist_pxl):
     return points
 
 
+def pick_vehicles (points, vehicle_info):
+    '''For each point pick a random vehicle from the list
+    '''
+    for point in points:
+        valid = False
+        # keep choosing a car until find a valid one
+        while not valid: 
+            vehicle = choice(vehicle_info['vehicles'])
+            valid = vehicle['valid'] if 'valid' in vehicle else True
+        point['collection_id'] = vehicle_info['collection_id']
+        point['model_id'] = vehicle['model_id']
+    return points
+
+
+
 def axes_png2blender (points, origin_x, origin_y, dims_pixels, dims_meters):
     '''Change coordinate frame from pixel-based to blender-based (meters)
     Args:
@@ -72,10 +89,16 @@ def axes_png2blender (points, origin_x, origin_y, dims_pixels, dims_meters):
     return points
 
 
-yaw_map_path = '/Users/evg/Desktop/3Dmodel/572-ground-angles2.png'
-json_path    = '/Users/evg/Desktop/3Dmodel/572-car-poses.json'
+yaw_map_file   = 'models/cam572/googleAngles2.png'
+collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
+traffic_file   = 'augmentation/traffic/traffic-572.json'
 
-yaw_map = cv2.imread (yaw_map_path)
+# read the json file with cars data
+collection_path = atcity(op.join(collection_dir, '_collection_.json'))
+collection_info = json.load(open(collection_path))
+
+# TODO: change to black to transparent
+yaw_map = cv2.imread (atcity(yaw_map_file))
 assert yaw_map is not None and len(yaw_map.shape) == 3
 yaw_map = yaw_map[:,:,2]  # red channel
 assert yaw_map.max() > 0
@@ -86,9 +109,11 @@ points = put_random_points (yaw_map, num=12, lane_width_pxl=50,
 points = axes_png2blender (points, origin_x=443, origin_y=604, 
                            dims_pixels=yaw_map.shape, dims_meters=(64.00, 57.00))
 
+points = pick_vehicles (points, collection_info)
+
 weather = ['Dry', 'Cloudy']
 
 json_str = json.dumps({'poses': points, 'weather': weather}, indent=4)
-with open(json_path, 'w') as f:
+with open(atcity(traffic_file), 'w') as f:
     f.write(json_str)
 
