@@ -279,7 +279,7 @@ def _distortPatch_ (image, roi, params = {}):
             roiSm = expandRoiFloat (roiSm, patch.shape[0:2], (scales[i], scales[i]))
         if params['color']:
             patch = cv2.cvtColor(patch, cv2.COLOR_BGR2HSV)
-            patch[:,:,0] += colors[i]
+            patch[:,:,0] += colors[i].astype(np.uint8)
             patch = cv2.cvtColor(patch, cv2.COLOR_HSV2BGR)
 
         # crop to correct size

@@ -13,7 +13,7 @@ import utilities
 
 
 
-def _openVideo_ (videopath, params)
+def _openVideo_ (videopath, params):
     ''' Open video and set up bookkeeping '''
     logging.info ('opening video: %s' % videopath)
     videopath = op.join (params['relpath'], videopath)
@@ -35,9 +35,9 @@ def initFromVideo (cursor, image_video_path, mask_video_path, time_path, params)
     width     = int(image_video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
     height    = int(image_video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
     numframes = int(image_video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
-    assert (width     = int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)))
-    assert (height    = int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)))
-    assert (numframes = int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)))
+    assert width     == int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
+    assert height    == int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
+    assert numframes == int(mask_video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
 
     # read timestamps
     with open(op.join(params['relpath'], time_path)) as f:
@@ -53,16 +53,12 @@ def initFromVideo (cursor, image_video_path, mask_video_path, time_path, params)
 
 
 
-
-
-
-def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir, mask_dir, name, params):
+def video2dataset (c, image_video_path, mask_video_path, time_path, name, params):
     '''
     Take a video of 'images' and 'masks' and make a dataset out of it
     '''
     logging.info ('==== video2dataset ====')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo(params))
 
     logging.info ('image path: %s' % image_video_path)
     logging.info ('mask path:  %s' % mask_video_path)
@@ -91,11 +87,8 @@ def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir,
         if not ret1: break
 
         # write image, ghost, and mask
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-        imagefile = op.join (image_dir, '%06d.jpg' % counter)
-        maskfile  = op.join (mask_dir,  '%06d.png' % counter)
-        params['image_processor'].imwrite (frame, imagefile)
-        params['image_processor'].maskwrite (mask, maskfile)
+        imagefile = op.join (op.splitext(image_video_path)[0], '%06d' % counter)
+        maskfile  = op.join (op.splitext(mask_video_path)[0],  '%06d' % counter)
 
         # get and validate time
         timestamp = timestamps[counter].rstrip()
@@ -105,7 +98,7 @@ def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir,
             raise ValueError('incorrect time "%s", expected YYYY-MM-DD HH-MM-SS.ffffff' % timestamp)
 
         # write .db entry
-        (w,h) = frame.shape[0:2]
+        (h,w) = frame.shape[0:2]
         s = 'images(imagefile,maskfile,src,width,height,time)'
         c.execute ('INSERT INTO %s VALUES (?,?,?,?,?,?)' % s, (imagefile,maskfile,name,w,h,timestamp))
 
@@ -113,7 +106,7 @@ def _video2dataset_ (c, image_video_path, mask_video_path, time_path, image_dir,
 
 
 
-def makeDataset (videos_prefix, dataset_dir, dataset_name, params = {}):
+def makeDataset (videos_prefix, db_prefix, params = {}):
     ''' 
     Build a dataset based on videos 'frame' (source), 'ghost' and 'mask', as well as timestamp .txt
     The format may change over time.
@@ -132,26 +125,20 @@ def makeDataset (videos_prefix, dataset_dir, dataset_name, params = {}):
     mask_video_path  = op.join(videos_prefix + params['mask_suffix'])
     time_path        = op.join(videos_prefix + params['time_suffix'])
 
-    # datasets for images, ghosts, and masks
-    image_dir = op.join (dataset_dir, 'images',    dataset_name)
-    ghost_dir = op.join (dataset_dir, 'ghosts',    dataset_name)
-    mask_dir  = op.join (dataset_dir, 'masks',     dataset_name)
-    db_dir    = op.join (dataset_dir, 'databases', dataset_name)
-    db_dir    = op.join (params['relpath'], db_dir)
-
     # create and empty db-s
+    db_dir = op.dirname(op.join(params['relpath'], db_prefix))
+    logging.info ('db_dir: %s' % db_dir)
     if not op.exists(db_dir): os.makedirs (db_dir)
-    conn_frame = sqlite3.connect (op.join(db_dir, 'init-image.db'))
-    conn_ghost = sqlite3.connect (op.join(db_dir, 'init-ghost.db'))
+    conn_frame = sqlite3.connect (op.join(params['relpath'], '%s-image.db' % db_prefix))
+    conn_ghost = sqlite3.connect (op.join(params['relpath'], '%s-ghost.db' % db_prefix))
     helperDb.createDb(conn_frame)
     helperDb.createDb(conn_ghost)
     c_frame = conn_frame.cursor()
     c_ghost = conn_ghost.cursor()
 
-    _video2dataset_ (c_frame, image_video_path, mask_video_path, time_path, 
-                     ghost_dir, mask_dir, dataset_name, params)
-    _video2dataset_ (c_frame, ghost_video_path, mask_video_path, time_path, 
-                     image_dir, mask_dir, dataset_name, params)
+    db_name = op.basename(db_prefix)
+    video2dataset (c_frame, image_video_path, mask_video_path, time_path, db_name, params)
+    video2dataset (c_ghost, ghost_video_path, mask_video_path, time_path, db_name, params)
 
     conn_frame.commit()
     conn_ghost.commit()

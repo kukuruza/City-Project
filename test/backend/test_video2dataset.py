@@ -1,4 +1,5 @@
 import os, sys, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'test/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import random
@@ -7,7 +8,7 @@ import sqlite3
 import unittest
 import helperTesting
 import shutil
-from video2dataset import _video2dataset_, exportVideo
+from video2dataset import video2dataset, exportVideo
 import helperImg
 import helperDb
 
@@ -30,23 +31,19 @@ class TestVideo (unittest.TestCase):
         c = self.conn.cursor()
 
         video_path    = 'testdata/video/cam119.avi'
-        time_path    = 'testdata/video/wrongtime.txt'
-        out_image_dir = 'testdata/video/test/images'
-        out_mask_dir = 'testdata/video/test/masks'
-        params = {'relpath': '.', 'image_processor': self.imgProcessor}
+        time_path     = 'testdata/video/wrongtime.txt'
+        params = {'relpath': '.'}
         with self.assertRaises(Exception): 
-            _video2dataset_ (c, video_path, video_path, time_path, out_image_dir, out_mask_dir, '', params)
+            video2dataset (c, video_path, video_path, time_path, '', params)
 
 
     def test_video2database (self):
         c = self.conn.cursor()
 
-        video_path    = 'testdata/video/cam119.avi'
-        time_path    = 'testdata/video/cam119.txt'
-        out_image_dir = 'testdata/video/test/images'
-        out_mask_dir = 'testdata/video/test/masks'
-        params = {'relpath': '.', 'image_processor': self.imgProcessor}
-        _video2dataset_ (c, video_path, video_path, time_path, out_image_dir, out_mask_dir, 'test', params)
+        video_path = 'testdata/video/cam119.avi'
+        time_path  = 'testdata/video/cam119.txt'
+        params = {'relpath': '.'}
+        video2dataset (c, video_path, video_path, time_path, 'test', params)
 
         c.execute ('SELECT * FROM images')
         image_entries = c.fetchall()
@@ -55,11 +52,14 @@ class TestVideo (unittest.TestCase):
         imagefile2 = helperDb.imageField(image_entries[2], 'imagefile')
         maskfile0  = helperDb.imageField(image_entries[0], 'maskfile')
         maskfile2  = helperDb.imageField(image_entries[2], 'maskfile')
-        self.assertEqual (imagefile0, 'testdata/video/test/images/000000.jpg')
-        self.assertEqual (imagefile2, 'testdata/video/test/images/000002.jpg')
-        self.assertEqual (maskfile0,  'testdata/video/test/masks/000000.png')
-        self.assertEqual (maskfile2,  'testdata/video/test/masks/000002.png')
-
+        width      = helperDb.imageField(image_entries[0], 'width')
+        height     = helperDb.imageField(image_entries[0], 'height')
+        self.assertEqual (imagefile0, 'testdata/video/cam119/000000')
+        self.assertEqual (imagefile2, 'testdata/video/cam119/000002')
+        self.assertEqual (maskfile0,  'testdata/video/cam119/000000')
+        self.assertEqual (maskfile2,  'testdata/video/cam119/000002')
+        self.assertEqual (width,  352)
+        self.assertEqual (height, 240)
 
 
 class TestExportVideo (unittest.TestCase):
