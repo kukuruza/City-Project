@@ -66,6 +66,10 @@ def car_photo_session (num_per_model, car_sz, id_offset):
 
 print ('start photo session script')
 
+# open the blender file
+scene_path = op.join(os.getenv('CITY_PATH'), 'src/augmentation/photo-session.blend')
+bpy.ops.wm.open_mainfile (filepath=scene_path)
+
 # read the json file with cars data
 collection = json.load(open( atcity(op.join(collection_dir, '_collection_.json')) ))
 

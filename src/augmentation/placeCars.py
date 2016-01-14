@@ -4,6 +4,7 @@ import json
 from math import cos, sin, pi, sqrt, pow
 import numpy as np
 import cv2
+import string
 from numpy.random import normal, uniform, choice
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity
@@ -17,13 +18,16 @@ Distribute cars across the map according to the lanes map
 def put_random_points (yaw_map, num, lane_width_pxl, min_intercar_dist_pxl):
     '''Picks a number of random point in the lane map.
     Args:
-      yaw_map - numpy 2D array with yaw marked as nonzeros
+      yaw_map - a color array (all values are gray) with alpha mask, [YxXx4]
       num     - a number of points to pick
     Returns:
       points  - a list of dictionaries, each has x,y,yaw attributes
     '''
+    # make yaw_map a 2D array
+    alpha, yaw_map = yaw_map[:,:,-1], yaw_map[:,:,0]
+
     # get indices of all points which are non-zero
-    Ps = np.transpose(np.nonzero(yaw_map))
+    Ps = np.transpose(np.nonzero(alpha))
     print 'total lane points:', Ps.shape
 
     # pick random points
@@ -65,55 +69,73 @@ def pick_vehicles (points, vehicle_info):
             valid = vehicle['valid'] if 'valid' in vehicle else True
         point['collection_id'] = vehicle_info['collection_id']
         point['model_id'] = vehicle['model_id']
-    return points
 
 
-
-def axes_png2blender (points, origin_x, origin_y, dims_pixels, dims_meters):
+def axes_png2blender (points, origin, pxls_in_meter):
     '''Change coordinate frame from pixel-based to blender-based (meters)
     Args:
       points - a list of dictionaries, each has x,y,yaw attributes
-      origin_x, origin_y - will be subtracted from each point
-      dims_pixels - (Y,X) shape of the map in pixels
-      dims_meters - (Y,X) shape of the map in meters
+      origin - a dict with 'x' and 'y' fields, will be subtracted from each point
+      pxls_in_meter - a scalar, must be looked up at the map image
     Returns:
-      points - a new list
+      nothing
     '''
-    coef_y = dims_meters[0] / dims_pixels[0]
-    coef_x = dims_meters[1] / dims_pixels[1]
-
-    for i,point in enumerate(points):
-        points[i] = {'x':  (point['x'] - origin_x) * coef_x, 
-                     'y': -(point['y'] - origin_y) * coef_y, 
-                     'yaw': point['yaw']}
-    return points
+    assert origin is not None and type(origin) is dict
+    assert pxls_in_meter is not None
+    for point in points:
+        point['x'] = (point['x'] - origin['x']) / pxls_in_meter
+        point['y'] = -(point['y'] - origin['y']) / pxls_in_meter
 
 
-yaw_map_file   = 'models/cam572/googleAngles2.png'
+def generate_frame_traffic (googlemap_info, collection_dir, number):
+
+    # read the json file with cars data
+    collection_path = atcity(op.join(collection_dir, '_collection_.json'))
+    collection_info = json.load(open(collection_path))
+
+    # get the map of yaws. 
+    # it has gray values (r==g==b=) and alpha, saved as 4-channels
+    yaw_map = cv2.imread (atcity(googlemap_info['yaw_path']), cv2.IMREAD_UNCHANGED)
+    assert yaw_map is not None and yaw_map.shape[2] == 4
+
+    points = put_random_points (yaw_map, num=number, lane_width_pxl=50, 
+                                min_intercar_dist_pxl=50 * 2)
+
+    axes_png2blender (points, googlemap_info['camera_origin'], 
+                              googlemap_info['pxls_in_meter'])
+
+    pick_vehicles (points, collection_info)
+
+    weather = ['Dry', 'Cloudy']
+
+    return {'vehicles': points, 'weather': weather}
+
+
+
+
+camera_file    = 'camdata/cam572/readme.json'
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
-traffic_file   = 'augmentation/traffic/traffic-572.json'
+num_cars       = 5
+num_frames     = 100  # just need to be more than frames to use
+out_file       = 'augmentation/traffic/traffic.json'
+out_template   = 'augmentation/traffic/traffic-fr$.json'
 
-# read the json file with cars data
-collection_path = atcity(op.join(collection_dir, '_collection_.json'))
-collection_info = json.load(open(collection_path))
+# get yaw map path
+camera_info    = json.load(open( atcity(camera_file) ))
+googlemap_info = camera_info['google_maps'][1]
 
-# TODO: change to black to transparent
-yaw_map = cv2.imread (atcity(yaw_map_file))
-assert yaw_map is not None and len(yaw_map.shape) == 3
-yaw_map = yaw_map[:,:,2]  # red channel
-assert yaw_map.max() > 0
+video_info = []
+for i in range(num_frames):
+    frame_info = generate_frame_traffic (googlemap_info, collection_dir, num_cars)
+    video_info.append(frame_info)
 
-points = put_random_points (yaw_map, num=12, lane_width_pxl=50, 
-                            min_intercar_dist_pxl=50 * 2)
+with open(atcity(out_file), 'w') as f:
+    f.write(json.dumps(video_info, indent=4))
 
-points = axes_png2blender (points, origin_x=443, origin_y=604, 
-                           dims_pixels=yaw_map.shape, dims_meters=(64.00, 57.00))
+# a workaround to call blender from bash once per frame
+for i,frame_info in enumerate(video_info):
+    with open(atcity( string.replace(out_template,'$','%06d'%i) ), 'w') as f:
+        f.write(json.dumps(frame_info, indent=4))
 
-points = pick_vehicles (points, collection_info)
 
-weather = ['Dry', 'Cloudy']
-
-json_str = json.dumps({'poses': points, 'weather': weather}, indent=4)
-with open(atcity(traffic_file), 'w') as f:
-    f.write(json_str)
 

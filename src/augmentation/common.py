@@ -25,7 +25,7 @@ def render_scene (filepath):
 
 
 def delete_car (car_group_name):
-    assert car_group_name in bpy.data.groups
+    assert car_group_name in bpy.data.groups, '%s' % car_group_name
 
     # deselect all
     bpy.ops.object.select_all(action='DESELECT')  
@@ -37,15 +37,15 @@ def delete_car (car_group_name):
     # remove all selected.
     bpy.ops.object.delete()
     assert len(bpy.context.selected_objects) == 0
-    assert len(bpy.data.groups['car_group'].objects) == 0
+    assert len(bpy.data.groups[car_group_name].objects) == 0
 
-    # remove group too
+    # remove group itself
     bpy.data.groups.remove(bpy.data.groups[car_group_name])
 
 
+
 def import_car (obj_path, car_group_name):
-    logging.debug ('importing group: %s from path: %s' % (car_group_name, obj_path))
-    assert car_group_name not in bpy.data.groups
+    assert car_group_name not in bpy.data.groups, '%s' % car_group_name
 
     car_group = bpy.data.groups.new(car_group_name)
 
@@ -63,7 +63,6 @@ def import_car (obj_path, car_group_name):
 
 def hide_car (car_group_name):
     '''Tags each object in a car group invisible'''
-    logging.debug ('deleting group: %s from path: %s' % (car_group_name, obj_path))
     assert car_group_name in bpy.data.groups
 
     # hide each object in the group
