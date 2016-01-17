@@ -11,7 +11,6 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/utilities'))
 import common
-from timer import Timer
 from helperSetup import atcity, setupLogging
 
 '''
@@ -27,7 +26,6 @@ render_cars_as_cubes = False
 save_blend_file      = False
 
 # all inter-files name / path conventions
-RENDER_DIR = atcity('augmentation/render')
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
 CAR_RENDER_TEMPL  = 'vehicle-'
@@ -56,7 +54,7 @@ def position_car (car_group_name, x, y, yaw):
 
 
 
-def render_frame (frame_info, collection_dir, render_dir=RENDER_DIR):
+def render_frame (frame_info, collection_dir, render_dir):
     '''Position cars in 3D according to input, and render frame
     Args:
       frame_info:  dictionary with frame information
@@ -71,10 +69,21 @@ def render_frame (frame_info, collection_dir, render_dir=RENDER_DIR):
     weather = frame_info['weather']
 
     # set weather
-    if 'Dry'    in weather: common.set_dry()
-    if 'Wet'    in weather: common.set_wet()
-    if 'Cloudy' in weather: common.set_cloudy()
-    if 'Sunny'  in weather: common.set_sunny()
+    if 'Dry'    in weather: 
+        logging.info ('setting dry weather')
+        common.set_dry()
+    if 'Wet'    in weather: 
+        logging.info ('setting wet weather')
+        common.set_wet()
+    if 'Cloudy' in weather: 
+        logging.info ('setting cloudy weather')
+        common.set_cloudy()
+    if 'Sunny'  in weather: 
+        alt = frame_info['sun_altitude']
+        azi = frame_info['sun_azimuth']
+        logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))
+        common.set_sunny()
+        common.set_sun_angle(azi, alt)
 
     # render the image from satellite, when debuging
     bpy.data.objects['-Satellite'].hide_render = not render_satellite
@@ -91,6 +100,11 @@ def render_frame (frame_info, collection_dir, render_dir=RENDER_DIR):
             car_group_name = 'car_group_%i' % i
             common.import_car (obj_path, car_group_name)
             position_car (car_group_name, x=point['x'], y=point['y'], yaw=point['yaw'])
+
+    # make all cars receive shadows
+    logging.info ('materials: %s' % len(bpy.data.materials))
+    for m in bpy.data.materials:
+        m.use_transparent_shadows = True
 
 
     # create render dir
@@ -118,46 +132,33 @@ def render_frame (frame_info, collection_dir, render_dir=RENDER_DIR):
             common.render_scene( op.join(render_dir, '%s%d.png' % (CAR_RENDER_TEMPL, i)) )
             common.hide_car (car_group_name)
 
+    bpy.data.objects['-Ground'].hide_render = False
+
+
     # delete all cars
     # for i,point in enumerate(points):
     #     car_group_name = 'car_group_%i' % i
     #     common.delete_car (car_group_name)
 
-    # if save_blend_file:
-    #     bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
+    if save_blend_file:
+        # show all cars
+        for i,point in enumerate(points):
+            car_group_name = 'car_group_%i' % i
+            common.show_car (car_group_name)
+        bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
     # logging.info ('objects in the end of frame: %d' % len(bpy.data.objects))
-
     logging.info ('successfully finished a frame')
     
 
 
-
-def render_video (video_info, collection_dir):
-    '''render each frame from a video, each in its own directory
-    '''
-    timer = Timer()
-    for i,frame_info in enumerate(video_info):
-        timer.tic()
-        render_frame (frame_info, collection_dir, op.join(RENDER_DIR, '%06d' % i))
-        logging.info ('frame %06d processed in %s sec.' % (i, str(timer.toc())))
-
-
-
-scene_file     = 'augmentation/scenes/cam572.blend'
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
-traffic_file   = 'augmentation/traffic/traffic-current-frame.json'
-
-bpy.ops.wm.open_mainfile (filepath=atcity(scene_file))
+traffic_file   = 'augmentation/traffic/current-frame.json'
+render_dir     = atcity('augmentation/render/current-frame')
 
 frame_info = json.load(open( atcity(traffic_file) ))
 
-timer = Timer()
-timer.tic()
-render_frame (frame_info, collection_dir, render_dir=op.join(RENDER_DIR, 'current-frame'))
-logging.info ('frame processed in %s sec.' % str(timer.toc()))
-
-#render_video (video_info, collection_dir)
+render_frame (frame_info, collection_dir, render_dir)
 
 # timer = Timer()
 # for i in range(30):

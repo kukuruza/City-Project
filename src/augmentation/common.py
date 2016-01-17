@@ -1,3 +1,4 @@
+
 import bpy
 import os.path as op
 import sys
@@ -120,15 +121,19 @@ def set_sunny ():
     sun = bpy.data.objects['-Sun']
     sun.hide_render = False
     sun.hide = False
-    sun.data.energy = 1
+    sun.data.energy = 1.5
     sun.data.color = (1.0000, 0.9163, 0.6905)
 
     # adjust sky
     sky = bpy.data.objects['-Sky-light']
     sky.hide_render = False
     sky.hide = False
-    sky.data.energy = 1.5
-    sky.data.color = (0.537, 0.720, 1.0)
+    sky.data.energy = 0.25
+    sky.data.color = (0.688, 0.795, 1.0)
+
+    # turn off far shadows
+    bpy.data.objects['-Sky-far-shadow'].hide = True
+    bpy.data.objects['-Sky-far-shadow'].hide_render = True
 
 
 def set_cloudy ():
@@ -142,13 +147,24 @@ def set_cloudy ():
     sky = bpy.data.objects['-Sky-light']
     sky.hide_render = False
     sky.hide = False
-    sky.data.energy = 1
+    sky.data.energy = 0.75
     sky.data.color = (0.856, 0.827, 0.940)
 
+    # turn on far shadows
+    bpy.data.objects['-Sky-far-shadow'].hide = False
+    bpy.data.objects['-Sky-far-shadow'].hide_render = False
 
-def set_sun_angle (yaw, pitch):
-    '''pitch -- angle from zenith, in radians
+
+def set_sun_angle (azimuth, altitude):
     '''
+    Args:
+      altitude: angle from surface, in degrees
+      azimuth:  angle from the north, in degrees. On the east azimuth equals +90
+    '''
+    # note: azimuth lamp direction is the opposite to sun position
+    yaw   = - (azimuth - 90) * pi / 180
+    pitch = (90 - altitude) * pi / 180
+
     # set orientation
     sun = bpy.data.objects['-Sun']
     sun.rotation_euler = Euler((0, pitch, yaw), 'ZXY')

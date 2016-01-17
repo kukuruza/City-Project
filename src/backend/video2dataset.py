@@ -16,6 +16,8 @@ import utilities
 def video2dataset (c, image_video_path, mask_video_path, time_path, name, params = {}):
     '''
     Take a video of 'images' and 'masks' and make a dataset out of it
+    Args:
+      time_path:  if None, null values will be written to db
     '''
     logging.info ('==== video2dataset ====')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
@@ -31,8 +33,9 @@ def video2dataset (c, image_video_path, mask_video_path, time_path, name, params
         raise Exception ('mask video does not exist: %s' % mask_video_path)
 
     # read timestamps
-    with open(op.join(params['relpath'], time_path)) as f:
-        timestamps = f.readlines()
+    if time_path is not None:
+        with open(op.join(params['relpath'], time_path)) as f:
+            timestamps = f.readlines()
 
     imageVideo = cv2.VideoCapture (op.join(params['relpath'], image_video_path))
     maskVideo  = cv2.VideoCapture (op.join(params['relpath'], mask_video_path))
@@ -51,11 +54,14 @@ def video2dataset (c, image_video_path, mask_video_path, time_path, name, params
         maskfile  = op.join (op.splitext(mask_video_path)[0],  '%06d' % counter)
 
         # get and validate time
-        timestamp = timestamps[counter].rstrip()
-        try:
-            datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-        except ValueError:
-            raise ValueError('incorrect time "%s", expected YYYY-MM-DD HH-MM-SS.ffffff' % timestamp)
+        if time_path is None:
+            timestamp = None
+        else:
+            timestamp = timestamps[counter].rstrip()
+            try:
+                datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+            except ValueError:
+                raise ValueError('incorrect time "%s", expected YYYY-MM-DD HH:MM:SS.ffffff' % timestamp)
 
         # write .db entry
         (h,w) = frame.shape[0:2]

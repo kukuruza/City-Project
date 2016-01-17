@@ -2,9 +2,18 @@
 
 clear all
 
+% set paths
+assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
+CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
+cd (fileparts(mfilename('fullpath')));        % change dir to this script
+
+
 % TODO: do this for each connected conponent separately
 
-im = imread('/Users/evg/Desktop/3Dmodel/572-ground-lanes2.png');
+lanes_template = 'models/cam717/google1/lane*.png';
+
+im = imread([CITY_DATA_PATH 'models/cam717/google1/lane*.png']);
 im = rgb2gray(im);
 im = double(im);
 

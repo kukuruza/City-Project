@@ -5,6 +5,7 @@ from math import cos, sin, pi, sqrt, pow
 import numpy as np
 import cv2
 import string
+import logging
 from numpy.random import normal, uniform, choice
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity
@@ -106,7 +107,7 @@ def generate_frame_traffic (googlemap_info, collection_dir, number):
 
     pick_vehicles (points, collection_info)
 
-    weather = ['Dry', 'Cloudy']
+    weather = ['Dry', 'Sunny']
 
     return {'vehicles': points, 'weather': weather}
 
@@ -115,27 +116,65 @@ def generate_frame_traffic (googlemap_info, collection_dir, number):
 
 camera_file    = 'camdata/cam572/readme.json'
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
-num_cars       = 5
-num_frames     = 100  # just need to be more than frames to use
-out_file       = 'augmentation/traffic/traffic.json'
-out_template   = 'augmentation/traffic/traffic-fr$.json'
+sun_pose_file  = 'augmentation/resources/SunPosition-Jan13-09h.txt'
+
+# get sun angles. This is a hack for this particular video
+with open(atcity(sun_pose_file)) as f:
+    sun_pos_lines = f.readlines()
+sun_pos_lines = sun_pos_lines[9:]
+sun_poses = []
+for line in sun_pos_lines:
+    words = line.split()
+    sun_poses.append({'altitude': float(words[2]), 'azimuth': float(words[3])})
 
 # get yaw map path
 camera_info    = json.load(open( atcity(camera_file) ))
 googlemap_info = camera_info['google_maps'][1]
 
-video_info = []
-for i in range(num_frames):
+
+
+
+num_cars       = 7
+
+
+def generate_current_frame (timestamp):
+    ''' Generate traffic/current-frame.json traffic file for a single frame
+    '''
     frame_info = generate_frame_traffic (googlemap_info, collection_dir, num_cars)
-    video_info.append(frame_info)
+    
+    sun_pose = sun_poses [int(timestamp.hour*60) + timestamp.minute]
+    frame_info['sun_altitude'] = sun_pose['altitude']
+    frame_info['sun_azimuth']  = sun_pose['azimuth']
+    logging.info ('received timestamp: %s' % timestamp)
+    logging.info ('calculated sunpose: %s' % str(sun_pose))
 
-with open(atcity(out_file), 'w') as f:
-    f.write(json.dumps(video_info, indent=4))
-
-# a workaround to call blender from bash once per frame
-for i,frame_info in enumerate(video_info):
-    with open(atcity( string.replace(out_template,'$','%06d'%i) ), 'w') as f:
+    with open(atcity( 'augmentation/traffic/current-frame.json' ), 'w') as f:
         f.write(json.dumps(frame_info, indent=4))
 
+
+
+
+
+# num_frames     = 960  # has to be more than number frames in video
+# out_file       = 'augmentation/traffic/try02/traffic.json'
+# out_template   = 'augmentation/traffic/try02/traffic-fr$.json'
+
+
+# video_info = []
+# for i in range(num_frames):
+#     frame_info = generate_frame_traffic (googlemap_info, collection_dir, num_cars)
+
+#     sun_pose = sun_poses [int(9.5*60) + 40 * i / num_frames]
+#     frame_info['sun_altitude'] = sun_pose['altitude']
+#     frame_info['sun_azimuth']  = sun_pose['azimuth']
+
+#     video_info.append(frame_info)
+
+# with open(atcity(out_file), 'w') as f:
+#     f.write(json.dumps(video_info, indent=4))
+
+# for i,frame_info in enumerate(video_info):
+#     with open(atcity( string.replace(out_template,'$','%06d'%i) ), 'w') as f:
+#         f.write(json.dumps(frame_info, indent=4))
 
 

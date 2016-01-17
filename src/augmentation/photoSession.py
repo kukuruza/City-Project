@@ -22,8 +22,8 @@ SCALE_FACTOR = 1.5
 SCALE_NOISE_SIGMA = 0.1
 PITCH_LOW      = 20 * pi / 180
 PITCH_HIGH     = 60 * pi / 180
-SUN_PITCH_LOW  = 20 * pi / 180
-SUN_PITCH_HIGH = 70 * pi / 180
+SUN_ALTITUDE_LOW  = 20
+SUN_ALTITUDE_HIGH = 70
 
 
 def car_photo_session (num_per_model, car_sz, id_offset):
@@ -33,8 +33,8 @@ def car_photo_session (num_per_model, car_sz, id_offset):
     yaws        = uniform (low=0, high=2*pi, size=num_per_model)
     pitches     = uniform (low=PITCH_LOW, high=PITCH_HIGH, size=num_per_model)
 
-    sun_yaws    = uniform (low=0, high=2*pi, size=num_per_model)
-    sun_pitches = uniform (low=SUN_PITCH_LOW, high=SUN_PITCH_HIGH, size=num_per_model)
+    sun_azimuths  = uniform (low=0, high=360, size=num_per_model)
+    sun_altitudes = uniform (low=SUN_ALTITUDE_LOW, high=SUN_ALTITUDE_HIGH, size=num_per_model)
 
     for i in range(num_per_model):
 
@@ -44,9 +44,9 @@ def car_photo_session (num_per_model, car_sz, id_offset):
         roll  = 0
         dist  = car_sz * SCALE_FACTOR / scale
 
-        sun_yaw = sun_yaws[i]
-        sun_pitch = sun_pitches[i]
-        common.set_sun_angle (sun_yaw, sun_pitch)
+        sun_azimuth = sun_azimuths[i]
+        sun_altitude = sun_altitudes[i]
+        common.set_sun_angle (sun_azimuth, sun_altitude)
 
         print ('scale: %.2f, yaw: %.2f, pitch: %.2f, roll: %.2f'
                % (scale, yaw, pitch, roll))
