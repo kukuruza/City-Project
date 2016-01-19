@@ -3,12 +3,8 @@ import bpy
 
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
 
-def atcity(path):
-    return op.join(os.getenv('CITY_DATA_PATH'), path)
-
-RENDER_DIR = atcity('augmentation/render/current-frame')
-OUT_FILENAME = 'out.png'
+RENDER_PATH = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/render/current-frame/out.png')
 
 # render
-bpy.data.scenes['Scene'].render.filepath = op.join(RENDER_DIR, OUT_FILENAME)
+bpy.data.scenes['Scene'].render.filepath = RENDER_PATH
 bpy.ops.render.render (write_still=True) 

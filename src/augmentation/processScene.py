@@ -110,16 +110,23 @@ def extract_annotations (c, frame_info, collection_info, imagefile):
 
 def process_current_frame (args):
     ''' Full stack for one single frame (no db entries). All work is in current-frame dir.
+        Background file must be in current-frame dir.
+        'Now' is taken as timestamp.
     '''
     # get input for this job from json
     job_info = json.load(open(args.job_path))
-    render_scene_path    = op.join(args.rel_path, job_info['render_scene_file'])
-    combine_scene_path   = op.join(args.rel_path, job_info['combine_scene_file'])
+    render_scene_path    = op.join(args.relpath, job_info['render_scene_file'])
+    combine_scene_path   = op.join(args.relpath, job_info['combine_scene_file'])
+
+    # load camera dimensions (compare it to everything for extra safety)
+    camera_info = json.load(open( op.join(os.getenv('CITY_DATA_PATH'), job_info['camera_file']) ))
+    width0, height0 = camera_info['camera_dims']['width'], camera_info['camera_dims']['height']
 
     if not args.no_traffic:
         # generate traffic
-        timestamp = datetime.datetime.strptime(args.start_time, '%Y-%m-%d %H:%M:%S.%f')
-        generate_current_frame(timestamp)
+        timestamp = datetime.datetime.now()
+        generate_current_frame (job_info['camera_file'], job_info['i_googlemap'], timestamp, 
+                                job_info['num_cars'], job_info['weather'])
 
     if not args.no_render:
         # remove so that they do not exist if blender fails
@@ -134,6 +141,14 @@ def process_current_frame (args):
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
     if not args.no_combine:
+        # create mask
+        mask_path  = op.join(WORK_DIR, MASK_FILENAME)
+        carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
+        assert carsonly.shape[2] == 4   # need the alpha channel
+        assert (width0 == carsonly.shape[1] and height0 == carsonly.shape[0])
+        mask = np.array(carsonly[:,:,3] > 0).astype(np.uint8) * 255
+        cv2.imwrite (mask_path, mask)
+
         # remove so that they do not exist if blender fails
         if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
             os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
@@ -143,33 +158,54 @@ def process_current_frame (args):
         returncode = subprocess.call ([command], shell=True)
         logging.info ('combine: blender returned code %s' % str(returncode))
         assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
+        image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
+        assert (width0 == image.shape[1] and height0 == image.shape[0])
 
-        # create mask
-        mask_path  = op.join(WORK_DIR, MASK_FILENAME)
-        carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
-        assert carsonly.shape[2] == 4   # need the alpha channel
-        mask = np.array(carsonly[:,:,3] > 0).astype(np.uint8) * 255
-        cv2.imwrite (mask_path, mask)
 
+
+def _parse_frame_range_arg_ (range_str, length):
+    '''Parses python range STRING into python range
+    '''
+    assert isinstance(range_str, basestring)
+    # remove [ ] around the range
+    if len(range_str) >= 2 and range_str[0] == '[' and range_str[-1] == ']':
+        range_str = range_str[1:-1]
+    # split into three elements start,end,step. Assign step=1 if missing
+    arr = range_str.split(':')
+    assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 commas "," in range string'
+    if len(arr) == 2: arr.append('1')
+    if arr[0] == '': arr[0] = '0'
+    if arr[1] == '': arr[1] = str(length)
+    if arr[2] == '': arr[2] = '1'
+    start = int(arr[0])
+    end   = int(arr[1])
+    step  = int(arr[2])
+    range_py = range(start, end, step)
+    logging.debug ('parsed range_str %s into range %s' % (range_str, range_py))
+    return range_py
 
 
 def process_video (args):
 
     # get input for this job from json
     job_info = json.load(open(args.job_path))
-    in_db_path           = op.join(args.rel_path, job_info['in_db_file'])
-    out_db_path          = op.join(args.rel_path, job_info['out_db_file'])
+    in_db_path           = op.join(args.relpath, job_info['in_db_file'])
+    out_db_path          = op.join(args.relpath, job_info['out_db_file'])
     out_image_video_file = job_info['out_image_video_file']
     out_mask_video_file  = job_info['out_mask_video_file']
-    out_image_video_path = op.join(args.rel_path, job_info['out_image_video_file'])
-    out_mask_video_path  = op.join(args.rel_path, job_info['out_mask_video_file'])
-    render_scene_path    = op.join(args.rel_path, job_info['render_scene_file'])
-    combine_scene_path   = op.join(args.rel_path, job_info['combine_scene_file'])
+    out_image_video_path = op.join(args.relpath, job_info['out_image_video_file'])
+    out_mask_video_path  = op.join(args.relpath, job_info['out_mask_video_file'])
+    render_scene_path    = op.join(args.relpath, job_info['render_scene_file'])
+    combine_scene_path   = op.join(args.relpath, job_info['combine_scene_file'])
 
     # load vehicle models data
     collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
     collection_path = op.join(os.getenv('CITY_DATA_PATH'), collection_dir, '_collection_.json')
     collection_info = json.load(open(collection_path))
+
+    # load camera dimensions (compare it to everything for extra safety)
+    camera_info = json.load(open( op.join(os.getenv('CITY_DATA_PATH'), job_info['camera_file']) ))
+    width0, height0 = camera_info['camera_dims']['width'], camera_info['camera_dims']['height']
 
     # copy input db to output and open it
     _setupCopyDb_ (in_db_path, out_db_path)
@@ -180,6 +216,7 @@ def process_video (args):
     if op.exists(out_image_video_path): os.remove(out_image_video_path)
     if op.exists(out_mask_video_path):  os.remove(out_mask_video_path)
 
+    # value for 'src' field in db
     name = op.basename(op.splitext(out_db_path)[0])
     logging.info ('new src name: %s' %  name)
 
@@ -194,63 +231,74 @@ def process_video (args):
     logging.info ('out mask_video_file:  %s' % out_mask_video_file)
 
     processor = ProcessorVideo \
-           ({'rel_path': args.rel_path,
+           ({'relpath': args.relpath,
              'out_dataset': {in_back_video_file: out_image_video_file, 
                              in_mask_video_file: out_mask_video_file} })
 
-    start_time = datetime.datetime.strptime('2015-01-13 09:30', '%Y-%m-%d %H:%M')
+    c.execute('SELECT imagefile,maskfile,time,width,height FROM images')
+    image_emtries = c.fetchall()
+    frame_range = _parse_frame_range_arg_ (args.frame_range, len(image_emtries))
 
-    c.execute('SELECT imagefile,maskfile FROM images')
-    for (in_backfile, in_maskfile) in c.fetchall():
-        i_str = op.splitext(op.basename(in_backfile))[0]
-        logging.info ('process frame %s' % i_str)
+    for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_emtries):
+        logging.info ('process frame number %d' % i)
+        assert (width0 == width and height0 == height)
 
         # background image from the video
         back = processor.imread(in_backfile)
-        in_mask = processor.imread(in_maskfile)
+        in_mask = processor.maskread(in_maskfile)
 
+        # skip rendering and db entry. Just rewrite the same video
+        if i not in frame_range:
+            if args.record_empty_frames:
+                processor.imwrite (back, in_backfile)
+                processor.maskwrite (in_mask > 0, in_maskfile)
+            logging.info ('skipping frame %d based on frame_range' % i)
+            continue
+        
         # check that the background is already there (if static_back) or write it down there
         if not args.static_back:
             cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), back)
         assert op.exists(op.join(WORK_DIR, BACKGROUND_FILENAME))
 
-        if not args.no_traffic:
-            # generate traffic
-            timestamp = datetime.datetime.strptime(args.start_time, '%Y-%m-%d %H:%M:%S.%f')
-            generate_current_frame(timestamp + datetime.timedelta(minutes=int(float(i_str) / 960 * 40)))
+        # generate traffic
+        #time = datetime.datetime.strptime(args.start_time, '%Y-%m-%d %H:%M:%S.%f')
+        #time += datetime.timedelta(minutes=int(float(i) / 960 * 40))
+        time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        generate_current_frame (job_info['camera_file'], job_info['i_googlemap'], time, 
+                                job_info['num_cars'], job_info['weather'])
 
-        if not args.no_render:
-            # remove so that they do not exist if blender fails
-            if op.exists(op.join(WORK_DIR, NORMAL_FILENAME)):
-                os.remove(op.join(WORK_DIR, NORMAL_FILENAME))
-            if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
-                os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
-            # render
-            command = '%s %s --background --python %s/src/augmentation/renderScene.py' % \
-                      (blender_path, render_scene_path, os.getenv('CITY_PATH'))
-            returncode = subprocess.call ([command], shell=True)
-            logging.info ('rendering: blender returned code %s' % str(returncode))
+        # remove so that they do not exist if blender fails
+        if op.exists(op.join(WORK_DIR, NORMAL_FILENAME)):
+            os.remove(op.join(WORK_DIR, NORMAL_FILENAME))
+        if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
+            os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
+        # render
+        command = '%s %s --background --python %s/src/augmentation/renderScene.py' % \
+                  (blender_path, render_scene_path, os.getenv('CITY_PATH'))
+        returncode = subprocess.call ([command], shell=True)
+        logging.info ('rendering: blender returned code %s' % str(returncode))
 
-        if not args.no_combine:
-            # remove so that they do not exist if blender fails
-            if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
-                os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
-            # postprocess and overlay
-            command = '%s %s --background --python %s/src/augmentation/combineFrame.py' % \
-                      (blender_path, combine_scene_path, os.getenv('CITY_PATH'))
-            returncode = subprocess.call ([command], shell=True)
-            logging.info ('combine: blender returned code %s' % str(returncode))
-            image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
+        # create mask
+        mask_path  = op.join(WORK_DIR, MASK_FILENAME)
+        carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
+        assert carsonly.shape[2] == 4   # need the alpha channel
+        assert (width0 == carsonly.shape[1] and height0 == carsonly.shape[0])
+        out_mask = carsonly[:,:,3] > 0
 
-            # create mask
-            mask_path  = op.join(WORK_DIR, MASK_FILENAME)
-            carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
-            assert carsonly.shape[2] == 4   # need the alpha channel
-            mask = carsonly[:,:,3] > 0
+        # remove so that they do not exist if blender fails
+        if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
+            os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
+        # postprocess and overlay
+        command = '%s %s --background --python %s/src/augmentation/combineFrame.py' % \
+                  (blender_path, combine_scene_path, os.getenv('CITY_PATH'))
+        returncode = subprocess.call ([command], shell=True)
+        logging.info ('combine: blender returned code %s' % str(returncode))
+        out_image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
+        assert (width0 == out_image.shape[1] and height0 == out_image.shape[0])
 
         # write the frame to video (processor interface requires input filenames)
-        processor.imwrite (image, in_backfile)
-        processor.maskwrite (mask, in_maskfile)
+        processor.imwrite (out_image, in_backfile)
+        processor.maskwrite (out_mask, in_maskfile)
 
         # update the filename in database
         out_imagefile = op.join(op.splitext(out_image_video_file)[0], op.basename(in_backfile))
@@ -261,17 +309,11 @@ def process_video (args):
         frame_info = json.load(open( TRAFFIC_WORK_PATH ))
         extract_annotations (c, frame_info, collection_info, out_imagefile)
 
-        if args.num_frames > 0 and int(i_str) >= args.num_frames: 
-            break
-
     conn.commit()
     conn.close()
 
     
 
-
-
-# test this script
 if __name__ == "__main__":
 
     setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
@@ -281,12 +323,14 @@ if __name__ == "__main__":
     parser.add_argument('--no_render',  action='store_true')
     parser.add_argument('--no_combine', action='store_true')
     parser.add_argument('--static_back', action='store_true')
-    parser.add_argument('--start_time', nargs='?', default='2014-01-13 10:15:14.001') # temporary
-    parser.add_argument('--num_frames', nargs='?', default=-1, type=int)
-    parser.add_argument('--rel_path', nargs='?', default=os.getenv('CITY_DATA_PATH'))
+    parser.add_argument('--record_empty_frames', action='store_true')
+    parser.add_argument('--frame_range', nargs='?', default='[::]', 
+                        help='python style ranges, e.g. "[5::2]"')
+    #parser.add_argument('--start_time', nargs='?', default='2014-01-13 09:30:00.000') # temporary
+    parser.add_argument('--relpath', nargs='?', default=os.getenv('CITY_DATA_PATH'))
     parser.add_argument('--job_path')
     args = parser.parse_args()
 
-    # process_current_frame(args)
+    #process_current_frame(args)
     process_video(args)
 

@@ -26,16 +26,18 @@ render_cars_as_cubes = False
 save_blend_file      = False
 
 # all inter-files name / path conventions
+TRAFFIC_FILENAME  = 'traffic.json'
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
 CAR_RENDER_TEMPL  = 'vehicle-'
 
 
-def position_car (car_group_name, x, y, yaw):
+def position_car (car_group_name, x, y, azimuth):
     '''Put the car to a certain position on the ground plane
     Args:
-      car_group_name - name of a blender group
-      x, y, yaw - target position in the blender x,y coordinate frame
+      car_group_name:  name of a blender group
+      x, y:            target position in the blender x,y coordinate frame
+      azimuth:         yaw angle in degrees, 0 is North and 90 deg. is East
     '''
     # TODO: now assumes object is at the origin.
     #       instead of transform, assign coords and rotation
@@ -50,7 +52,7 @@ def position_car (car_group_name, x, y, yaw):
         bpy.data.objects[obj.name].select = True
 
     bpy.ops.transform.translate (value=(x, y, 0))
-    bpy.ops.transform.rotate (value=yaw * pi / 180, axis=(0,0,1))
+    bpy.ops.transform.rotate (value=(90 - azimuth) * pi / 180, axis=(0,0,1))
 
 
 
@@ -96,10 +98,10 @@ def render_frame (frame_info, collection_dir, render_dir):
         else:
             collection_id = point['collection_id']
             model_id = point['model_id']
-            obj_path = atcity(op.join(collection_dir, 'obj/%s.obj' % model_id))
+            dae_path = atcity(op.join(collection_dir, 'dae/%s.dae' % model_id))
             car_group_name = 'car_group_%i' % i
-            common.import_car (obj_path, car_group_name)
-            position_car (car_group_name, x=point['x'], y=point['y'], yaw=point['yaw'])
+            common.import_dae_car (dae_path, car_group_name)
+            position_car (car_group_name, x=point['x'], y=point['y'], azimuth=point['azimuth'])
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
@@ -153,27 +155,8 @@ def render_frame (frame_info, collection_dir, render_dir):
 
 
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
-traffic_file   = 'augmentation/traffic/current-frame.json'
-render_dir     = atcity('augmentation/render/current-frame')
+RENDER_DIR     = atcity('augmentation/render/current-frame')
 
-frame_info = json.load(open( atcity(traffic_file) ))
+frame_info = json.load(open( op.join(RENDER_DIR, TRAFFIC_FILENAME) ))
 
-render_frame (frame_info, collection_dir, render_dir)
-
-# timer = Timer()
-# for i in range(30):
-#     timer.tic()
-
-#     points  = video_info[0]['vehicles']
-#     point = points[0]
-
-#     collection_id = point['collection_id']
-#     model_id = point['model_id']
-#     obj_path = atcity(op.join(collection_dir, 'obj/%s.obj' % model_id))
-#     car_group_name = 'car_group'
-#     common.import_car (obj_path, car_group_name)
-#     position_car (car_group_name, x=point['x'], y=point['y'], yaw=point['yaw'])
-#     common.delete_car (car_group_name)
-
-#     logging.info ('frame %06d processed in %s sec., has %d objects' % 
-#         (i, str(timer.toc()), len(bpy.data.objects)))
+render_frame (frame_info, collection_dir, RENDER_DIR)

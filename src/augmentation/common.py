@@ -62,6 +62,23 @@ def import_car (obj_path, car_group_name):
            (car_group_name, len(bpy.data.groups[car_group_name].objects)))
 
 
+def import_dae_car (obj_path, car_group_name):
+    assert car_group_name not in bpy.data.groups, '%s' % car_group_name
+
+    car_group = bpy.data.groups.new(car_group_name)
+
+    bpy.ops.wm.collada_import (filepath=obj_path)
+
+    # add all new objects (they are all selected now) to the group
+    for obj in bpy.context.selected_objects:
+        bpy.context.scene.objects.active = obj
+        bpy.ops.object.group_link (group=car_group_name)
+
+    assert car_group_name in bpy.data.groups
+    print ('in group "%s" there are %d objects' % 
+           (car_group_name, len(bpy.data.groups[car_group_name].objects)))
+
+
 def hide_car (car_group_name):
     '''Tags each object in a car group invisible'''
     assert car_group_name in bpy.data.groups

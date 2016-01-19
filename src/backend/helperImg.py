@@ -115,7 +115,7 @@ class ProcessorVideo (ReaderVideo):
         self.out_dataset = params['out_dataset']
         self.out_image_video = {}    # map from image video name to VideoWriter object
         self.out_mask_video = {}     # map from mask  video name to VideoWriter object
-        self.out_current_frame = {}  # used for checks
+        #self.out_current_frame = {}  # used for checks
         self.frame_size = {}         # used for checks
 
     def _openVideoWriter_ (self, videofile, ref_video, ismask):
@@ -127,11 +127,14 @@ class ProcessorVideo (ReaderVideo):
         frame_size = (width, height)
 
         self.frame_size[videofile] = frame_size
-        self.out_current_frame[videofile] = 0
+        #self.out_current_frame[videofile] = 0
 
         logging.info ('opening video: %s' % videofile)
         videopath = op.join (self.relpath, videofile)
-        assert not op.exists (op.join (self.relpath, videopath))
+        assert not op.exists (op.join (self.relpath, videopath)), \
+            'Video already exists at %s. Is it a mistake?' % op.join(self.relpath, videopath)
+        assert op.exists(op.dirname(videopath)), \
+            'Video directory does not exist at %s. Is it a mistake?' % op.dirname(videopath)
         handler = cv2.VideoWriter (videopath, fourcc, fps, frame_size, not ismask)
         if not handler.isOpened():
             raise Exception('video failed to open: %s' % videopath)
@@ -166,13 +169,13 @@ class ProcessorVideo (ReaderVideo):
         assert out_videopath in out_video_dict
 
         # write the frame only if it is the next frame
-        frane_expected = self.out_current_frame[out_videopath]
-        frame_actual  = int(filter(lambda x: x.isdigit(), op.basename(image_id)))  # number
-        if frame_actual != frane_expected:
-            raise Exception('''Random access for writing is not supported now.
-                               New frame is #%d, but the expected frame is #%d''' % 
-                               (frame_actual, frane_expected))
-        self.out_current_frame[out_videopath] += 1  # update
+        # frame_expected = self.out_current_frame[out_videopath]
+        # frame_actual  = int(filter(lambda x: x.isdigit(), op.basename(image_id)))  # number
+        # if frame_actual != frame_expected:
+        #     raise Exception('''Random access for writing is not supported now.
+        #                        New frame is #%d, but the expected frame is #%d''' % 
+        #                        (frame_actual, frame_expected))
+        # self.out_current_frame[out_videopath] += 1  # update
 
         # check frame size and write
         assert (image.shape[1], image.shape[0]) == self.frame_size[out_videopath]
