@@ -31,7 +31,8 @@ CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
 MASK_FILENAME       = 'mask.png'
 
-blender_path = '/Applications/blender.app/Contents/MacOS/blender'
+assert os.getenv('BLENDER_ROOT') is not None, \
+    'export BLENDER_ROOT with path to blender binary as environmental variable'
 
 
 
@@ -135,8 +136,8 @@ def process_current_frame (args):
         if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
             os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
         # render
-        command = '%s %s --background --python %s/src/augmentation/renderScene.py' % \
-                  (blender_path, render_scene_path, os.getenv('CITY_PATH'))
+        command = '%s/blender %s --background --python %s/src/augmentation/renderScene.py' % \
+                  (os.getenv('BLENDER_ROOT'), render_scene_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
@@ -153,8 +154,8 @@ def process_current_frame (args):
         if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
             os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
         # postprocess and overlay
-        command = '%s %s --background --python %s/src/augmentation/combineFrame.py' % \
-                  (blender_path, combine_scene_path, os.getenv('CITY_PATH'))
+        command = '%s/blender %s --background --python %s/src/augmentation/combineFrame.py' % \
+                  (os.getenv('BLENDER_ROOT'), combine_scene_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
         logging.info ('combine: blender returned code %s' % str(returncode))
         assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))

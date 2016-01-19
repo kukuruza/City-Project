@@ -1,4 +1,3 @@
-
 import bpy
 import os.path as op
 import sys

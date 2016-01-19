@@ -18,8 +18,6 @@ Functions to parse blender output into images, masks, and annotations
 This file knows about how we store data in SQL
 '''
 
-setupLogging('log/augmentation/renderScene.log', logging.INFO, 'a')
-
 # debug option
 render_satellite     = False
 render_cars_as_cubes = False
@@ -153,6 +151,8 @@ def render_frame (frame_info, collection_dir, render_dir):
     logging.info ('successfully finished a frame')
     
 
+
+setupLogging('log/augmentation/renderScene.log', logging.INFO, 'a')
 
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
 RENDER_DIR     = atcity('augmentation/render/current-frame')
