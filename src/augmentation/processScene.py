@@ -24,12 +24,12 @@ from placeCars import generate_current_frame
 
 # All rendering by blender takes place in WORK_DIR
 WORK_DIR          = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/render/current-frame')
-TRAFFIC_WORK_PATH = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/traffic/current-frame.json')
 BACKGROUND_FILENAME = 'background.png'
 NORMAL_FILENAME     = 'normal.png'
 CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
 MASK_FILENAME       = 'mask.png'
+TRAFFIC_FILENAME    = 'traffic.json'
 
 assert os.getenv('BLENDER_ROOT') is not None, \
     'export BLENDER_ROOT with path to blender binary as environmental variable'
@@ -274,8 +274,8 @@ def process_video (args):
         if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
             os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
         # render
-        command = '%s %s --background --python %s/src/augmentation/renderScene.py' % \
-                  (blender_path, render_scene_path, os.getenv('CITY_PATH'))
+        command = '%s/blender %s --background --python %s/src/augmentation/renderScene.py' % \
+                  (os.getenv('BLENDER_ROOT'), render_scene_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
@@ -290,8 +290,8 @@ def process_video (args):
         if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
             os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
         # postprocess and overlay
-        command = '%s %s --background --python %s/src/augmentation/combineFrame.py' % \
-                  (blender_path, combine_scene_path, os.getenv('CITY_PATH'))
+        command = '%s/blender %s --background --python %s/src/augmentation/combineFrame.py' % \
+                  (os.getenv('BLENDER_ROOT'), combine_scene_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
         logging.info ('combine: blender returned code %s' % str(returncode))
         out_image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
@@ -307,7 +307,7 @@ def process_video (args):
         c.execute('UPDATE images SET imagefile=?, maskfile=? WHERE imagefile=?', 
                     (out_imagefile, out_maskfile, in_backfile))
 
-        frame_info = json.load(open( TRAFFIC_WORK_PATH ))
+        frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
         extract_annotations (c, frame_info, collection_info, out_imagefile)
 
     conn.commit()

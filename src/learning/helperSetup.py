@@ -3,12 +3,10 @@ import logging, logging.handlers
 import shutil
 import sqlite3
 
-
 '''
 Everything one may need to process a database.
 The main interface functions are dbInit(), setParamUnlessThere(), assertParamIsThere()
 '''
-
 
 def atcity (path):
     return op.join(os.getenv('CITY_DATA_PATH'), path)

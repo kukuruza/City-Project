@@ -5,6 +5,12 @@ import os, sys
 import os.path as op
 import logging
 import helperSetup
+from pkg_resources import parse_version
+
+# returns OpenCV VideoCapture property id given, e.g., "FPS"
+def capPropId(prop):
+    OPCV3 = parse_version(cv2.__version__) >= parse_version('3')
+    return getattr(cv2 if OPCV3 else cv2.cv, ("" if OPCV3 else "CV_") + "CAP_PROP_" + prop)
 
 
 class ProcessorBase (object):
@@ -66,7 +72,7 @@ class ReaderVideo (ProcessorBase):
         frame_id = int(filter(lambda x: x.isdigit(), frame_name))  # number
         logging.debug ('from image_id %s, got frame_id %d' % (image_id, frame_id))
         # read the frame
-        video_dict[videopath].set(cv2.cv.CV_CAP_PROP_POS_FRAMES, frame_id)
+        video_dict[videopath].set(capPropId('POS_FRAMES'), frame_id)
         retval, img = video_dict[videopath].read()
         if not retval:
             raise Exception('could not read image_id %s' % image_id)
@@ -120,10 +126,10 @@ class ProcessorVideo (ReaderVideo):
 
     def _openVideoWriter_ (self, videofile, ref_video, ismask):
         ''' open a video for writing with parameters from the reference video (from reader) '''
-        width  = int(ref_video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
-        height = int(ref_video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
-        fourcc = int(ref_video.get(cv2.cv.CV_CAP_PROP_FOURCC))
-        fps    =     ref_video.get(cv2.cv.CV_CAP_PROP_FPS)
+        width  = int(ref_video.get(capPropId('FRAME_WIDTH')))
+        height = int(ref_video.get(capPropId('FRAME_HEIGHT')))
+        fourcc = int(ref_video.get(capPropId('FOURCC')))
+        fps    =     ref_video.get(capPropId('FPS'))
         frame_size = (width, height)
 
         self.frame_size[videofile] = frame_size
