@@ -166,7 +166,10 @@ def render_frame (frame_info, collection_dir, render_dir):
     
 
 
-setupLogging('log/augmentation/renderScene.log', logging.INFO, 'a')
+#bpy.context.user_preferences.system.compute_device_type = 'CUDA'
+#bpy.context.user_preferences.system.compute_device = 'CUDA_0'
+
+setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
 
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
 RENDER_DIR     = atcity('augmentation/render/current-frame')

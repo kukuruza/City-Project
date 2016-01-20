@@ -262,9 +262,11 @@ def process_video (args):
         assert op.exists(op.join(WORK_DIR, BACKGROUND_FILENAME))
 
         # generate traffic
-        #time = datetime.datetime.strptime(args.start_time, '%Y-%m-%d %H:%M:%S.%f')
-        #time += datetime.timedelta(minutes=int(float(i) / 960 * 40))
-        time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        if timestamp is None:
+            time = datetime.datetime.strptime(args.start_time, '%Y-%m-%d %H:%M:%S.%f')
+            time += datetime.timedelta(minutes=int(float(i) / 960 * 40))
+        else:
+            time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
         generate_current_frame (job_info['camera_file'], job_info['i_googlemap'], time, 
                                 job_info['num_cars'], job_info['weather'])
 
@@ -327,7 +329,7 @@ if __name__ == "__main__":
     parser.add_argument('--record_empty_frames', action='store_true')
     parser.add_argument('--frame_range', nargs='?', default='[::]', 
                         help='python style ranges, e.g. "[5::2]"')
-    #parser.add_argument('--start_time', nargs='?', default='2014-01-13 09:30:00.000') # temporary
+    parser.add_argument('--start_time', nargs='?', default='2014-01-13 09:30:00.000') # temporary
     parser.add_argument('--relpath', nargs='?', default=os.getenv('CITY_DATA_PATH'))
     parser.add_argument('--job_path')
     args = parser.parse_args()

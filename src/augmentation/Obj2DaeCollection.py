@@ -44,6 +44,6 @@ def scaleCollection (collection_dir, sc):
 collection_dir = op.join(os.getenv('CITY_DATA_PATH'), 
     'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810')
 
-scale = 1.08
+scale = 0.87
 
 scaleCollection (collection_dir, scale)
