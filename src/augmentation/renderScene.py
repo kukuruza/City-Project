@@ -11,6 +11,7 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/utilities'))
 import common
+from timer import Timer
 from helperSetup import atcity, setupLogging
 
 '''
@@ -88,6 +89,9 @@ def render_frame (frame_info, collection_dir, render_dir):
     # render the image from satellite, when debuging
     bpy.data.objects['-Satellite'].hide_render = not render_satellite
 
+    timer = Timer()
+    timer.tic()
+
     # place all cars
     for i,point in enumerate(points):
         if render_cars_as_cubes:
@@ -96,10 +100,13 @@ def render_frame (frame_info, collection_dir, render_dir):
         else:
             collection_id = point['collection_id']
             model_id = point['model_id']
-            dae_path = atcity(op.join(collection_dir, 'dae/%s.dae' % model_id))
+            dae_path = atcity(op.join(collection_dir, 'dae', '%s.dae' % model_id))
             car_group_name = 'car_group_%i' % i
             common.import_dae_car (dae_path, car_group_name)
             position_car (car_group_name, x=point['x'], y=point['y'], azimuth=point['azimuth'])
+
+    t_import = timer.toc()
+    timer.tic()
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
@@ -118,6 +125,9 @@ def render_frame (frame_info, collection_dir, render_dir):
     # render all cars without ground plane
     bpy.data.objects['-Ground'].hide_render = True
     common.render_scene(op.join(render_dir, CARSONLY_FILENAME))
+
+    t_misc = timer.toc()
+    timer.tic()
 
     # render just the car for each car (to extract bbox)
     if not render_cars_as_cubes:
@@ -140,6 +150,9 @@ def render_frame (frame_info, collection_dir, render_dir):
     #     car_group_name = 'car_group_%i' % i
     #     common.delete_car (car_group_name)
 
+    t_render = timer.toc()
+    timer.tic()
+
     if save_blend_file:
         # show all cars
         for i,point in enumerate(points):
@@ -148,6 +161,7 @@ def render_frame (frame_info, collection_dir, render_dir):
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
     # logging.info ('objects in the end of frame: %d' % len(bpy.data.objects))
+    logging.info ('time import: %f, render: %f, misc.: %f' % (t_import, t_misc, t_render))
     logging.info ('successfully finished a frame')
     
 
