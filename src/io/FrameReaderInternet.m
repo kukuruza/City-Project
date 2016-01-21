@@ -61,6 +61,7 @@ classdef FrameReaderInternet < FrameReaderInterface
                 
                 if self.verbose > 1, fprintf ('trying to read...\n'); end
                 try
+                    frame = [];
                     frame = imread([self.url num2str(now)]);
                 catch
                     if isempty(frame), continue; end

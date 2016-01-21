@@ -28,7 +28,7 @@ videoPath = [outFileTemplate, '.avi'];
 timestampPath = [outFileTemplate,'.txt'];
 
 % add status updates to remote monitor
-monitor = MonitorClient('config_path', 'etc/monitor.ini', 'cam_id', camId, 'verbose', 1);
+monitor = MonitorDownloadClient('config_path', 'etc/monitor.ini', 'cam_id', camId, 'verbose', 1);
 
 fprintf ('Will write video to %s\n', videoPath);
 fprintf ('Will write time  to %s\n', timestampPath);
@@ -48,7 +48,7 @@ while etime(t, t0) < numMinutes * 60
     fprintf(fid, '%s\n', timestamp);
     toc
     counter = counter + 1;
-    monitor.updateDownload();
+    monitor.updateDownload(timestamp);
 end
 
 fclose(fid);
