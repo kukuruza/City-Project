@@ -4,11 +4,12 @@ function downloadMultipleCams (camListPath, numMinutes, varargin)
 %   camdata/cam001/Jan01-01h
 %
 % Input:
-%   camListPath - path (relative to 'relpath') to text file with list of cameras
+%   camListPath - path (relative to 'relpath') to text file with list of cameras,
+%                   this file must have one camera number per line
 %   numMinutes  - number of minutes to download video for
 % Optional parameters:
 %   relpath     - defaults to CITY_DATA_PATH
-%   timeZone    - one of IANA timezones, defaults to NYC
+%   timeZone    - the default '-05:00' (for NYC in winter time)
 
 
 % set paths
@@ -24,7 +25,7 @@ parser = inputParser;
 addRequired(parser, 'camListPath', @ischar);
 addRequired(parser, 'numMinutes', @isscalar);
 addParameter(parser, 'relpath', CITY_DATA_PATH, @ischar);
-addParameter(parser, 'timeZone', 'America/New_York', @ischar);
+addParameter(parser, 'timeZone', '-05:00', @ischar);
 addParameter(parser, 'verbose', 1, @isscalar);
 parse (parser, camListPath, numMinutes, varargin{:});
 parsed = parser.Results;
