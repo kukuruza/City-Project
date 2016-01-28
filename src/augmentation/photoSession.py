@@ -80,8 +80,8 @@ for i, vehicle in enumerate(collection['vehicles']):
         print ('this model is marked broken, continue')
         continue
 
-    car_ds = vehicle['dims']  # dict with 'x', 'y', 'z' in meters
-    car_sz = sqrt(car_ds['x']*car_ds['x'] + car_ds['y']*car_ds['y'] + car_ds['z']*car_ds['z'])
+    dims = vehicle['dims']  # dict with 'x', 'y', 'z' in meters
+    car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
 
     blend_path = atcity(op.join(collection_dir, 'blend/%s.blend' % vehicle['model_id']))
     common.import_blend_car (blend_path, vehicle['model_id'], 'car')
