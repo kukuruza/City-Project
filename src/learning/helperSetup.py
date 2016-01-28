@@ -20,25 +20,25 @@ def setupLogHeader (db_in_path, db_out_path, params, name):
     logging.info ('params:      %s' % str(params))
 
 
-def _setupCopyDb_ (db_in_path, db_out_path):
+def _setupCopyDb_ (in_path, out_path):
     ''' 
-    First db_in_path is copied into db_out_path, which is backed-up if exists. 
-    All modifications are then done on db_out_path. 
-    db_in_path will never be modified later whatever bugs happen
+    First in_path is copied into out_path, which is backed-up if exists. 
+    All modifications are then done on out_path. 
+    in_path will never be modified later whatever bugs happen
     '''
-    if not op.exists (db_in_path):
-        raise Exception ('db does not exist: ' + db_in_path)
-    if op.exists (db_out_path):
-        logging.warning ('will back up existing db_out_path')
-        backup_path = db_out_path + '.backup'
-        if db_in_path != db_out_path:
+    if not op.exists (in_path):
+        raise Exception ('db does not exist: %s' % in_path)
+    if op.exists (out_path):
+        logging.warning ('will back up existing out_path')
+        backup_path = out_path + '.backup'
+        if in_path != out_path:
             if op.exists (backup_path): os.remove (backup_path)
-            os.rename (db_out_path, backup_path)
+            os.rename (out_path, backup_path)
         else:
-            shutil.copyfile(db_in_path, backup_path)
-    if db_in_path != db_out_path:
+            shutil.copyfile(in_path, backup_path)
+    if in_path != out_path:
         # copy input database into the output one
-        shutil.copyfile(db_in_path, db_out_path)
+        shutil.copyfile(in_path, out_path)
 
 
 def setParamUnlessThere (params, key, default_value):

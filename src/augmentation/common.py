@@ -24,27 +24,18 @@ def render_scene (filepath):
 
 
 
-def delete_car (car_group_name):
-    assert car_group_name in bpy.data.groups, '%s' % car_group_name
+def delete_car (car_name):
+    assert car_name in bpy.data.objects, '%s' % car_name
 
     # deselect all
     bpy.ops.object.select_all(action='DESELECT')  
     
-    # select objects in the group
-    for obj in bpy.data.groups[car_group_name].objects:
-        bpy.data.objects[obj.name].select = True
-
-    # remove all selected.
+    bpy.data.objects[car_name].select = True
     bpy.ops.object.delete()
-    assert len(bpy.context.selected_objects) == 0
-    assert len(bpy.data.groups[car_group_name].objects) == 0
-
-    # remove group itself
-    bpy.data.groups.remove(bpy.data.groups[car_group_name])
 
 
 
-def import_car (obj_path, car_group_name):
+def import_car_obj (obj_path, car_group_name):
     assert car_group_name not in bpy.data.groups, '%s' % car_group_name
 
     car_group = bpy.data.groups.new(car_group_name)
@@ -61,41 +52,69 @@ def import_car (obj_path, car_group_name):
         (car_group_name, len(bpy.data.groups[car_group_name].objects)))
 
 
-def import_dae_car (dae_path, car_group_name):
-    assert car_group_name not in bpy.data.groups, '%s' % car_group_name
+# def import_blend_group (blend_path, model_id):
+#     '''Import model_id GROUP from blend_path .blend file
+#     '''
+#     # append all groups from the .blend file
+#     with bpy.data.libraries.load(filepath=blend_path, link=False) as (data_src, data_dst):
+#         # only append a single group we already know the name of
+#         data_dst.groups = [model_id]
 
-    car_group = bpy.data.groups.new(car_group_name)
-
-    bpy.ops.wm.collada_import (filepath=dae_path)
-
-    # add all new objects (they are all selected now) to the group
-    for obj in bpy.context.selected_objects:
-        bpy.context.scene.objects.active = obj
-        bpy.ops.object.group_link (group=car_group_name)
-
-    assert car_group_name in bpy.data.groups
-    logging.debug ('in group "%s" there are %d objects' % 
-        (car_group_name, len(bpy.data.groups[car_group_name].objects)))
-
-
-def hide_car (car_group_name):
-    '''Tags each object in a car group invisible'''
-    assert car_group_name in bpy.data.groups
-
-    # hide each object in the group
-    for obj in bpy.data.groups[car_group_name].objects:
-        bpy.data.objects[obj.name].hide = True
-        bpy.data.objects[obj.name].hide_render = True
+#     # add the group instance to the scene
+#     scene = bpy.context.scene
+#     for group in data_dst.groups:
+#         obj = bpy.data.objects.new(group.name, None)
+#         obj.dupli_group = group
+#         obj.dupli_type = 'GROUP'
+#         scene.objects.link(obj)
 
 
-def show_car (car_group_name):
-    '''Tags each object in a car group visible'''
-    assert car_group_name in bpy.data.groups
+def import_blend_car (blend_path, model_id, car_name=None):
+    '''Import model_id object from blend_path .blend file, and rename it to car_name
+    '''
+    # append object from .blend file
+    with bpy.data.libraries.load(blend_path, link=False) as (data_src, data_dst):
+        data_dst.objects = [model_id]
 
-    # hide each object in the group
-    for obj in bpy.data.groups[car_group_name].objects:
-        bpy.data.objects[obj.name].hide = False
-        bpy.data.objects[obj.name].hide_render = False
+    # link object to current scene
+    obj = data_dst.objects[0]
+    assert obj is not None
+    bpy.context.scene.objects.link(obj)
+
+    # raname
+    if car_name is None: car_name = model_id
+    obj.name = car_name
+
+
+
+def join_car_meshes (model_id):
+    ''' Join all meshes in a model_id group into a single object. Keep group
+    Return:
+        active object (joined model)
+    '''
+    for obj in bpy.data.groups[model_id].objects:
+        bpy.data.objects[obj.name].select = True
+    bpy.context.scene.objects.active = bpy.data.groups[model_id].objects[0]
+    bpy.ops.object.join()
+    bpy.context.scene.objects.active.name = model_id
+    return bpy.context.scene.objects.active
+
+
+
+def hide_car (car_name):
+    '''Tags car object invisible'''
+    assert car_name in bpy.data.objects
+
+    bpy.data.objects[car_name].hide = True
+    bpy.data.objects[car_name].hide_render = True
+
+
+def show_car (car_name):
+    '''Tags car object visible'''
+    assert car_name in bpy.data.objects
+
+    bpy.data.objects[car_name].hide = False
+    bpy.data.objects[car_name].hide_render = False
 
 
 

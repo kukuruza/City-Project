@@ -60,16 +60,17 @@ def put_random_points (azimuth_map, num, lane_width_pxl, min_intercar_dist_pxl):
     return points
 
 
-def pick_vehicles (points, vehicle_info):
+def pick_vehicles (points, collections):
     '''For each point pick a random vehicle from the list
     '''
     for point in points:
         valid = False
         # keep choosing a car until find a valid one
-        while not valid: 
-            vehicle = choice(vehicle_info['vehicles'])
+        while not valid:
+            collection = choice(collections)
+            vehicle = choice(collection['vehicles'])
             valid = vehicle['valid'] if 'valid' in vehicle else True
-        point['collection_id'] = vehicle_info['collection_id']
+        point['collection_id'] = collection['collection_id']
         point['model_id'] = vehicle['model_id']
 
 
@@ -91,7 +92,6 @@ def axes_png2blender (points, origin, pxls_in_meter):
 
 
 
-collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
 sun_pose_file  = 'augmentation/resources/SunPosition-Jan13-09h.txt'
 
 # get sun angles. This is a hack for this particular video
@@ -106,16 +106,20 @@ for line in sun_pos_lines:
 
 
 
-def generate_current_frame (camera_file, i_googlemap, timestamp, num_cars, weather):
-    ''' Generate current-frame/traffic.json traffic file for a single frame
+def generate_current_frame (collection_names, camera_file, i_googlemap, timestamp, num_cars, weather, scale=1):
+    ''' Generate render/current-frame/traffic.json traffic file for a single frame
     '''
     # get azimuth map path
+    print (camera_file)
     camera_info    = json.load(open( atcity(camera_file) ))
     googlemap_info = camera_info['google_maps'][i_googlemap]
 
     # read the json file with cars data
-    collection_path = atcity(op.join(collection_dir, '_collection_.json'))
-    collection_info = json.load(open(collection_path))
+    collections = []
+    for collection_name in collection_names:
+        collection_path = atcity( op.join('augmentation/CAD', collection_name, 'readme.json') )
+        collection = json.load(open(collection_path))
+        collections.append(collection)
 
     # get the map of azimuths. 
     # it has gray values (r==g==b=) and alpha, saved as 4-channels
@@ -131,8 +135,8 @@ def generate_current_frame (camera_file, i_googlemap, timestamp, num_cars, weath
     axes_png2blender (points, googlemap_info['camera_origin'], 
                               googlemap_info['pxls_in_meter'])
 
-    # choose models from collection
-    pick_vehicles (points, collection_info)
+    # choose models from collections
+    pick_vehicles (points, collections)
 
     # figure out sun position based on the timestamp
     sun_pose = sun_poses [int(timestamp.hour*60) + timestamp.minute]
@@ -142,7 +146,8 @@ def generate_current_frame (camera_file, i_googlemap, timestamp, num_cars, weath
     frame_info = { 'sun_altitude': sun_pose['altitude'], \
                    'sun_azimuth':  sun_pose['azimuth'], \
                    'vehicles': points, \
-                   'weather': weather }
+                   'weather': weather,
+                   'scale': scale }
 
     with open(atcity( 'augmentation/render/current-frame/traffic.json' ), 'w') as f:
         f.write(json.dumps(frame_info, indent=4))
@@ -153,9 +158,10 @@ if __name__ == "__main__":
 
     setupLogging('log/augmentation/placeCars.log', logging.INFO, 'a')
 
-    camera_file    = 'camdata/cam717/readme.json'
-    i_googlemap    = 0
+    collection_names = ['7c7c2b02ad5108fe5f9082491d52810', 'uecadcbca-a400-428d-9240-a331ac5014f6']
+    camera_file    = 'camdata/cam572/readme.json'
+    i_googlemap    = 1
     num_cars       = 10
     weather        = ['Dry', 'Sunny']
 
-    generate_current_frame (camera_file, i_googlemap, datetime.datetime.now(), num_cars, weather)
+    generate_current_frame (collection_names, camera_file, i_googlemap, datetime.datetime.now(), num_cars, weather)

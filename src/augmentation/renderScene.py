@@ -9,9 +9,7 @@ from numpy.random import normal, uniform
 from mathutils import Color, Euler
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/utilities'))
 import common
-from timer import Timer
 from helperSetup import atcity, setupLogging
 
 '''
@@ -22,7 +20,7 @@ This file knows about how we store data in SQL
 # debug option
 render_satellite     = False
 render_cars_as_cubes = False
-save_blend_file      = False
+save_blend_file      = True
 
 # all inter-files name / path conventions
 TRAFFIC_FILENAME  = 'traffic.json'
@@ -31,31 +29,28 @@ CARSONLY_FILENAME = 'cars-only.png'
 CAR_RENDER_TEMPL  = 'vehicle-'
 
 
-def position_car (car_group_name, x, y, azimuth):
+def position_car (car_name, x, y, azimuth):
     '''Put the car to a certain position on the ground plane
     Args:
-      car_group_name:  name of a blender group
+      car_name:        name of the blender model
       x, y:            target position in the blender x,y coordinate frame
       azimuth:         yaw angle in degrees, 0 is North and 90 deg. is East
     '''
     # TODO: now assumes object is at the origin.
     #       instead of transform, assign coords and rotation
 
-    assert car_group_name in bpy.data.groups
+    assert car_name in bpy.data.objects
 
-    # deselect all
+    # select only car
     bpy.ops.object.select_all(action='DESELECT')  
-    
-    # select objects in the group
-    for obj in bpy.data.groups[car_group_name].objects:
-        bpy.data.objects[obj.name].select = True
+    bpy.data.objects[car_name].select = True
 
     bpy.ops.transform.translate (value=(x, y, 0))
     bpy.ops.transform.rotate (value=(90 - azimuth) * pi / 180, axis=(0,0,1))
 
 
 
-def render_frame (frame_info, collection_dir, render_dir):
+def render_frame (frame_info, render_dir):
     '''Position cars in 3D according to input, and render frame
     Args:
       frame_info:  dictionary with frame information
@@ -68,6 +63,7 @@ def render_frame (frame_info, collection_dir, render_dir):
 
     points  = frame_info['vehicles']
     weather = frame_info['weather']
+    scale   = frame_info['scale'] 
 
     # set weather
     if 'Dry'    in weather: 
@@ -89,9 +85,6 @@ def render_frame (frame_info, collection_dir, render_dir):
     # render the image from satellite, when debuging
     bpy.data.objects['-Satellite'].hide_render = not render_satellite
 
-    timer = Timer()
-    timer.tic()
-
     # place all cars
     for i,point in enumerate(points):
         if render_cars_as_cubes:
@@ -100,13 +93,11 @@ def render_frame (frame_info, collection_dir, render_dir):
         else:
             collection_id = point['collection_id']
             model_id = point['model_id']
-            dae_path = atcity(op.join(collection_dir, 'dae', '%s.dae' % model_id))
-            car_group_name = 'car_group_%i' % i
-            common.import_dae_car (dae_path, car_group_name)
-            position_car (car_group_name, x=point['x'], y=point['y'], azimuth=point['azimuth'])
-
-    t_import = timer.toc()
-    timer.tic()
+            blend_path = atcity(op.join('augmentation/CAD', collection_id, 'blend', '%s.blend' % model_id))
+            car_name = 'car_%i' % i
+            common.import_blend_car (blend_path, model_id, car_name)
+            position_car (car_name, x=point['x'], y=point['y'], azimuth=point['azimuth'])
+            bpy.ops.transform.resize (value=(scale, scale, scale))
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
@@ -126,42 +117,36 @@ def render_frame (frame_info, collection_dir, render_dir):
     bpy.data.objects['-Ground'].hide_render = True
     common.render_scene(op.join(render_dir, CARSONLY_FILENAME))
 
-    t_misc = timer.toc()
-    timer.tic()
-
     # render just the car for each car (to extract bbox)
     if not render_cars_as_cubes:
         # hide all cars
         for i,point in enumerate(points):
-            car_group_name = 'car_group_%i' % i
-            common.hide_car (car_group_name)
+            car_name = 'car_%i' % i
+            common.hide_car (car_name)
         # show, render, and hide each car one by one
         for i,point in enumerate(points):
-            car_group_name = 'car_group_%i' % i
-            common.show_car (car_group_name)
+            car_name = 'car_%i' % i
+            common.show_car (car_name)
             common.render_scene( op.join(render_dir, '%s%d.png' % (CAR_RENDER_TEMPL, i)) )
-            common.hide_car (car_group_name)
+            common.hide_car (car_name)
 
     bpy.data.objects['-Ground'].hide_render = False
 
 
-    # delete all cars
-    # for i,point in enumerate(points):
-    #     car_group_name = 'car_group_%i' % i
-    #     common.delete_car (car_group_name)
-
-    t_render = timer.toc()
-    timer.tic()
-
     if save_blend_file:
         # show all cars
         for i,point in enumerate(points):
-            car_group_name = 'car_group_%i' % i
-            common.show_car (car_group_name)
+            car_name = 'car_%i' % i
+            common.show_car (car_name)
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
+    # NOT USED now because the .blend file is discarded after this
+    # delete all cars
+    #for i,point in enumerate(points):
+    #    car_name = 'car_%i' % i
+    #    common.delete_car (car_name)
+
     # logging.info ('objects in the end of frame: %d' % len(bpy.data.objects))
-    logging.info ('time import: %f, render: %f, misc.: %f' % (t_import, t_misc, t_render))
     logging.info ('successfully finished a frame')
     
 
@@ -171,9 +156,8 @@ def render_frame (frame_info, collection_dir, render_dir):
 
 setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
 
-collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
 RENDER_DIR     = atcity('augmentation/render/current-frame')
 
 frame_info = json.load(open( op.join(RENDER_DIR, TRAFFIC_FILENAME) ))
 
-render_frame (frame_info, collection_dir, RENDER_DIR)
+render_frame (frame_info, RENDER_DIR)

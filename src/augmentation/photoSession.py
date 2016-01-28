@@ -13,7 +13,7 @@ from helperSetup import atcity
 
 
 collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
-patches_dir = 'augmentation/patches/'
+patches_dir = 'augmentation/patches1/'
 
 num_per_model = 1
 
@@ -67,40 +67,40 @@ def car_photo_session (num_per_model, car_sz, id_offset):
 print ('start photo session script')
 
 # open the blender file
-scene_path = op.join(os.getenv('CITY_PATH'), 'src/augmentation/photo-session.blend')
+scene_path = atcity('augmentation/scenes/photo-session.blend')
 bpy.ops.wm.open_mainfile (filepath=scene_path)
 
 # read the json file with cars data
-collection = json.load(open( atcity(op.join(collection_dir, '_collection_.json')) ))
+collection = json.load(open( atcity(op.join(collection_dir, 'readme.json')) ))
 
-for vehicle_id, vehicle_info in enumerate(collection['vehicles']):
+for i, vehicle in enumerate(collection['vehicles']):
 
-    print ('car name: "%s"' % vehicle_info['model_name'])
-    if 'valid' in vehicle_info and vehicle_info['valid'] == False:
+    print ('car name: "%s"' % vehicle['model_name'])
+    if 'valid' in vehicle and vehicle['valid'] == False:
         print ('this model is marked broken, continue')
         continue
 
-    car_ds = vehicle_info['dims']  # [x, y, z] in meters
-    car_sz = sqrt(car_ds[0]*car_ds[0] + car_ds[1]*car_ds[1] + car_ds[2]*car_ds[2])
+    car_ds = vehicle['dims']  # dict with 'x', 'y', 'z' in meters
+    car_sz = sqrt(car_ds['x']*car_ds['x'] + car_ds['y']*car_ds['y'] + car_ds['z']*car_ds['z'])
 
-    obj_path = atcity(op.join(collection_dir, 'obj/%s.obj' % vehicle_info['model_id']))
-    common.import_car (obj_path, 'car_group')
+    blend_path = atcity(op.join(collection_dir, 'blend/%s.blend' % vehicle['model_id']))
+    common.import_blend_car (blend_path, vehicle['model_id'], 'car')
 
     # make a photo session at sunny weather
     common.set_dry()
     common.set_sunny()
-    car_photo_session (num_per_model, car_sz, vehicle_id * 3)
+    car_photo_session (num_per_model, car_sz, i*3)
 
     # make a photo session at cloudy weather
     common.set_dry()
     common.set_cloudy()
-    car_photo_session (num_per_model, car_sz, vehicle_id * 3 + 1)
+    car_photo_session (num_per_model, car_sz, i*3+1)
 
     # make a photo session at rainy weather
     common.set_wet()
     common.set_cloudy()
-    car_photo_session (num_per_model, car_sz, vehicle_id * 3 + 2)
+    car_photo_session (num_per_model, car_sz, i*3+2)
 
-    common.delete_car ('car_group')
+    common.delete_car ('car')
 
 print ('finished photo session script')

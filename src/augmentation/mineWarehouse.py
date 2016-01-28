@@ -15,9 +15,6 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
 
 
-timeout = 30
-
-
 # delete special characters
 def validateString (str):
     return str.translate(string.maketrans('', ''), '\n\t"\\')
@@ -40,7 +37,7 @@ def download_model (browser, url, model_dir, args):
 
     # open the page with model
     browser.get(url)
-    WebDriverWait(browser, timeout=timeout).until(
+    WebDriverWait(browser, timeout=args.timeout).until(
         lambda x: x.find_element_by_id('title'))
 
     # get the model name
@@ -64,12 +61,23 @@ def download_model (browser, url, model_dir, args):
     button = browser.find_element_by_id('button-download')
     button.click()
 
-    # wait for the page to load
-    WebDriverWait(browser, timeout=timeout).until(
-        lambda x: x.find_element_by_id('download-option-s15'))
+    # wait for the page to load the download buttons
+    #   we check the latest skp versin first, then next, and next. Then raise.
+    for skp_version in ['s15', 's14', 's13', None]:
+        # skp_version None is the marker to give up
+        if skp_version is None:
+            raise Exception('Cannot find skp versions 15, 14, or 13')
+        try:
+            logging.info('trying to download skp version %s' % skp_version)
+            WebDriverWait(browser, timeout=args.timeout).until(
+                lambda x: x.find_element_by_id('download-option-%s' % skp_version))
+            break
+        except:
+            logging.info('model has not skp version %s. Try next.' % skp_version)
+
 
     # get the model link
-    element = browser.find_element_by_id('download-option-s15')
+    element = browser.find_element_by_id('download-option-%s' % skp_version)
     skp_href = element.get_attribute('href')
 
     # download the model
@@ -92,29 +100,35 @@ def download_collection (browser, url, CAD_dir, args):
     # collection_id is the last part of the url
     collection_id = url.split('=')[-1]
     collection_dir = op.join(CAD_dir, collection_id)
+    logging.info ('will download coleection_id: %s' % collection_id)
 
     # if collection exists
-    models_info = []
-    if op.exists(collection_dir):
+    collection_path = op.join(collection_dir, 'readme.json')
+    if op.exists(collection_path):
         # if 'overwrite' enabled, remove everything and write from scratch
         if args.overwrite_collection:
             shutil.rmtree(collection_dir)
         else:
             # if 'overwrite' disabled, try to read what was downloaded
             try:
-                collection_path = op.join(collection_dir, 'readme.json')
                 collection_info = json.load(open(collection_path))
                 models_info = collection_info['vehicles']
             # if 'overwrite' disabled and can't read/parse the readme
             except:
-                raise Exception('Failed to continue with collection due to error: %s'
+                raise Exception('Failed to parse the collection due to: %s'
                     % sys.exc_info()[0])
     else:
-        os.makedirs(op.join(collection_dir, 'skp'))
+        models_info = []
+        if not op.exists(op.join(collection_dir, 'skp_src')):
+            os.makedirs(op.join(collection_dir, 'skp_src'))
+
+    # try to create a dummy file in case the code below sucks
+    with open (op.join(collection_dir, 'dummy.txt'), 'w') as f: f.write('test')
+    os.remove (op.join(collection_dir, 'dummy.txt'))
 
     # open the page with model
     browser.get(url)
-    WebDriverWait(browser, timeout=timeout).until(
+    WebDriverWait(browser, timeout=args.timeout).until(
         lambda x: x.find_elements_by_class_name('results-entity-link'))
 
     # get collection name
@@ -147,17 +161,28 @@ def download_collection (browser, url, CAD_dir, args):
     for model_url in model_urls:
         model_id = model_url.split('=')[-1]
 
-        # maybe it's already there. Then skip
+        # why download anything at all? why not to just have a drink instead?
         model_info = _find_carmodel_in_vehicles_ (models_info, model_id)
-        if model_info is not None and ('valid' not in model_info or model_info['valid']):
-            logging.info ('skipping previously downloaded model_id %s' % model_id)
-            new_models_info.append(model_info)
-            count_skipped += 1
-            continue
+        if model_info is not None:
+            if 'valid' in model_info and not model_info['valid']:
+                assert 'error' in model_info
+                if model_info['error'] == 'download failed: timeout error':
+                    logging.info ('re-doing previously failed download: %s' % model_id)
+                else:
+                    logging.info ('skipping bad for some reason model: %s' % model_id)
+                    count_skipped += 1
+                    continue
+            else:
+                logging.info ('skipping previously downloaded model_id %s' % model_id)
+                new_models_info.append(model_info)
+                count_skipped += 1
+                continue
+        else:
+            logging.info ('downloading a new model: %s' % model_id)
 
         try:
             logging.debug('model url: %s' % model_url)
-            model_dir = op.join(collection_dir, 'skp')
+            model_dir = op.join(collection_dir, 'skp_src')
             model_info = download_model (browser, model_url, model_dir, args)
             count_downloaded += 1
         except:
@@ -165,7 +190,7 @@ def download_collection (browser, url, CAD_dir, args):
                 % (model_id, sys.exc_info()[0]))
             model_info = {'model_id': model_id, 
                           'valid': False,
-                          'comment': 'reason for invalid: timeout error'}
+                          'error': 'download failed: timeout error'}
             count_failed += 1
         new_models_info.append(model_info)
 
@@ -190,17 +215,15 @@ def download_collection (browser, url, CAD_dir, args):
 if __name__ == "__main__":
     setupLogging('log/augmentation/mineWarehouse.log', logging.INFO, 'w')
 
-    CAD_dir = '/Users/evg/projects/City-Project/data/augmentation/CAD'
-    collection_dir = '/Users/evg/projects/City-Project/data/augmentation/CAD/uecadcbca-a400-428d-9240-a331ac5014f6/skp/'
-    #url = 'https://3dwarehouse.sketchup.com/model.html?id=4785f0eb63695789ebd80ce91f51b88c'
-    url = 'https://3dwarehouse.sketchup.com/collection.html?id=uecadcbca-a400-428d-9240-a331ac5014f6'
+    CAD_dir = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/CAD')
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--collection_url')
     parser.add_argument('--overwrite_collection', action='store_true')
     parser.add_argument('--vehicle_type', nargs='?', default='')
-    args = parser.parse_args(['--vehicle_type', 'schoolbus'])
+    parser.add_argument('--timeout', nargs='?', default=10, type=int)
+    args = parser.parse_args()
 
     # use firefox to get page with javascript generated content
     with closing(Firefox()) as browser:
-        download_collection (browser, url, CAD_dir, args)
-        # print download_model (browser, url, collection_dir, args)
+        download_collection (browser, args.collection_url, CAD_dir, args)

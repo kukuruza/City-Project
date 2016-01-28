@@ -19,7 +19,7 @@ import subprocess
 import shutil
 from video2dataset import video2dataset
 from helperImg import ProcessorVideo
-from helperSetup import _setupCopyDb_, setupLogging
+from helperSetup import _setupCopyDb_, setupLogging, atcity
 from placeCars import generate_current_frame
 
 # All rendering by blender takes place in WORK_DIR
@@ -69,27 +69,27 @@ def extract_bbox (render_png_path):
     return (x1, y1, width, height)
 
 
-def _find_carmodel_by_id_ (collection_info, model_id):
+def _find_carmodel_by_id_ (collection, model_id):
     # TODO: replace sequential search with an elasticsearch index
-    for carmodel in collection_info['vehicles']:
+    for carmodel in collection['vehicles']:
         if carmodel['model_id'] == model_id:
             return carmodel
     return None
 
 
-def extract_annotations (c, frame_info, collection_info, imagefile):
+def extract_annotations (c, traffic, collections_dict, imagefile):
     '''Parse output of render and all metadata into our SQL format.
     This function knows about SQL format.
     Args:
         c:                cursor to existing db in our format
-        frame_info:       info on the pose of every car in the frame, 
+        traffic:          info on the pose of every car in the frame, 
                           and its id within car collections
-        collection_info:  info about car models
+        collections_dict: dict of collection_id -> collection
         imagefile:        database entry
     Returns:
         nothing
     '''
-    points = frame_info['vehicles']
+    points = traffic['vehicles']
 
     for i,point in enumerate(points):
         # get bbox
@@ -98,7 +98,8 @@ def extract_annotations (c, frame_info, collection_info, imagefile):
         if bbox is None: continue
 
         # get vehicle "name" (that is, type)
-        carmodel = _find_carmodel_by_id_ (collection_info, point['model_id'])
+        collection = collections_dict[point['collection_id']]
+        carmodel = _find_carmodel_by_id_ (collection, point['model_id'])
         assert carmodel is not None
         name = carmodel['vehicle_type']
 
@@ -126,7 +127,8 @@ def process_current_frame (args):
     if not args.no_traffic:
         # generate traffic
         timestamp = datetime.datetime.now()
-        generate_current_frame (job_info['camera_file'], job_info['i_googlemap'], timestamp, 
+        generate_current_frame (job_info['collections'],
+                                job_info['camera_file'], job_info['i_googlemap'], timestamp, 
                                 job_info['num_cars'], job_info['weather'])
 
     if not args.no_render:
@@ -199,14 +201,15 @@ def process_video (args):
     render_scene_path    = op.join(args.relpath, job_info['render_scene_file'])
     combine_scene_path   = op.join(args.relpath, job_info['combine_scene_file'])
 
-    # load vehicle models data
-    collection_dir = 'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810'
-    collection_path = op.join(os.getenv('CITY_DATA_PATH'), collection_dir, '_collection_.json')
-    collection_info = json.load(open(collection_path))
-
     # load camera dimensions (compare it to everything for extra safety)
     camera_info = json.load(open( op.join(os.getenv('CITY_DATA_PATH'), job_info['camera_file']) ))
     width0, height0 = camera_info['camera_dims']['width'], camera_info['camera_dims']['height']
+
+    # load vehicle models collections
+    collections_dict = {}
+    for collection_id in job_info['collections']:
+        collection_path = atcity(op.join('augmentation/CAD', collection_id, 'readme.json'))
+        collections_dict[collection_id] = json.load(open(collection_path))
 
     # copy input db to output and open it
     _setupCopyDb_ (in_db_path, out_db_path)
@@ -267,8 +270,9 @@ def process_video (args):
             time += datetime.timedelta(minutes=int(float(i) / 960 * 40))
         else:
             time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-        generate_current_frame (job_info['camera_file'], job_info['i_googlemap'], time, 
-                                job_info['num_cars'], job_info['weather'])
+        generate_current_frame (job_info['collections'],
+                                job_info['camera_file'], job_info['i_googlemap'], time, 
+                                job_info['num_cars'], job_info['weather'], args.scale)
 
         # remove so that they do not exist if blender fails
         if op.exists(op.join(WORK_DIR, NORMAL_FILENAME)):
@@ -310,7 +314,7 @@ def process_video (args):
                     (out_imagefile, out_maskfile, in_backfile))
 
         frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-        extract_annotations (c, frame_info, collection_info, out_imagefile)
+        extract_annotations (c, frame_info, collections_dict, out_imagefile)
 
     conn.commit()
     conn.close()
@@ -330,6 +334,7 @@ if __name__ == "__main__":
     parser.add_argument('--frame_range', nargs='?', default='[::]', 
                         help='python style ranges, e.g. "[5::2]"')
     parser.add_argument('--start_time', nargs='?', default='2014-01-13 09:30:00.000') # temporary
+    parser.add_argument('--scale', nargs='?', default=1, type=float)  # why all cars are too big?
     parser.add_argument('--relpath', nargs='?', default=os.getenv('CITY_DATA_PATH'))
     parser.add_argument('--job_path')
     args = parser.parse_args()
