@@ -4,6 +4,7 @@ import argparse
 import logging
 import collections
 import time
+from math import cos, sin, pi, sqrt
 
 import bpy
 from mathutils import Vector
@@ -12,6 +13,15 @@ sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import setupLogging, _setupCopyDb_  # untended use of _setupCopyDb_
 import common
+
+
+
+width_true = {'truck': 2.5, 'van': 2.2, 'taxi': 1.9, 
+              'sedan': 1.9, 'bus': 2.5, 'schoolbus': 2.5}
+
+
+class MinHeightException(Exception):
+    pass
 
 
 class Timer(object):
@@ -112,10 +122,12 @@ def get_origin_and_dims (car_group_name, height_ratio = 0.33):
             x_max_body = max(roi.x.max, x_max_body)
             count_below_height_ratio += 1
     # check the number of objects that are low enough
-    logging.debug ('out of %d objects, %d are below height_ratio' % \
-        (len(bpy.data.groups[car_group_name].objects), count_below_height_ratio))
-    if count_below_height_ratio == 0:
-        raise Exception('cannot find objects below %.2f of height' % height_ratio)
+    count_all = len(bpy.data.groups[car_group_name].objects)
+    logging.debug ('out of %d objects, %d are below height_ratio %f' % \
+        (count_all, count_below_height_ratio, height_ratio))
+    Min_count_below_height_ratio = 10
+    if count_below_height_ratio < Min_count_below_height_ratio:
+        raise MinHeightException('not enough objects below %.2f of height' % height_ratio)
 
     # verbose output
     length_body    = x_max_body - x_min_body
@@ -136,31 +148,27 @@ def get_origin_and_dims (car_group_name, height_ratio = 0.33):
     return origin, dims
 
 
-
-def measure_load_times (collection_dir, vehicle, record_to_vehicle=False):
-    '''Measures time to load a model from .blend file and print this time
+def get_origin_and_dims_adjusted (car_group_name):
+    '''Run get_origin_and_dims with different parameters for adjusted result
     '''
-    model_id = vehicle['model_id']
-    logging.info ('measure load time for model: %s' % model_id)
+    # first compensate for mirrors and save adjusted width
+    for height_ratio in [0.1, 0.2, 0.33, 0.5, 0.7, 1]:
+        try:
+            logging.debug ('get_origin_and_dims_adjusted: trying %f' % height_ratio)
+            _, dims = get_origin_and_dims (car_group_name, height_ratio)
+            adjusted_width = dims['y']
+            break
+        except MinHeightException:
+            logging.debug ('height_ratio %f failed' % height_ratio)
 
-    blend_path = op.join(collection_dir, 'blend', '%s.blend' % model_id)
-
-    timer = Timer()
-    timer.tic()
-
-    common.import_blend_car (blend_path, model_id)
-
-    t = timer.toc()
-    logging.info ('time to load the model: %.2f sec.' % t)
-    if record_to_vehicle: vehicle['load_blend_file_time'] = round(t, 2)
-
-    out_blend_path = op.join(collection_dir, 'blend1', '%s.blend' % model_id)
-    bpy.ops.wm.save_as_mainfile(filepath=out_blend_path)
-    common.delete_car(model_id)
+    # then do not compensate for anything for correct length and height
+    origin, dims = get_origin_and_dims (car_group_name, height_ratio = 1)
+    dims['y'] = adjusted_width
+    return origin, dims
+    
 
 
-
-def process_car (collection_dir, vehicle, dims_true):
+def process_car (scene_path, collection_dir, vehicle, dims_true):
     '''Rewrites all .obj models as .blend files. 
     The model will consist of many, many parts, and be all in one group
     Returns:
@@ -173,6 +181,9 @@ def process_car (collection_dir, vehicle, dims_true):
     blend_path = op.join(collection_dir, 'blend', '%s.blend' % model_id)
     jpg_path   = op.join(collection_dir, 'examples', '%s.png' % model_id)
 
+    # start with an empty file
+    bpy.ops.wm.open_mainfile(filepath=scene_path)
+
     try:
         common.import_car_obj(obj_path, car_group_name=model_id)
     except:
@@ -183,7 +194,7 @@ def process_car (collection_dir, vehicle, dims_true):
 
     # rotate model 90 degrees if necessary
     try:
-        origin, dims = get_origin_and_dims(car_group_name=model_id)
+        origin, dims = get_origin_and_dims (model_id, height_ratio = 1)
     except Exception as e:
         logging.error (str(e))
         vehicle['valid'] = False
@@ -196,11 +207,10 @@ def process_car (collection_dir, vehicle, dims_true):
         logging.info ('will NOT rotate: x=%.2f > y=%.2f' % (dims['x'], dims['y']))
 
     # get the origin and dims. At this point model is oriented along X
-    origin, dims = get_origin_and_dims(car_group_name=model_id)
-    width_model = dims['y']
-    logging.info ('model width: %.2f' % width_model)
+    origin, dims = get_origin_and_dims_adjusted (model_id)
+    logging.info ('model width: %.2f' % dims['y'])
 
-    # # we don't need model parts anymore (they were used in get_origin_and_dims)
+    # we don't need model parts anymore (they were used in get_origin_and_dims)
     obj = common.join_car_meshes (model_id)
     obj.select = True
 
@@ -210,9 +220,8 @@ def process_car (collection_dir, vehicle, dims_true):
     obj.location = (0, 0, 0)
 
     # scale the model, according to the width
-    width_true  = dims_true['y']
-    scale = width_true / width_model
-    logging.info ('true width: %.2f, scale: %.2f' % (width_true, scale))
+    scale = dims_true['y'] / dims['y']
+    logging.info ('true width: %.2f, scale: %f' % (dims_true['y'], scale))
     bpy.ops.transform.resize (value=(scale, scale, scale))
     # scale dims and round to cm for json output
     dims.update((x, round(y * scale, 2)) for x, y in dims.items())
@@ -223,7 +232,7 @@ def process_car (collection_dir, vehicle, dims_true):
 
     bpy.ops.wm.save_as_mainfile(filepath=blend_path)
 
-    bpy.ops.object.delete()
+    #bpy.ops.object.delete()
     vehicle['valid'] = True
 
 
@@ -231,12 +240,13 @@ def process_car (collection_dir, vehicle, dims_true):
 
 
 
-def process_collection (collection_dir):
+def process_collection (collection_dir, scene_path):
 
-    collection_path = op.join(collection_dir, 'readme.json')
+    collection_old_path = op.join(collection_dir, 'readme-src.json')
+    collection_new_path = op.join(collection_dir, 'readme-blended.json')
     # back up collection json
-    _setupCopyDb_ (collection_path, collection_path)
-    collection = json.load(open(collection_path))
+    _setupCopyDb_ (collection_old_path, collection_new_path)
+    collection = json.load(open(collection_old_path))
 
     if not op.exists (op.join(collection_dir, 'blend')):
         os.makedirs (op.join(collection_dir, 'blend'))
@@ -252,17 +262,17 @@ def process_collection (collection_dir):
         if 'dims_true' in vehicle:
             dims_true = vehicle['dims_true']
         else:
-            dims_true = collection['dims_default']
+            # defaults for each vehicle type
+            dims_true = {'y': width_true[vehicle['vehicle_type']]}
         logging.info ('will use true dims: %s' % str(dims_true))
 
-        process_car (collection_dir, vehicle, dims_true)
-        #measure_load_times (collection_dir, vehicle, True)
+        process_car (scene_path, collection_dir, vehicle, dims_true)
 
         # update collection
         collection['vehicles'][i] = vehicle
 
     # rewrite the collection
-    with open(collection_path, 'w') as f:
+    with open(collection_new_path, 'w') as f:
         f.write(json.dumps(collection, indent=4))
 
 
@@ -276,9 +286,11 @@ def process_collection (collection_dir):
 #
 #    scaleCollection (args.collection_path, args.scale)
 
+scene_path = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/scenes/empty-import.blend')
+
 collection_dir = op.join(os.getenv('CITY_DATA_PATH'), 
-    'augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810')
+    'augmentation/CAD/uc1135bf8-8da1-4dc5-8278-21bb11669535')
 
 setupLogging('log/augmentation/Obj2Blend.log', logging.DEBUG, 'w')
 
-process_collection (collection_dir)
+process_collection (collection_dir, scene_path)

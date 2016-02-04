@@ -34,7 +34,7 @@ def position_car (car_name, x, y, azimuth):
     Args:
       car_name:        name of the blender model
       x, y:            target position in the blender x,y coordinate frame
-      azimuth:         yaw angle in degrees, 0 is North and 90 deg. is East
+      azimuth:         angle in degrees, 0 is North (y-axis) and 90 deg. is East
     '''
     # TODO: now assumes object is at the origin.
     #       instead of transform, assign coords and rotation

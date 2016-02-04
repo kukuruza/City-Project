@@ -5,9 +5,11 @@ import json
 import numpy as np
 import cv2
 import argparse
+from math import pi, atan, atan2, pow, sqrt
 
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/monitor'))
 import logging
 import sqlite3
 import datetime
@@ -21,6 +23,7 @@ from video2dataset import video2dataset
 from helperImg import ProcessorVideo
 from helperSetup import _setupCopyDb_, setupLogging, atcity
 from placeCars import generate_current_frame
+from MonitorDatasetClient import MonitorDatasetClient
 
 # All rendering by blender takes place in WORK_DIR
 WORK_DIR          = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/render/current-frame')
@@ -35,6 +38,9 @@ assert os.getenv('BLENDER_ROOT') is not None, \
     'export BLENDER_ROOT with path to blender binary as environmental variable'
 
 
+def _sq_(x): return pow(x,2)
+
+def _get_norm_xy_(a): return sqrt(_sq_(a['x']) + _sq_(a['y']))
 
 def image2ghost (image_path, background_path, out_path):
     '''Subtract background from image and save as the ghost frame
@@ -77,7 +83,7 @@ def _find_carmodel_by_id_ (collection, model_id):
     return None
 
 
-def extract_annotations (c, traffic, collections_dict, imagefile):
+def extract_annotations (c, traffic, collections_dict, camera_pose, imagefile, monitor=None):
     '''Parse output of render and all metadata into our SQL format.
     This function knows about SQL format.
     Args:
@@ -85,28 +91,38 @@ def extract_annotations (c, traffic, collections_dict, imagefile):
         traffic:          info on the pose of every car in the frame, 
                           and its id within car collections
         collections_dict: dict of collection_id -> collection
+        camera_pose:      dict of camera height and orientation
         imagefile:        database entry
+        monitor:          MonitorDatasetClient object for uploading vehicle info
     Returns:
         nothing
     '''
-    points = traffic['vehicles']
+    for i,vehicle in enumerate(traffic['vehicles']):
 
-    for i,point in enumerate(points):
         # get bbox
         render_png_path = op.join (WORK_DIR, 'vehicle-%d.png' % i)
         bbox = extract_bbox (render_png_path)
         if bbox is None: continue
 
         # get vehicle "name" (that is, type)
-        collection = collections_dict[point['collection_id']]
-        carmodel = _find_carmodel_by_id_ (collection, point['model_id'])
+        collection = collections_dict[vehicle['collection_id']]
+        carmodel = _find_carmodel_by_id_ (collection, vehicle['model_id'])
         assert carmodel is not None
         name = carmodel['vehicle_type']
 
+        # get vehicle angles (camera roll is assumed small and ignored)
+        azimuth_view = -atan2(vehicle['y'], vehicle['x']) * 180 / pi
+        yaw = 180 - vehicle['azimuth'] + azimuth_view
+        pitch = atan(camera_pose['height'] / _get_norm_xy_(vehicle)) * 180 / pi
+
         # put all info together and insert into the db
-        entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], None)
-        c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,score) 
-                     VALUES (?,?,?,?,?,?,?);''', entry)
+        entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], yaw, pitch)
+        c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,yaw,pitch) 
+                     VALUES (?,?,?,?,?,?,?,?);''', entry)
+
+        if monitor is not None:
+            monitor.upload_vehicle({'vehicle_type': name, 'yaw': yaw, 'pitch': pitch,
+                                    'width': bbox[2], 'height': bbox[3]})
 
 
 
@@ -204,6 +220,11 @@ def process_video (args):
     # load camera dimensions (compare it to everything for extra safety)
     camera_info = json.load(open( op.join(os.getenv('CITY_DATA_PATH'), job_info['camera_file']) ))
     width0, height0 = camera_info['camera_dims']['width'], camera_info['camera_dims']['height']
+    # load camera pose (deduce objects angles from it)
+    camera_pose = camera_info['camera_pose']
+
+    # upload inof on parsed vehicles to the monitor server
+    monitor = MonitorDatasetClient (cam_id=camera_info['cam_id'])
 
     # load vehicle models collections
     collections_dict = {}
@@ -314,7 +335,7 @@ def process_video (args):
                     (out_imagefile, out_maskfile, in_backfile))
 
         frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-        extract_annotations (c, frame_info, collections_dict, out_imagefile)
+        extract_annotations (c, frame_info, collections_dict, camera_pose, out_imagefile, monitor)
 
     conn.commit()
     conn.close()

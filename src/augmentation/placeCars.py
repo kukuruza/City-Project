@@ -136,7 +136,7 @@ def generate_current_frame (collection_names, camera_file, i_googlemap, timestam
 
     # choose vehicle positions
     vehicles = put_random_vehicles (azimuth_map, pxl_in_meter, collections, num_cars, 
-                                    intercar_dist_mult=1.0)
+                                    intercar_dist_mult=1.5)
 
     axes_png2blender (vehicles, googlemap_info['camera_origin'], 
                                 googlemap_info['pxls_in_meter'])

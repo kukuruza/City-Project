@@ -10,6 +10,9 @@ import json
 import string
 import argparse
 import shutil
+import time
+
+README_NAME = 'readme-src.json'
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
@@ -53,9 +56,15 @@ def download_model (browser, url, model_dir, args):
     model_info = {'model_id':     model_id,
                   'model_name':   model_name,
                   'vehicle_type': args.vehicle_type,
-                  'description':  description}
+                  'description':  description,
+                  'valid':        True}
     logging.debug ('vehicle info: %s' % str(model_info))
     print (json.dumps(model_info, indent=4))
+
+    skp_path = op.join(model_dir, '%s.skp' % model_id)
+    if op.exists(skp_path): 
+        logging.info ('skp file already exists for model_id: %s' % model_id)
+        return model_info
 
     # click on download button
     button = browser.find_element_by_id('button-download')
@@ -84,15 +93,64 @@ def download_model (browser, url, model_dir, args):
     logging.info ('downloading model_id: %s' % model_id)
     logging.debug('downloading skp from url: %s' % skp_href)
     f = urllib2.urlopen(skp_href)
-    skp_path = op.join(model_dir, '%s.skp' % model_id)
     with open(skp_path, 'wb') as local_file:
         local_file.write(f.read())
 
-    # store it to string variable
-    #page_source = browser.page_source.encode("utf-8")
-
     logging.info ('finished with model_id: %s' % model_id)
     return model_info
+
+
+def download_all_models (model_urls, models_info, collection_dir):
+
+    new_models_info = []
+    counts = {'skipped': 0, 'downloaded': 0, 'failed': 0}
+
+    # got to each model and download it
+    for model_url in model_urls:
+        model_id = model_url.split('=')[-1]
+
+        model_info = _find_carmodel_in_vehicles_ (models_info, model_id)
+        # if this model was previously failed to be recorded
+        if model_info is not None:
+            if 'valid' in model_info and not model_info['valid']:
+                assert 'error' in model_info
+                if model_info['error'] == 'download failed: timeout error':
+                    logging.info ('re-doing previously failed download: %s' % model_id)
+                else:
+                    logging.info ('skipping bad for some reason model: %s' % model_id)
+                    counts['skipped'] += 1
+                    continue
+            else:
+                logging.info ('skipping previously downloaded model_id %s' % model_id)
+                model_info['valid'] = True
+                new_models_info.append(model_info)
+                counts['skipped'] += 1
+                continue
+        # if this is an unseen model
+        else:
+            logging.info ('this model is not seen before: %s' % model_id)
+
+        try:
+            logging.debug('model url: %s' % model_url)
+            model_dir = op.join(collection_dir, 'skp_src')
+            model_info = download_model (browser, model_url, model_dir, args)
+            counts['downloaded'] += 1
+        except:
+            logging.error('model_id %s was not downloaded because of error: %s'
+               % (model_id, sys.exc_info()[0]))
+            model_info = {'model_id': model_id, 
+                          'valid': False,
+                          'error': 'download failed: timeout error'}
+            counts['failed'] += 1
+        new_models_info.append(model_info)
+
+    logging.info ('out of %d models in collection: \n' % len(model_urls) +
+                  '    skipped:     %d\n' % counts['skipped'] + 
+                  '    downloaded:  %d\n' % counts['downloaded'] +
+                  '    failed:      %d\n' % counts['failed'])
+
+    return new_models_info    
+
 
 
 def download_collection (browser, url, CAD_dir, args):
@@ -103,7 +161,7 @@ def download_collection (browser, url, CAD_dir, args):
     logging.info ('will download coleection_id: %s' % collection_id)
 
     # if collection exists
-    collection_path = op.join(collection_dir, 'readme.json')
+    collection_path = op.join(collection_dir, README_NAME)
     if op.exists(collection_path):
         # if 'overwrite' enabled, remove everything and write from scratch
         if args.overwrite_collection:
@@ -122,11 +180,7 @@ def download_collection (browser, url, CAD_dir, args):
         if not op.exists(op.join(collection_dir, 'skp_src')):
             os.makedirs(op.join(collection_dir, 'skp_src'))
 
-    # try to create a dummy file in case the code below sucks
-    with open (op.join(collection_dir, 'dummy.txt'), 'w') as f: f.write('test')
-    os.remove (op.join(collection_dir, 'dummy.txt'))
-
-    # open the page with model
+    # open the page with collection
     browser.get(url)
     WebDriverWait(browser, timeout=args.timeout).until(
         lambda x: x.find_elements_by_class_name('results-entity-link'))
@@ -143,57 +197,25 @@ def download_collection (browser, url, CAD_dir, args):
     author_name = element.text.encode('utf-8')
     author_name = validateString(author_name)
 
+    # keep scrolling the page until models show up (for pages with many models)
+    prev_number = 0
+    while True:
+        browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        elements = browser.find_elements_by_class_name('results-entity-link')
+        logging.info ('found %d models' % len(elements))
+        if prev_number == len(elements):
+            break
+        else:
+            prev_number = len(elements)
+            time.sleep(1)
     # get the model urls
-    elements = browser.find_elements_by_class_name('results-entity-link')
-    logging.info ('found %d models' % len(elements))
     model_urls = []
     for element in elements:
         model_url = element.get_attribute('href')
         model_urls.append(model_url)
 
-    # bookkeeping
-    new_models_info = []
-    count_skipped = 0
-    count_downloaded = 0
-    count_failed = 0
-
-    # got to each model and download it
-    for model_url in model_urls:
-        model_id = model_url.split('=')[-1]
-
-        # why download anything at all? why not to just have a drink instead?
-        model_info = _find_carmodel_in_vehicles_ (models_info, model_id)
-        if model_info is not None:
-            if 'valid' in model_info and not model_info['valid']:
-                assert 'error' in model_info
-                if model_info['error'] == 'download failed: timeout error':
-                    logging.info ('re-doing previously failed download: %s' % model_id)
-                else:
-                    logging.info ('skipping bad for some reason model: %s' % model_id)
-                    count_skipped += 1
-                    continue
-            else:
-                logging.info ('skipping previously downloaded model_id %s' % model_id)
-                new_models_info.append(model_info)
-                count_skipped += 1
-                continue
-        else:
-            logging.info ('downloading a new model: %s' % model_id)
-
-        try:
-            logging.debug('model url: %s' % model_url)
-            model_dir = op.join(collection_dir, 'skp_src')
-            model_info = download_model (browser, model_url, model_dir, args)
-            count_downloaded += 1
-        except:
-            logging.error('model_id %s was not downloaded because of error: %s'
-                % (model_id, sys.exc_info()[0]))
-            model_info = {'model_id': model_id, 
-                          'valid': False,
-                          'error': 'download failed: timeout error'}
-            count_failed += 1
-        new_models_info.append(model_info)
-
+    # download all models
+    new_models_info = download_all_models (model_urls, models_info, collection_dir)
 
     collection_info = {'collection_id': collection_id,
                        'collection_name': collection_name,
@@ -202,12 +224,7 @@ def download_collection (browser, url, CAD_dir, args):
                        'vehicles': new_models_info
                        }
 
-    logging.info ('out of %d models in collection: \n' % len(model_urls) +
-                  '    skipped:     %d\n' % count_skipped + 
-                  '    downloaded:  %d\n' % count_downloaded +
-                  '    failed:      %d\n' % count_failed)
-    
-    with open (op.join(collection_dir, 'readme.json'), 'w') as f:
+    with open (op.join(collection_dir, README_NAME), 'w') as f:
         f.write(json.dumps(collection_info, indent=4))
 
 
@@ -220,7 +237,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--collection_url')
     parser.add_argument('--overwrite_collection', action='store_true')
-    parser.add_argument('--vehicle_type', nargs='?', default='')
+    parser.add_argument('--vehicle_type', nargs='?', default='object')
     parser.add_argument('--timeout', nargs='?', default=10, type=int)
     args = parser.parse_args()
 
