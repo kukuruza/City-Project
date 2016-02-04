@@ -23,7 +23,13 @@ from video2dataset import video2dataset
 from helperImg import ProcessorVideo
 from helperSetup import _setupCopyDb_, setupLogging, atcity
 from placeCars import generate_current_frame
+from cad_es_interface import CAD_ES_interface
 from MonitorDatasetClient import MonitorDatasetClient
+from cad_es_interface import CAD_ES_interface
+
+
+# open interface to ElasticSerach database
+cad_db = CAD_ES_interface()
 
 # All rendering by blender takes place in WORK_DIR
 WORK_DIR          = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/render/current-frame')
@@ -83,14 +89,13 @@ def _find_carmodel_by_id_ (collection, model_id):
     return None
 
 
-def extract_annotations (c, traffic, collections_dict, camera_pose, imagefile, monitor=None):
+def extract_annotations (c, traffic, camera_pose, imagefile, monitor=None):
     '''Parse output of render and all metadata into our SQL format.
     This function knows about SQL format.
     Args:
         c:                cursor to existing db in our format
         traffic:          info on the pose of every car in the frame, 
                           and its id within car collections
-        collections_dict: dict of collection_id -> collection
         camera_pose:      dict of camera height and orientation
         imagefile:        database entry
         monitor:          MonitorDatasetClient object for uploading vehicle info
@@ -105,10 +110,10 @@ def extract_annotations (c, traffic, collections_dict, camera_pose, imagefile, m
         if bbox is None: continue
 
         # get vehicle "name" (that is, type)
-        collection = collections_dict[vehicle['collection_id']]
-        carmodel = _find_carmodel_by_id_ (collection, vehicle['model_id'])
-        assert carmodel is not None
-        name = carmodel['vehicle_type']
+        model = cad_db.get_model_by_id_and_collection (vehicle['model_id'], 
+                                                       vehicle['collection_id'])
+        assert model is not None
+        name = model['vehicle_type']
 
         # get vehicle angles (camera roll is assumed small and ignored)
         azimuth_view = -atan2(vehicle['y'], vehicle['x']) * 180 / pi
@@ -226,12 +231,6 @@ def process_video (args):
     # upload inof on parsed vehicles to the monitor server
     monitor = MonitorDatasetClient (cam_id=camera_info['cam_id'])
 
-    # load vehicle models collections
-    collections_dict = {}
-    for collection_id in job_info['collections']:
-        collection_path = atcity(op.join('augmentation/CAD', collection_id, 'readme.json'))
-        collections_dict[collection_id] = json.load(open(collection_path))
-
     # copy input db to output and open it
     _setupCopyDb_ (in_db_path, out_db_path)
     conn = sqlite3.connect (out_db_path)
@@ -335,7 +334,7 @@ def process_video (args):
                     (out_imagefile, out_maskfile, in_backfile))
 
         frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-        extract_annotations (c, frame_info, collections_dict, camera_pose, out_imagefile, monitor)
+        extract_annotations (c, frame_info, camera_pose, out_imagefile, monitor)
 
     conn.commit()
     conn.close()

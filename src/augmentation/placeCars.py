@@ -11,6 +11,9 @@ from numpy.random import normal, uniform, choice
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
 
+README_NAME = 'readme-blended.json'
+
+
 def sq(x): return pow(x,2)
 
 def get_norm(x): return sqrt (sq(x['x']) + sq(x['y']) + sq(x['z']))
@@ -125,7 +128,7 @@ def generate_current_frame (collection_names, camera_file, i_googlemap, timestam
     # read the json file with cars data
     collections = []
     for collection_name in collection_names:
-        collection_path = atcity( op.join('augmentation/CAD', collection_name, 'readme.json') )
+        collection_path = atcity( op.join('augmentation/CAD', collection_name, README_NAME) )
         collection = json.load(open(collection_path))
         collections.append(collection)
 
@@ -159,7 +162,7 @@ def generate_current_frame (collection_names, camera_file, i_googlemap, timestam
 
 if __name__ == "__main__":
 
-    setupLogging('log/augmentation/placeCars.log', logging.INFO, 'a')
+    setupLogging('log/augmentation/placeCars.log', logging.DEBUG, 'a')
 
     collection_names = ['7c7c2b02ad5108fe5f9082491d52810', 'uecadcbca-a400-428d-9240-a331ac5014f6']
     camera_file    = 'camdata/cam572/readme.json'

@@ -11,11 +11,18 @@ import string
 import argparse
 import shutil
 import time
-
-README_NAME = 'readme-src.json'
+import traceback
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
+from cad_es_interface import CAD_ES_interface
+
+
+# open interface to ElasticSerach database
+cad_db = CAD_ES_interface()
+
+
+README_NAME = 'readme-src.json'
 
 
 # delete special characters
@@ -100,7 +107,8 @@ def download_model (browser, url, model_dir, args):
     return model_info
 
 
-def download_all_models (model_urls, models_info, collection_dir):
+
+def download_all_models (model_urls, models_info, collection_id, collection_dir):
 
     new_models_info = []
     counts = {'skipped': 0, 'downloaded': 0, 'failed': 0}
@@ -108,8 +116,8 @@ def download_all_models (model_urls, models_info, collection_dir):
     # got to each model and download it
     for model_url in model_urls:
         model_id = model_url.split('=')[-1]
-
         model_info = _find_carmodel_in_vehicles_ (models_info, model_id)
+
         # if this model was previously failed to be recorded
         if model_info is not None:
             if 'valid' in model_info and not model_info['valid']:
@@ -123,13 +131,23 @@ def download_all_models (model_urls, models_info, collection_dir):
             else:
                 logging.info ('skipping previously downloaded model_id %s' % model_id)
                 model_info['valid'] = True
-                new_models_info.append(model_info)
                 counts['skipped'] += 1
                 continue
-        # if this is an unseen model
-        else:
-            logging.info ('this model is not seen before: %s' % model_id)
 
+        # check if this model is known as a part of some other collection
+        seen_collection_ids = cad_db.is_model_in_other_collections (model_id, collection_id)
+        if seen_collection_ids:
+            error = 'is a part of %d collections. First is %s' % \
+                         (len(seen_collection_ids), seen_collection_ids[0])
+            model_info['valid'] = False
+            model_info['error'] = error
+            logging.warning ('model_id %s %s' % (model_id, error))
+            counts['skipped'] += 1
+            cad_db.update_model (model_info, collection_id)
+            new_models_info.append(model_info)
+            continue
+
+        # process the model
         try:
             logging.debug('model url: %s' % model_url)
             model_dir = op.join(collection_dir, 'skp_src')
@@ -137,11 +155,13 @@ def download_all_models (model_urls, models_info, collection_dir):
             counts['downloaded'] += 1
         except:
             logging.error('model_id %s was not downloaded because of error: %s'
-               % (model_id, sys.exc_info()[0]))
+               % (model_id, traceback.format_exc()))
             model_info = {'model_id': model_id, 
                           'valid': False,
                           'error': 'download failed: timeout error'}
             counts['failed'] += 1
+
+        cad_db.update_model (model_info, collection_id)
         new_models_info.append(model_info)
 
     logging.info ('out of %d models in collection: \n' % len(model_urls) +
@@ -215,7 +235,8 @@ def download_collection (browser, url, CAD_dir, args):
         model_urls.append(model_url)
 
     # download all models
-    new_models_info = download_all_models (model_urls, models_info, collection_dir)
+    new_models_info = download_all_models (model_urls, models_info, 
+                                           collection_id, collection_dir)
 
     collection_info = {'collection_id': collection_id,
                        'collection_name': collection_name,
@@ -229,8 +250,9 @@ def download_collection (browser, url, CAD_dir, args):
 
 
 
+
 if __name__ == "__main__":
-    setupLogging('log/augmentation/mineWarehouse.log', logging.INFO, 'w')
+    setupLogging('log/augmentation/MineWarehouse.log', logging.INFO, 'w')
 
     CAD_dir = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/CAD')
 

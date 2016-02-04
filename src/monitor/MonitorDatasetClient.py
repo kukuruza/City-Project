@@ -30,10 +30,11 @@ class MonitorDatasetClient ():
            self.server_address     = config.get('3dmodel_generate_frame', 'server_address')
            self.server_credentials = config.get('3dmodel_generate_frame', 'server_credentials')
            self.machine_name       = config.get('3dmodel_generate_frame', 'machine_name')
-           logging.info ('config enable:           %s' % str(self.enabled))
-           logging.info ('config max time:         %f' % self.max_time)
-           logging.info ('config server_address:   %s' % self.server_address)
-           logging.info ('config machine_name:     %s' % self.machine_name)
+           logging.info ('config enable:              %s' % str(self.enabled))
+           logging.info ('config max time:            %f' % self.max_time)
+           logging.info ('config server_address:      %s' % self.server_address)
+           logging.info ('config server_credentials:  %s' % self.server_credentials)
+           logging.info ('config machine_name:        %s' % self.machine_name)
         except:
            raise Exception ('MonitorAugmentationClient: cannot read config file.')
 
