@@ -48,6 +48,10 @@ classdef MonitorDownloadClient < handle
             self.server_credentials = readSett{3};
             self.machine_name       = readSett{4};
             self.max_time           = readSett{5};
+            assert (~isempty(self.server_address));
+            assert (~isempty(self.server_credentials));
+            assert (~isempty(self.machine_name));
+            assert (~isempty(self.max_time));
             
             % other parameters
             self.cam_id = parsed.cam_id;
@@ -113,6 +117,7 @@ classdef MonitorDownloadClient < handle
             [status,cmdout] = system (command);
             t = toc;
             if self.verbose, fprintf('MonitorDownload curl took: %f sec.\n', t); end
+            if self.verbose > 1, fprintf('server response: %s.\n', cmdout); end
             
             % process output
             if status == 127 && ~isempty(strfind(cmdout, 'not recognized as an internal or external command'))

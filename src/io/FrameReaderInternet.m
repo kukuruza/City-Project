@@ -8,7 +8,7 @@
 classdef FrameReaderInternet < FrameReaderInterface
     properties (Hidden)
         % url of the web-viewer
-        urlViewerPart = 'http://nyctmc.org/google_popup.php?cid=';
+        urlViewerPart = 'http://dotsignals.org/multiview2.php?listcam=';
         % url example: http://207.251.86.238/cctv360.jpg?rand=0988954345345
         urlPart1 = 'http://207.251.86.238/cctv';
         urlPart2 = '.jpg?rand=';
