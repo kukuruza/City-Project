@@ -14,7 +14,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % input
-in_image_video = 'camdata/cam572/Oct28-10h';
+in_image_video = 'camdata/cam572/Nov28-10h';
 in_image_videopath  = [CITY_DATA_PATH in_image_video '.avi'];
 in_mask_videopath   = [CITY_DATA_PATH in_image_video '-mask.avi'];
 %in_ref_backpath     = [CITY_DATA_PATH 'models/backimage.png'];
@@ -22,8 +22,8 @@ in_mask_videopath   = [CITY_DATA_PATH in_image_video '-mask.avi'];
 BackLearnR = 0.2;
 
 % output
-out_background_path = [CITY_DATA_PATH in_image_video '-back.avi'];
-out_ghost_path      = [CITY_DATA_PATH in_image_video '-ghost.avi'];
+out_background_path = [in_image_video '-back.avi'];
+out_ghost_path      = [in_image_video '-ghost.avi'];
 
 % what to do
 write = true;
