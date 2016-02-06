@@ -117,7 +117,7 @@ def extract_annotations (c, traffic, camera_pose, imagefile, monitor=None):
 
         # get vehicle angles (camera roll is assumed small and ignored)
         azimuth_view = -atan2(vehicle['y'], vehicle['x']) * 180 / pi
-        yaw = 180 - vehicle['azimuth'] + azimuth_view
+        yaw = (180 - vehicle['azimuth'] + azimuth_view) % 360
         pitch = atan(camera_pose['height'] / _get_norm_xy_(vehicle)) * 180 / pi
 
         # put all info together and insert into the db

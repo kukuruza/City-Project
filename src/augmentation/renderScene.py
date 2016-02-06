@@ -20,7 +20,7 @@ This file knows about how we store data in SQL
 # debug option
 render_satellite     = False
 render_cars_as_cubes = False
-save_blend_file      = True
+save_blend_file      = False
 
 # all inter-files name / path conventions
 TRAFFIC_FILENAME  = 'traffic.json'
@@ -135,9 +135,10 @@ def render_frame (frame_info, render_dir):
 
     if save_blend_file:
         # show all cars
-        for i,point in enumerate(points):
-            car_name = 'car_%i' % i
-            common.show_car (car_name)
+        if not render_cars_as_cubes:
+            for i,point in enumerate(points):
+                car_name = 'car_%i' % i
+                common.show_car (car_name)
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
     # NOT USED now because the .blend file is discarded after this
