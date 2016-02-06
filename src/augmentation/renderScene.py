@@ -20,7 +20,7 @@ This file knows about how we store data in SQL
 # debug option
 render_satellite     = False
 render_cars_as_cubes = False
-save_blend_file      = False
+save_blend_file      = True
 
 # all inter-files name / path conventions
 TRAFFIC_FILENAME  = 'traffic.json'

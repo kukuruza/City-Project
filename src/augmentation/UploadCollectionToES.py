@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--collection_id')
-    parser.add_argument('--readme_name', nargs='?', default='readme-src.json')
+    parser.add_argument('--readme_name', nargs='?', default='readme-blended.json')
     args = parser.parse_args()
 
     CAD_dir = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/CAD')

@@ -1,13 +1,15 @@
 import sys, os, os.path as op
 import logging
-import argparse
 import ConfigParser
 from inspect import getframeinfo, stack
 from datetime import datetime
 import json
-import urllib2, base64
-import subprocess
 from math import sqrt
+from elasticsearch import Elasticsearch, RequestsHttpConnection
+
+tracer = logging.getLogger('elasticsearch.trace')
+tracer.setLevel(logging.INFO)
+tracer.addHandler(logging.FileHandler('/tmp/es_trace.log'))
 
 
 def _sq_(x): return pow(x,2)
@@ -25,18 +27,19 @@ class MonitorDatasetClient ():
         config = ConfigParser.ConfigParser()
         config.read(config_path)
         try:
-           self.enabled            = bool(config.get('3dmodel_generate_frame', 'enable'))
-           self.max_time           = float(config.get('3dmodel_generate_frame', 'max_time'))
-           self.server_address     = config.get('3dmodel_generate_frame', 'server_address')
-           self.server_credentials = config.get('3dmodel_generate_frame', 'server_credentials')
-           self.machine_name       = config.get('3dmodel_generate_frame', 'machine_name')
-           logging.info ('config enable:              %s' % str(self.enabled))
-           logging.info ('config max time:            %f' % self.max_time)
-           logging.info ('config server_address:      %s' % self.server_address)
-           logging.info ('config server_credentials:  %s' % self.server_credentials)
-           logging.info ('config machine_name:        %s' % self.machine_name)
+            section = '3dmodel_generate_frame'
+            self.enabled            = bool(config.get(section, 'enable'))
+            self.max_time           = float(config.get(section, 'max_time'))
+            self.server_address     = config.get(section, 'server_address')
+            self.server_credentials = config.get(section, 'server_credentials')
+            self.machine_name       = config.get(section, 'machine_name')
+            logging.info ('config enable:              %s' % str(self.enabled))
+            logging.info ('config max time:            %f' % self.max_time)
+            logging.info ('config server_address:      %s' % self.server_address)
+            logging.info ('config server_credentials:  %s' % self.server_credentials)
+            logging.info ('config machine_name:        %s' % self.machine_name)
         except:
-           raise Exception ('MonitorAugmentationClient: cannot read config file.')
+            raise Exception ('MonitorAugmentationClient: cannot read config file.')
 
 
     def __init__ (self, cam_id, config_file='etc/monitor.ini',
@@ -48,6 +51,13 @@ class MonitorDatasetClient ():
         #self.verbose = args.verbose
 
         self._read_config_file_ (config_file, self.relpath)
+
+        creds = self.server_credentials.split(':')
+        self.es = Elasticsearch(
+            [self.server_address],
+            connection_class=RequestsHttpConnection,
+            http_auth=(creds[0], creds[1]),
+        )
 
 
     def upload_vehicle (self, vehicle, timestamp=datetime.now()):
@@ -74,24 +84,11 @@ class MonitorDatasetClient ():
                   }
         logging.debug (json.dumps(message, indent=4))
 
-        # only WITH credentials
-        command = 'curl --connect-timeout %s -u %s -XPOST \'%s/datasets/vehicle/\' -d \'%s\'' % \
-                  (self.max_time, self.server_credentials, \
-                   self.server_address, json.dumps(message))
-        logging.debug ('curl command: %s' % command)
-        returncode = subprocess.call ([command], shell=True)
-        logging.info ('MonitorAugmentation: curl returned code %s' % str(returncode))
+        return self.es.index(
+            index='datasets', 
+            doc_type='vehicle', 
+            body=message)
 
-        # TODO: get this working instead of calling curl above
-        # # only WITH credentials
-        # request = urllib2.Request (self.server_address+'/datasets/vehicle/', json.dumps(message), 
-        #                           {'Content-Type': 'application/json'})
-        # base64string = base64.encodestring(self.server_credentials)
-        # request.add_header('Authorization', 'Basic %s' % base64string)   
-        # f = urllib2.urlopen(request)
-        # response = json.loads(f.read())
-        # f.close()
-        # print response
 
 
 if __name__ == "__main__":
