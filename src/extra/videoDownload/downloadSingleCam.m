@@ -12,6 +12,7 @@ addRequired (parser, 'camId', @isscalar);
 addRequired (parser, 'outFileTemplate', @ischar);
 addRequired (parser, 'numMinutes', @isscalar);
 addParameter(parser, 'timeZone', 'America/New_York', @ischar);
+addParameter(parser, 'deleteOnExit', false, @islogical);  % use for debugging
 parse (parser, camId, outFileTemplate, numMinutes, varargin{:});
 parsed = parser.Results;
 
@@ -53,4 +54,11 @@ end
 
 fclose(fid);
 clear frameReader frameWriter
+
+% during debugging, the script may be run just to check it works.
+%   In that case, delete the saved files (return to where we started).
+if parsed.deleteOnExit
+    delete ([CITY_DATA_PATH videoPath], [CITY_DATA_PATH timestampPath]);
+end
+
     

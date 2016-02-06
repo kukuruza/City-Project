@@ -27,6 +27,7 @@ addRequired(parser, 'numMinutes', @isscalar);
 addParameter(parser, 'relpath', CITY_DATA_PATH, @ischar);
 addParameter(parser, 'timeZone', '-05:00', @ischar);
 addParameter(parser, 'verbose', 1, @isscalar);
+addParameter(parser, 'deleteOnExit', false, @islogical);  % use for debugging
 parse (parser, camListPath, numMinutes, varargin{:});
 parsed = parser.Results;
 
@@ -36,6 +37,7 @@ if parsed.verbose
     fprintf ('timeZone:              %s.\n', parsed.timeZone);
     fprintf ('relPath:               %s.\n', parsed.relpath);
     fprintf ('camListPath full path: %s.\n', fullfile(parsed.relpath, camListPath));
+    fprintf ('deleteOnExit:          %d.\n', parsed.deleteOnExit);
 end
 
 %% work
@@ -66,7 +68,10 @@ for i = 1 : length(camIds)
         mkdir (fullfile(getenv('CITY_DATA_PATH'), camDir));
     end
     
-    f(i) = parfeval (taskPool, @downloadSingleCam, 1, camId, outFileTemplate, numMinutes, 'timeZone', parsed.timeZone);
+    f(i) = parfeval (taskPool, @downloadSingleCam, 1, ...
+                     camId, outFileTemplate, numMinutes, ...
+                     'timeZone', parsed.timeZone, ...
+                     'deleteOnExit', parsed.deleteOnExit);
 end
 
 % wait for each worker
