@@ -1,4 +1,4 @@
-function[adjBackground] = generateCleanBackground( refBackground, curBackground, varargin)
+function[adjBackground] = generateCleanBackground (refBackground, curBackground, varargin)
 % Generates clean background using reference background from a
 % particular lightning conditions and a bakground model trained for
 % current conditions
@@ -14,19 +14,20 @@ function[adjBackground] = generateCleanBackground( refBackground, curBackground,
 %
 
     parser = inputParser;
-    addRequired(parser,  'refBackground',      @(x) ndims(x) == 3 && size(x,3) == 3);
-    addRequired(parser,  'curBackground',      @(x) ndims(x) == 3 && size(x,3) == 3);
-    addParameter(parser, 'diffType',     0,    @(x) x == 0 || x == 1 || x == 2);
-    addParameter(parser, 'filterSigma',  50.0, @isscalar);
-    addParameter(parser, 'fgThreshold',  40.0, @isscalar);
-    addParameter(parser, 'verbose',      0,    @isscalar);
+    addRequired(parser,  'refBackground',         @(x) ndims(x) == 3 && size(x,3) == 3);
+    addRequired(parser,  'curBackground',         @(x) ndims(x) == 3 && size(x,3) == 3);
+    addParameter(parser, 'diffType',        0,    @(x) x == 0 || x == 1 || x == 2);
+    addParameter(parser, 'FilterSigmaCoef', 0.05, @isscalar);
+    addParameter(parser, 'fgThreshold',     40.0, @isscalar);
+    addParameter(parser, 'verbose',         0,    @isscalar);
     parse (parser, refBackground, curBackground, varargin{:});
     parsed = parser.Results;
     
     % Parameters for the function
     debug = false;
     
-    filterSize = parsed.filterSigma * 1.5;
+    filterSigma = double(size(refBackground,1) + size(refBackground,2)) * parsed.FilterSigmaCoef;
+    filterSize = double(int32(filterSigma * 1.5));
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
@@ -56,7 +57,7 @@ function[adjBackground] = generateCleanBackground( refBackground, curBackground,
     if debug, fgMask = imdilate(difference > 20, strel('disk',10)); end
     
     % blur both the ref. and the cur. background
-    gaussFilter = fspecial('gaussian', filterSize, parsed.filterSigma);
+    gaussFilter = fspecial('gaussian', filterSize, filterSigma);
     blurBack = filterWithMask (curBackground, ~fgMask, gaussFilter);
     blurRef  = filterWithMask (refBackground, ~fgMask, gaussFilter);
 

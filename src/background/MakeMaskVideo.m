@@ -1,7 +1,11 @@
-% Use GMM model to extract foreground masks from 'in_image_videopath'
+function MakeMaskVideo (in_image_videofile, varargin)
+% Use GMM model to extract foreground masks from 'in_image_videofile'
 %   The mask video is written to 'out_mask_videopath'
+%
+% Args:
+%  in_image_videofile - is relative to CITY_DATA_PATH, e.g. 'camdata/cam125/Feb07-08h'
+%  LearningRate       - for GMM background
 
-clear all
 
 % set path
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
@@ -9,16 +13,22 @@ CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
 addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
 cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
+% parsing input
+parser = inputParser;
+addRequired(parser,  'in_image_videofile',  @ischar);
+addParameter(parser, 'LearningRate',        0.005, @isscalar);
+parse (parser, in_image_videofile, varargin{:});
+parsed = parser.Results;
+
 
 
 %% input
 
 % input
-in_image_video = 'camdata/cam572/Oct28-10h';
-in_image_videopath = [CITY_DATA_PATH in_image_video '.avi'];
+in_image_videopath = [CITY_DATA_PATH in_image_videofile '.avi'];
 
 % output
-out_mask_videopath = [CITY_DATA_PATH in_image_video '-mask.avi'];
+out_mask_videofile = [in_image_videofile '-mask.avi'];
 
 % what to do
 write = true;
@@ -29,12 +39,12 @@ show = false;
 %% work
 
 % init backgroudn model
-background = Background();
+background = Background('LearningRate', parsed.LearningRate);
 pretrainBackground (background, in_image_videopath);
 
 % init video
 frameReader = vision.VideoFileReader(in_image_videopath, 'VideoOutputDataType','uint8');
-maskWriter = FrameWriterVideo (out_mask_videopath, 2);
+maskWriter = FrameWriterVideo (out_mask_videofile, 2);
 
 for t = 0 : 10000000
     if mod(t, 100) == 0, fprintf ('frame: %d\n', t); end
