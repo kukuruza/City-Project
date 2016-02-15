@@ -6,7 +6,7 @@ import logging
 from math import cos, sin, pi, sqrt
 import numpy as np
 from numpy.random import normal, uniform
-from mathutils import Color, Euler
+from mathutils import Color, Euler, Vector
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import common
@@ -23,6 +23,7 @@ render_cars_as_cubes = False
 save_blend_file      = True
 
 # all inter-files name / path conventions
+WORK_DIR          = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
@@ -157,8 +158,6 @@ def render_frame (frame_info, render_dir):
 
 setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
 
-RENDER_DIR     = atcity('augmentation/render/current-frame')
+frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
 
-frame_info = json.load(open( op.join(RENDER_DIR, TRAFFIC_FILENAME) ))
-
-render_frame (frame_info, RENDER_DIR)
+render_frame (frame_info, WORK_DIR)

@@ -15,7 +15,7 @@ import traceback
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
-from cad_es_interface import CAD_ES_interface
+from es_interface import CAD_ES_interface
 
 
 # open interface to ElasticSerach database

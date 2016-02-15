@@ -1,11 +1,14 @@
+function GetAzimuthMap (in_lane_template)
 % Given several files with maps of lanes, generate a map of azimuths
 % Each file with lane maps must have one or more lines in the lane middles
 % Output is just one png file with the map of azimuth angles, and alpha ch.
 % Zero azimuth is North (to min Y), 90 degrees is East (to max X)
 % Azimuth is written in DEGREES, DIVIDED BY 2 in order to fit into [0, 255]
 % This file know all conventions about png and alpha and so on
-
-clear all
+%
+% args:
+%   in_lane_template:   wildcard template of all lane files,
+%                       e.g. 'models/cam124/google1/lane*.png'
 
 % set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
@@ -17,10 +20,10 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % input
-in_lane_template = [CITY_DATA_PATH 'models/cam717/google1/lane*.png'];
+in_lane_template = [CITY_DATA_PATH in_lane_template];
 
 % output
-out_angles_path   = [CITY_DATA_PATH 'models/cam717/google1/azimuth.png'];
+out_angles_path = fullfile (fileparts(in_lane_template), 'azimuth.png');
 
 % verbose == 0:  basic printout
 %         == 1:  show plot for each segment in each file
@@ -55,7 +58,7 @@ for i = 1 : length(lane_names)
     
     % workhorse
     [azimuths, mask] = lanes2azimuth(im, 'verbose', verbose, ...
-                                     'Rad', 40, 'MinPoints4Fitting', 40.0);
+                                         'MinPoints4Fitting', 40.0);
     azimuths0 = azimuths0 + double(~mask0) .* azimuths;
     mask0 = mask0 | mask;
 end

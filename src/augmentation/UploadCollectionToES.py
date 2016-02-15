@@ -3,19 +3,20 @@ import sys, os, os.path as op
 import json
 import argparse
 import shutil
-from cad_es_interface import CAD_ES_interface
+from es_interface import CAD_ES_interface
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
 
 
 if __name__ == "__main__":
-    setupLogging('log/augmentation/UploadCollectionToES.log', logging.WARNING, 'a')
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--collection_id')
     parser.add_argument('--readme_name', nargs='?', default='readme-blended.json')
+    parser.add_argument('--logging_level', default=30, type=int)
     args = parser.parse_args()
+
+    setupLogging('log/augmentation/UploadCollectionToES.log', args.logging_level, 'a')
 
     CAD_dir = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/CAD')
 

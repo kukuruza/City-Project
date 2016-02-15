@@ -11,7 +11,8 @@ from numpy.random import normal, uniform, choice
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
 
-README_NAME = 'readme-blended.json'
+WORK_DIR         = atcity('augmentation/blender/current-frame')
+README_NAME      = 'readme-blended.json'
 
 
 def sq(x): return pow(x,2)
@@ -38,6 +39,7 @@ def put_random_vehicles (azimuth_map, pxl_in_meter, collections, num, intercar_d
 
     # get indices of all points which are non-zero
     Ps = np.transpose(np.nonzero(alpha))
+    assert Ps.shape[0] > 0, 'azimuth_map is all zeros'
 
     # pick random points
     ind = np.random.choice (Ps.shape[0], size=num, replace=True)
@@ -49,6 +51,7 @@ def put_random_vehicles (azimuth_map, pxl_in_meter, collections, num, intercar_d
         x = P[1]
         y = P[0]
         azimuth = azimuth_map[P[0]][P[1]] * 2
+        logging.debug ('put_random_vehicles x: %f, y: %f, azimuth: %f' % (x, y, azimuth))
 
         # car does not need to be in the lane center
         pos_std = 0.2   # meters away from the middle of the lane
@@ -94,11 +97,14 @@ def axes_png2blender (points, origin, pxls_in_meter):
     Returns:
       nothing
     '''
+    assert points, 'there are no points'
     assert origin is not None and type(origin) is dict
     assert pxls_in_meter is not None
     for point in points:
+        logging.debug ('axes_png2blender: before x,y = %f,%f' % (point['x'], point['y']))
         point['x'] = (point['x'] - origin['x']) / pxls_in_meter
         point['y'] = -(point['y'] - origin['y']) / pxls_in_meter
+        logging.debug ('axes_png2blender: after  x,y = %f,%f' % (point['x'], point['y']))
 
 
 
@@ -116,16 +122,20 @@ for line in sun_pos_lines:
 
 
 
-def generate_current_frame (collection_names, camera_file, i_googlemap, timestamp, num_cars, weather, scale=1):
-    ''' Generate render/current-frame/traffic.json traffic file for a single frame
+def generate_current_frame (video_info, collection_names, timestamp, num_cars, scale=1):
+    ''' Generate traffic.json traffic file for a single frame
     '''
-    # get azimuth map path
-    print (camera_file)
+    camera_file    = video_info['camera_file']
     camera_info    = json.load(open( atcity(camera_file) ))
-    googlemap_info = camera_info['google_maps'][i_googlemap]
+    logging.debug ('video  info:\n%s'% json.dumps(video_info, indent=2))
+    logging.debug ('camera info:\n%s'% json.dumps(camera_info, indent=2))
+
+    pose_id        = video_info['pose_id']
+    camera_pose    = camera_info['camera_poses'][pose_id]
+    googlemap_info = camera_info['google_maps'][camera_pose['map_id']]
     pxl_in_meter   = googlemap_info['pxls_in_meter']
 
-    # read the json file with cars data
+    # read the json files with cars data
     collections = []
     for collection_name in collection_names:
         collection_path = atcity( op.join('augmentation/CAD', collection_name, README_NAME) )
@@ -134,14 +144,22 @@ def generate_current_frame (collection_names, camera_file, i_googlemap, timestam
 
     # get the map of azimuths. 
     # it has gray values (r==g==b=) and alpha, saved as 4-channels
-    azimuth_map = cv2.imread (atcity(googlemap_info['azimuth_path']), cv2.IMREAD_UNCHANGED)
+    azimuth_path = atcity(op.join(op.dirname(camera_file), googlemap_info['azimuth_name']))
+    azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
     assert azimuth_map is not None and azimuth_map.shape[2] == 4
+
+    # black out the invisible azimuth_map regions
+    if 'visible_area_name' in camera_pose and camera_pose['visible_area_name']:
+        visibility_path = atcity(op.join(op.dirname(camera_file), camera_pose['visible_area_name']))
+        visibility_map = cv2.imread (visibility_path, cv2.IMREAD_GRAYSCALE)
+        assert visibility_map is not None
+        azimuth_map[visibility_map] = 0
 
     # choose vehicle positions
     vehicles = put_random_vehicles (azimuth_map, pxl_in_meter, collections, num_cars, 
                                     intercar_dist_mult=1.5)
 
-    axes_png2blender (vehicles, googlemap_info['camera_origin'], 
+    axes_png2blender (vehicles, googlemap_info['origin_image'], 
                                 googlemap_info['pxls_in_meter'])
 
     # figure out sun position based on the timestamp
@@ -149,25 +167,27 @@ def generate_current_frame (collection_names, camera_file, i_googlemap, timestam
     logging.info ('received timestamp: %s' % timestamp)
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
-    frame_info = { 'sun_altitude': sun_pose['altitude'], \
-                   'sun_azimuth':  sun_pose['azimuth'], \
-                   'vehicles': vehicles, \
-                   'weather': weather,
-                   'scale': scale }
+    frame_info = {'sun_altitude': sun_pose['altitude'], \
+                  'sun_azimuth':  sun_pose['azimuth'], \
+                  'vehicles': vehicles, \
+                  'weather': video_info['weather'],
+                  'scale': scale }
 
-    with open(atcity( 'augmentation/render/current-frame/traffic.json' ), 'w') as f:
+    traffic_path = op.join(WORK_DIR, 'traffic.json')
+    logging.debug ('traffic_path: %s' % traffic_path)
+    with open(traffic_path, 'w') as f:
         f.write(json.dumps(frame_info, indent=4))
 
 
 
 if __name__ == "__main__":
 
-    setupLogging('log/augmentation/placeCars.log', logging.DEBUG, 'a')
+    setupLogging ('log/augmentation/placeCars.log', logging.DEBUG, 'a')
 
+    video_info_file = 'augmentation/scenes/cam572/Jan13-10h/Jan13-10h.json'
     collection_names = ['7c7c2b02ad5108fe5f9082491d52810', 'uecadcbca-a400-428d-9240-a331ac5014f6']
-    camera_file    = 'camdata/cam572/readme.json'
-    i_googlemap    = 1
-    num_cars       = 10
-    weather        = ['Dry', 'Sunny']
+    timestamp = datetime.datetime.now()
+    num_cars = 10
+    video_info = json.load(open( atcity(video_info_file) ))
 
-    generate_current_frame (collection_names, camera_file, i_googlemap, datetime.datetime.now(), num_cars, weather)
+    generate_current_frame (video_info, collection_names, timestamp, num_cars)

@@ -27,7 +27,7 @@ class MonitorDatasetClient ():
         config = ConfigParser.ConfigParser()
         config.read(config_path)
         try:
-            section = '3dmodel_generate_frame'
+            section = '3dmodel'
             self.enabled            = bool(config.get(section, 'enable'))
             self.max_time           = float(config.get(section, 'max_time'))
             self.server_address     = config.get(section, 'server_address')

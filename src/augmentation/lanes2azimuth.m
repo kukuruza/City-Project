@@ -1,7 +1,9 @@
 function [azimuths0, mask0] = lanes2azimuth (im0, varargin)
 % compute azimuth map, based on tangents to lines.
 % Args:
-%   im0:  map of lanes
+%   im0:        map of lanes
+%   RadAngle:   radius of filter to figure out the tangent angle for line
+%   RadDirection: radius of filter to figure out line direction
 % Returns:
 %   azimuths0:  map of azimuths, in degrees
 %               0 azimuth is North (to min Y), 90 deg. is East (to max X)
@@ -11,23 +13,27 @@ function [azimuths0, mask0] = lanes2azimuth (im0, varargin)
 % parsing input
 parser = inputParser;
 addRequired(parser,  'im0',                     @ismatrix);
-addParameter(parser, 'Rad',               20.0, @isscalar);
 addParameter(parser, 'MinPoints4Fitting', 20.0, @isscalar);
+addParameter(parser, 'RadAnglePerc',      0.02, @isscalar);
+addParameter(parser, 'RadDirectionPerc',  0.04, @isscalar);
 addParameter(parser, 'verbose',           0,    @isscalar);
 parse (parser, im0, varargin{:});
-Rad               = parser.Results.Rad;
+avg_sz = (size(im0,1) + size(im0,2)) / 2;
 MinPoints4Fitting = parser.Results.MinPoints4Fitting;
 verbose           = parser.Results.verbose;
+RadA              = round( parser.Results.RadAnglePerc * avg_sz );
+RadD              = round( parser.Results.RadDirectionPerc * avg_sz );
+assert (RadA <= RadD);  % RadAngle should be smaller than RadDirection
 
 % prepare filters for figuring out direction. 
 % filter 'up to down' looks like this:
 %   0 0
 %   1 1
-filter = zeros(Rad*4+1, Rad*4+1);
-filter (Rad*2+1 : end, :) = 1;
-filters = zeros (Rad*2+1, Rad*2+1, 5);
+filter = zeros(RadD*4+1, RadD*4+1);
+filter (RadD*2+1 : end, :) = 1;
+filters = zeros (RadD*2+1, RadD*2+1, 5);
 for i = 1 : 5
-    filters(:,:,i) = filter(Rad+1 : end-Rad, Rad+1 : end-Rad);
+    filters(:,:,i) = filter(RadD+1 : end-RadD, RadD+1 : end-RadD);
     filter = imrotate (filter, 45, 'nearest', 'crop');
     if verbose > 1, subplot(1,5,i); imshow(filters(:,:,i)*255); end
 end
@@ -49,7 +55,7 @@ for i_segm = 1 : max(segments_map(:))
     if nnz(im) < 10, continue; end
     
     % manage borders by adding transparent pixels
-    im = padarray (im, [Rad, Rad], 0);
+    im = padarray (im, [RadD, RadD], 0);
 
     % array of angles
     azimuths  = zeros(size(im));
@@ -57,21 +63,20 @@ for i_segm = 1 : max(segments_map(:))
     responses = zeros(size(im));
 
     counter = 1;
-    for y = Rad+1 : size(im,1)-Rad
+    for y = RadD+1 : size(im,1)-RadD
 
         if verbose > 1, fprintf('.'); end
         if verbose > 1 && mod(y, 80) == 0, fprintf('\n'); end
         
-        for x = Rad+1 : size(im,2)-Rad
+        for x = RadD+1 : size(im,2)-RadD
 
             % skip all black pixels first
             if im(y,x) == 0, continue; end
-
-            neighborhood = im(y-Rad : y+Rad, x-Rad : x+Rad);
+            
+            % --- find the angle ---
+            neighborhood = im(y-RadA : y+RadA, x-RadA : x+RadA);
             [ys, xs] = find (neighborhood > 0);
             if length(xs) < MinPoints4Fitting, continue; end
-
-            % --- find the angle ---
             % curve of degree one
             curve = polyfit(xs, ys, 1);
             % finding the tangent at that point
@@ -79,6 +84,7 @@ for i_segm = 1 : max(segments_map(:))
             angle = -atand(tangent);
 
             % --- pick one of the two directions ---
+            neighborhood = im(y-RadD : y+RadD, x-RadD : x+RadD);
             % pick the filter with the closest angle from the list
             [~, ind] = min(abs(angle - [-90, -45, 0, 45, 90]));
             filter = filters(:,:,ind);
@@ -108,8 +114,8 @@ for i_segm = 1 : max(segments_map(:))
     if verbose > 1, fprintf('\n'); end
     
     % crop to the original size
-    azimuths = azimuths (Rad+1 : end-Rad, Rad+1 : end-Rad);
-    mask     = mask (Rad+1 : end-Rad, Rad+1 : end-Rad);
+    azimuths = azimuths (RadD+1 : end-RadD, RadD+1 : end-RadD);
+    mask     = mask (RadD+1 : end-RadD, RadD+1 : end-RadD);
     
     if verbose > 0, imagesc(azimuths, [0, 360]); waitforbuttonpress; end
 
