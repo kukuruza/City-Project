@@ -10,9 +10,9 @@ import datetime
 from numpy.random import normal, uniform, choice
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
+from Cad import Cad
 
-WORK_DIR         = atcity('augmentation/blender/current-frame')
-README_NAME      = 'readme-blended.json'
+WORK_DIR = atcity('augmentation/blender/current-frame')
 
 
 def sq(x): return pow(x,2)
@@ -23,7 +23,7 @@ def get_norm(x): return sqrt (sq(x['x']) + sq(x['y']) + sq(x['z']))
 Distribute cars across the map according to the lanes map and model collections
 '''
 
-def put_random_vehicles (azimuth_map, pxl_in_meter, collections, num, intercar_dist_mult):
+def put_random_vehicles (azimuth_map, pxl_in_meter, cad, num, intercar_dist_mult):
     '''Places a number of random models to random points in the lane map.
     Args:
       azimuth_map:         a color array (all values are gray) with alpha mask, [YxXx4]
@@ -42,6 +42,7 @@ def put_random_vehicles (azimuth_map, pxl_in_meter, collections, num, intercar_d
     assert Ps.shape[0] > 0, 'azimuth_map is all zeros'
 
     # pick random points
+    assert num > 0
     ind = np.random.choice (Ps.shape[0], size=num, replace=True)
 
     # get angles (each azimuth is multiplied by 2 by convention)
@@ -61,7 +62,7 @@ def put_random_vehicles (azimuth_map, pxl_in_meter, collections, num, intercar_d
         # keep choosing a car until find a valid one
         valid = False
         while not valid:
-            collection = choice(collections)
+            collection = choice(cad._collections)
             vehicle = choice(collection['vehicles'])
             valid = vehicle['valid'] if 'valid' in vehicle else True
         dims_dict[vehicle['model_id']] = vehicle['dims']
@@ -122,55 +123,39 @@ for line in sun_pos_lines:
 
 
 
-def generate_current_frame (video_info, collection_names, timestamp, num_cars, scale=1):
+def generate_current_frame (camera, video, cad, time, num_cars, scale=1):
     ''' Generate traffic.json traffic file for a single frame
     '''
-    camera_file    = video_info['camera_file']
-    camera_info    = json.load(open( atcity(camera_file) ))
-    logging.debug ('video  info:\n%s'% json.dumps(video_info, indent=2))
-    logging.debug ('camera info:\n%s'% json.dumps(camera_info, indent=2))
-
-    pose_id        = video_info['pose_id']
-    camera_pose    = camera_info['camera_poses'][pose_id]
-    googlemap_info = camera_info['google_maps'][camera_pose['map_id']]
-    pxl_in_meter   = googlemap_info['pxls_in_meter']
-
-    # read the json files with cars data
-    collections = []
-    for collection_name in collection_names:
-        collection_path = atcity( op.join('augmentation/CAD', collection_name, README_NAME) )
-        collection = json.load(open(collection_path))
-        collections.append(collection)
+    pxl_in_meter   = camera.info['pxls_in_meter']
 
     # get the map of azimuths. 
     # it has gray values (r==g==b=) and alpha, saved as 4-channels
-    azimuth_path = atcity(op.join(op.dirname(camera_file), googlemap_info['azimuth_name']))
+    azimuth_path = atcity(op.join(camera.info['camera_dir'], camera.info['azimuth_name']))
     azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
     assert azimuth_map is not None and azimuth_map.shape[2] == 4
 
     # black out the invisible azimuth_map regions
-    if 'visible_area_name' in camera_pose and camera_pose['visible_area_name']:
-        visibility_path = atcity(op.join(op.dirname(camera_file), camera_pose['visible_area_name']))
+    if 'visible_area_name' in camera.info and camera.info['visible_area_name']:
+        visibility_path = atcity(op.join(camera.info['camera_dir'], camera.info['visible_area_name']))
         visibility_map = cv2.imread (visibility_path, cv2.IMREAD_GRAYSCALE)
         assert visibility_map is not None
         azimuth_map[visibility_map] = 0
 
     # choose vehicle positions
-    vehicles = put_random_vehicles (azimuth_map, pxl_in_meter, collections, num_cars, 
+    vehicles = put_random_vehicles (azimuth_map, pxl_in_meter, cad, num_cars, 
                                     intercar_dist_mult=1.5)
 
-    axes_png2blender (vehicles, googlemap_info['origin_image'], 
-                                googlemap_info['pxls_in_meter'])
+    axes_png2blender (vehicles, camera.info['origin_image'], camera.info['pxls_in_meter'])
 
     # figure out sun position based on the timestamp
-    sun_pose = sun_poses [int(timestamp.hour*60) + timestamp.minute]
-    logging.info ('received timestamp: %s' % timestamp)
+    sun_pose = sun_poses [int(time.hour*60) + time.minute]
+    logging.info ('received timestamp: %s' % time)
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
     frame_info = {'sun_altitude': sun_pose['altitude'], \
                   'sun_azimuth':  sun_pose['azimuth'], \
                   'vehicles': vehicles, \
-                  'weather': video_info['weather'],
+                  'weather': video.weather,
                   'scale': scale }
 
     traffic_path = op.join(WORK_DIR, 'traffic.json')

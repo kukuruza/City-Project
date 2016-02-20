@@ -21,14 +21,13 @@ import subprocess
 import shutil
 from video2dataset import video2dataset
 from helperImg import ProcessorVideo
-from helperSetup import _setupCopyDb_, setupLogging, atcity
+from helperSetup import _setupCopyDb_, setupLogging, atcity, setParamUnlessThere
 from placeCars import generate_current_frame
 from MonitorDatasetClient import MonitorDatasetClient
-from es_interface import CAD_ES_interface
+from Cad import Cad
+from Camera import Camera
+from Video import Video
 
-
-# open interface to ElasticSerach database
-#cad_db = CAD_ES_interface()
 
 # All rendering by blender takes place in WORK_DIR
 WORK_DIR          = atcity('augmentation/blender/current-frame')
@@ -80,14 +79,14 @@ def extract_bbox (render_png_path):
     return (x1, y1, width, height)
 
 
-def extract_annotations (c, traffic, camera_pose, imagefile, monitor=None):
+def extract_annotations (c, traffic, cad, camera, imagefile, monitor=None):
     '''Parse output of render and all metadata into our SQL format.
     This function knows about SQL format.
     Args:
         c:                cursor to existing db in our format
-        traffic:          info on the pose of every car in the frame, 
+        cad:              info on the pose of every car in the frame, 
                           and its id within car collections
-        camera_pose:      dict of camera height and orientation
+        camera:           dict of camera height and orientation
         imagefile:        database entry
         monitor:          MonitorDatasetClient object for uploading vehicle info
     Returns:
@@ -101,15 +100,16 @@ def extract_annotations (c, traffic, camera_pose, imagefile, monitor=None):
         if bbox is None: continue
 
         # get vehicle "name" (that is, type)
-        model = cad_db.get_model_by_id_and_collection (vehicle['model_id'], 
-                                                       vehicle['collection_id'])
+        model = cad.get_model_by_id_and_collection (vehicle['model_id'], 
+                                                    vehicle['collection_id'])
         assert model is not None
         name = model['vehicle_type']
 
         # get vehicle angles (camera roll is assumed small and ignored)
         azimuth_view = -atan2(vehicle['y'], vehicle['x']) * 180 / pi
         yaw = (180 - vehicle['azimuth'] + azimuth_view) % 360
-        pitch = atan(camera_pose['height'] / _get_norm_xy_(vehicle)) * 180 / pi
+        height = camera.info['origin_blender']['z']
+        pitch = atan(height / _get_norm_xy_(vehicle)) * 180 / pi
 
         # put all info together and insert into the db
         entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], yaw, pitch)
@@ -122,62 +122,63 @@ def extract_annotations (c, traffic, camera_pose, imagefile, monitor=None):
 
 
 
-def process_current_frame (job, args):
-    ''' Full stack for one single frame (no db entries). All work is in current-frame dir.
-        'Now' is taken as timestamp.
+
+def process_frame (video, camera, cad, time, num_cars, background=None, scale=1, params={}):
+    ''' Full stack for one single frame (no db entries). 
+    Everything about blender input and output files is hidden inside this function.
+    All work is in current-frame dir.
     '''
-    video_info  = job['video_info']
+    setParamUnlessThere (params, 'no_traffic', False)
+    setParamUnlessThere (params, 'no_render',  False)
+    setParamUnlessThere (params, 'no_combine', False)
+    setParamUnlessThere (params, 'scale',      1.0)
 
     # load camera dimensions (compare it to everything for extra safety)
-    camera_file = video_info['camera_file']
-    camera_info = json.load(open( atcity(camera_file) ))
-    width0, height0 = camera_info['camera_dims']['width'], camera_info['camera_dims']['height']
+    width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
 
-    if not args.no_traffic:
-        # generate traffic
-        if 'timestamp' in job and job['timestamp']:
-            timestamp = job['timestamp'] 
-            time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-        else:
-            time = datetime.datetime.now()
-        generate_current_frame (video_info, job['collections'], time, job['num_cars'])
+    image = None
+    mask = None
 
-    if not args.no_render:
+    if not params['no_traffic']:
+        generate_current_frame (camera, video, cad, time, num_cars, params['scale'])
+
+    if not params['no_render']:
         # remove so that they do not exist if blender fails
         if op.exists(op.join(WORK_DIR, NORMAL_FILENAME)):
             os.remove(op.join(WORK_DIR, NORMAL_FILENAME))
         if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
             os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
         # render
-        assert 'render_blend_file' in video_info, 'either pass no_render or render_blend_file'
-        render_blend_path = atcity(video_info['render_blend_file'])
+        assert video.render_blend_file is not None
+        render_blend_path = atcity(video.render_blend_file)
         command = '%s/blender %s --background --python %s/src/augmentation/renderScene.py' % \
                   (os.getenv('BLENDER_ROOT'), render_blend_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
-    if not args.no_combine:
-        # get background file
-        assert 'background_file' in job, 'either pass no_combine or background_file'
-        background_path = atcity(job['background_file'])
-        assert op.exists(background_path), 'background_path: %s' % background_path
-        background = cv2.imread(background_path)
-        assert background.shape == (height0, width0, 3)
-        shutil.copyfile (background_path, op.join(WORK_DIR, BACKGROUND_FILENAME))
+        # check rendered
+        image = cv2.imread(op.join(WORK_DIR, CARSONLY_FILENAME))
+        assert image is not None
+        assert image.shape == (height0, width0, 3)
 
         # create mask
         mask_path  = op.join(WORK_DIR, MASK_FILENAME)
         carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
         assert carsonly.shape == (height0, width0, 4)  # need the alpha channel
-        mask = np.array(carsonly[:,:,3] > 0).astype(np.uint8) * 255
-        cv2.imwrite (mask_path, mask)
+        mask = carsonly[:,:,3] > 0
+
+    if not params['no_combine']:
+        # get background file
+        assert background is not None, 'either pass no_combine or background'
+        assert background.shape == (height0, width0, 3), background.shape
+        cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), background)
 
         # remove so that they do not exist if blender fails
         if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
             os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
         # postprocess and overlay
-        assert 'combine_blend_file' in video_info, 'either pass no_combine or combine_blend_file'
-        combine_scene_path = atcity(video_info['combine_blend_file'])
+        assert video.combine_blend_file is not None
+        combine_scene_path = atcity(video.combine_blend_file)
         command = '%s/blender %s --background --python %s/src/augmentation/combineFrame.py' % \
                   (os.getenv('BLENDER_ROOT'), combine_scene_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
@@ -185,6 +186,8 @@ def process_current_frame (job, args):
         assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
         image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
         assert image.shape == (height0, width0, 3)
+
+    return (image, mask)
 
 
 
@@ -210,7 +213,7 @@ def _parse_frame_range_arg_ (range_str, length):
     return range_py
 
 
-def process_video (args, job):
+def process_video (job, args):
 
     # get input for this job from json
     in_db_path           = atcity(job['in_db_file'])
@@ -219,17 +222,17 @@ def process_video (args, job):
     out_mask_video_file  = job['out_mask_video_file']
     out_image_video_path = atcity(job['out_image_video_file'])
     out_mask_video_path  = atcity(job['out_mask_video_file'])
-    render_scene_path    = atcity(job['render_scene_file'])
-    combine_scene_path   = atcity(job['combine_scene_file'])
 
+    video = Video(video_dir=job['video_dir'])
+    camera = video.build_camera()
     # load camera dimensions (compare it to everything for extra safety)
-    camera_info = json.load(open( op.join(os.getenv('CITY_DATA_PATH'), job['camera_file']) ))
-    width0, height0 = camera_info['camera_dims']['width'], camera_info['camera_dims']['height']
-    # load camera pose (deduce objects angles from it)
-    camera_pose = camera_info['camera_pose']
+    width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
+
+    cad = Cad()
+    cad.load(job['collection_names'])
 
     # upload info on parsed vehicles to the monitor server
-    monitor = MonitorDatasetClient (cam_id=camera_info['cam_id'])
+    monitor = MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
     # copy input db to output and open it
     _setupCopyDb_ (in_db_path, out_db_path)
@@ -259,10 +262,10 @@ def process_video (args, job):
                              in_mask_video_file: out_mask_video_file} })
 
     c.execute('SELECT imagefile,maskfile,time,width,height FROM images')
-    image_emtries = c.fetchall()
-    frame_range = _parse_frame_range_arg_ (args.frame_range, len(image_emtries))
+    image_entries = c.fetchall()
+    frame_range = _parse_frame_range_arg_ (args.frame_range, len(image_entries))
 
-    for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_emtries):
+    for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_entries):
         logging.info ('process frame number %d' % i)
         assert (width0 == width and height0 == height)
 
@@ -270,58 +273,32 @@ def process_video (args, job):
         back = processor.imread(in_backfile)
         in_mask = processor.maskread(in_maskfile)
 
-        # skip rendering and db entry. Just rewrite the same video
         if i not in frame_range:
+            # skip rendering and db entry. Just rewrite the same video
             if args.record_empty_frames:
                 processor.imwrite (back, in_backfile)
                 processor.maskwrite (in_mask > 0, in_maskfile)
             logging.info ('skipping frame %d based on frame_range' % i)
             continue
         
-        # check that the background is already there (if static_back) or write it down there
-        if not args.static_back:
-            cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), back)
-        assert op.exists(op.join(WORK_DIR, BACKGROUND_FILENAME))
+        # if static_back use example background
+        if not args.use_example_background:
+            back = video.example_background
+            assert back is not None, 'example_background not available for this video'
 
         # generate traffic
-        if timestamp is None:
-            time = datetime.datetime.strptime(args.start_time, '%Y-%m-%d %H:%M:%S.%f')
-            time += datetime.timedelta(minutes=int(float(i) / 960 * 40))
+        elif timestamp is None:
+            if video.start_time is None:
+                raise Exception('timestamp is not in the .txt and not in video_info file')
+            time = video.start_time + datetime.timedelta(minutes=int(float(i) / 960 * 40))
         else:
             time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-        generate_current_frame (job['collections'],
-                                job['camera_file'], job['i_googlemap'], time, 
-                                job['num_cars'], job['weather'], args.scale)
 
-        # remove so that they do not exist if blender fails
-        if op.exists(op.join(WORK_DIR, NORMAL_FILENAME)):
-            os.remove(op.join(WORK_DIR, NORMAL_FILENAME))
-        if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
-            os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
-        # render
-        command = '%s/blender %s --background --python %s/src/augmentation/renderScene.py' % \
-                  (os.getenv('BLENDER_ROOT'), render_scene_path, os.getenv('CITY_PATH'))
-        returncode = subprocess.call ([command], shell=True)
-        logging.info ('rendering: blender returned code %s' % str(returncode))
-
-        # create mask
-        mask_path  = op.join(WORK_DIR, MASK_FILENAME)
-        carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
-        assert carsonly.shape == (height0, width0, 4)  # need the alpha channel
-        out_mask = carsonly[:,:,3] > 0
-
-        # remove so that they do not exist if blender fails
-        if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
-            os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
-        # postprocess and overlay
-        command = '%s/blender %s --background --python %s/src/augmentation/combineFrame.py' % \
-                  (os.getenv('BLENDER_ROOT'), combine_scene_path, os.getenv('CITY_PATH'))
-        returncode = subprocess.call ([command], shell=True)
-        logging.info ('combine: blender returned code %s' % str(returncode))
-        out_image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
-        assert out_image.shape == (height0, width0, 3)
+        # workhorse
+        out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back)
 
         # write the frame to video (processor interface requires input filenames)
+        assert out_image is not None and out_mask is not None
         processor.imwrite (out_image, in_backfile)
         processor.maskwrite (out_mask, in_maskfile)
 
@@ -332,41 +309,10 @@ def process_video (args, job):
                     (out_imagefile, out_maskfile, in_backfile))
 
         frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-        extract_annotations (c, frame_info, camera_pose, out_imagefile, monitor)
+        extract_annotations (c, frame_info, cad, camera, out_imagefile, monitor)
 
     conn.commit()
     conn.close()
 
-    
-
-# globally accessible parser
-jobParser = argparse.ArgumentParser()
-jobParser.add_argument('--no_traffic', action='store_true')
-jobParser.add_argument('--no_render',  action='store_true')
-jobParser.add_argument('--no_combine', action='store_true')
-jobParser.add_argument('--static_back', action='store_true')
-jobParser.add_argument('--record_empty_frames', action='store_true')
-jobParser.add_argument('--frame_range', default='[::]', 
-                       help='python style ranges, e.g. "[5::2]"')
-jobParser.add_argument('--start_time', default='2014-01-13 09:30:00.000') # temporary
-jobParser.add_argument('--scale', default=1, type=float)  # why all cars are too big?
-jobParser.add_argument('--logging_level', default=30, type=int)
-jobParser.add_argument('--job_file')
-
-
-if __name__ == "__main__":
-
-    args = jobParser.parse_args()
-
-    setupLogging('log/augmentation/ProcessScene.log', args.logging_level, 'w')
-
-    job        = json.load(open(atcity(args.job_file) ))
-    video_info = json.load(open(atcity(job['video_info_file']) ))
-    job['video_info'] = video_info
-    job['background_file'] = video_info['example_back_file']
-    video_info["render_blend_file"] = 'augmentation/scenes/cam671/camera-render.blend'
-
-    process_current_frame(job, args)
-    #process_video(args)
 
 

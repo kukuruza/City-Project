@@ -11,7 +11,10 @@ import re
 import traceback
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import setupLogging, atcity
-from ProcessScene import process_current_frame, jobParser
+from processScene import process_frame
+from Video import Video
+from Camera import Camera
+from Cad import Cad
 
 assert os.getenv('BLENDER_ROOT') is not None, \
     'export BLENDER_ROOT with path to blender binary as environmental variable'
@@ -21,7 +24,7 @@ WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
 EMPTY_SCENE_FILE    = 'augmentation/scenes/empty-render.blend'
 SCENES_INFO_NAME    = 'scene.json'
 EXAMPLE_DIRNAME     = 'examples'
-NORMAL_FILENAME     = 'normal.png'
+STACKED_FILENAME    = 'stacked.png'
 VIDEO_DIR_REGEX     = r'^[A-Z][a-z].*[0-9]{2}-[0-9]{2}h$'
 
 
@@ -50,47 +53,41 @@ def _add_alpha_ (img):
     return cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
 
 
-def add_example_to_rendered (rendered_path, video_info):
+
+def add_example_to_rendered (rendered, video, stacked_path):
     '''Put rendered frame side by side with an example from video
     '''
     # load example frame
-    example_frame_file = video_info['example_frame_file']
-    logging.info ('add_example_to_rendered example_frame_file: %s' % example_frame_file)
-    assert op.exists (atcity(example_frame_file)), '%s' % atcity(example_frame_file)
-    example_frame = cv2.imread (atcity(example_frame_file))
-    example_frame = _add_alpha_(example_frame)
-
-    # load rendered image
-    rendered = cv2.imread (rendered_path, -1)
+    example_frame = video.example_frame
+    if example_frame is None: 
+        raise Exception ('this video does not have example_frame')
 
     # put them side by side, and rewrite rendered file
     assert rendered.shape == example_frame.shape
     rendered = np.vstack ((rendered, example_frame))
-    cv2.imwrite (rendered_path, rendered)
+    cv2.imwrite (stacked_path, rendered)
 
 
 
-def render_example (out_file, video_info_file):
-    logging.info ('render_example will render an example for %s' % video_info_file)
+def render_example (out_file, video_dir):
+    logging.info ('render_example will render an example for %s' % video_dir)
 
-    # read video_info and replace render_blend_file
-    video_info = json.load(open( atcity(video_info_file) ))
-    video_info['render_blend_file'] = out_file
+    video = Video(video_dir=video_dir)
+    video.render_blend_file = out_file
+    video.combine_blend_file = 'augmentation/scenes/empty-combine.blend'
+    camera = video.build_camera()
+    background = video.example_background
+    time = video.start_time
 
-    # render a single frame
-    timestamp = video_info['example_timestamp'] if 'example_timestamp' in video_info else None
-    job = {'video_info': video_info,
-           'num_cars': 20,
-           'collections': [ "7c7c2b02ad5108fe5f9082491d52810" ],
-           'timestamp': timestamp
-          }
-    args = jobParser.parse_args(['--no_combine'])
-    process_current_frame (job, args)
+    cad = Cad()
+    cad.load(['7c7c2b02ad5108fe5f9082491d52810'])
+    num_cars = 20
 
-    rendered_path = op.join(WORK_RENDER_DIR, NORMAL_FILENAME)
-    assert op.exists(rendered_path), 'blender failed to render for this video' 
-
-    add_example_to_rendered (rendered_path, video_info)
+    image, _ = process_frame (video, camera, cad, time, num_cars, background)
+    assert image is not None
+    
+    stacked_path = op.join(WORK_RENDER_DIR, STACKED_FILENAME)
+    add_example_to_rendered (image, video, stacked_path)
 
 
 
@@ -100,9 +97,9 @@ if __name__ == "__main__":
     # switch for all cameras
     parser.add_argument('--all', action='store_true', help='all cameras')
     # input when just one camera
-    parser.add_argument('--in_file')
-    parser.add_argument('--out_file')
-    parser.add_argument('--video_info_file', default='')
+    parser.add_argument('--in_file', help='usually, geometry.blend')
+    parser.add_argument('--out_file', help='usually, camera-render.blend')
+    parser.add_argument('--video_dir', default='')
     # parameters
     parser.add_argument('--no_make_cam_scene', action='store_true', 
                         help='no useful work, use to debug render_example')
@@ -117,7 +114,7 @@ if __name__ == "__main__":
         if not args.no_make_cam_scene:
             make_cam_scene (args.in_file, args.out_file)
         if not args.no_render_examples:
-            render_example (args.out_file, args.video_info_file)
+            render_example (args.out_file, args.video_dir)
 
     elif args.all:
         cam_dirs = glob(atcity('augmentation/scenes/cam*'))
@@ -145,13 +142,12 @@ if __name__ == "__main__":
                 for subdir in subdirs:
                     try:
                         video_dir_name = op.basename(subdir)
-                        video_info_file = op.join('augmentation/scenes', cam_dir_name, 
-                                             video_dir_name, '%s.json' % video_dir_name)
-                        logging.info ('will render example for video %s' % video_info_file)
-                        render_example (out_file, video_info_file)
+                        video_dir = op.join('augmentation/scenes', cam_dir_name, video_dir_name)
+                        logging.info ('will render example for video %s' % video_dir)
+                        render_example (out_file, video_dir)
 
                         # copy to examples folder
-                        rendered_path = op.join(WORK_RENDER_DIR, NORMAL_FILENAME)
+                        stacked_path = op.join(WORK_RENDER_DIR, STACKED_FILENAME)
                         example_name = '%s-%s.png' % (cam_dir_name, video_dir_name)
                         example_path = op.join(WORK_SCENE_DIR, EXAMPLE_DIRNAME, example_name)
                         shutil.copyfile (rendered_path, example_path)
