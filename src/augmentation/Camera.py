@@ -44,6 +44,8 @@ class Camera:
         logging.info ('- using google_maps %d' % map_id)
         self.info.update(self.info['google_maps'][map_id])
         del self.info['google_maps']
+
+        logging.debug (json.dumps(self.info, indent = 4))
         
 
 
@@ -52,4 +54,3 @@ if __name__ == "__main__":
     setupLogging ('log/augmentation/Video.log', logging.DEBUG, 'w')
 
     camera = Camera(camera_dir='augmentation/scenes/cam717')
-    print json.dumps(camera.info, indent = 4)

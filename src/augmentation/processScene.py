@@ -135,6 +135,7 @@ def process_frame (video, camera, cad, time, num_cars, background=None, scale=1,
 
     # load camera dimensions (compare it to everything for extra safety)
     width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
+    logging.debug ('camera width,height: %d,%d' % (width0, height0))
 
     image = None
     mask = None
@@ -159,7 +160,10 @@ def process_frame (video, camera, cad, time, num_cars, background=None, scale=1,
         # check rendered
         image = cv2.imread(op.join(WORK_DIR, CARSONLY_FILENAME))
         assert image is not None
-        assert image.shape == (height0, width0, 3)
+        assert image.shape == (height0, width0, 3), image.shape
+        image = cv2.imread(op.join(WORK_DIR, NORMAL_FILENAME))
+        assert image is not None
+        assert image.shape == (height0, width0, 3), image.shape
 
         # create mask
         mask_path  = op.join(WORK_DIR, MASK_FILENAME)
@@ -185,7 +189,7 @@ def process_frame (video, camera, cad, time, num_cars, background=None, scale=1,
         logging.info ('combine: blender returned code %s' % str(returncode))
         assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
         image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
-        assert image.shape == (height0, width0, 3)
+        assert image.shape == (height0, width0, 3), image.shape
 
     return (image, mask)
 

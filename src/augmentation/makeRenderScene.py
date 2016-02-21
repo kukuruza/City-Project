@@ -5,6 +5,7 @@ import json
 import logging
 from mathutils import Color, Euler, Vector
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 from helperSetup import atcity
 
 WORK_DIR         = atcity('augmentation/blender/current-scene')
@@ -42,16 +43,16 @@ def _copy_lamp_pose_ (src, dst):
     bpy.ops.object.select_all(action='DESELECT')
 
 
-def default_video_scene (scene_info):
+def default_render_scene (scene_info):
     '''Takes the "Satellite" and "Camera" from the "input" file,
     Adjusts "empty-scene" file appropriately to create a scene for a video.
     '''
-    in_path  = atcity(scene_info['in_file'])
-    out_path = atcity(scene_info['out_file'])
+    in_path  = atcity(scene_info['in_render_file'])
+    out_path = atcity(scene_info['out_render_file'])
+    camera_info = scene_info['camera_info']
 
     # open the empty scene
-    empty_scene_path = atcity(EMPTY_SCENE_FILE)
-    bpy.ops.wm.open_mainfile (filepath=empty_scene_path)
+    bpy.ops.wm.open_mainfile (filepath=atcity(EMPTY_SCENE_FILE))
 
     # remove everything unnecessary
     bpy.ops.object.select_all(action='DESELECT')  
@@ -71,6 +72,10 @@ def default_video_scene (scene_info):
     assert camera is not None
     bpy.context.scene.objects.link(camera)
     bpy.context.scene.camera = camera
+
+    # set camera resolution
+    bpy.context.scene.render.resolution_x = camera_info['camera_dims']['width']
+    bpy.context.scene.render.resolution_y = camera_info['camera_dims']['height']
 
     # adjust ground
     ground = bpy.data.objects['-Ground']
@@ -93,5 +98,5 @@ def default_video_scene (scene_info):
 
 scene_info = json.load(open( op.join(WORK_DIR, SCENES_INFO_NAME) ))
 
-default_video_scene(scene_info)
+default_render_scene (scene_info)
 
