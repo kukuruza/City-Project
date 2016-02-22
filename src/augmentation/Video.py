@@ -38,6 +38,7 @@ class Video:
         if 'example_frame_name' in video_info:
             logging.info ('- found example_frame_name: %s' % example_frame_name)
             self.example_frame = cv2.imread(op.join(video_dir, example_frame_name))
+            self.example_frame_name = example_frame_name
             assert self.example_frame is not None
         else:
             # trying possible paths, and take the first to match
@@ -45,10 +46,12 @@ class Video:
             if len(example_frame_paths) > 0:
                 logging.info ('- deduced example_frame: %s' % example_frame_paths[0])
                 self.example_frame = cv2.imread(example_frame_paths[0])
+                self.example_frame_name = op.basename(example_frame_paths[0])
                 assert self.example_frame is not None
             else:
                 logging.warning ('- no example_frame for %s' % video_dir)
                 self.example_frame = None
+                self.example_frame_name = None
 
         if 'example_background_name' in video_info:
             logging.info ('- found example_background_name: %s' % example_background_name)

@@ -56,7 +56,8 @@ def make_combine_scene (in_file, out_file, camera, video):
     # write a temporary file for blender
     scene_info = { 'in_combine_file':  in_file, 
                    'out_combine_file': out_file, 
-                   'camera_info': camera.info }
+                   'camera_info': camera.info,
+                   'video_info': {'example_frame_name': video.example_frame_name} }
     with open(op.join(WORK_SCENE_DIR, SCENES_INFO_NAME), 'w') as f:
         f.write(json.dumps(scene_info, indent=4))
 
@@ -117,8 +118,6 @@ if __name__ == "__main__":
     # switch for all cameras
     parser.add_argument('--all', action='store_true', help='all cameras')
     # input when just one camera
-    parser.add_argument('--in_render_file')
-    parser.add_argument('--in_combine_file')
     parser.add_argument('--video_dir')
     # parameters
     parser.add_argument('--no_make_cam_scene', action='store_true', 
@@ -136,10 +135,12 @@ if __name__ == "__main__":
         camera = video.build_camera()
 
         if not args.no_make_cam_scene:
+            in_render_file  = op.join(op.dirname(args.video_dir), 'geometry.blend')
             out_render_file = op.join(args.video_dir, 'render-generated.blend')
-            make_render_scene (args.in_render_file, out_render_file, camera, video)
+            make_render_scene (in_render_file, out_render_file, camera, video)
+            in_combine_file  = 'augmentation/scenes/empty-combine.blend'
             out_combine_file = op.join(args.video_dir, 'combine-generated.blend')
-            make_combine_scene (args.in_combine_file, out_combine_file, camera, video)
+            make_combine_scene (in_combine_file, out_combine_file, camera, video)
         if not args.no_render_examples:
             render_example (out_render_file, out_combine_file, args.video_dir)
 
@@ -166,12 +167,12 @@ if __name__ == "__main__":
                     camera = video.build_camera()
 
                     if not args.no_make_cam_scene:
-                        in_file  = op.join('augmentation/scenes', cam_dir_name, 'geometry.blend')
+                        in_render_file   = op.join('augmentation/scenes', cam_dir_name, 'geometry.blend')
                         out_render_file  = op.join(video_dir, 'render-generated.blend')
-                        make_render_scene (in_file, out_render_file, camera, video)
-                        in_file = op.join('augmentation/scenes/empty-combine.blend')
+                        make_render_scene (in_render_file, out_render_file, camera, video)
+                        in_combine_file  = op.join('augmentation/scenes/empty-combine.blend')
                         out_combine_file = op.join(video_dir, 'combine-generated.blend')
-                        make_combine_scene (in_file, out_combine_file, camera, video)
+                        make_combine_scene (in_combine_file, out_combine_file, camera, video)
 
                     if not args.no_render_examples:
                         render_example (out_render_file, out_combine_file, video_dir)

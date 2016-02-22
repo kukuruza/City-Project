@@ -99,7 +99,7 @@ def axes_png2blender (points, origin, pxls_in_meter):
       nothing
     '''
     assert points, 'there are no points'
-    assert origin is not None and type(origin) is dict
+    assert origin is not None and 'x' in origin and 'y' in origin, origin
     assert pxls_in_meter is not None
     for point in points:
         logging.debug ('axes_png2blender: before x,y = %f,%f' % (point['x'], point['y']))
@@ -138,7 +138,7 @@ def generate_current_frame (camera, video, cad, time, num_cars, scale=1):
     if 'visible_area_name' in camera.info and camera.info['visible_area_name']:
         visibility_path = atcity(op.join(camera.info['camera_dir'], camera.info['visible_area_name']))
         visibility_map = cv2.imread (visibility_path, cv2.IMREAD_GRAYSCALE)
-        assert visibility_map is not None
+        assert visibility_map is not None, visibility_path
         azimuth_map[visibility_map] = 0
 
     # choose vehicle positions
