@@ -13,6 +13,7 @@ from helperSetup import atcity, setupLogging
 from Cad import Cad
 
 WORK_DIR = atcity('augmentation/blender/current-frame')
+TRAFFIC_FILENAME  = 'traffic.json'
 
 
 def sq(x): return pow(x,2)
@@ -123,7 +124,7 @@ for line in sun_pos_lines:
 
 
 
-def generate_current_frame (camera, video, cad, time, num_cars, scale=1):
+def generate_current_frame (camera, video, cad, time, num_cars):
     ''' Generate traffic.json traffic file for a single frame
     '''
     pxl_in_meter   = camera.info['pxls_in_meter']
@@ -155,13 +156,9 @@ def generate_current_frame (camera, video, cad, time, num_cars, scale=1):
     frame_info = {'sun_altitude': sun_pose['altitude'], \
                   'sun_azimuth':  sun_pose['azimuth'], \
                   'vehicles': vehicles, \
-                  'weather': video.weather,
-                  'scale': scale }
+                  'weather': video.info['weather'] }
 
-    traffic_path = op.join(WORK_DIR, 'traffic.json')
-    logging.debug ('traffic_path: %s' % traffic_path)
-    with open(traffic_path, 'w') as f:
-        f.write(json.dumps(frame_info, indent=4))
+    return frame_info
 
 
 
@@ -175,4 +172,8 @@ if __name__ == "__main__":
     num_cars = 10
     video_info = json.load(open( atcity(video_info_file) ))
 
-    generate_current_frame (video_info, collection_names, timestamp, num_cars)
+    frame_info = generate_current_frame (video_info, collection_names, timestamp, num_cars)
+
+    traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
+    with open(traffic_path, 'w') as f:
+        f.write(json.dumps(frame_info, indent=4))

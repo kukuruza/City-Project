@@ -37,7 +37,15 @@ class Camera:
         assert 'map_id' in self.info
         del self.info['camera_poses']
 
-        # read te proper google_map
+        # the default scene geometry file
+        if 'geometry_blend_name' not in self.info: 
+            self.info['geometry_blend_name'] = 'geometry.blend'
+
+        # the default scale
+        if 'scale' not in self.info: 
+            self.info['scale'] = 1
+
+        # read the proper google_map
         assert 'google_maps' in self.info
         map_id = self.info['map_id']
         assert map_id < len(self.info['google_maps'])

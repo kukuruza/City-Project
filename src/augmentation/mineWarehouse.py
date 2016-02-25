@@ -14,14 +14,13 @@ import time
 import traceback
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 from helperSetup import atcity, setupLogging
-from es_interface import CAD_ES_interface
+from Cad import Cad
 
 
-# open interface to ElasticSerach database
-cad_db = CAD_ES_interface()
 
-
+CAD_DIR = atcity('augmentation/CAD')
 README_NAME = 'readme-src.json'
 
 
@@ -135,7 +134,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
                 continue
 
         # check if this model is known as a part of some other collection
-        seen_collection_ids = cad_db.is_model_in_other_collections (model_id, collection_id)
+        seen_collection_ids = cad.is_model_in_other_collections (model_id, collection_id)
         if seen_collection_ids:
             error = 'is a part of %d collections. First is %s' % \
                          (len(seen_collection_ids), seen_collection_ids[0])
@@ -143,7 +142,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
             model_info['error'] = error
             logging.warning ('model_id %s %s' % (model_id, error))
             counts['skipped'] += 1
-            cad_db.update_model (model_info, collection_id)
+            cad.update_model (model_info, collection_id)
             new_models_info.append(model_info)
             continue
 
@@ -161,7 +160,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
                           'error': 'download failed: timeout error'}
             counts['failed'] += 1
 
-        cad_db.update_model (model_info, collection_id)
+        cad.update_model (model_info, collection_id)
         new_models_info.append(model_info)
 
     logging.info ('out of %d models in collection: \n' % len(model_urls) +
@@ -173,11 +172,11 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
 
 
 
-def download_collection (browser, url, CAD_dir, args):
+def download_collection (browser, url, cad, args):
 
     # collection_id is the last part of the url
     collection_id = url.split('=')[-1]
-    collection_dir = op.join(CAD_dir, collection_id)
+    collection_dir = op.join(CAD_DIR, collection_id)
     logging.info ('will download coleection_id: %s' % collection_id)
 
     # if collection exists
@@ -254,8 +253,6 @@ def download_collection (browser, url, CAD_dir, args):
 if __name__ == "__main__":
     setupLogging('log/augmentation/MineWarehouse.log', logging.INFO, 'w')
 
-    CAD_dir = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/CAD')
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--collection_url')
     parser.add_argument('--overwrite_collection', action='store_true')
@@ -263,6 +260,8 @@ if __name__ == "__main__":
     parser.add_argument('--timeout', nargs='?', default=10, type=int)
     args = parser.parse_args()
 
+    cad = Cad()
+
     # use firefox to get page with javascript generated content
     with closing(Firefox()) as browser:
-        download_collection (browser, args.collection_url, CAD_dir, args)
+        download_collection (browser, args.collection_url, cad, args)

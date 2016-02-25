@@ -10,7 +10,7 @@ from mathutils import Color, Euler, Vector
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import common
-from helperSetup import atcity, setupLogging
+from helperSetup import atcity, setupLogging, setParamUnlessThere
 
 '''
 Functions to parse blender output into images, masks, and annotations
@@ -22,7 +22,6 @@ render_satellite     = False
 render_cars_as_cubes = False
 save_blend_file      = True
 
-# all inter-files name / path conventions
 WORK_DIR          = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 NORMAL_FILENAME   = 'normal.png'
@@ -64,7 +63,8 @@ def render_frame (frame_info, render_dir):
 
     points  = frame_info['vehicles']
     weather = frame_info['weather']
-    scale   = frame_info['scale'] 
+    setParamUnlessThere (frame_info, 'scale', 1)
+    setParamUnlessThere (frame_info, 'render_individual_cars', True)
 
     # set weather
     if 'Dry'    in weather: 
@@ -98,6 +98,7 @@ def render_frame (frame_info, render_dir):
             car_name = 'car_%i' % i
             common.import_blend_car (blend_path, model_id, car_name)
             position_car (car_name, x=point['x'], y=point['y'], azimuth=point['azimuth'])
+            scale = frame_info['scale']
             bpy.ops.transform.resize (value=(scale, scale, scale))
 
     # make all cars receive shadows
@@ -119,7 +120,7 @@ def render_frame (frame_info, render_dir):
     common.render_scene(op.join(render_dir, CARSONLY_FILENAME))
 
     # render just the car for each car (to extract bbox)
-    if not render_cars_as_cubes:
+    if frame_info['render_individual_cars'] and not render_cars_as_cubes:
         # hide all cars
         for i,point in enumerate(points):
             car_name = 'car_%i' % i

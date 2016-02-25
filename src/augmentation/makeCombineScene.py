@@ -7,7 +7,9 @@ from mathutils import Color, Euler, Vector
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity
 
-WORK_DIR         = atcity('augmentation/blender/current-scene')
+import numpy as np
+
+WORK_COMBINE_DIR = atcity('augmentation/blender/current-scene')
 SCENES_INFO_NAME = 'scene.json'
 
 
@@ -16,6 +18,26 @@ def dump(obj):
    for attr in dir(obj):
        if hasattr( obj, attr ):
            print( "obj.%s = %s" % (attr, getattr(obj, attr)))
+
+
+def hsv_correction (video_info):
+    hsv_node = bpy.context.scene.node_tree.nodes['Hue-Saturation-Compensation']
+    if 'blender_hsv' in video_info:
+        blender_hsv = video_info['blender_hsv']
+        if 'h' in blender_hsv: hsv_node.color_hue        = blender_hsv['h']
+        if 's' in blender_hsv: hsv_node.color_saturation = blender_hsv['s']
+        if 'v' in blender_hsv: hsv_node.color_value      = blender_hsv['v']
+    else:
+        logging.warning ('combine_scene: no blender_hsv information in video_info')
+
+
+def camera_blur (camera_info):
+    blur_node = bpy.context.scene.node_tree.nodes['Camera-Blur']
+    if 'blender_blur' in camera_info:
+        blender_blur = camera_info['blender_blur']
+        if 'X'    in blender_blur: blur_node.center_x = blender_blur['X']
+        if 'Y'    in blender_blur: blur_node.center_y = blender_blur['Y']
+        if 'zoom' in blender_blur: blur_node.zoom     = blender_blur['zoom']
 
 
 def default_combine_scene (scene_info):
@@ -40,15 +62,19 @@ def default_combine_scene (scene_info):
     bpy.ops.wm.save_as_mainfile (filepath=out_path)
     bpy.ops.wm.open_mainfile (filepath=out_path)
     # change the file name
-    frame_path = '//%s' % video_info['example_frame_name']
-    bpy.data.images['frame-1.png'].filepath = frame_path
+    frame_name = '//%s' % video_info['example_frame_name']
+    bpy.data.images['frame-1.png'].filepath = frame_name
+
+    hsv_correction (video_info)
+
+    camera_blur (camera_info)
 
     assert op.exists(op.dirname(out_path)), 'out_path: %s' % out_path
     bpy.ops.wm.save_as_mainfile (filepath=out_path)
 
 
 
-scene_info = json.load(open( op.join(WORK_DIR, SCENES_INFO_NAME) ))
+scene_info = json.load(open( op.join(WORK_COMBINE_DIR, SCENES_INFO_NAME) ))
 
 default_combine_scene (scene_info)
 

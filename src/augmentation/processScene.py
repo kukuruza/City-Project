@@ -5,31 +5,31 @@ import json
 import numpy as np
 import cv2
 import argparse
+import logging
+import sqlite3
+import datetime
+import subprocess
+import shutil
 from math import pi, atan, atan2, pow, sqrt
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/monitor'))
-import logging
-import sqlite3
-import datetime
 import helperSetup
 import helperDb
 import helperImg
 import utilities
-import subprocess
-import shutil
-from video2dataset import video2dataset
 from helperImg import ProcessorVideo
-from helperSetup import _setupCopyDb_, setupLogging, atcity, setParamUnlessThere
+from helperSetup import _setupCopyDb_, setupLogging, atcity
+from helperSetup import setParamUnlessThere, assertParamIsThere
 from placeCars import generate_current_frame
 from MonitorDatasetClient import MonitorDatasetClient
 from Cad import Cad
 from Camera import Camera
 from Video import Video
+from colorCorrection import color_correction
 
 
-# All rendering by blender takes place in WORK_DIR
 WORK_DIR          = atcity('augmentation/blender/current-frame')
 BACKGROUND_FILENAME = 'background.png'
 NORMAL_FILENAME     = 'normal.png'
@@ -37,6 +37,7 @@ CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
 MASK_FILENAME       = 'mask.png'
 TRAFFIC_FILENAME    = 'traffic.json'
+CORRECTION_FILENAME = 'color-correction.json'
 
 assert os.getenv('BLENDER_ROOT') is not None, \
     'export BLENDER_ROOT with path to blender binary as environmental variable'
@@ -123,7 +124,7 @@ def extract_annotations (c, traffic, cad, camera, imagefile, monitor=None):
 
 
 
-def process_frame (video, camera, cad, time, num_cars, background=None, scale=1, params={}):
+def process_frame (video, camera, cad, time, num_cars, background=None, params={}):
     ''' Full stack for one single frame (no db entries). 
     Everything about blender input and output files is hidden inside this function.
     All work is in current-frame dir.
@@ -131,7 +132,9 @@ def process_frame (video, camera, cad, time, num_cars, background=None, scale=1,
     setParamUnlessThere (params, 'no_traffic', False)
     setParamUnlessThere (params, 'no_render',  False)
     setParamUnlessThere (params, 'no_combine', False)
+    setParamUnlessThere (params, 'no_correction', False)
     setParamUnlessThere (params, 'scale',      1.0)
+    setParamUnlessThere (params, 'render_individual_cars', True)
 
     # load camera dimensions (compare it to everything for extra safety)
     width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
@@ -141,7 +144,12 @@ def process_frame (video, camera, cad, time, num_cars, background=None, scale=1,
     mask = None
 
     if not params['no_traffic']:
-        generate_current_frame (camera, video, cad, time, num_cars, params['scale'])
+        frame_info = generate_current_frame (camera, video, cad, time, num_cars)
+        frame_info['scale'] = camera.info['scale']
+        frame_info['render_individual_cars'] = params['render_individual_cars']
+        traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
+        with open(traffic_path, 'w') as f:
+            f.write(json.dumps(frame_info, indent=4))
 
     if not params['no_render']:
         # remove so that they do not exist if blender fails
@@ -158,32 +166,40 @@ def process_frame (video, camera, cad, time, num_cars, background=None, scale=1,
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
         # check rendered
-        image = cv2.imread(op.join(WORK_DIR, CARSONLY_FILENAME))
-        assert image is not None
-        assert image.shape == (height0, width0, 3), image.shape
         image = cv2.imread(op.join(WORK_DIR, NORMAL_FILENAME))
         assert image is not None
         assert image.shape == (height0, width0, 3), image.shape
 
         # create mask
         mask_path  = op.join(WORK_DIR, MASK_FILENAME)
-        carsonly = cv2.imread( op.join(WORK_DIR, CARSONLY_FILENAME), -1 )
+        carsonly = cv2.imread (op.join(WORK_DIR, CARSONLY_FILENAME), -1)
         assert carsonly.shape == (height0, width0, 4)  # need the alpha channel
         mask = carsonly[:,:,3] > 0
 
+
+    correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
+    if op.exists(correction_path): os.remove(correction_path)
+    if not params['no_correction']:
+        correction_info = color_correction (video.example_background, background)
+        with open(correction_path, 'w') as f:
+            f.write(json.dumps(correction_info, indent=4))
+
+
     if not params['no_combine']:
+        
         # get background file
         assert background is not None, 'either pass no_combine or background'
         assert background.shape == (height0, width0, 3), background.shape
         cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), background)
 
-        # remove so that they do not exist if blender fails
+        # remove previous result so that there is an error if blender fails
         if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
             os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
+
         # postprocess and overlay
         assert video.combine_blend_file is not None
         combine_scene_path = atcity(video.combine_blend_file)
-        command = '%s/blender %s --background --python %s/src/augmentation/combineFrame.py' % \
+        command = '%s/blender %s --background --python %s/src/augmentation/combineScene.py' % \
                   (os.getenv('BLENDER_ROOT'), combine_scene_path, os.getenv('CITY_PATH'))
         returncode = subprocess.call ([command], shell=True)
         logging.info ('combine: blender returned code %s' % str(returncode))
@@ -219,16 +235,24 @@ def _parse_frame_range_arg_ (range_str, length):
 
 def process_video (job, args):
 
+    assertParamIsThere  (job, 'video_dir')
+    video = Video(video_dir=job['video_dir'])
+    camera = video.build_camera()
+
+    # some default parameters
+    assertParamIsThere  (job, 'in_db_file')
+    setParamUnlessThere (job, 'out_db_file', 
+        op.join(op.dirname(job['in_db_file']), 'traffic.db'))
+    setParamUnlessThere (job, 'out_video_dir', 
+        op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], video.info['video_name']))
+
     # get input for this job from json
     in_db_path           = atcity(job['in_db_file'])
     out_db_path          = atcity(job['out_db_file'])
-    out_image_video_file = job['out_image_video_file']
-    out_mask_video_file  = job['out_mask_video_file']
-    out_image_video_path = atcity(job['out_image_video_file'])
-    out_mask_video_path  = atcity(job['out_mask_video_file'])
+    out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
+    out_mask_video_file  = op.join(job['out_video_dir'], 'mask.avi')
+    if args.no_annotations: job['render_individual_cars'] = False
 
-    video = Video(video_dir=job['video_dir'])
-    camera = video.build_camera()
     # load camera dimensions (compare it to everything for extra safety)
     width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
 
@@ -244,8 +268,9 @@ def process_video (job, args):
     c = conn.cursor()
 
     # remove video if exist
-    if op.exists(out_image_video_path): os.remove(out_image_video_path)
-    if op.exists(out_mask_video_path):  os.remove(out_mask_video_path)
+    if not op.exists(atcity(job['out_video_dir'])): os.makedirs(atcity(job['out_video_dir']))
+    if op.exists(atcity(out_image_video_file)): os.remove(atcity(out_image_video_file))
+    if op.exists(atcity(out_mask_video_file)):  os.remove(atcity(out_mask_video_file))
 
     # value for 'src' field in db
     name = op.basename(op.splitext(out_db_path)[0])
@@ -277,7 +302,10 @@ def process_video (job, args):
         back = processor.imread(in_backfile)
         in_mask = processor.maskread(in_maskfile)
 
-        if i not in frame_range:
+        if i > frame_range[-1]:
+            # avoid useless skipping of frames
+            break
+        elif i not in frame_range:
             # skip rendering and db entry. Just rewrite the same video
             if args.record_empty_frames:
                 processor.imwrite (back, in_backfile)
@@ -286,12 +314,12 @@ def process_video (job, args):
             continue
         
         # if static_back use example background
-        if not args.use_example_background:
-            back = video.example_background
-            assert back is not None, 'example_background not available for this video'
+        # if args.use_example_background:
+        #     back = video.example_background
+        #     assert back is not None, 'example_background not available for this video'
 
         # generate traffic
-        elif timestamp is None:
+        if timestamp is None:
             if video.start_time is None:
                 raise Exception('timestamp is not in the .txt and not in video_info file')
             time = video.start_time + datetime.timedelta(minutes=int(float(i) / 960 * 40))
@@ -312,8 +340,9 @@ def process_video (job, args):
         c.execute('UPDATE images SET imagefile=?, maskfile=? WHERE imagefile=?', 
                     (out_imagefile, out_maskfile, in_backfile))
 
-        frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-        extract_annotations (c, frame_info, cad, camera, out_imagefile, monitor)
+        if not args.no_annotations:
+            frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
+            extract_annotations (c, frame_info, cad, camera, out_imagefile, monitor)
 
     conn.commit()
     conn.close()

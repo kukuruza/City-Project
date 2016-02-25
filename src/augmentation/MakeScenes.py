@@ -57,7 +57,7 @@ def make_combine_scene (in_file, out_file, camera, video):
     scene_info = { 'in_combine_file':  in_file, 
                    'out_combine_file': out_file, 
                    'camera_info': camera.info,
-                   'video_info': {'example_frame_name': video.example_frame_name} }
+                   'video_info': video.info }
     with open(op.join(WORK_SCENE_DIR, SCENES_INFO_NAME), 'w') as f:
         f.write(json.dumps(scene_info, indent=4))
 
@@ -83,8 +83,9 @@ def render_example (out_render_file, out_combine_file, video_dir):
     cad = Cad()
     cad.load(['7c7c2b02ad5108fe5f9082491d52810'])
     num_cars = 20
+    params = {'render_individual_cars': False, 'no_correction': True}
 
-    image, _ = process_frame (video, camera, cad, time, num_cars, background)
+    image, _ = process_frame (video, camera, cad, time, num_cars, background, params=params)
     assert image is not None
     
     stacked_path = op.join(WORK_RENDER_DIR, STACKED_FILENAME)
@@ -135,7 +136,8 @@ if __name__ == "__main__":
         camera = video.build_camera()
 
         if not args.no_make_cam_scene:
-            in_render_file  = op.join(op.dirname(args.video_dir), 'geometry.blend')
+            in_render_file  = op.join(op.dirname(args.video_dir), 
+                                      camera.info['geometry_blend_name'])
             out_render_file = op.join(args.video_dir, 'render-generated.blend')
             make_render_scene (in_render_file, out_render_file, camera, video)
             in_combine_file  = 'augmentation/scenes/empty-combine.blend'
@@ -167,7 +169,8 @@ if __name__ == "__main__":
                     camera = video.build_camera()
 
                     if not args.no_make_cam_scene:
-                        in_render_file   = op.join('augmentation/scenes', cam_dir_name, 'geometry.blend')
+                        in_render_file   = op.join('augmentation/scenes', cam_dir_name, 
+                                                   camera.info['geometry_blend_name'])
                         out_render_file  = op.join(video_dir, 'render-generated.blend')
                         make_render_scene (in_render_file, out_render_file, camera, video)
                         in_combine_file  = op.join('augmentation/scenes/empty-combine.blend')

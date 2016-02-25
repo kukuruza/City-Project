@@ -8,7 +8,7 @@ function GetAzimuthMap (in_lane_template)
 %
 % args:
 %   in_lane_template:   wildcard template of all lane files,
-%                       e.g. 'models/cam124/google1/lane*.png'
+%                       e.g. 'augmentation/scenes/cam124/google1/lane*.png'
 
 % set paths
 assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
@@ -41,6 +41,7 @@ show = true;
 % for each file that matches the pattern
 clear azimuths0 mask0
 lane_names = dir(in_lane_template);
+assert (~isempty(lane_names))
 for i = 1 : length(lane_names)
     fprintf ('lanes file name: %s.\n', lane_names(i).name);
     lane_path = fullfile (fileparts(in_lane_template), lane_names(i).name);
