@@ -1,4 +1,4 @@
-function MakeMaskVideo (in_image_videofile, varargin)
+function MakeMaskVideo (in_video_dir, varargin)
 % Use GMM model to extract foreground masks from 'in_image_videofile'
 %   The mask video is written to 'out_mask_videopath'
 %
@@ -17,7 +17,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 parser = inputParser;
 addRequired(parser,  'in_image_videofile',  @ischar);
 addParameter(parser, 'LearningRate',        0.005, @isscalar);
-parse (parser, in_image_videofile, varargin{:});
+parse (parser, in_video_dir, varargin{:});
 parsed = parser.Results;
 
 
@@ -25,10 +25,10 @@ parsed = parser.Results;
 %% input
 
 % input
-in_image_videopath = [CITY_DATA_PATH in_image_videofile '.avi'];
+in_image_videopath = fullfile(CITY_DATA_PATH, in_video_dir, 'src.avi');
 
 % output
-out_mask_videofile = [in_image_videofile '-mask.avi'];
+out_mask_videofile = fullfile(in_video_dir, 'mask.avi');
 
 % what to do
 write = true;

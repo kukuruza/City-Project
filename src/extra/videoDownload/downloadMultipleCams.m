@@ -1,4 +1,4 @@
-function downloadMultipleCams (camListPath, numMinutes, varargin)
+function downloadMultipleCams (camListFile, numMinutes, varargin)
 % Download video from a bunch of cameras.
 % This functon knows about our organization of data, e.g.
 %   camdata/cam001/Jan01-01h
@@ -28,7 +28,7 @@ addParameter(parser, 'relpath', CITY_DATA_PATH, @ischar);
 addParameter(parser, 'timeZone', '-05:00', @ischar);
 addParameter(parser, 'verbose', 1, @isscalar);
 addParameter(parser, 'deleteOnExit', false, @islogical);  % use for debugging
-parse (parser, camListPath, numMinutes, varargin{:});
+parse (parser, camListFile, numMinutes, varargin{:});
 parsed = parser.Results;
 
 if parsed.verbose
@@ -36,15 +36,15 @@ if parsed.verbose
     fprintf ('numMinutes:            %d.\n', parsed.numMinutes);
     fprintf ('timeZone:              %s.\n', parsed.timeZone);
     fprintf ('relPath:               %s.\n', parsed.relpath);
-    fprintf ('camListPath full path: %s.\n', fullfile(parsed.relpath, camListPath));
+    fprintf ('camListPath full path: %s.\n', fullfile(parsed.relpath, camListFile));
     fprintf ('deleteOnExit:          %d.\n', parsed.deleteOnExit);
 end
 
 %% work
 
 % read camIds from file
-assert (exist(fullfile(parsed.relpath, camListPath), 'file') ~= 0);
-lineList = readList(fullfile(parsed.relpath, camListPath));
+assert (exist(fullfile(parsed.relpath, camListFile), 'file') ~= 0);
+lineList = readList(fullfile(parsed.relpath, camListFile));
 camIds = zeros(length(lineList), 1);
 for i = 1 : length(lineList)
     camIds(i) = sscanf(lineList{i}, '%d');
@@ -60,8 +60,8 @@ for i = 1 : length(camIds)
     
     camId = camIds(i);
     camDir = fullfile('camdata', sprintf('cam%03d', camId));
-    outFileTemplate = fullfile(camDir, name);
-    fprintf ('Downloading from camera template: %s \n', outFileTemplate);
+    videoDir = fullfile(camDir, name);
+    fprintf ('Downloading from camera template: %s \n', videoDir);
     
     % create the camera directory, if it doesn't exist
     if ~exist (fullfile(getenv('CITY_DATA_PATH'), camDir), 'dir')
@@ -69,7 +69,7 @@ for i = 1 : length(camIds)
     end
     
     f(i) = parfeval (taskPool, @downloadSingleCam, 1, ...
-                     camId, outFileTemplate, numMinutes, ...
+                     camId, videoDir, numMinutes, ...
                      'timeZone', parsed.timeZone, ...
                      'deleteOnExit', parsed.deleteOnExit);
 end

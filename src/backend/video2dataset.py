@@ -6,6 +6,7 @@ import cv2
 import logging
 import sqlite3
 import datetime
+from helperSetup import atcity, _setupCopyDb_
 import helperSetup
 import helperDb
 import helperImg
@@ -13,32 +14,32 @@ import utilities
 
 
 
-def video2dataset (c, image_video_path, mask_video_path, time_path, name, params = {}):
+def video2dataset (c, image_video_file, mask_video_file, time_file, name, params = {}):
     '''
     Take a video of 'images' and 'masks' and make a dataset out of it
     Args:
-      time_path:  if None, null values will be written to db
+      time_file:  if None, null values will be written to db
     '''
     logging.info ('==== video2dataset ====')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
 
-    logging.info ('image path: %s' % image_video_path)
-    logging.info ('mask path:  %s' % mask_video_path)
-    logging.info ('time path:  %s' % time_path)
+    logging.info ('image file: %s' % image_video_file)
+    logging.info ('mask file:  %s' % mask_video_file)
+    logging.info ('time file:  %s' % time_file)
 
-    # get the full video paths
-    if not op.exists (op.join(params['relpath'], image_video_path)):
-        raise Exception ('image video does not exist: %s' % image_video_path)
-    if not op.exists (op.join(params['relpath'], mask_video_path)):
-        raise Exception ('mask video does not exist: %s' % mask_video_path)
+    # test the full video paths
+    if not op.exists (op.join(params['relpath'], image_video_file)):
+        raise Exception ('image video does not exist: %s' % image_video_file)
+    if not op.exists (op.join(params['relpath'], mask_video_file)):
+        raise Exception ('mask video does not exist: %s' % mask_video_file)
 
     # read timestamps
-    if time_path is not None:
-        with open(op.join(params['relpath'], time_path)) as f:
+    if time_file is not None:
+        with open(op.join(params['relpath'], time_file)) as f:
             timestamps = f.readlines()
 
-    imageVideo = cv2.VideoCapture (op.join(params['relpath'], image_video_path))
-    maskVideo  = cv2.VideoCapture (op.join(params['relpath'], mask_video_path))
+    imageVideo = cv2.VideoCapture (op.join(params['relpath'], image_video_file))
+    maskVideo  = cv2.VideoCapture (op.join(params['relpath'], mask_video_file))
 
     counter = 0
     while (True):
@@ -50,11 +51,11 @@ def video2dataset (c, image_video_path, mask_video_path, time_path, name, params
         if not ret1: break
 
         # write image, ghost, and mask
-        imagefile = op.join (op.splitext(image_video_path)[0], '%06d' % counter)
-        maskfile  = op.join (op.splitext(mask_video_path)[0],  '%06d' % counter)
+        imagefile = op.join (op.splitext(image_video_file)[0], '%06d' % counter)
+        maskfile  = op.join (op.splitext(mask_video_file)[0],  '%06d' % counter)
 
         # get and validate time
-        if time_path is None:
+        if time_file is None:
             timestamp = None
         else:
             timestamp = timestamps[counter].rstrip()
@@ -72,24 +73,19 @@ def video2dataset (c, image_video_path, mask_video_path, time_path, name, params
 
 
 
-def makeDataset (videos_prefix, db_prefix, params = {}):
+def make_dataset (video_dir, db_prefix, params = {}):
     ''' 
     Build a dataset based on videos 'frame' (source), 'ghost' and 'mask', as well as timestamp .txt
     The format may change over time.
     '''
-    logging.info ('==== makeDataset ====')
-    helperSetup.setParamUnlessThere (params, 'image_suffix', '.avi')
-    helperSetup.setParamUnlessThere (params, 'ghost_suffix', '-ghost.avi')
-    helperSetup.setParamUnlessThere (params, 'mask_suffix',  '-mask.avi')
-    helperSetup.setParamUnlessThere (params, 'time_suffix',  '.txt')
+    logging.info ('==== make_dataset ====')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo(params))
 
     # form video and time paths
-    image_video_path = op.join(videos_prefix + params['image_suffix'])
-    ghost_video_path = op.join(videos_prefix + params['ghost_suffix'])
-    mask_video_path  = op.join(videos_prefix + params['mask_suffix'])
-    time_path        = op.join(videos_prefix + params['time_suffix'])
+    image_video_file = op.join(video_dir, 'src.avi')
+    ghost_video_file = op.join(video_dir, 'ghost.avi')
+    mask_video_file  = op.join(video_dir, 'mask.avi')
+    time_file        = op.join(video_dir, 'time.txt')
 
     # create and empty db-s
     db_dir = op.dirname(op.join(params['relpath'], db_prefix))
@@ -103,13 +99,48 @@ def makeDataset (videos_prefix, db_prefix, params = {}):
     c_ghost = conn_ghost.cursor()
 
     db_name = op.basename(db_prefix)
-    video2dataset (c_frame, image_video_path, mask_video_path, time_path, db_name, params)
-    video2dataset (c_ghost, ghost_video_path, mask_video_path, time_path, db_name, params)
+    video2dataset (c_frame, image_video_file, mask_video_file, time_file, db_name, params)
+    video2dataset (c_ghost, ghost_video_file, mask_video_file, time_file, db_name, params)
 
     conn_frame.commit()
     conn_ghost.commit()
     conn_frame.close()
     conn_ghost.close()
+
+
+
+def make_back_dataset (video_dir, out_db_file, params = {}):
+    ''' 
+    Build a dataset based on 'back' and 'mask' videos, as well as timestamp .txt
+    The format may change over time.
+    '''
+    logging.info ('==== make_back_dataset ====')
+    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+
+    # form video and time paths
+    back_video_file  = op.join(video_dir, 'back.avi')
+    mask_video_file  = op.join(video_dir, 'mask.avi')
+    time_file        = op.join(video_dir, 'time.txt')
+
+    # form db name
+    camera_name = op.basename(op.dirname(video_dir))
+    video_name  = op.basename(video_dir)
+    name = '%s-%s' % (camera_name, video_name)
+
+    # create parent dir and remove the previous file, if exists
+    if not op.exists(atcity(op.dirname(out_db_file))): 
+        os.makedirs (atcity(op.dirname(out_db_file)))
+    if op.exists(atcity(out_db_file)):
+        os.remove(atcity(out_db_file))
+
+    conn = sqlite3.connect(atcity(out_db_file))
+    helperDb.createDb(conn)
+    c = conn.cursor()
+
+    video2dataset (c, back_video_file, mask_video_file, time_file, name)
+
+    conn.commit()
+    conn.close()
 
     
 
