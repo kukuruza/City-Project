@@ -82,9 +82,12 @@ try
 catch err
     fprintf ('Error downloading camera %d.\n', camId);
     disp(getReport(err, 'extended'));   
-    clear frameReader frameWriter
+    if exist('frameReader', 'var'), clear frameReader; end 
+    if exist('frameReader', 'var'), clear frameWriter; end
     fclose all;
     rmdir ([CITY_DATA_PATH outDir], 's');
+    counter = 0;
+    disp ('finished error processing')
 end
 
     
