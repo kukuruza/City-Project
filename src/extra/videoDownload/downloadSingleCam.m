@@ -12,6 +12,7 @@ addRequired (parser, 'camId', @isscalar);
 addRequired (parser, 'outFileTemplate', @ischar);
 addRequired (parser, 'numMinutes', @isscalar);
 addParameter(parser, 'timeZone', 'America/New_York', @ischar);
+addParameter(parser, 'comment', '', @ischar);
 addParameter(parser, 'deleteOnExit', false, @islogical);  % use for debugging
 parse (parser, camId, outDir, numMinutes, varargin{:});
 parsed = parser.Results;
@@ -30,8 +31,18 @@ if ~exist([CITY_DATA_PATH outDir], 'dir')
 end
 
 % where to write video and intervals
-videoPath = fullfile(outDir, 'src.avi');
+videoPath     = fullfile(outDir, 'src.avi');
 timestampPath = fullfile(outDir, 'time.txt');
+readmePath    = fullfile(outDir, 'readme.txt');
+
+% write the readme file
+fid = fopen(fullfile(CITY_DATA_PATH, readmePath), 'w');
+fprintf (fid, 'Recorded for %d minutes starting at %s local %s time.\n', ...
+    numMinutes, ...
+    matlabDatetime2dbTime(datetime('now','TimeZone',parsed.timeZone)), ...
+    parsed.timeZone);
+if ~isempty(parsed.comment), fprintf (fid, '%s.\n', parsed.comment); end
+fclose(fid);
 
 % add status updates to remote monitor
 monitor = MonitorDownloadClient('config_path', 'etc/monitor.ini', 'cam_id', camId, 'verbose', 1);
@@ -39,30 +50,40 @@ monitor = MonitorDownloadClient('config_path', 'etc/monitor.ini', 'cam_id', camI
 fprintf ('Will write video to %s\n', videoPath);
 fprintf ('Will write time  to %s\n', timestampPath);
 
-frameReader = FrameReaderInternet (camId, 'timeZone', parsed.timeZone);
-frameWriter = FrameWriterVideo (videoPath, 2);
-fid = fopen(fullfile(CITY_DATA_PATH, timestampPath), 'w');
+try
+    frameReader = FrameReaderInternet (camId, 'timeZone', parsed.timeZone);
+    frameWriter = FrameWriterVideo (videoPath, 2);
+    fid = fopen(fullfile(CITY_DATA_PATH, timestampPath), 'w');
 
-counter = 0; % for output
-t0 = clock;
-t = t0;
-while etime(t, t0) < numMinutes * 60
-    tic
-    t = clock;
-    [frame, timestamp] = frameReader.getNewFrame();
-    frameWriter.step (frame);
-    fprintf(fid, '%s\n', timestamp);
-    toc
-    counter = counter + 1;
-    monitor.updateDownload(timestamp);
-end
+    counter = 0; % for output
+    t0 = clock;
+    t = t0;
+    while etime(t, t0) < numMinutes * 60
+        tic
+        t = clock;
+        [frame, timestamp] = frameReader.getNewFrame();
+        frameWriter.step (frame);
+        fprintf(fid, '%s\n', timestamp);
+        toc
+        counter = counter + 1;
+        monitor.updateDownload(timestamp);
+    end
 
-fclose(fid);
-clear frameReader frameWriter
+    fclose(fid);
+    clear frameReader frameWriter
 
-% during debugging, the script may be run just to check it works.
-%   In that case, delete the saved files (return to where we started).
-if parsed.deleteOnExit
+    % during debugging, the script may be run just to check it works.
+    %   In that case, delete the saved files (return to where we started).
+    if parsed.deleteOnExit
+        rmdir ([CITY_DATA_PATH outDir], 's');
+    end
+
+% the error is caught so that download MultipleCameras does not fail
+catch err
+    fprintf ('Error downloading camera %d.\n', camId);
+    disp(getReport(err, 'extended'));   
+    clear frameReader frameWriter
+    fclose all;
     rmdir ([CITY_DATA_PATH outDir], 's');
 end
 

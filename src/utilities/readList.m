@@ -16,6 +16,7 @@ for i = 1 : 100000000
     if feof(fid), break, end
     line = fgets(fid);
     line (line == EolCharacter) = [];
+    if isempty(line) || line(1) == '#', continue, end
     lines{i} = line;
 end
 

@@ -26,6 +26,7 @@ addRequired(parser, 'camListPath', @ischar);
 addRequired(parser, 'numMinutes', @isscalar);
 addParameter(parser, 'relpath', CITY_DATA_PATH, @ischar);
 addParameter(parser, 'timeZone', '-05:00', @ischar);
+addParameter(parser, 'comment', '', @ischar);
 addParameter(parser, 'verbose', 1, @isscalar);
 addParameter(parser, 'deleteOnExit', false, @islogical);  % use for debugging
 parse (parser, camListFile, numMinutes, varargin{:});
@@ -35,6 +36,7 @@ if parsed.verbose
     fprintf ('CITY_DATA_PATH:        %s.\n', CITY_DATA_PATH);
     fprintf ('numMinutes:            %d.\n', parsed.numMinutes);
     fprintf ('timeZone:              %s.\n', parsed.timeZone);
+    fprintf ('comment:               %s.\n', parsed.comment);
     fprintf ('relPath:               %s.\n', parsed.relpath);
     fprintf ('camListPath full path: %s.\n', fullfile(parsed.relpath, camListFile));
     fprintf ('deleteOnExit:          %d.\n', parsed.deleteOnExit);
@@ -47,7 +49,11 @@ assert (exist(fullfile(parsed.relpath, camListFile), 'file') ~= 0);
 lineList = readList(fullfile(parsed.relpath, camListFile));
 camIds = zeros(length(lineList), 1);
 for i = 1 : length(lineList)
-    camIds(i) = sscanf(lineList{i}, '%d');
+    try
+        camIds(i) = sscanf(lineList{i}, '%d');
+    catch
+        warning('cant read line %d of the list', i);
+    end
 end
 
 % get the video name, same for each cam. (maybe move into downloadSingleCam)
@@ -71,6 +77,7 @@ for i = 1 : length(camIds)
     f(i) = parfeval (taskPool, @downloadSingleCam, 1, ...
                      camId, videoDir, numMinutes, ...
                      'timeZone', parsed.timeZone, ...
+                     'comment', parsed.comment, ...
                      'deleteOnExit', parsed.deleteOnExit);
 end
 
