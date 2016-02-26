@@ -78,6 +78,12 @@ class Video:
             self.start_time = datetime.strptime(video_name, VIDEO_DIR_STRPTIME)
             logging.info ('- deduced start_time: %s' % self.start_time.strftime(TIME_FORMAT))
 
+        if 'frame_range' in video_info:
+            self.info['frame_range'] = video_info['frame_range']
+            logging.info ('- found frame_range: %s' % video_info['frame_range'])
+        else:
+            self.info['frame_range'] = ':'
+
         if 'render_blend_file' in video_info:
             self.render_blend_file = video_info['render_blend_file']
             logging.info ('- found render_blend_file: %s' % self.render_blend_file)

@@ -20,13 +20,15 @@ This file knows about how we store data in SQL
 # debug option
 render_satellite     = False
 render_cars_as_cubes = False
-save_blend_file      = True
+save_blend_file      = False
 
-WORK_DIR          = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR   = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
 CAR_RENDER_TEMPL  = 'vehicle-'
+
+WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
 
 
 def position_car (car_name, x, y, azimuth):

@@ -12,6 +12,11 @@ from skimage import color
 
 
 def color_correction (img_ref, img_target):
+    if img_ref is None or img_target is None:
+        logging.error ('''color_correction: img_ref or img_target is None. 
+                          Colors will not be corrected''')
+        return {'dh': 0, 'ds': 0, 'dv': 0}
+
     hsv_ref = color.rgb2hsv(color.gray2rgb(img_ref))
     hsv_tgt = color.rgb2hsv(color.gray2rgb(img_target))
 

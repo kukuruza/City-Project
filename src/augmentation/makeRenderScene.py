@@ -96,6 +96,7 @@ def default_render_scene (scene_info):
 
 
 
+#WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
 scene_info = json.load(open( op.join(WORK_DIR, SCENES_INFO_NAME) ))
 
 default_render_scene (scene_info)

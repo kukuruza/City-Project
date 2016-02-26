@@ -8,12 +8,32 @@ from helperSetup import atcity, setupLogging, setParamUnlessThere
 
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
 
-WORK_DIR = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR = atcity('augmentation/blender/current-frame')
 RENDER_NAME         = 'out.png'
 CORRECTION_FILENAME = 'color-correction.json'
 
+WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
+WORK_DIR_SUFFIX = '-%d' % os.getppid()
 
 correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
+
+
+image_node = bpy.context.scene.node_tree.nodes['Image-Background'].image
+path = image_node.filepath
+index = path.find('current-frame') + len('current-frame')
+image_node.filepath = path[:index] + WORK_DIR_SUFFIX + path[index:]
+
+image_node = bpy.context.scene.node_tree.nodes['Image-Cars-Only'].image
+path = image_node.filepath
+index = path.find('current-frame') + len('current-frame')
+image_node.filepath = path[:index] + WORK_DIR_SUFFIX + path[index:]
+
+image_node = bpy.context.scene.node_tree.nodes['Image-Normal'].image
+path = image_node.filepath
+index = path.find('current-frame') + len('current-frame')
+image_node.filepath = path[:index] + WORK_DIR_SUFFIX + path[index:]
+
+
 if op.exists(correction_path):
     frame_info = json.load(open( correction_path ))
 

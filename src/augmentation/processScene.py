@@ -15,14 +15,17 @@ from math import pi, atan, atan2, pow, sqrt
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/monitor'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/utilities'))
 import helperSetup
 import helperDb
 import helperImg
 import utilities
+from timer import Timer
 from helperImg import ProcessorVideo
 from helperSetup import _setupCopyDb_, setupLogging, atcity
 from helperSetup import setParamUnlessThere, assertParamIsThere
 from placeCars import generate_current_frame
+from video2dataset import make_back_dataset
 from MonitorDatasetClient import MonitorDatasetClient
 from Cad import Cad
 from Camera import Camera
@@ -30,7 +33,7 @@ from Video import Video
 from colorCorrection import color_correction
 
 
-WORK_DIR          = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
 BACKGROUND_FILENAME = 'background.png'
 NORMAL_FILENAME     = 'normal.png'
 CARSONLY_FILENAME   = 'cars-only.png'
@@ -93,6 +96,8 @@ def extract_annotations (c, traffic, cad, camera, imagefile, monitor=None):
     Returns:
         nothing
     '''
+    WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
+
     for i,vehicle in enumerate(traffic['vehicles']):
 
         # get bbox
@@ -129,6 +134,7 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
     Everything about blender input and output files is hidden inside this function.
     All work is in current-frame dir.
     '''
+    WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
     setParamUnlessThere (params, 'no_traffic', False)
     setParamUnlessThere (params, 'no_render',  False)
     setParamUnlessThere (params, 'no_combine', False)
@@ -233,25 +239,31 @@ def _parse_frame_range_arg_ (range_str, length):
     return range_py
 
 
-def process_video (job, args):
+def process_video (job):
+
+    WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
+    if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
 
     assertParamIsThere  (job, 'video_dir')
     video = Video(video_dir=job['video_dir'])
     camera = video.build_camera()
 
     # some default parameters
-    assertParamIsThere  (job, 'in_db_file')
+    create_in_db(job)   # creates job['in_db_file'] if necessary
     setParamUnlessThere (job, 'out_db_file', 
         op.join(op.dirname(job['in_db_file']), 'traffic.db'))
     setParamUnlessThere (job, 'out_video_dir', 
         op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], video.info['video_name']))
+    setParamUnlessThere (job, 'no_annotations', False)
+    setParamUnlessThere (job, 'frame_range', '[::]')
+    setParamUnlessThere (job, 'record_empty_frames', False)
 
     # get input for this job from json
     in_db_path           = atcity(job['in_db_file'])
     out_db_path          = atcity(job['out_db_file'])
     out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
     out_mask_video_file  = op.join(job['out_video_dir'], 'mask.avi')
-    if args.no_annotations: job['render_individual_cars'] = False
+    if job['no_annotations']: job['render_individual_cars'] = False
 
     # load camera dimensions (compare it to everything for extra safety)
     width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
@@ -279,6 +291,7 @@ def process_video (job, args):
     # names of in and out videos
     c.execute('SELECT imagefile,maskfile FROM images')
     some_image_entry = c.fetchone()
+    assert some_image_entry is not None
     in_back_video_file  = op.dirname(some_image_entry[0]) + '.avi'
     in_mask_video_file  = op.dirname(some_image_entry[1]) + '.avi'
     logging.info ('in back_video_file:   %s' % in_back_video_file)
@@ -292,32 +305,37 @@ def process_video (job, args):
 
     c.execute('SELECT imagefile,maskfile,time,width,height FROM images')
     image_entries = c.fetchall()
-    frame_range = _parse_frame_range_arg_ (args.frame_range, len(image_entries))
+
+    # job frame-range is intersected with video frame-range
+    frame_range_job   = _parse_frame_range_arg_ (job['frame_range'], len(image_entries))
+    frame_range_video = _parse_frame_range_arg_ (video.info['frame_range'], len(image_entries))
+    frame_range = sorted(set(frame_range_job).intersection(frame_range_video))
+    logging.info ('resultant frame_range has %d frames' % len(frame_range))
 
     for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_entries):
-        logging.info ('process frame number %d' % i)
+        logging.debug ('start with frame number %d' % i)
         assert (width0 == width and height0 == height)
+
+        # quit, if reached the timeout
 
         # background image from the video
         back = processor.imread(in_backfile)
         in_mask = processor.maskread(in_maskfile)
 
-        if i > frame_range[-1]:
-            # avoid useless skipping of frames
+        if i > max(frame_range):
+            # avoid useless skipping of frames after the last frame:
+            #   remove extra db images entries, and quit the loop
+            logging.warning ('removing last %d image_entries' % len(image_entries[i:]))
+            for (in_backfile, _, _, _, _) in image_entries[i:]:
+                c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
             break
         elif i not in frame_range:
-            # skip rendering and db entry. Just rewrite the same video
-            if args.record_empty_frames:
-                processor.imwrite (back, in_backfile)
-                processor.maskwrite (in_mask > 0, in_maskfile)
-            logging.info ('skipping frame %d based on frame_range' % i)
+            c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
+            logging.debug ('skipping frame %d based on frame_range' % i)
             continue
+        else:
+            logging.info ('process frame number %d' % i)
         
-        # if static_back use example background
-        # if args.use_example_background:
-        #     back = video.example_background
-        #     assert back is not None, 'example_background not available for this video'
-
         # generate traffic
         if timestamp is None:
             if video.start_time is None:
@@ -327,7 +345,8 @@ def process_video (job, args):
             time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
 
         # workhorse
-        out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back)
+        out_image, out_mask = process_frame(video, camera, cad, time, 
+                                            job['num_cars'], back, job)
 
         # write the frame to video (processor interface requires input filenames)
         assert out_image is not None and out_mask is not None
@@ -340,12 +359,32 @@ def process_video (job, args):
         c.execute('UPDATE images SET imagefile=?, maskfile=? WHERE imagefile=?', 
                     (out_imagefile, out_maskfile, in_backfile))
 
-        if not args.no_annotations:
+        if not job['no_annotations']:
             frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
             extract_annotations (c, frame_info, cad, camera, out_imagefile, monitor)
 
     conn.commit()
     conn.close()
 
+    shutil.rmtree(WORK_DIR)
 
 
+def create_in_db (job):
+    '''If in_db_file is not specified in the job, create it from video.
+    May change as I switch from image_video to ghost_video
+    '''
+    if 'in_db_file' in job:
+        logging.info ('found in_db_file in job: %s' % job['in_db_file'])
+    else:
+        assert 'video_dir' in job
+        video_dir = job['video_dir']
+        camera_name = op.basename(op.dirname(video_dir))
+        video_name  = op.basename(video_dir)
+        camdata_video_dir = op.join('camdata', camera_name, video_name)
+        in_db_file = op.join('databases/augmentation', camera_name, video_name, 'back.db')
+        job['in_db_file'] = in_db_file
+        logging.info ('will create in_db_file from video: %s' % job['in_db_file'])        
+    if not op.exists(atcity(job['in_db_file'])):
+        make_back_dataset (camdata_video_dir, job['in_db_file'])
+    else:
+        logging.warning ('in_db_file exists. Will not rewrite it: %s', job['in_db_file'])

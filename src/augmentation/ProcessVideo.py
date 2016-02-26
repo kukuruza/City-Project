@@ -2,22 +2,42 @@ import sys, os, os.path as op
 import argparse
 import json
 import logging
+import multiprocessing
+import traceback
 from processScene import process_video
 from Video import Video
 from Camera import Camera
 from Cad import Cad
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-from video2dataset import make_back_dataset
 from helperSetup import setupLogging, atcity
+
+
+
+def add_args_to_job(job, args):
+    if 'frame_range' not in job:
+        job['frame_range'] = args.frame_range
+    #job['timeout'] = args.timeout
+    job['no_annotations'] = args.no_annotations
+    job['no_correction'] = args.no_correction
+
+
+def process_video_wrapper (job):
+    try:
+        process_video(job)
+    except:
+        logging.error('job for %s failed to process: %s' % \
+                      (job['video_dir'], traceback.format_exc()))
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--logging_level', default=20, type=int)
-    parser.add_argument('--use_example_background', action='store_true')
-    parser.add_argument('--record_empty_frames', action='store_true')
+    #parser.add_argument('--timeout', type=int, 
+    #                    help='maximum running time, in munutes')
+    parser.add_argument('--no_correction', action='store_true',
+                        help='no color correction along the video')
     parser.add_argument('--no_annotations', action='store_true',
                         help='will speed up rendering since individual cars wont be rendered')
     parser.add_argument('--frame_range', default='[::]', 
@@ -27,21 +47,20 @@ if __name__ == "__main__":
 
     setupLogging('log/augmentation/ProcessVideo.log', args.logging_level, 'w')
 
-    job = json.load(open(atcity(args.job_file) ))
-
-    # create a db first
-    if 'in_db_file' not in job:
-        assert 'video_dir' in job
-        video_dir = job['video_dir']
-        camera_name = op.basename(op.dirname(video_dir))
-        video_name  = op.basename(video_dir)
-        camdata_video_dir = op.join('camdata', camera_name, video_name)
-        in_db_file = op.join('databases/augmentation', camera_name, video_name, 'back.db')
-        if not op.exists(atcity(in_db_file)):
-            make_back_dataset (camdata_video_dir, in_db_file)
-        job['in_db_file'] = in_db_file
-        logging.info ('created in_db_file from video: %s' % job['in_db_file'])        
+    # depending on the number of jobs in the file, use one or many processes
+    job_json = json.load(open(atcity(args.job_file) ))
+    if isinstance(job_json, list):
+        logging.info ('job file has multiple jobs. Will spin a process pool')
+        jobs = job_json
+        for i,job in enumerate(jobs): 
+            add_args_to_job(jobs[i], args)
+        pool = multiprocessing.Pool()
+        logging.info ('the pool has %d workers' % pool._processes)
+        pool.map (process_video_wrapper, jobs)
+        pool.close()
+        pool.join()
     else:
-        logging.info ('found in_db_file in job: %s' % job['in_db_file'])
-
-    process_video(job, args)
+        logging.info ('job file has a single job')
+        job = job_json
+        add_args_to_job(job, args)
+        process_video(job)

@@ -12,7 +12,7 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity, setupLogging
 from Cad import Cad
 
-WORK_DIR = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 
 
@@ -174,6 +174,6 @@ if __name__ == "__main__":
 
     frame_info = generate_current_frame (video_info, collection_names, timestamp, num_cars)
 
-    traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
+    traffic_path = op.join(WORK_RENDER_DIR, TRAFFIC_FILENAME)
     with open(traffic_path, 'w') as f:
         f.write(json.dumps(frame_info, indent=4))
