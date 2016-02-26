@@ -7,20 +7,18 @@ import cv2
 import argparse
 import logging
 import sqlite3
-import datetime
 import subprocess
 import shutil
+from datetime import datetime, timedelta
 from math import pi, atan, atan2, pow, sqrt
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/monitor'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/utilities'))
 import helperSetup
 import helperDb
 import helperImg
 import utilities
-from timer import Timer
 from helperImg import ProcessorVideo
 from helperSetup import _setupCopyDb_, setupLogging, atcity
 from helperSetup import setParamUnlessThere, assertParamIsThere
@@ -217,32 +215,48 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
 
 
 
-def _parse_frame_range_arg_ (range_str, length):
-    '''Parses python range STRING into python range
-    '''
-    assert isinstance(range_str, basestring)
-    # remove [ ] around the range
-    if len(range_str) >= 2 and range_str[0] == '[' and range_str[-1] == ']':
-        range_str = range_str[1:-1]
-    # split into three elements start,end,step. Assign step=1 if missing
-    arr = range_str.split(':')
-    assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 commas "," in range string'
-    if len(arr) == 2: arr.append('1')
-    if arr[0] == '': arr[0] = '0'
-    if arr[1] == '': arr[1] = str(length)
-    if arr[2] == '': arr[2] = '1'
-    start = int(arr[0])
-    end   = int(arr[1])
-    step  = int(arr[2])
-    range_py = range(start, end, step)
-    logging.debug ('parsed range_str %s into range %s' % (range_str, range_py))
-    return range_py
+class Diapason:
+
+    def _parse_range_str_ (self, range_str, length):
+        '''Parses python range STRING into python range
+        '''
+        assert isinstance(range_str, basestring)
+        # remove [ ] around the range
+        if len(range_str) >= 2 and range_str[0] == '[' and range_str[-1] == ']':
+            range_str = range_str[1:-1]
+        # split into three elements start,end,step. Assign step=1 if missing
+        arr = range_str.split(':')
+        assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 commas "," in range string'
+        if len(arr) == 2: arr.append('1')
+        if arr[0] == '': arr[0] = '0'
+        if arr[1] == '': arr[1] = str(length)
+        if arr[2] == '': arr[2] = '1'
+        start = int(arr[0])
+        end   = int(arr[1])
+        step  = int(arr[2])
+        range_py = range(start, end, step)
+        logging.debug ('Diapason parsed range_str %s into range of length %d' % (range_str, len(range_py)))
+        return range_py
+
+    def __init__ (self, length, frame_range_str):
+        self.frame_range = self._parse_range_str_ (frame_range_str, length)
+
+    def intersect (self, diapason):
+        interset = set(self.frame_range).intersection(diapason.frame_range)
+        self.frame_range = sorted(interset)
+        logging.info ('Diapason intersection has %d frames' % len(self.frame_range))
+        logging.debug ('Diapason intersection is range %s' % self.frame_range)
+        return self
+
 
 
 def process_video (job):
 
     WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
     if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
+
+    # for checking timeout
+    start_time = datetime.now()
 
     assertParamIsThere  (job, 'video_dir')
     video = Video(video_dir=job['video_dir'])
@@ -255,8 +269,8 @@ def process_video (job):
     setParamUnlessThere (job, 'out_video_dir', 
         op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], video.info['video_name']))
     setParamUnlessThere (job, 'no_annotations', False)
+    setParamUnlessThere (job, 'timeout', 1000000000)
     setParamUnlessThere (job, 'frame_range', '[::]')
-    setParamUnlessThere (job, 'record_empty_frames', False)
 
     # get input for this job from json
     in_db_path           = atcity(job['in_db_file'])
@@ -306,47 +320,42 @@ def process_video (job):
     c.execute('SELECT imagefile,maskfile,time,width,height FROM images')
     image_entries = c.fetchall()
 
-    # job frame-range is intersected with video frame-range
-    frame_range_job   = _parse_frame_range_arg_ (job['frame_range'], len(image_entries))
-    frame_range_video = _parse_frame_range_arg_ (video.info['frame_range'], len(image_entries))
-    frame_range = sorted(set(frame_range_job).intersection(frame_range_video))
-    logging.info ('resultant frame_range has %d frames' % len(frame_range))
+    diapason = Diapason (len(image_entries), job['frame_range']).intersect(
+               Diapason (len(image_entries), video.info['frame_range']) )
 
     for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_entries):
-        logging.debug ('start with frame number %d' % i)
         assert (width0 == width and height0 == height)
 
         # quit, if reached the timeout
+        time_passed = datetime.now() - start_time
+        logging.debug ('frame: %d, passed: %s' % (i, time_passed))
+        if (time_passed.total_seconds() > job['timeout'] * 60):
+            logging.warning('reached timeout %d. Passed %s' % (job['timeout'], time_passed))
+            break
 
         # background image from the video
         back = processor.imread(in_backfile)
         in_mask = processor.maskread(in_maskfile)
 
-        if i > max(frame_range):
+        if i > diapason.frame_range:
             # avoid useless skipping of frames after the last frame:
-            #   remove extra db images entries, and quit the loop
-            logging.warning ('removing last %d image_entries' % len(image_entries[i:]))
-            for (in_backfile, _, _, _, _) in image_entries[i:]:
-                c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
             break
-        elif i not in frame_range:
-            c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
+        elif i not in diapason.frame_range:
             logging.debug ('skipping frame %d based on frame_range' % i)
+            c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
             continue
         else:
             logging.info ('process frame number %d' % i)
         
         # generate traffic
         if timestamp is None:
-            if video.start_time is None:
-                raise Exception('timestamp is not in the .txt and not in video_info file')
-            time = video.start_time + datetime.timedelta(minutes=int(float(i) / 960 * 40))
+            assert video.start_time is not None, 'no time in .db or in video_info file'
+            time = video.start_time + timedelta(minutes=int(float(i) / 960 * 40))
         else:
-            time = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+            time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
 
         # workhorse
-        out_image, out_mask = process_frame(video, camera, cad, time, 
-                                            job['num_cars'], back, job)
+        out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back, job)
 
         # write the frame to video (processor interface requires input filenames)
         assert out_image is not None and out_mask is not None
@@ -363,10 +372,15 @@ def process_video (job):
             frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
             extract_annotations (c, frame_info, cad, camera, out_imagefile, monitor)
 
+    # remove what we did not touch, if finished early
+    for (in_backfile, _, _, _, _) in image_entries[i:]:
+        c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
+
     conn.commit()
     conn.close()
 
     shutil.rmtree(WORK_DIR)
+
 
 
 def create_in_db (job):

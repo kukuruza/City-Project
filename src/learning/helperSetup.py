@@ -41,8 +41,13 @@ def _setupCopyDb_ (in_path, out_path):
         shutil.copyfile(in_path, out_path)
 
 
-def setParamUnlessThere (params, key, default_value):
-    if not key in params: params[key] = default_value
+def setParamUnlessThere (params, key, default):
+    if not key in params: 
+        params[key] = default
+        logging.debug ('setParamUnlessThere set %s to its default.' % key)
+    else:
+        logging.debug ('setParamUnlessThere found %s in params.' % key)
+
 
 
 def assertParamIsThere (params, key):
