@@ -1,4 +1,4 @@
-function sampleAllCameras (dirpath)
+function sampleAllCameras (samples_dir)
 % collect images from every camera
 
 % set paths
@@ -7,15 +7,17 @@ CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
 addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
 
 % file for output
-fout = fopen ([dirpath 'out.txt'], 'w');
+dirpath = fullfile(CITY_DATA_PATH, samples_dir);
+if ~exist(dirpath, 'dir'), mkdir(dirpath); end
+fout = fopen (fullfile(dirpath, 'out.txt'), 'w');
 
 % file for titles
-ftitles = fopen ([dirpath, 'readme.txt'], 'w');
+ftitles = fopen (fullfile(dirpath, 'readme.txt'), 'w');
 
 verbose = 1;
 
 
-urlViewerPart = 'http://nyctmc.org/google_popup.php?cid=';
+urlViewerPart = 'http://dotsignals.org/multiview2.php?listcam=';
 % url example: http://207.251.86.238/cctv360.jpg?rand=0988954345345
 urlPart1 = 'http://207.251.86.238/cctv';
 urlPart2 = '.jpg?rand=';
@@ -63,7 +65,7 @@ for camNum = 100 : 999
     end
     
     % save image
-    impath = [dirpath num2str(camNum) '.jpg'];
+    impath = fullfile(dirpath, [num2str(camNum) '.jpg']);
     imwrite (image, impath);
     if verbose, imshow(image), pause(0.1); end
     
