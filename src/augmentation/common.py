@@ -1,5 +1,5 @@
 import bpy
-import os.path as op
+import os, os.path as op
 import sys
 import json
 from math import cos, sin, pi, sqrt
@@ -19,6 +19,8 @@ def dump(obj):
 
 
 def render_scene (filepath):
+    if op.exists(filepath): 
+        os.remove(filepath)
     bpy.data.scenes['Scene'].render.filepath = filepath
     bpy.ops.render.render (write_still=True) 
 
@@ -50,23 +52,6 @@ def import_car_obj (obj_path, car_group_name):
     assert car_group_name in bpy.data.groups
     logging.debug ('in group "%s" there are %d objects' % 
         (car_group_name, len(bpy.data.groups[car_group_name].objects)))
-
-
-# def import_blend_group (blend_path, model_id):
-#     '''Import model_id GROUP from blend_path .blend file
-#     '''
-#     # append all groups from the .blend file
-#     with bpy.data.libraries.load(filepath=blend_path, link=False) as (data_src, data_dst):
-#         # only append a single group we already know the name of
-#         data_dst.groups = [model_id]
-
-#     # add the group instance to the scene
-#     scene = bpy.context.scene
-#     for group in data_dst.groups:
-#         obj = bpy.data.objects.new(group.name, None)
-#         obj.dupli_group = group
-#         obj.dupli_type = 'GROUP'
-#         scene.objects.link(obj)
 
 
 def import_blend_car (blend_path, model_id, car_name=None):
