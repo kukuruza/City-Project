@@ -68,6 +68,7 @@ def extract_bbox (render_png_path):
     if not op.exists(render_png_path):
         logging.error ('Car render image does not exist: %s' % render_png_path)
     vehicle_render = cv2.imread(render_png_path, -1)
+    assert vehicle_render is not None
     assert vehicle_render.shape[2] == 4   # need alpha channel
     alpha = vehicle_render[:,:,3]
     
@@ -95,8 +96,11 @@ def crop_patches (vehicle, expand_perc, ratio, target_width, keep_src):
             out_path = op.join(patches_dir, '%s.jpg' % name)
 
             normal = cv2.imread(normal_path)
+            assert normal is not None
 
-            roi = bbox2roi(extract_bbox(mask_path))
+            bbox = extract_bbox(mask_path)
+            assert bbox is not None, 'Mask is empty. Car is outside of the image.'
+            roi = bbox2roi(bbox)
             expandRoiToRatio (roi, (normal.shape[0], normal.shape[1]), expand_perc, ratio)
 
             target_shape = (target_width, int(target_width * ratio))
@@ -126,9 +130,9 @@ def photo_session_sequential (vehicles):
             with open(frame_info_path, 'w') as f:
                 f.write(json.dumps(vehicle, indent=4))
 
-            command = '%s/blender --background --python %s/src/augmentation/photoSession.py' % \
-                      (os.getenv('BLENDER_ROOT'), os.getenv('CITY_PATH'))
-            returncode = subprocess.call ([command], shell=True)
+            command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background',
+                       '--python', '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
+            returncode = subprocess.call (command, shell=False)
             logging.info ('blender returned code %s' % str(returncode))
         except:
             logging.error('job for %s failed to process: %s' % \
@@ -148,9 +152,9 @@ def photo_session_parallel (vehicle):
         with open(frame_info_path, 'w') as f:
             f.write(json.dumps(vehicle, indent=4))
 
-        command = '%s/blender --background --python %s/src/augmentation/photoSession.py' % \
-                  (os.getenv('BLENDER_ROOT'), os.getenv('CITY_PATH'))
-        returncode = subprocess.call ([command], shell=True)
+        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background',
+                   '--python', '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
+        returncode = subprocess.call (command, shell=False)
         logging.info ('blender returned code %s' % str(returncode))
 
     except:

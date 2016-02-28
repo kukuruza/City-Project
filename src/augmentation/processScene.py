@@ -164,9 +164,10 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
         # render
         assert video.render_blend_file is not None
         render_blend_path = atcity(video.render_blend_file)
-        command = '%s/blender %s --background --python %s/src/augmentation/renderScene.py' % \
-                  (os.getenv('BLENDER_ROOT'), render_blend_path, os.getenv('CITY_PATH'))
-        returncode = subprocess.call ([command], shell=True)
+        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), render_blend_path, 
+                   '--background', '--python', 
+                   '%s/src/augmentation/renderScene.py' % os.getenv('CITY_PATH')]
+        returncode = subprocess.call (command, shell=False)
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
         # check rendered
@@ -203,9 +204,10 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
         # postprocess and overlay
         assert video.combine_blend_file is not None
         combine_scene_path = atcity(video.combine_blend_file)
-        command = '%s/blender %s --background --python %s/src/augmentation/combineScene.py' % \
-                  (os.getenv('BLENDER_ROOT'), combine_scene_path, os.getenv('CITY_PATH'))
-        returncode = subprocess.call ([command], shell=True)
+        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), combine_scene_path,
+                   '--background', '--python', 
+                   '%s/src/augmentation/combineScene.py' % os.getenv('CITY_PATH')]
+        returncode = subprocess.call (command, shell=False)
         logging.info ('combine: blender returned code %s' % str(returncode))
         assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
         image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
