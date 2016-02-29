@@ -253,7 +253,6 @@ def filterByBorder (c, params = {}):
     logging.info ('==== filterByBorder ====')
     helperSetup.setParamUnlessThere (params, 'border_thresh_perc', 0.03)
     helperSetup.setParamUnlessThere (params, 'debug',              False)
-    helperSetup.setParamUnlessThere (params, 'constraint',         '1')
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
 
@@ -265,7 +264,7 @@ def filterByBorder (c, params = {}):
         if params['debug'] and ('key' not in locals() or key != 27):
             params['display'] = params['image_processor'].imread(imagefile)
 
-        c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['constraint'], (imagefile,))
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
@@ -288,7 +287,6 @@ def filterByRatio (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'target_ratio',     0.75)
     helperSetup.setParamUnlessThere (params, 'ratio_acceptance', 3)
     helperSetup.setParamUnlessThere (params, 'debug',            False)
-    helperSetup.setParamUnlessThere (params, 'constraint',       '1')
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
 
@@ -300,7 +298,7 @@ def filterByRatio (c, params = {}):
         if params['debug'] and ('key' not in locals() or key != 27):
             params['display'] = params['image_processor'].imread(imagefile)
 
-        c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['constraint'], (imagefile,))
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
         logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
 
@@ -325,7 +323,6 @@ def filterBySize (c, params = {}):
     helperSetup.setParamUnlessThere (params, 'sizemap_dilate',  21)
     helperSetup.setParamUnlessThere (params, 'debug',           False)
     helperSetup.setParamUnlessThere (params, 'debug_sizemap',   False)
-    helperSetup.setParamUnlessThere (params, 'constraint',      '1')
     helperSetup.assertParamIsThere  (params, 'size_map_path')
     helperSetup.setParamUnlessThere (params, 'relpath',         os.getenv('CITY_DATA_PATH'))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
@@ -354,7 +351,7 @@ def filterBySize (c, params = {}):
         if params['debug'] and ('key' not in locals() or key != 27):
             params['display'] = params['image_processor'].imread(imagefile)
 
-        c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['constraint'], (imagefile,))
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
         logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
@@ -380,6 +377,22 @@ def filterUnknownNames (c):
     for (carid,name) in c.fetchall():
         if terms.best_match(name) == 'object':
             c.execute('DELETE FROM cars WHERE id=?', (carid,))
+
+
+def filterCustom (c, params = {}):
+    '''Apply car_constraint to cars table and filter eveything which does not match 
+    '''
+    helperSetup.setParamUnlessThere (params, 'image_constraint', '1')
+    helperSetup.setParamUnlessThere (params, 'car_constraint', '1')
+    # image constraint
+    c.execute('DELETE FROM images WHERE NOT (%s)' % params['image_constraint'])
+    c.execute('''SELECT id FROM cars WHERE 
+                 NOT (%s) OR imagefile NOT IN 
+                 (SELECT imagefile FROM images WHERE (%s))''' 
+                 % (params['car_constraint'], params['image_constraint']))
+    car_ids = c.fetchall()
+    for (car_id,) in car_ids:
+        deleteCar (c, car_id)
 
 
 def thresholdScore (c, params = {}):
@@ -631,25 +644,3 @@ def polygonsToMasks (c, params = {}):
         logging.info ('saving mask to file: ' + maskfile)
         cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), maskfile), mask)
 
-
-def decrementNumbering (c, params = {}):
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-
-    c.execute('SELECT imagefile,maskfile FROM images')
-    for (old_imagefile, old_maskfile) in c.fetchall():
-        old_imagepath = op.join(params['relpath'], old_imagefile)
-        old_maskpath  = op.join(params['relpath'], old_maskfile)
-
-        old_imagename = op.basename(old_imagefile)
-        old_imagenun = int(filter(lambda x: x.isdigit(), old_imagename))
-        new_imagename = '%06d.jpg' % (old_imagenun - 1)
-        new_imagefile = op.join(op.dirname(old_imagefile), new_imagename)
-
-        old_maskname = op.basename(old_maskfile)
-        old_masknun = int(filter(lambda x: x.isdigit(), old_maskname))
-        new_maskname = '%06d.jpg' % (old_masknun - 1)
-        new_maskfile = op.join(op.dirname(old_maskfile), new_maskname)
-
-        c.execute('UPDATE images SET maskfile=?  WHERE imagefile=?', (new_maskfile,  old_imagefile))
-        c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
-        c.execute('UPDATE cars   SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))

@@ -211,17 +211,19 @@ class TestProcessorVideo (unittest.TestCase):
             self.processor.writeImpl (image1read, 'testdata/Cassini/images/000000', False)
         os.remove('testdata/Cassini/empty.avi')  # remove this dummy file
 
-    def test_writeImpl_notFirst (self):
-        image = self.processor.readImpl ('testdata/Moon/images/000002', False)
-        with self.assertRaises (Exception):
-            self.processor.writeImpl (image, 'testdata/Moon/images/000002', False)
+    # TURNED OFF. Necessary for writing augmentation videos
+    # def test_writeImpl_notFirst (self):
+    #     image = self.processor.readImpl ('testdata/Moon/images/000002', False)
+    #     with self.assertRaises (Exception):
+    #         self.processor.writeImpl (image, 'testdata/Moon/images/000002', False)
 
-    def test_writeImpl_nonSequential (self):
-        image = self.processor.readImpl ('testdata/Moon/images/000000', False)
-        self.processor.writeImpl (image, 'testdata/Moon/images/000000', False)
-        image = self.processor.readImpl ('testdata/Moon/images/000002', False)
-        with self.assertRaises (Exception):
-            self.processor.writeImpl (image, 'testdata/Moon/images/000002', False)
+    # TURNED OFF. Necessary for writing augmentation videos
+    # def test_writeImpl_nonSequential (self):
+    #     image = self.processor.readImpl ('testdata/Moon/images/000000', False)
+    #     self.processor.writeImpl (image, 'testdata/Moon/images/000000', False)
+    #     image = self.processor.readImpl ('testdata/Moon/images/000002', False)
+    #     with self.assertRaises (Exception):
+    #         self.processor.writeImpl (image, 'testdata/Moon/images/000002', False)
 
 
     def test_imwrite (self):

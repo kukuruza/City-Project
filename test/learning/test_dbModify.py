@@ -42,6 +42,13 @@ class TestEmptyDb (unittest.TestCase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 0)
 
+    def test_filterCustom_carConstraint (self):
+        c = self.conn.cursor()
+        filterCustom (c, {'car_constraint': 'name = "dummy"'})
+        c.execute('SELECT COUNT(*) FROM cars WHERE score > 0.5')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 0)
+
     def test_thresholdScore (self):
         c = self.conn.cursor()
         thresholdScore (c, params = {})
@@ -113,15 +120,6 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 1)
 
-    def test_filterByBorder_loose_constraint (self):
-        ''' Constraint to filter out only 'vehicle's, with very tight border_thresh_perc==1. '''
-        c = self.conn.cursor()
-        params = {'border_thresh_perc': 1, 'constraint': 'name == "vehicle"'}
-        filterByBorder (c, params)
-        c.execute('SELECT COUNT(*) FROM cars WHERE score > 0.5')
-        (numLeft,) = c.fetchone()
-        self.assertEqual (numLeft, 1)
-
     def test_filterByBorder_debug_all (self):
         filterByBorder (self.conn.cursor(), self._makeDebugParams_([32, 32, 32]))
         
@@ -150,14 +148,6 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         ''' Very tight ratio_acceptance. Only img1.car2 matches target_ratio exactly. '''
         c = self.conn.cursor()
         filterByRatio (c, {'ratio_acceptance': 100})
-        c.execute('SELECT COUNT(*) FROM cars WHERE score > 0.5')
-        (numLeft,) = c.fetchone()
-        self.assertEqual (numLeft, 1)
-
-    def test_filterByRatio_constraint (self):
-        ''' Only cars from the 1st image are filtered out. '''
-        c = self.conn.cursor()
-        filterByRatio (c, {'target_ratio': 10, 'constraint': 'imagefile == "img1"'})
         c.execute('SELECT COUNT(*) FROM cars WHERE score > 0.5')
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 1)
@@ -211,18 +201,6 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         (numLeft,) = c.fetchone()
         self.assertEqual (numLeft, 2)
 
-    def test_filterBySize_constraint (self):
-        ''' 'size_acceptance' is very tight, so only cars from the 1st image are filtered out. '''
-        c = self.conn.cursor()
-        params = {'size_map_path': 'testdata/mapSize.tiff', 'relpath': '.', 
-                  'size_acceptance': 100, 
-                  'min_width': 10, 
-                  'constraint': 'imagefile == "img1"'}
-        filterBySize (c, params)
-        c.execute('SELECT COUNT(*) FROM cars WHERE score > 0.5')
-        (numLeft,) = c.fetchone()
-        self.assertEqual (numLeft, 1)
-
     def test_filterBySize_debug_all (self):
         params = self._makeDebugParams_([32, 32, 32])
         params['size_map_path'] = 'testdata/mapSize.tiff'
@@ -235,6 +213,48 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         params['relpath'] = '.'
         filterBySize (self.conn.cursor(), params)
         
+    # filterCustom
+
+    def test_filterCustom_carConstraint (self):
+        c = self.conn.cursor()
+        params = {'car_constraint': 'name = "vehicle" AND "width" >= 20'}
+        filterCustom (c, params)
+        c.execute('SELECT COUNT(*) FROM cars')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 1)
+
+    def test_filterCustom_impossibleConstraint (self):
+        c = self.conn.cursor()
+        params = {'car_constraint': 'name = "sedan" AND "width" >= 20'}
+        filterCustom (c, params)
+        c.execute('SELECT COUNT(*) FROM cars')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 0)
+
+    def test_filterCustom_imageConstraint (self):
+        c = self.conn.cursor()
+        params = {'image_constraint': 'imagefile IN ("img1", "img3")'}
+        filterCustom (c, params)
+        c.execute('SELECT COUNT(*) FROM images')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 2)
+        c.execute('SELECT COUNT(*) FROM cars')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 2)
+
+    def test_filterCustom_carAndImageConstraint (self):
+        c = self.conn.cursor()
+        params = {'image_constraint': 'imagefile IN ("img1", "img3")', 
+                  'car_constraint': 'name = "vehicle"'}
+        filterCustom (c, params)
+        c.execute('SELECT COUNT(*) FROM images')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 2)
+        c.execute('SELECT COUNT(*) FROM cars')
+        (numLeft,) = c.fetchone()
+        self.assertEqual (numLeft, 1)
+
+
     # thresholdScore
 
     def test_thresholdScore_loose (self):

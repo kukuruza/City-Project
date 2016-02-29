@@ -57,18 +57,6 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         params = {'image_processor': self.imageProcessor, 'key_reader': keyReader}
         show (self.conn.cursor(), params)
 
-    def test_show_imageConstraint (self):
-        keyReader = helperKeys.KeyReaderSequence([32])
-        imageConstr = 'imagefile = "img1"' 
-        params = {'image_processor': self.imageProcessor, 'key_reader': keyReader, 'image_constraint': imageConstr}
-        show (self.conn.cursor(), params)
-
-    def test_show_carConstraint (self):
-        keyReader = helperKeys.KeyReaderSequence([32, 32, 32])
-        carConstr = 'name = "truck"' 
-        params = {'image_processor': self.imageProcessor, 'key_reader': keyReader, 'car_constraint': carConstr}
-        show (self.conn.cursor(), params)
-
     # examine
 
     def test_examine_all (self):
@@ -83,13 +71,6 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         keys = helperKeys.getCalibration()
         keyReader = helperKeys.KeyReaderSequence([keys['right'], 27])
         params = {'image_processor': self.imageProcessor, 'key_reader': keyReader}
-        examine (self.conn.cursor(), params)
-
-    def test_examine_carConstraint (self):
-        keys = helperKeys.getCalibration()
-        keyReader = helperKeys.KeyReaderSequence(2*[keys['right']])
-        constraint = 'name = "truck"' 
-        params = {'image_processor': self.imageProcessor, 'key_reader': keyReader, 'constraint': constraint}
         examine (self.conn.cursor(), params)
 
     # classifyName

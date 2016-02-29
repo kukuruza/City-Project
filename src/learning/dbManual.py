@@ -21,19 +21,17 @@ def show (c, params = {}):
     '''
     logging.info ('==== show ====')
     helperSetup.setParamUnlessThere (params, 'display_scale',    1.0)
-    helperSetup.setParamUnlessThere (params, 'image_constraint', '1')
-    helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
     helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
 
-    c.execute('SELECT imagefile FROM images WHERE (%s)' % params['image_constraint'])
+    c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
 
     for (imagefile,) in imagefiles:
 
         display = params['image_processor'].imread(imagefile)
 
-        c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['car_constraint'], (imagefile,))
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
         logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
@@ -61,7 +59,6 @@ def examine (c, params = {}):
     '''
     logging.info ('==== examine ====')
     helperSetup.setParamUnlessThere (params, 'disp_scale',       1.5)
-    helperSetup.setParamUnlessThere (params, 'constraint',       '1')
     helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
     keys = helperKeys.getCalibration()
@@ -77,7 +74,7 @@ def examine (c, params = {}):
     color_config['gray']   = (128,128,128)
     color_config['badroi'] = color_config['red']
 
-    c.execute('SELECT count(*) FROM cars WHERE %s' % params['constraint'])
+    c.execute('SELECT count(*) FROM cars')
     (total_num,) = c.fetchone()
     logging.info('total number of objects found in db: ' + str(total_num))
 
@@ -102,7 +99,7 @@ def examine (c, params = {}):
 
         img = params['image_processor'].imread(imagefile)
 
-        c.execute('SELECT * FROM cars WHERE imagefile=? AND (%s)' % params['constraint'], (imagefile,))
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
         logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
@@ -152,7 +149,7 @@ def classifyName (c, params = {}):
     logging.info ('==== classifyName ====')
     helperSetup.setParamUnlessThere (params, 'disp_scale',       1.5)
     helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ReaderVideo())
+    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
     helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
     keys = helperKeys.getCalibration()
 

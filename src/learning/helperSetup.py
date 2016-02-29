@@ -72,7 +72,7 @@ def setupLogging (filename, level=logging.INFO, filemode='w'):
     log.addHandler(sh)
 
 
-def dbInit (db_in_path, db_out_path = None):
+def dbInit (db_in_path, db_out_path=None, backup=True):
     '''
     The function knows about CITY_DATA_PATH and CITY_PATH.
     It also sets up logging, backs up the database if necessary.
@@ -88,7 +88,8 @@ def dbInit (db_in_path, db_out_path = None):
     db_in_path  = op.join (CITY_DATA_PATH, db_in_path)
     db_out_path = op.join (CITY_DATA_PATH, db_out_path) if db_out_path else db_in_path
 
-    _setupCopyDb_ (db_in_path, db_out_path)
+    if backup or db_in_path != db_out_path:
+        _setupCopyDb_ (db_in_path, db_out_path)
 
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()

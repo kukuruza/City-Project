@@ -304,7 +304,6 @@ def collectPatches (c, out_dataset, params = {}):
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
-    helperSetup.setParamUnlessThere (params, 'constraint', '1')
     helperSetup.setParamUnlessThere (params, 'label', None)
     helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
@@ -314,7 +313,7 @@ def collectPatches (c, out_dataset, params = {}):
     params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})
 
     # write a patch for each entry
-    c.execute('SELECT * FROM cars WHERE %s' % params['constraint'])
+    c.execute('SELECT * FROM cars')
     car_entries = c.fetchall()
     logging.info ('found %d cars' % len(car_entries))
 
@@ -345,7 +344,6 @@ def collectByMatch (c, out_dataset, params = {}):
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
-    helperSetup.setParamUnlessThere (params, 'constraint', '1')
     helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
     helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
     helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
@@ -366,8 +364,8 @@ def collectByMatch (c, out_dataset, params = {}):
     for (match,) in c.fetchall():
         logging.info ('processing match %d' % match)
 
-        c.execute('''SELECT * FROM cars WHERE (%s) AND id IN 
-                     (SELECT carid FROM matches WHERE match == ?)''' % params['constraint'], (match,))
+        c.execute('''SELECT * FROM cars WHERE id IN 
+                     (SELECT carid FROM matches WHERE match == ?)''', (match,))
         car_entries = c.fetchall()
         logging.info ('found %d cars' % len(car_entries))
 
@@ -402,13 +400,8 @@ def collectGhostsTask (c, tasks_path, out_dir, params = {}):
     '''
     logging.info ('=== exporting.collectGhostsTask ===')
     helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'constraint', '1')
     tasks_path = op.join (params['relpath'], tasks_path)
     out_dir    = op.join (params['relpath'], out_dir)
-
-    # for convenience, save 'constraint' separately, and remove from the dict
-    param_constraint = params['constraint']
-    params.pop('constraint', None)
 
     # load tasks. Each task is a dictionary
     if not op.exists(tasks_path):
@@ -427,17 +420,12 @@ def collectGhostsTask (c, tasks_path, out_dir, params = {}):
         assert ('name' in task)
         logging.info ('task name %s' % task['name'])
         helperSetup.setParamUnlessThere (task, 'constraint', '1')
-
-        # merge constraints from 'params' and 'task'
-        task['constraint'] = '(%s) AND (%s)' % (param_constraint, task['constraint'])
-        logging.info ('full task constraint: %s' % task['constraint'])
-        task.update(params)
+        # FIXME: insert dbModify.customFilter for managing task constraint
 
         collectPatches (c, op.join(out_dir, task['name']), task)
 
     # write info
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
         readme.write('created at: %s\n' % datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y"))
-        readme.write('with input constraint: %s\n' % param_constraint)
         readme.write('with tasks %s\n' % json.dumps(tasks, indent=4))
 
