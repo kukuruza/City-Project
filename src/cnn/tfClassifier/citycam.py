@@ -121,7 +121,7 @@ def distorted_inputs():
                                         batch_size=FLAGS.batch_size)
 
 
-def inputs():
+def inputs(data_list_name='train_list.txt'):
   """Construct input for CIFAR evaluation using the Reader ops.
 
 #  Args:
@@ -137,9 +137,8 @@ def inputs():
   """
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
-  train_list_path = os.path.join(FLAGS.data_dir, 'train_list.txt')
-  return citycam_input.inputs(data_list_path=train_list_path,
-                              batch_size=FLAGS.batch_size)
+  data_list_path = os.path.join(FLAGS.data_dir, data_list_name)
+  return citycam_input.inputs(data_list_path, FLAGS.batch_size)
 
 
 

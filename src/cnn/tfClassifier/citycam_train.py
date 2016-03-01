@@ -39,6 +39,7 @@ from __future__ import print_function
 from datetime import datetime
 import os, os.path
 import time
+import argparse
 
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -48,15 +49,6 @@ import citycam
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('train_dir', 
-     os.path.join(os.getenv('CITY_PATH'), 'log/tensorflow/classifier_train'),
-                           """Directory where to write event logs """
-                           """and checkpoint.""")
-tf.app.flags.DEFINE_integer('max_steps', 1000,
-                            """Number of batches to run.""")
-tf.app.flags.DEFINE_boolean('log_device_placement', False,
-                            """Whether to log device placement.""")
-
 
 def train():
   """Train citycam-2 for a number of steps."""
@@ -65,7 +57,7 @@ def train():
 
     # Get images and labels for citycam.
     #images, labels = citycam.distorted_inputs()
-    images, labels = citycam.inputs()
+    images, labels = citycam.inputs('train_list.txt')
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -105,7 +97,7 @@ def train():
 
       assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
 
-      if step % 1 == 0:
+      if step % FLAGS.period_print == 0:
         num_examples_per_step = FLAGS.batch_size
         examples_per_sec = num_examples_per_step / duration
         sec_per_batch = float(duration)
@@ -115,12 +107,12 @@ def train():
         print (format_str % (datetime.now(), step, loss_value,
                              examples_per_sec, sec_per_batch))
 
-      if step % 1 == 0:
+      if step % FLAGS.period_summary == 0:
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
 
       # Save the model checkpoint periodically.
-      if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:
+      if step % FLAGS.period_checkpoint == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)
 
@@ -133,4 +125,28 @@ def main(argv=None):  # pylint: disable=unused-argument
 
 
 if __name__ == '__main__':
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--train_dir', default='log/tensorflow/classifier_train',
+                      help='Directory where to write event logs and checkpoint.')
+  parser.add_argument('--log_device_placement', action='store_true',
+                      help='Whether to log device placement.')
+  parser.add_argument('--period_print', default=10, type=int)
+  parser.add_argument('--period_summary', default=100, type=int)
+  parser.add_argument('--period_checkpoint', default=1000, type=int)
+  parser.add_argument('--max_steps', default=1000, type=int,
+                      help='Whether to run eval only once.')
+  args = parser.parse_args()
+
+
+  def atcity(x):
+    return os.path.join(os.getenv('CITY_PATH'), x)
+
+  tf.app.flags.DEFINE_string('train_dir', atcity(args.train_dir), '')
+  tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
+  tf.app.flags.DEFINE_integer('period_print', args.period_print, '')
+  tf.app.flags.DEFINE_integer('period_summary', args.period_summary, '')
+  tf.app.flags.DEFINE_integer('period_checkpoint', args.period_checkpoint, '')
+  tf.app.flags.DEFINE_boolean('log_device_placement', args.log_device_placement, '')
+
   tf.app.run()

@@ -22,7 +22,8 @@ from __future__ import print_function
 from datetime import datetime
 import math
 import time
-
+import argparse
+import os, os.path
 import numpy as np
 import tensorflow as tf
 
@@ -30,20 +31,20 @@ import citycam
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('eval_dir',
-            os.path.join(os.getenv('CITY_PATH'), 'log/tensorflow/classifier_eval'
-                           """Directory where to write event logs.""")
-tf.app.flags.DEFINE_string('eval_data', 'train_eval',
-                           """Either 'test' or 'train_eval'.""")
-tf.app.flags.DEFINE_string('checkpoint_dir', 
-     os.path.join(os.getenv('CITY_PATH'), 'log/tensorflow/classifier_train'),
-                           """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
-                            """How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 10000,
-                            """Number of examples to run.""")
-tf.app.flags.DEFINE_boolean('run_once', True,
-                         """Whether to run eval only once.""")
+# tf.app.flags.DEFINE_string('eval_dir',
+#             os.path.join(os.getenv('CITY_PATH'), 'log/tensorflow/classifier_eval'
+#                            """Directory where to write event logs.""")
+# tf.app.flags.DEFINE_string('eval_data', 'train_eval',
+#                            """Either 'test' or 'train_eval'.""")
+# tf.app.flags.DEFINE_string('checkpoint_dir', 
+#      os.path.join(os.getenv('CITY_PATH'), 'log/tensorflow/classifier_train'),
+#                            """Directory where to read model checkpoints.""")
+# tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
+#                             """How often to run the eval.""")
+# tf.app.flags.DEFINE_integer('num_examples', 10000,
+#                             """Number of examples to run.""")
+# tf.app.flags.DEFINE_boolean('run_once', True,
+#                          """Whether to run eval only once.""")
 
 
 def eval_once(saver, summary_writer, top_k_op, summary_op):
@@ -104,8 +105,7 @@ def evaluate():
   """Eval citycam for a number of steps."""
   with tf.Graph().as_default():
     # Get images and labels for citycam.
-    eval_data = FLAGS.eval_data == 'test'
-    images, labels = citycam.inputs(eval_data=eval_data)
+    images, labels = citycam.inputs(FLAGS.data_list_name)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -142,4 +142,33 @@ def main(argv=None):  # pylint: disable=unused-argument
 
 
 if __name__ == '__main__':
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--eval_dir', default='log/tensorflow/classifier_eval',
+                      help='Directory where to write event logs.')
+  parser.add_argument('--train_eval', action='store_true',
+                      help='Either "test" or "train_eval".')
+  parser.add_argument('--checkpoint_dir', default='log/tensorflow/classifier_train',
+                      help='Directory where to read model checkpoints.')
+  parser.add_argument('--eval_interval_secs', default=60*5, type=int,
+                      help='How often to run the eval.')
+  parser.add_argument('--num_examples', default=10000, type=int,
+                      help='Whether to run eval only once.')
+  parser.add_argument('--run_once', action='store_true',
+                      help='Whether to run eval only once.')
+  args = parser.parse_args()
+
+
+  def atcity(x):
+    return os.path.join(os.getenv('CITY_PATH'), x)
+
+  tf.app.flags.DEFINE_string('eval_dir', atcity(args.eval_dir), '')
+  data_list_name = 'train_eval_list.txt' if args.train_eval else 'test_list.txt'
+  tf.app.flags.DEFINE_string('data_list_name', data_list_name, '')
+  tf.app.flags.DEFINE_string('checkpoint_dir', atcity(args.checkpoint_dir), '')
+  tf.app.flags.DEFINE_integer('eval_interval_secs', args.eval_interval_secs, '')
+  tf.app.flags.DEFINE_integer('num_examples', args.num_examples, '')
+  tf.app.flags.DEFINE_boolean('run_once', args.run_once, '')
+
+
   tf.app.run()
