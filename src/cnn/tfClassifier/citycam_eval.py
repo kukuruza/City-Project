@@ -144,6 +144,8 @@ def main(argv=None):  # pylint: disable=unused-argument
 if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
+  parser.add_argument('--data_dir', default='augmentation/patches',
+                      help='Path to the citycam data directory.')
   parser.add_argument('--eval_dir', default='log/tensorflow/classifier_eval',
                       help='Directory where to write event logs.')
   parser.add_argument('--train_eval', action='store_true',
@@ -154,6 +156,8 @@ if __name__ == '__main__':
                       help='How often to run the eval.')
   parser.add_argument('--num_examples', default=10000, type=int,
                       help='Whether to run eval only once.')
+  parser.add_argument('--batch_size', default=128, type=int,
+                      help='Number of images to process in a batch.')
   parser.add_argument('--run_once', action='store_true',
                       help='Whether to run eval only once.')
   args = parser.parse_args()
@@ -161,13 +165,17 @@ if __name__ == '__main__':
 
   def atcity(x):
     return os.path.join(os.getenv('CITY_PATH'), x)
+  def atcitydata(x):
+    return os.path.join(os.getenv('CITY_DATA_PATH'), x)
 
+  tf.app.flags.DEFINE_string('data_dir', atcitydata(args.data_dir), '')
   tf.app.flags.DEFINE_string('eval_dir', atcity(args.eval_dir), '')
   data_list_name = 'train_eval_list.txt' if args.train_eval else 'test_list.txt'
   tf.app.flags.DEFINE_string('data_list_name', data_list_name, '')
   tf.app.flags.DEFINE_string('checkpoint_dir', atcity(args.checkpoint_dir), '')
   tf.app.flags.DEFINE_integer('eval_interval_secs', args.eval_interval_secs, '')
   tf.app.flags.DEFINE_integer('num_examples', args.num_examples, '')
+  tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
   tf.app.flags.DEFINE_boolean('run_once', args.run_once, '')
 
 

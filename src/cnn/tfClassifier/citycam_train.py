@@ -57,7 +57,7 @@ def train():
 
     # Get images and labels for citycam.
     #images, labels = citycam.distorted_inputs()
-    images, labels = citycam.inputs('train_list.txt')
+    images, labels = citycam.distorted_inputs()
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -131,16 +131,29 @@ if __name__ == '__main__':
                       help='Directory where to write event logs and checkpoint.')
   parser.add_argument('--log_device_placement', action='store_true',
                       help='Whether to log device placement.')
+  parser.add_argument('--max_steps', default=1000, type=int,
+                      help='Number of batches to run.')
   parser.add_argument('--period_print', default=10, type=int)
   parser.add_argument('--period_summary', default=100, type=int)
   parser.add_argument('--period_checkpoint', default=1000, type=int)
-  parser.add_argument('--max_steps', default=1000, type=int,
-                      help='Whether to run eval only once.')
+  # flags from citycam
+  parser.add_argument('--data_dir', default='augmentation/patches',
+                      help='Path to the citycam data directory.')
+  parser.add_argument('--batch_size', default=128, type=int,
+                      help='Number of images to process in a batch.')
+  # parameters from citycam
+  parser.add_argument('--num_epochs_per_decay', default=350.0, type=float,
+                      help='Epochs after which learning rate decays.')
+  parser.add_argument('--learning_rate_decay_factor', default=0.1, type=float)
+  parser.add_argument('--initial_learning_rate_decay', default=0.1, type=float)
+
   args = parser.parse_args()
 
 
   def atcity(x):
     return os.path.join(os.getenv('CITY_PATH'), x)
+  def atcitydata(x):
+    return os.path.join(os.getenv('CITY_DATA_PATH'), x)
 
   tf.app.flags.DEFINE_string('train_dir', atcity(args.train_dir), '')
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
@@ -148,5 +161,14 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('period_summary', args.period_summary, '')
   tf.app.flags.DEFINE_integer('period_checkpoint', args.period_checkpoint, '')
   tf.app.flags.DEFINE_boolean('log_device_placement', args.log_device_placement, '')
+
+  tf.app.flags.DEFINE_string('data_dir', atcitydata(args.data_dir), '')
+  tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
+
+  tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', args.num_epochs_per_decay, '')
+  tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', 
+                              args.learning_rate_decay_factor, '')
+  tf.app.flags.DEFINE_float('INITIAL_LEARNING_RATE', 
+                              args.initial_learning_rate_decay, '')
 
   tf.app.run()

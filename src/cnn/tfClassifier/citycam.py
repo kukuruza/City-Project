@@ -16,12 +16,12 @@ import citycam_input
 
 FLAGS = tf.app.flags.FLAGS
 
-# Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 128,
-                            """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_string('data_dir', 
-              op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/patches'),
-                           """Path to the citycam data directory.""")
+# Basic model parameters. UPDATE: set in main()
+# tf.app.flags.DEFINE_integer('batch_size', 128,
+#                             """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_string('data_dir', 
+#               op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/patches'),
+#                            """Path to the citycam data directory.""")
 
 
 # Global constants describing the citycam data set.
@@ -35,9 +35,9 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL  = citycam_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+# NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+# LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
+# INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 
 # If a model is trained with multiple GPU's prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -117,8 +117,7 @@ def distorted_inputs():
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
   train_list_path = os.path.join(FLAGS.data_dir, 'train_list.txt')
-  return citycam_input.distorted_inputs(data_list_path=train_list_path,
-                                        batch_size=FLAGS.batch_size)
+  return citycam_input.distorted_inputs(train_list_path, FLAGS.batch_size)
 
 
 def inputs(data_list_name='train_list.txt'):
@@ -335,13 +334,13 @@ def train(total_loss, global_step):
   """
   # Variables that affect learning rate.
   num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / FLAGS.batch_size
-  decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
+  decay_steps = int(num_batches_per_epoch * FLAGS.NUM_EPOCHS_PER_DECAY)
 
   # Decay the learning rate exponentially based on the number of steps.
-  lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,
+  lr = tf.train.exponential_decay(FLAGS.INITIAL_LEARNING_RATE,
                                   global_step,
                                   decay_steps,
-                                  LEARNING_RATE_DECAY_FACTOR,
+                                  FLAGS.LEARNING_RATE_DECAY_FACTOR,
                                   staircase=True)
   tf.scalar_summary('learning_rate', lr)
 
@@ -367,7 +366,7 @@ def train(total_loss, global_step):
 
   # Track the moving averages of all trainable variables.
   variable_averages = tf.train.ExponentialMovingAverage(
-      MOVING_AVERAGE_DECAY, global_step)
+      FLAGS.MOVING_AVERAGE_DECAY, global_step)
   variables_averages_op = variable_averages.apply(tf.trainable_variables())
 
   with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
