@@ -1,8 +1,9 @@
 import logging
 import os, sys, os.path as op
-from helperSetup import setupLogging, _setupCopyDb_
+from helperSetup import setupLogging, _setupCopyDb_, dbInit
 import sqlite3
 import shutil
+import traceback
 import fnmatch
 import helperDb
 
@@ -119,9 +120,72 @@ def fixVer2_1_path (db_in_path):
     conn.close()
 
 
+
+def upgrade4 (c, in_db_path):
+    '''
+    Before 2016-Feb-28, videos were stored as follows:
+      cam124 -> [Feb28-10h.avi, Feb28-10h-mask.avi, ..., Feb28-10h.txt]
+    Since 2016-Feb-28, videos are stored as follows:
+      cam124 -> Feb28-10h -> [src.avi, mask.avi, ghost.avi, back.avi, time.avi]
+    This file updates the db imagefile and maskfile entries.
+    Also extension is removed from imagefile and maskfile, where videos are used
+    '''
+    c.execute('SELECT imagefile,maskfile FROM images')
+    for (old_imagefile, old_maskfile) in c.fetchall():
+
+        db_name = op.splitext(op.basename(in_db_path))[0]
+        if db_name[-5:] == 'ghost':
+
+            # find the last dash "-" in pattern mydir/mydb-ghost/000000.jpg
+            index = old_imagefile.rfind('-')
+            assert old_imagefile[index+1:index+6] == 'ghost', old_imagefile
+            new_imagefile = old_imagefile[:index] + '/' + old_imagefile[index+1:]
+
+        elif db_name[-4:] == 'back':
+
+            # find the last dash "-" in pattern mydir/mydb-back/000000.jpg
+            index = old_imagefile.rfind('-')
+            assert old_imagefile[index+1:index+5] == 'back', old_imagefile
+            new_imagefile = old_imagefile[:index] + '/' + old_imagefile[index+1:]
+
+        else: # src video
+
+            # find the last slash "/" in pattern mydir/mydb/000000.jpg
+            index = old_imagefile.rfind('/')
+            assert old_imagefile[index-5:index] != 'ghost', old_imagefile[index-5:index]
+            new_imagefile = old_imagefile[:index] + '/src' + old_imagefile[index:]
+
+        # find the last dash in pattern mydir/mydb-ghost/000000.jpg
+        index = old_maskfile.rfind('-')
+        new_maskfile = old_maskfile[:index] + '/' + old_maskfile[index+1:]
+        # remove the extension
+        new_maskfile = op.splitext(new_maskfile)[0]
+
+        # remove the extension
+        new_imagefile = op.splitext(new_imagefile)[0]
+
+        c.execute('UPDATE images SET maskfile=?  WHERE imagefile=?', (new_maskfile,  old_imagefile))
+        c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
+        c.execute('UPDATE cars   SET imagefile=? WHERE imagefile=?', (new_imagefile, old_imagefile))
+
+
 if __name__ == '__main__':
     setupLogging ('log/learning/UpgradeDb.log', logging.WARNING, 'a')
-    path = os.getenv('CITY_DATA_PATH')
-    for db_in_path in _find_files_ (path, '*.db.backup'):
-        upgrade3_paths (db_in_path)
-    #upgrade3_paths (op.join(os.getenv('CITY_DATA_PATH'), 'databases/572-578-e0.1.db'))
+    path = op.join(os.getenv('CITY_DATA_PATH'), 'databases/unlabelled')
+    for db_in_path in _find_files_ (path, '*.db'):
+        try:
+            conn = sqlite3.connect (db_in_path)
+            upgrade4 (conn.cursor(), db_in_path)
+            conn.commit()
+            conn.close()
+        except:
+            logging.error('file %s failed to be processed: %s' % \
+                          (db_in_path, traceback.format_exc()))
+
+
+    # db_in_path = op.join(os.getenv('CITY_DATA_PATH'), 'databases/augmentation/Apr07-15h-traffic.db')
+    # db_out_path = op.join(os.getenv('CITY_DATA_PATH'), 'databases/augmentation/Apr07-15h-traffic.new.db')
+    # (conn, cursor) = dbInit(db_in_path, db_out_path)
+    # upgrade4 (cursor, db_in_path)
+    # conn.commit()
+    # conn.close()

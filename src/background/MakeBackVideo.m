@@ -69,7 +69,7 @@ if ~isempty(in_ref_backfile)
 end
 
 for t = 1 : 1000000
-    if mod(t, 100) == 0, fprintf ('frame: %d\n', t); end
+    if mod(t, 500) == 0, fprintf ('frame: %d\n', t); end
     
     % read image and mask
     [frame, eof1] = frameReader.step();

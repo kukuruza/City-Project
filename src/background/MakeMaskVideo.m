@@ -17,6 +17,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 parser = inputParser;
 addRequired(parser,  'in_image_videofile',  @ischar);
 addParameter(parser, 'LearningRate',        0.005, @isscalar);
+addParameter(parser, 'verbose',             0, @isscalar);
 parse (parser, in_video_dir, varargin{:});
 parsed = parser.Results;
 
@@ -47,7 +48,7 @@ frameReader = vision.VideoFileReader(in_image_videopath, 'VideoOutputDataType','
 maskWriter = FrameWriterVideo (out_mask_videofile, 2);
 
 for t = 0 : 10000000
-    if mod(t, 100) == 0, fprintf ('frame: %d\n', t); end
+    if mod(t, 500) == 0, fprintf ('frame: %d\n', t); end
 
     [frame, eof] = step(frameReader);
     mask = background.step(frame);

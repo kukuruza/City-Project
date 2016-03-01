@@ -63,7 +63,7 @@ def createTableMatches (cursor):
 def createDb (conn):
     cursor = conn.cursor()
 
-    conn.execute('PRAGMA user_version = 2')
+    conn.execute('PRAGMA user_version = 3')
     #createTableSets(cursor)
     createTableImages(cursor)
     createTableCars(cursor)
@@ -74,7 +74,7 @@ def createLabelmeDb (db_path):
     conn = sqlite3.connect (db_path)
     cursor = conn.cursor()
 
-    conn.execute('PRAGMA user_version = 2')
+    conn.execute('PRAGMA user_version = 3')
     #createTableSets(cursor)
     createTableImages(cursor)
     createTableCars(cursor)
