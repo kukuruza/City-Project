@@ -1,16 +1,15 @@
 import logging
 import sys, os
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning/violajones'))
-import helperSetup
-import dbViolajones
+from learning.helperSetup  import setupLogging
+from learning.dbViolajones import detectViolajonesTask
+from learning.dbEvaluate   import dbEvaluateTask
 
-helperSetup.setupLogging ('log/learning/Violajones.log', logging.INFO, 'a')
+setupLogging ('log/learning/Violajones.log', logging.INFO, 'a')
   
-db_in_path = 'datasets/labelme/Databases/572-Nov28-10h-pair/init.db'
+db_in_file = 'datasets/labelme/Databases/572-Nov28-10h-pair/init.db'
 db_out_dir = 'datasets/labelme/Databases/572-Nov28-10h-pair/detected-close'
-task_path = 'learning/violajones/tasks/May17-high-yaw.json'
-db_true_path = 'datasets/labelme/Databases/572-Nov28-10h-pair/parsed.db'
+task_file = 'learning/violajones/tasks/May17-high-yaw.json'
+db_true_file = 'datasets/labelme/Databases/572-Nov28-10h-pair/parsed.db'
 
-dbViolajones.detectViolajonesTask (db_in_path, task_path, db_out_dir, { 'debug_show': False })
-#dbViolajones.dbEvaluateTask (task_path, db_true_path, db_in_path, params)
+detectViolajonesTask (db_in_file, task_file, db_out_dir, { 'debug_show': False })
+#dbEvaluateTask (task_file, db_true_file, db_in_file, params)

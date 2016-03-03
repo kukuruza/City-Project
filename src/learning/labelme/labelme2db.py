@@ -1,5 +1,4 @@
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import numpy as np
 import cv2
 import xml.etree.ElementTree as ET
@@ -8,12 +7,10 @@ import logging
 import glob
 import shutil
 import sqlite3
-from helperDb import createLabelmeDb, queryField
-import helperDb
-import utilities
-from utilities import roi2bbox, getCenter, bbox2roi
-import helperSetup
-from annotations.parser import FrameParser, PairParser
+from learning.helperDb import createLabelmeDb, queryField, createPolygonsTable
+from learning.dbUtilities import *
+from learning.helperSetup import setParamUnlessThere
+from learning.labelme.parser import FrameParser, PairParser
 
 
     
@@ -30,7 +27,7 @@ def __pointsOfPolygon__ (annotation):
 def __processFrame__ (c, imagefile, params):
 
     # get paths and names
-    (labelme_dir, folder) = utilities.somefile2dirs (imagefile)
+    (labelme_dir, folder) = somefile2dirs (imagefile)
     imagename = op.basename(imagefile)
     annotation_name = op.splitext(imagename)[0] + '.xml'
     annotation_file = op.join(labelme_dir, 'Annotations', folder, annotation_name)
@@ -103,7 +100,7 @@ def __processFrame__ (c, imagefile, params):
             c.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
 
         if params['debug_show']: 
-            #utilities.drawRoi (img, roi, (0,0), name, (255,255,255))
+            #drawRoi (img, roi, (0,0), name, (255,255,255))
             pts = np.array([xs, ys], dtype=np.int32).transpose()
             cv2.polylines(img, [pts], True, (255,255,255))
 
@@ -117,10 +114,10 @@ def __processFrame__ (c, imagefile, params):
 def folder2frames (c, params):
 
     logging.info ('==== folder2frames ====')
-    helperSetup.setParamUnlessThere (params, 'debug_show', False)
+    setParamUnlessThere (params, 'debug_show', False)
     params['parser'] = FrameParser()
 
-    helperDb.createPolygonsTable(c)
+    createPolygonsTable(c)
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
@@ -189,7 +186,7 @@ def __bypartiteMatch__ (captions_t, captions_b, cars_t, cars_b, file_name):
 def __processPair__ (c, imagefile1, imagefile2, params):
 
     # get annotations
-    (labelme_dir, folder) = utilities.somefile2dirs (imagefile1)
+    (labelme_dir, folder) = somefile2dirs (imagefile1)
     imagename1strip = op.splitext(op.basename(imagefile1))[0]
     imagename2strip = op.splitext(op.basename(imagefile2))[0]
     annotation_name = imagename1strip + '-' + imagename2strip + '.xml'
@@ -241,7 +238,7 @@ def __processPair__ (c, imagefile1, imagefile2, params):
 
         if params['debug_show']: 
             roi = [min(ys), min(xs), max(ys), max(xs)]
-            utilities.drawRoi (imgpair, roi, name, (255,255,255))
+            drawRoi (imgpair, roi, name, (255,255,255))
             #pts = np.array([xs, ys], dtype=np.int32).transpose()
             #cv2.polylines(imgpair, [pts], True, (255,255,255))
 
@@ -328,7 +325,7 @@ def __mergeSameCars__ (c, imagefile, params):
         polygons.append(c.fetchall())
 
     # cluster rois
-    rois_clustered, assignments = utilities.hierarchicalClusterPolygons (polygons, params)
+    rois_clustered, assignments = hierarchicalClusterPolygons (polygons, params)
     clusters = []
     for assignment in list(set(assignments)):
         cluster = [x for i, (x,) in enumerate(carids) if assignments[i] == assignment]
@@ -337,10 +334,10 @@ def __mergeSameCars__ (c, imagefile, params):
     if params['debug_show']: 
         img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagefile))
         for polygon in polygons:
-            roi = utilities.polygon2roi(polygon)
-            utilities.drawRoi (img, roi, None, (0,0,255))
+            roi = polygon2roi(polygon)
+            drawRoi (img, roi, None, (0,0,255))
         for roi in rois_clustered:
-            utilities.drawRoi (img, roi, None, (0,255,0))
+            drawRoi (img, roi, None, (0,255,0))
         cv2.imshow('debug_show', img)
         cv2.waitKey(-1)
 
@@ -400,11 +397,11 @@ def __mergeSameCars__ (c, imagefile, params):
 def folder2pairs (c, params):
 
     logging.info ('==== folder2pairs ====')
-    helperSetup.setParamUnlessThere (params, 'debug_show', False)
-    helperSetup.setParamUnlessThere (params, 'threshold', 0.6)
+    setParamUnlessThere (params, 'debug_show', False)
+    setParamUnlessThere (params, 'threshold', 0.6)
     params['parser'] = PairParser()
 
-    helperDb.createPolygonsTable (c)
+    createPolygonsTable (c)
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()

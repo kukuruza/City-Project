@@ -1,9 +1,9 @@
-import logging
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-import helperSetup
-import dbNegatives
-import dbExport
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
+import logging
+from learning.helperSetup import setupLogging, dbInit
+from learning.dbNegatives import negativeGrayspots, fillNegativeDbWithBboxes
+from learning.dbExport    import collectGhostsHDF5
 
 '''
 Populate negative db with negative bboxes.
@@ -25,11 +25,11 @@ This is the new pipeline to extract the negatives:
   3) Extract negative patches, and save as hdf5 (exporting.collectGhostsHDF5)
 '''
 
-helperSetup.setupLogging ('log/learning/CollectNegatives.log', logging.DEBUG, 'a')
+setupLogging ('log/learning/CollectNegatives.log', logging.DEBUG, 'a')
 
 # NOT used
-# video_in_path = 'camdata/cam541/Jul26-16h-ghost.avi'
-# h5_out_path = 'clustering/unlabelled/Jul26-16h-40x30.h5'
+# video_in_file = 'camdata/cam541/Jul26-16h-ghost.avi'
+# h5_out_file = 'clustering/unlabelled/Jul26-16h-40x30.h5'
 # params = { 'size_map_path': 'models/cam572/mapSize.tiff',
 #            'number': 100,
 #            'resize': [40, 30],
@@ -37,12 +37,12 @@ helperSetup.setupLogging ('log/learning/CollectNegatives.log', logging.DEBUG, 'a
 #            'maxwidth':  100,
 #            'write_samples': 5
 #          }
-# dbNegatives.collectRandomPatchesFromVideoHDF5 (video_in_path, h5_out_path, params)
+# dbNegatives.collectRandomPatchesFromVideoHDF5 (video_in_file, h5_out_file, params)
 
 
 # step 1: write negative frames with 'grayspots'
-db_in_path   = 'datasets/labelme/Databases/572-Oct30-17h-frame/parsed.db'
-out_dir      = 'clustering/negatives/test'
+db_in_file   = 'databases/labelme/572-Oct30-17h-frame/parsed.db'
+out_dir      = 'patches/negatives/test'
 params = { 'method': 'circle',
            'spot_scale': 0.8,
            'dilate': 0.2,
@@ -53,9 +53,9 @@ params = { 'method': 'circle',
            'blur_sigma': 2,
            'sizemap_path': 'models/cam572/mapSize.tiff'
          }
-db_neg_path = 'clustering/negatives/test/negatives-circle-noise-sc0.8-bl2.db'
-(conn, cursor) = helperSetup.dbInit(db_in_path, db_neg_path)
-dbNegatives.negativeGrayspots (cursor, out_dir, params)
+db_neg_file = 'patches/negatives/test/negatives-circle-noise-sc0.8-bl2.db'
+(conn, cursor) = dbInit(db_in_file, db_neg_file)
+negativeGrayspots (cursor, out_dir, params)
 conn.commit()
 conn.close()
 
@@ -67,18 +67,18 @@ params = { 'size_map_path': 'models/cam572/mapSize.tiff',
            'maxwidth': 100,
            'max_masked_perc': 0.3,
          }
-db_filled_path = 'clustering/negatives/test/negatives-circle-noise-sc0.8-bl2-filled.db'
-(conn, cursor) = helperSetup.dbInit(db_neg_path, db_filled_path)
-dbNegatives.fillNegativeDbWithBboxes (cursor, params)
+db_filled_file = 'patches/negatives/test/negatives-circle-noise-sc0.8-bl2-filled.db'
+(conn, cursor) = dbInit(db_neg_file, db_filled_file)
+fillNegativeDbWithBboxes (cursor, params)
 conn.commit()
 conn.close()
 
 # step 3: extract negative patches, and save as hdf5
-hdf5_out_path = 'clustering/negatives/test/negatives-circle-noise-sc0.8-bl2.h5'
+hdf5_out_file = 'patches/negatives/test/negatives-circle-noise-sc0.8-bl2.h5'
 params = { 'resize': [40, 30], 
            'label': 0
          }
-dbExport.collectGhostsHDF5 (db_filled_path, hdf5_out_path, params)
+collectGhostsHDF5 (db_filled_file, hdf5_out_file, params)
 
 
 

@@ -1,15 +1,12 @@
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'test/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperTesting
 import shutil
 from scipy.spatial import distance
-from helperImg import *
+from learning.helperImg import *
 
 
 class TestReaderVideo (unittest.TestCase):

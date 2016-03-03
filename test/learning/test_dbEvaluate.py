@@ -1,18 +1,20 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperDb
-from dbEvaluate import *
+from learning.helperImg  import ProcessorRandom
+from learning.helperDb   import createDb
+from learning.helperKeys import KeyReaderSequence
+from learning.dbEvaluate import *
 
 
 class TestEmptyDb (unittest.TestCase):
 
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (self.conn)
+        createDb (self.conn)
 
     def tearDown (self):
         self.conn.close()
@@ -30,8 +32,8 @@ class TestEmptyDb (unittest.TestCase):
     def test_debug_all (self):
         c = self.conn.cursor()
         params = {'debug': True,
-                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)}),
-                  'key_reader': helperKeys.KeyReaderSequence([])}
+                  'image_processor': ProcessorRandom({'dims': (100,100)}),
+                  'key_reader': KeyReaderSequence([])}
         evaluateDetector (c, c, params)
         
 
@@ -42,7 +44,7 @@ class TestMicroDb (unittest.TestCase):
     def setUp (self):
 
         self.conn1 = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (self.conn1)
+        createDb (self.conn1)
         c1 = self.conn1.cursor()
 
         s = 'images(imagefile,width,height)'
@@ -59,7 +61,7 @@ class TestMicroDb (unittest.TestCase):
 
 
         self.conn2 = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (self.conn2)
+        createDb (self.conn2)
         c2 = self.conn2.cursor()
 
         s = 'images(imagefile,width,height)'
@@ -105,8 +107,8 @@ class TestMicroDb (unittest.TestCase):
         c1 = self.conn1.cursor()
         c2 = self.conn2.cursor()
         params = {'debug': True,
-                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)}),
-                  'key_reader': helperKeys.KeyReaderSequence([32, 32, 32])}
+                  'image_processor': ProcessorRandom({'dims': (100,100)}),
+                  'key_reader': KeyReaderSequence([32, 32, 32])}
         evaluateDetector (c2, c1, params)
         
     def test_debug_several (self):
@@ -114,8 +116,8 @@ class TestMicroDb (unittest.TestCase):
         c1 = self.conn1.cursor()
         c2 = self.conn2.cursor()
         params = {'debug': True,
-                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)}),
-                  'key_reader': helperKeys.KeyReaderSequence([32, 27])}
+                  'image_processor': ProcessorRandom({'dims': (100,100)}),
+                  'key_reader': KeyReaderSequence([32, 27])}
         evaluateDetector (c2, c1, params)
         
 

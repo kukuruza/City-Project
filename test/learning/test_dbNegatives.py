@@ -1,20 +1,22 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperTesting
 import shutil
-from dbNegatives import *
-from dbNegatives import _generateNoiseMask_, _grayCircle_, _grayMasked_, _getBboxesFromImage_
+from helperTesting        import TestMicroDbBase
+from learning.helperImg   import ProcessorRandom
+from learning.dbNegatives import *
+from learning.dbNegatives import _generateNoiseMask_, _grayCircle_
+from learning.dbNegatives import _grayMasked_, _getBboxesFromImage_
 
 
-class TestMicroDb (helperTesting.TestMicroDbBase):
+class TestMicroDb (TestMicroDbBase):
 
     def setUp (self):
         super(TestMicroDb, self).setUp()
-        self.imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        self.imageProcessor = ProcessorRandom({'dims': (100,100)})
         self.params_negativeGrayspots = {'image_processor': self.imageProcessor,
                                          'blur_sigma': 2, 'noise_level': 1, 'pixelation': 20}
 

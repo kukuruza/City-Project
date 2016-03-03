@@ -1,18 +1,16 @@
-import logging
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import setupLogging, dbInit
-from dbFasterRcnn import _writeXmlString_, exportSparseCars
-import helperH5
-import h5py
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
+import logging
+from learning.helperSetup import setupLogging, dbInit
+from learning.dbFasterRcnn import _writeXmlString_, exportSparseCars
 
 
-setupLogging ('log/learning/exportFasterRcnn.log', logging.DEBUG, 'a')
+setupLogging ('log/learning/ExportFasterRcnn.log', logging.DEBUG, 'a')
 
-in_db_path  = 'databases/sparse/119-Apr09-13h/angles-ghost.db'
+in_db_file = 'databases/sparse/119-Apr09-13h/angles-ghost.db'
 out_dataset = '.'
 
-(conn, cursor) = dbInit(os.path.join(os.getenv('CITY_DATA_PATH'), in_db_path))
+(conn, cursor) = dbInit(in_db_path)
 #cursor.execute('SELECT imagefile FROM images')
 #imagefile, = cursor.fetchone()
 #cursor.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))

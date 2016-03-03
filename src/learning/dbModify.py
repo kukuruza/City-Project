@@ -1,6 +1,4 @@
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/annotations'))
 import math
 import numpy as np
 import cv2
@@ -10,15 +8,14 @@ import logging
 import glob
 import shutil
 import sqlite3
-from helperDb import deleteCar, carField, imageField
-import helperDb
-import utilities
-from utilities import bbox2roi, roi2bbox, bottomCenter, expandRoiFloat, expandRoiToRatio, drawRoi
-from terms import TermTree
-import helperSetup
-import helperKeys
-import helperImg
-import terms, json
+import json
+import dbUtilities
+from helperDb          import deleteCar, carField, imageField, doesTableExist
+from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
+from annotations.terms import TermTree
+from helperSetup       import setParamUnlessThere, assertParamIsThere
+from helperKeys        import KeyReaderUser
+from helperImg         import ReaderVideo
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -39,7 +36,7 @@ def sizeProbability (roi, params):
     size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
     bc = bottomCenter(roi)
     max_prob = params['size_map'][bc[0], bc[1]]
-    prob = utilities.gammaProb (size, max_prob, params['size_acceptance'])
+    prob = dbUtilities.gammaProb (size, max_prob, params['size_acceptance'])
     if size < params['min_width']: prob = 0
     logging.debug ('probability of ROI size: %f' % prob)
     return prob
@@ -47,7 +44,7 @@ def sizeProbability (roi, params):
 
 def ratioProbability (roi, params):
     ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
-    prob = utilities.gammaProb (ratio, params['target_ratio'], params['ratio_acceptance'])
+    prob = dbUtilities.gammaProb (ratio, params['target_ratio'], params['ratio_acceptance'])
     logging.debug ('ratio of roi probability: ' + str(prob))
     return prob
 
@@ -63,7 +60,7 @@ def _filterBorderCar_ (c, car_entry, params):
     (width,height) = c.fetchone()
 
     border_prob = 1
-    if helperDb.doesTableExist(c, 'polygons'):
+    if doesTableExist(c, 'polygons'):
         # get polygon
         c.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
         polygon_entries = c.fetchall()
@@ -90,7 +87,7 @@ def _filterBorderCar_ (c, car_entry, params):
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug']:
-        utilities.drawScoredRoi (params['display'], roi, '', score)
+        dbUtilities.drawScoredRoi (params['display'], roi, '', score)
 
 
 
@@ -113,7 +110,7 @@ def _filterRatioCar_ (c, car_entry, params):
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug']:
-        utilities.drawScoredRoi (params['display'], roi, '', score)
+        dbUtilities.drawScoredRoi (params['display'], roi, '', score)
 
 
 
@@ -136,7 +133,7 @@ def _filterSizeCar_ (c, car_entry, params):
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug']:
-        utilities.drawScoredRoi (params['display'], roi, '', score)
+        dbUtilities.drawScoredRoi (params['display'], roi, '', score)
 
 
 
@@ -153,9 +150,9 @@ def _expandCarBbox_ (c, car_entry, params):
 
     old = list(roi)
     if params['keep_ratio']:
-        roi = expandRoiToRatio (roi, (height, width), expand_perc, target_ratio)
+        roi = dbUtilities.expandRoiToRatio (roi, (height, width), expand_perc, target_ratio)
     else:
-        roi = expandRoiFloat (roi, (height, width), (expand_perc, expand_perc))
+        roi = dbUtilities.expandRoiFloat (roi, (height, width), (expand_perc, expand_perc))
 
     # draw roi on the 'display' image
     if params['debug']:
@@ -173,7 +170,7 @@ def _expandCarBbox_ (c, car_entry, params):
 
 
 def _clusterBboxes_ (c, imagefile, params):
-    helperSetup.assertParamIsThere (params, 'terms')
+    assertParamIsThere (params, 'terms')
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
@@ -194,7 +191,7 @@ def _clusterBboxes_ (c, imagefile, params):
 
     # cluster rois
     #params['scores'] = scores
-    (rois_clustered, clusters, scores) = utilities.hierarchicalClusterRoi (rois, params)
+    (rois_clustered, clusters, scores) = dbUtilities.hierarchicalClusterRoi (rois, params)
 
     names_clustered = []
     for cluster in list(set(clusters)):
@@ -251,10 +248,10 @@ def filterByBorder (c, params = {}):
     Zero 'score' of bboxes that is closer than 'min_width' from the border
     '''
     logging.info ('==== filterByBorder ====')
-    helperSetup.setParamUnlessThere (params, 'border_thresh_perc', 0.03)
-    helperSetup.setParamUnlessThere (params, 'debug',              False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'border_thresh_perc', 0.03)
+    setParamUnlessThere (params, 'debug',              False)
+    setParamUnlessThere (params, 'image_processor',    ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',         KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
@@ -284,11 +281,11 @@ def filterByRatio (c, params = {}):
     Score reduction factor is controlled with 'ratio_acceptance'
     '''
     logging.info ('==== filterByRatio ====')
-    helperSetup.setParamUnlessThere (params, 'target_ratio',     0.75)
-    helperSetup.setParamUnlessThere (params, 'ratio_acceptance', 3)
-    helperSetup.setParamUnlessThere (params, 'debug',            False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'target_ratio',     0.75)
+    setParamUnlessThere (params, 'ratio_acceptance', 3)
+    setParamUnlessThere (params, 'debug',            False)
+    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
@@ -318,15 +315,15 @@ def filterBySize (c, params = {}):
     Score reduction factor is controlled with 'size_acceptance'
     '''
     logging.info ('==== filterBySize ====')
-    helperSetup.setParamUnlessThere (params, 'min_width',       10)
-    helperSetup.setParamUnlessThere (params, 'size_acceptance', 3)
-    helperSetup.setParamUnlessThere (params, 'sizemap_dilate',  21)
-    helperSetup.setParamUnlessThere (params, 'debug',           False)
-    helperSetup.setParamUnlessThere (params, 'debug_sizemap',   False)
-    helperSetup.assertParamIsThere  (params, 'size_map_path')
-    helperSetup.setParamUnlessThere (params, 'relpath',         os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',      helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'min_width',       10)
+    setParamUnlessThere (params, 'size_acceptance', 3)
+    setParamUnlessThere (params, 'sizemap_dilate',  21)
+    setParamUnlessThere (params, 'debug',           False)
+    setParamUnlessThere (params, 'debug_sizemap',   False)
+    assertParamIsThere  (params, 'size_map_path')
+    setParamUnlessThere (params, 'relpath',         os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'image_processor', ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',      KeyReaderUser())
 
     # load size_map
     size_map_path = op.join(params['relpath'], params['size_map_path'])
@@ -382,8 +379,8 @@ def filterUnknownNames (c):
 def filterCustom (c, params = {}):
     '''Apply car_constraint to cars table and filter eveything which does not match 
     '''
-    helperSetup.setParamUnlessThere (params, 'image_constraint', '1')
-    helperSetup.setParamUnlessThere (params, 'car_constraint', '1')
+    setParamUnlessThere (params, 'image_constraint', '1')
+    setParamUnlessThere (params, 'car_constraint', '1')
     # image constraint
     c.execute('DELETE FROM images WHERE NOT (%s)' % params['image_constraint'])
     c.execute('''SELECT id FROM cars WHERE 
@@ -400,7 +397,7 @@ def thresholdScore (c, params = {}):
     Delete all cars that have score less than 'score_threshold'
     '''
     logging.info ('==== thresholdScore ====')
-    helperSetup.setParamUnlessThere (params, 'score_threshold', 0.5)
+    setParamUnlessThere (params, 'score_threshold', 0.5)
 
     c.execute('SELECT id,score FROM cars')
     car_entries = c.fetchall()
@@ -418,12 +415,12 @@ def expandBboxes (c, params = {}):
     TODO: bbox is clipped to the border if necessary. Maybe think of better ways for border
     '''
     logging.info ('==== expandBboxes ====')
-    helperSetup.setParamUnlessThere (params, 'expand_perc', 0.1)
-    helperSetup.setParamUnlessThere (params, 'target_ratio', 0.75)  # h / w
-    helperSetup.setParamUnlessThere (params, 'keep_ratio', True)
-    helperSetup.setParamUnlessThere (params, 'debug', False)
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'expand_perc', 0.1)
+    setParamUnlessThere (params, 'target_ratio', 0.75)  # h / w
+    setParamUnlessThere (params, 'keep_ratio', True)
+    setParamUnlessThere (params, 'debug', False)
+    setParamUnlessThere (params, 'image_processor', ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',      KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
@@ -453,10 +450,10 @@ def clusterBboxes (c, params = {}):
     TODO: implement score-weighted clustering
     '''
     logging.info ('==== clusterBboxes ====')
-    helperSetup.setParamUnlessThere (params, 'cluster_threshold', 0.2)
-    helperSetup.setParamUnlessThere (params, 'debug',             False)
-    helperSetup.setParamUnlessThere (params, 'key_reader',        helperKeys.KeyReaderUser())
-    helperSetup.setParamUnlessThere (params, 'image_processor',   helperImg.ReaderVideo())
+    setParamUnlessThere (params, 'cluster_threshold', 0.2)
+    setParamUnlessThere (params, 'debug',             False)
+    setParamUnlessThere (params, 'key_reader',        KeyReaderUser())
+    setParamUnlessThere (params, 'image_processor',   ReaderVideo())
 
     # load terms tree
     dictionary_path = op.join(os.getenv('CITY_PATH'), 'src/learning/annotations/dictionary.json')
@@ -478,10 +475,10 @@ def assignOrientations (c, params):
     assign 'yaw' and 'pitch' angles to each car based on provided yaw and pitch maps 
     '''
     logging.info ('==== assignOrientations ====')
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.assertParamIsThere  (params, 'size_map_path')
-    helperSetup.assertParamIsThere  (params, 'pitch_map_path')
-    helperSetup.assertParamIsThere  (params, 'yaw_map_path')
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    assertParamIsThere  (params, 'size_map_path')
+    assertParamIsThere  (params, 'pitch_map_path')
+    assertParamIsThere  (params, 'yaw_map_path')
 
     params['size_map_path']  = op.join(params['relpath'], params['size_map_path'])
     params['pitch_map_path'] = op.join(params['relpath'], params['pitch_map_path'])
@@ -576,7 +573,7 @@ def maskScores (c, params = {}):
     Apply a map (0-255) that will reduce the scores of each car accordingly (255 -> keep same)
     '''
     logging.info ('==== maskScores ====')
-    helperSetup.assertParamIsThere (params, 'score_map_path')
+    assertParamIsThere (params, 'score_map_path')
 
     # load the map of scores and normalize it by 1/255
     score_map_path = op.join(os.getenv('CITY_DATA_PATH'), params['score_map_path'])

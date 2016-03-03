@@ -1,13 +1,13 @@
 import os, sys
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-import helperTesting
-from dbCnn import *
-import helperDb
-import helperImg
+from helperTesting       import TestMicroDbBase
+from learning.helperDb   import createDb
+from learning.helperImg  import ProcessorRandom
+from learning.dbCnn      import *
 
 
 # TODO: replace real model/architecture with a perceptron in testdata
@@ -21,7 +21,7 @@ class TestEmptyDb (unittest.TestCase):
     def setUp (self):
         # create empty db
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (self.conn)
+        createDb (self.conn)
         # init CNN
         self.dbCnn = DbCnn(network_path, model_path)
 
@@ -31,12 +31,12 @@ class TestEmptyDb (unittest.TestCase):
     def test_classify(self):
         c = self.conn.cursor()
         params = {'resize': (40, 30),
-                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)})}
+                  'image_processor': ProcessorRandom({'dims': (100,100)})}
         self.dbCnn.classify (c, params)
 
 
 
-class TestMicroDb (helperTesting.TestMicroDbBase):
+class TestMicroDb (TestMicroDbBase):
     
     def setUp (self):
         super(TestMicroDb, self).setUp()
@@ -51,7 +51,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         c = self.conn.cursor()
         params = {'resize': (40, 30),
                   'label_dict': {0: 'negative', 1: 'vehicle'},
-                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)})}
+                  'image_processor': ProcessorRandom({'dims': (100,100)})}
         self.dbCnn.classify (c, params)
         c.execute('SELECT name FROM cars')
         labels = c.fetchall()
@@ -64,7 +64,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_classify_noDict (self):
         c = self.conn.cursor()
         params = {'resize': (40, 30),
-                  'image_processor': helperImg.ProcessorRandom({'dims': (100,100)})}
+                  'image_processor': ProcessorRandom({'dims': (100,100)})}
         self.dbCnn.classify (c, params)
         c.execute('SELECT name FROM cars')
         labels = c.fetchall()

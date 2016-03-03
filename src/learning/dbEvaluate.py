@@ -1,28 +1,26 @@
-import logging
-import sys
 import os, os.path as op
+import sys
+import logging
 import shutil
 import glob
 import json
 import sqlite3
 import cv2
 import time
-from utilities import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
-from helperDb import carField
-import helperDb
-import helperSetup
-import helperImg
-import helperKeys
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning/violajones'))
-from opencvInterface import loadJson, ExperimentsBuilder
+from helperImg    import ReaderVideo
+from helperKeys   import KeyReaderUser
+from helperSetup  import dbInit, setParamUnlessThere
+from learning.violajones.opencvInterface import loadJson, ExperimentsBuilder
+from dbUtilities  import bbox2roi, drawRoi, overlapRatio, expandRoiFloat, roi2bbox
+from helperDb     import carField
 
 
 
 
 def _evaluateForImage_ (cursor_eval, cursor_true, imagefile, params):
-    helperSetup.setParamUnlessThere (params, 'debug',            False)
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'debug',            False)
+    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
 
     # roi-s from ground truth
     cursor_true.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
@@ -98,7 +96,7 @@ def evaluateDetector (c, cursor_true, params):
     Returns a list of (hits, misses, false positives)
     '''
     logging.info ('==== evaluateDetector ====')
-    helperSetup.setParamUnlessThere (params, 'dist_thresh', 0.5)
+    setParamUnlessThere (params, 'dist_thresh', 0.5)
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()
@@ -160,7 +158,7 @@ def dbEvaluateTask (task_path, db_true_path, db_eval_dir, params):
         if not op.exists( op.join(os.getenv('CITY_DATA_PATH'), db_in_path)):
             raise Exception ('db_in_path does not exist: ' + db_in_path)
         logging.info ('evaluating task: ' + op.basename(db_in_path))
-        (conn, cursor) = helperSetup.dbInit(db_in_path)
+        (conn, cursor) = dbInit(db_in_path)
         result = evaluateDetectorPath(cursor, db_true_path, params)
         conn.close()
         

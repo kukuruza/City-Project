@@ -4,8 +4,8 @@ import cv2
 import logging
 import h5py
 import random  # for random browsing
-import helperKeys
-import helperSetup
+from helperKeys  import KeyReaderUser, getCalibration
+from helperSetup import setParamUnlessThere
 
 '''
 Images are written to be compatible with caffe. 
@@ -106,7 +106,7 @@ def multipleOf (f, multiple):
 def crop (f_in, f_out, number, params = {}):
     ''' Keep first 'number' elements. Crop the rest. '''
     logging.info ('=== helperH5.crop ===')
-    helperSetup.setParamUnlessThere (params, 'chunk', 100)
+    setParamUnlessThere (params, 'chunk', 100)
     assert isinstance(number, int) and number > 0
 
     if number > getNum(f_in):
@@ -209,10 +209,10 @@ def viewPatches (f, params = {}):
     Browse through images/labels from an opened hdf5 file
     '''
     logging.info ('=== helperH5.viewPatches ===')
-    helperSetup.setParamUnlessThere (params, 'random', False)
-    helperSetup.setParamUnlessThere (params, 'scale', 1)
-    helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
-    keys = helperKeys.getCalibration()
+    setParamUnlessThere (params, 'random', False)
+    setParamUnlessThere (params, 'scale', 1)
+    setParamUnlessThere (params, 'key_reader', KeyReaderUser())
+    keys = getCalibration()
 
     numImages = getNum(f)
     logging.info ('dataset has %d images' % numImages)

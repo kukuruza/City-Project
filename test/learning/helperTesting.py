@@ -1,13 +1,15 @@
+import os, sys
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import unittest
 import sqlite3
-import helperDb
+from learning.helperDb import createDb
 
 
 def makeMicroDbVer2 ():
     ''' Make a db that is used in many test cases '''
     conn = sqlite3.connect(':memory:')  # in RAM
-    helperDb.createDb(conn)
+    createDb(conn)
     c = conn.cursor()
 
     s = 'images(imagefile,width,height,src,maskfile,time)'

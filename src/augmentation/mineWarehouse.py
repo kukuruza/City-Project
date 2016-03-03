@@ -50,14 +50,12 @@ def download_model (browser, url, model_dir, args):
         lambda x: x.find_element_by_id('title'))
 
     # get the model name
-    model_name = browser.find_element_by_id('title').text.encode("utf-8")
-    # delete special characters
-    model_name = validateString(model_name)
+    element = browser.find_element_by_id('title')
+    model_name = validateString(element.text.encode('ascii','ignore'))
 
     # get model description
-    description = browser.find_element_by_id('description').text.encode("utf-8")
-    # delete special characters
-    description = validateString(description)
+    element = browser.find_element_by_id('description')
+    description = validateString(element.text.encode('ascii','ignore'))
 
     model_info = {'model_id':     model_id,
                   'model_name':   model_name,
@@ -172,10 +170,10 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
 
 
 
-def download_collection (browser, url, cad, args):
+def download_collection (browser, collection_id, cad, args):
 
     # collection_id is the last part of the url
-    collection_id = url.split('=')[-1]
+    url = 'https://3dwarehouse.sketchup.com/collection.html?id=' + collection_id
     collection_dir = op.join(CAD_DIR, collection_id)
     logging.info ('will download coleection_id: %s' % collection_id)
 
@@ -206,15 +204,23 @@ def download_collection (browser, url, cad, args):
 
     # get collection name
     element = browser.find_element_by_id('title')
-    collection_name = element.text.encode('utf-8')
-    collection_name = validateString(collection_name)
+    collection_name = validateString(element.text.encode('ascii', 'ignore'))
+
+    # get collection description
+    element = browser.find_element_by_id('description')
+    collection_description = validateString(element.text.encode('ascii','ignore'))
+
+    # get collection tags
+    #element = browser.find_element_by_id('tags')
+    #element.find_element_by_xpath(".//p[@id='test']").text 
+    #collection_name = element.text.encode('ascii','ignore')
+    #collection_name = validateString(collection_name)
 
     # get author
     element = browser.find_element_by_id('collection-author')
     author_href = element.get_attribute('href')
     author_id = author_href.split('=')[-1]
-    author_name = element.text.encode('utf-8')
-    author_name = validateString(author_name)
+    author_name = validateString(element.text.encode('ascii','ignore'))
 
     # keep scrolling the page until models show up (for pages with many models)
     prev_number = 0
@@ -254,7 +260,7 @@ if __name__ == "__main__":
     setupLogging('log/augmentation/MineWarehouse.log', logging.INFO, 'w')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--collection_url')
+    parser.add_argument('--collection_id')
     parser.add_argument('--overwrite_collection', action='store_true')
     parser.add_argument('--vehicle_type', nargs='?', default='object')
     parser.add_argument('--timeout', nargs='?', default=10, type=int)
@@ -264,4 +270,4 @@ if __name__ == "__main__":
 
     # use firefox to get page with javascript generated content
     with closing(Firefox()) as browser:
-        download_collection (browser, args.collection_url, cad, args)
+        download_collection (browser, args.collection_id, cad, args)

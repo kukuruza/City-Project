@@ -1,11 +1,11 @@
 import logging
 import os, sys, os.path as op
-from helperSetup import setupLogging, _setupCopyDb_, dbInit
 import sqlite3
 import shutil
 import traceback
 import fnmatch
-import helperDb
+from helperDb    import createTableMatches
+from helperSetup import setupLogging, _setupCopyDb_, dbInit
 
 
 def _find_files_ (directory, pattern):
@@ -77,7 +77,7 @@ def upgrade3_paths (db_in_path):
 
 def fixVer2_1 (c):
 
-    helperDb.createTableMatches(c)
+    createTableMatches(c)
 
     c.execute('SELECT imagefile FROM images')
     truefiles = c.fetchall()

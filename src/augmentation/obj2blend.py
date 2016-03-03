@@ -289,7 +289,7 @@ def process_collection (collection_dir, scene_path):
 scene_path = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/scenes/empty-import.blend')
 
 collection_dir = op.join(os.getenv('CITY_DATA_PATH'), 
-    'augmentation/CAD/uc1135bf8-8da1-4dc5-8278-21bb11669535')
+    'augmentation/CAD/taxi-without-collection')
 
 setupLogging('log/augmentation/Obj2Blend.log', logging.DEBUG, 'w')
 

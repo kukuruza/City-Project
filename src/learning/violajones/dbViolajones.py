@@ -9,10 +9,10 @@ import cv2
 import time
 
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-import helperSetup
-from opencvInterface import loadJson, execCommand, ExperimentsBuilder
-from utilities import bbox2roi, drawRoi, drawScoredRoi, overlapRatio, expandRoiFloat, roi2bbox
-from helperDb import queryField, doesTableExist
+from learning.helperSetup import setParamUnlessThere
+from opencvInterface      import loadJson, execCommand, ExperimentsBuilder
+from learning.dbUtilities import *
+from learning.helperDb    import queryField, doesTableExist
 
 
 
@@ -48,7 +48,7 @@ def __detectForImage__ (cursor, cascade, imagefile, params):
 
 def detectViolajones (c, model_path, params):
     logging.info ('==== detectViolajones ====')
-    helperSetup.setParamUnlessThere (params, 'debug_show', False)
+    setParamUnlessThere (params, 'debug_show', False)
 
     # model
     logging.info ('model_path: ' + model_path)

@@ -1,14 +1,16 @@
-
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
-import unittest
-import helperTesting
 import shutil
-from dbExport import *
-from dbExport import _distortPatch_
+import unittest
+from helperTesting       import TestMicroDbBase
+from learning.helperH5   import *
+from learning.helperImg  import ProcessorRandom
+from learning.helperKeys import KeyReaderSequence
+from learning.dbExport   import *
+from learning.dbExport   import _distortPatch_
 
 
 class TestPatchHelperFolder (unittest.TestCase):
@@ -79,15 +81,15 @@ class TestPatchHelperHDF5 (unittest.TestCase):
         # test writePatch
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 2)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
-            self.assertEqual (helperH5.getId(f, 0), 0)
-            self.assertEqual (helperH5.getId(f, 1), 1)
-            self.assertEqual (helperH5.getLabel(f, 0), 1)
-            self.assertEqual (helperH5.getLabel(f, 1), 1)
-            patch = helperH5.getImage(f, 0)
+            self.assertEqual (getNum(f), 2)
+            self.assertEqual (getImageDims(f), (18,24,3))
+            self.assertEqual (getId(f, 0), 0)
+            self.assertEqual (getId(f, 1), 1)
+            self.assertEqual (getLabel(f, 0), 1)
+            self.assertEqual (getLabel(f, 1), 1)
+            patch = getImage(f, 0)
             self.assertEqual (np.mean(patch), 0)
-            patch = helperH5.getImage(f, 1)
+            patch = getImage(f, 1)
             self.assertEqual (np.mean(patch), 1)
 
         # test readPatch
@@ -117,12 +119,12 @@ class TestPatchHelperHDF5 (unittest.TestCase):
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 2)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
-            self.assertEqual (helperH5.getId(f, 0), 0)
-            self.assertEqual (helperH5.getId(f, 1), 1)
-            self.assertAlmostEqual (helperH5.getLabel(f, 0), np.pi, places=4)
-            self.assertAlmostEqual (helperH5.getLabel(f, 1), np.pi, places=4)
+            self.assertEqual (getNum(f), 2)
+            self.assertEqual (getImageDims(f), (18,24,3))
+            self.assertEqual (getId(f, 0), 0)
+            self.assertEqual (getId(f, 1), 1)
+            self.assertAlmostEqual (getLabel(f, 0), np.pi, places=4)
+            self.assertAlmostEqual (getLabel(f, 1), np.pi, places=4)
 
 
 
@@ -171,7 +173,7 @@ class TestDistortPatch (unittest.TestCase):
 
     def test_distortPatch_debugSeveral (self):
         sequence = [32, 32, 27]
-        self.params['key_reader'] = helperKeys.KeyReaderSequence(sequence)
+        self.params['key_reader'] = KeyReaderSequence(sequence)
         self.params['debug'] = True
         patches = _distortPatch_ (self.Malevich, [40,45,60,55], self.params)
 
@@ -188,7 +190,7 @@ class TestWriteReadme (unittest.TestCase):
 
 
 
-class TestMicroDb (helperTesting.TestMicroDbBase):
+class TestMicroDb (TestMicroDbBase):
 
     def tearDown (self):
         super(TestMicroDb, self).tearDown()
@@ -199,20 +201,20 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_collectPatches_hdf5 (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        imageProcessor = ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         collectPatches (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 3)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+            self.assertEqual (getNum(f), 3)
+            self.assertEqual (getImageDims(f), (18,24,3))
 
 
     def test_collectPatches_folder (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperFolder({'relpath': '.'})
-        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        imageProcessor = ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         collectPatches (self.conn.cursor(), out_dataset, params)
 
@@ -227,7 +229,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_collectPatches_hdf5_distort (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        imageProcessor = ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         paramsDist = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
                       'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
@@ -236,26 +238,26 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 30)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+            self.assertEqual (getNum(f), 30)
+            self.assertEqual (getImageDims(f), (18,24,3))
 
 
 
     def test_collectByMatch (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        imageProcessor = ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         collectByMatch (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 3)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+            self.assertEqual (getNum(f), 3)
+            self.assertEqual (getImageDims(f), (18,24,3))
 
-            self.assertEqual (helperH5.getLabel(f, 0), 1)
-            self.assertEqual (helperH5.getLabel(f, 1), 2)
-            self.assertEqual (helperH5.getLabel(f, 2), 2)
+            self.assertEqual (getLabel(f, 0), 1)
+            self.assertEqual (getLabel(f, 1), 2)
+            self.assertEqual (getLabel(f, 2), 2)
 
 
     def test_collectByMatch_matchesEmpty (self):
@@ -264,24 +266,24 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
 
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        imageProcessor = ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         collectByMatch (self.conn.cursor(), out_dataset, params)
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 3)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+            self.assertEqual (getNum(f), 3)
+            self.assertEqual (getImageDims(f), (18,24,3))
 
-            self.assertEqual (helperH5.getLabel(f, 0), 1)
-            self.assertEqual (helperH5.getLabel(f, 1), 2)
-            self.assertEqual (helperH5.getLabel(f, 2), 3)
+            self.assertEqual (getLabel(f, 0), 1)
+            self.assertEqual (getLabel(f, 1), 2)
+            self.assertEqual (getLabel(f, 2), 3)
 
 
     def test_collectByMatch_distort (self):
         out_dataset = 'testdata/patches'
         patchHelper = PatchHelperHDF5({'relpath': '.'})
-        imageProcessor = helperImg.ProcessorRandom({'dims': (100,100)})
+        imageProcessor = ProcessorRandom({'dims': (100,100)})
         params = {'image_processor': imageProcessor, 'patch_helper': patchHelper, 'resize': (24,18)}
         paramsDist = {'number': 10, 'flip': True, 'blur': 0.5, 'color': 0.05,
                       'scale': 0.1, 'rotate_deg': 10, 'transl_perc': 0.1}
@@ -290,8 +292,8 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
 
         self.assertTrue (op.exists('testdata/patches.h5'))
         with h5py.File ('testdata/patches.h5') as f:
-            self.assertEqual (helperH5.getNum(f), 30)
-            self.assertEqual (helperH5.getImageDims(f), (18,24,3))
+            self.assertEqual (getNum(f), 30)
+            self.assertEqual (getImageDims(f), (18,24,3))
 
 
 class TestConvertFormat (unittest.TestCase):

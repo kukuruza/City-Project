@@ -1,6 +1,5 @@
 import os, sys, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/cnn'))
 import logging
 import shutil
@@ -8,11 +7,11 @@ import glob
 import json
 import sqlite3
 import numpy as np, cv2
-from helperDb import carField
-from utilities import bbox2roi
-from DeploymentPatches import DeploymentPatches
-import helperSetup
-import helperImg
+from helperDb    import carField
+from dbUtilities import bbox2roi
+from cnn.caffeClassifier.DeploymentPatches import DeploymentPatches
+from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperImg   import ReaderVideo
 
 
 class DbCnn:
@@ -29,10 +28,10 @@ class DbCnn:
         Use CNN python interface to classify .db
         '''
         logging.info ('==== DbCnn.classifyDb ====')
-        helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
-        helperSetup.setParamUnlessThere (params, 'label_dict', {})
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
+        assertParamIsThere  (params, 'resize') # (width,height)
+        setParamUnlessThere (params, 'label_dict', {})
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'image_processor', ReaderVideo())
         assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
         c.execute('SELECT * FROM cars')

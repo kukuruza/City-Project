@@ -1,13 +1,14 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperTesting
-from dbModify import *
-import helperImg
-import helperKeys
+from helperTesting       import TestMicroDbBase
+from learning.helperImg  import ProcessorRandom
+from learning.helperDb   import createDb
+from learning.helperKeys import KeyReaderSequence
+from learning.dbModify   import *
 
 
 class TestEmptyDb (unittest.TestCase):
@@ -15,7 +16,7 @@ class TestEmptyDb (unittest.TestCase):
 
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (self.conn)
+        createDb (self.conn)
 
     def tearDown (self):
         self.conn.close()
@@ -89,7 +90,7 @@ class TestEmptyDb (unittest.TestCase):
 
 
 
-class TestMicroDb (helperTesting.TestMicroDbBase):
+class TestMicroDb (TestMicroDbBase):
     
     def setUp (self):
         super(TestMicroDb, self).setUp()
@@ -98,8 +99,8 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
         ''' convenience helper function '''
         params = {}
         params['debug'] = True
-        params['image_processor'] = helperImg.ProcessorRandom({'dims': (100,100)})
-        params['key_reader'] = helperKeys.KeyReaderSequence(sequence)
+        params['image_processor'] = ProcessorRandom({'dims': (100,100)})
+        params['key_reader'] = KeyReaderSequence(sequence)
         return params
 
     # filterByBorder
@@ -410,7 +411,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_merge_addEmpty (self):
         # create and empty db
         conn_empty = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (conn_empty)
+        createDb (conn_empty)
         cursor_empty = conn_empty.cursor()
         # merge
         c = self.conn.cursor()
@@ -433,7 +434,7 @@ class TestMicroDb (helperTesting.TestMicroDbBase):
     def test_merge_toEmpty (self):
         # create and empty db
         conn_empty = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb (conn_empty)
+        createDb (conn_empty)
         cursor_empty = conn_empty.cursor()
         # merge
         c = self.conn.cursor()

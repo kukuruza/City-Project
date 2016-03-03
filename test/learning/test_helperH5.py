@@ -1,11 +1,11 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperTesting
-from helperH5 import *
+from learning.helperKeys import KeyReaderSequence, getCalibration
+from learning.helperH5   import *
 
 
 class TestHDF5 (unittest.TestCase):
@@ -122,17 +122,17 @@ class TestHDF5 (unittest.TestCase):
 
 
     def test_viewPatches_sequential (self):
-        keys = helperKeys.getCalibration()
+        keys = getCalibration()
         key_sequence = 20*[keys['right']] + 20*[keys['left']] + 5*[keys['right']] + [keys['esc']]
-        keyReader = helperKeys.KeyReaderSequence(key_sequence)
+        keyReader = KeyReaderSequence(key_sequence)
         viewPatches (self.f, params = {'key_reader': keyReader})
 
     def test_viewPatches_random (self):
-        keys = helperKeys.getCalibration()
+        keys = getCalibration()
         key_sequence = 20*[keys['right']] + 20*[keys['left']]
         random.shuffle(key_sequence)
         key_sequence.append(keys['esc'])
-        keyReader = helperKeys.KeyReaderSequence(key_sequence)
+        keyReader = KeyReaderSequence(key_sequence)
         viewPatches (self.f, params = {'random': True, 'key_reader': keyReader})
 
 

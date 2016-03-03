@@ -50,8 +50,60 @@ import citycam
 FLAGS = tf.app.flags.FLAGS
 
 
+
+tf.app.flags.DEFINE_integer('num_examples', 100, '')
+
+
+
+
+def eval_at_training (sess, data_list_name):
+    # Get images and labels for citycam.
+    images_eval, labels_eval = citycam.inputs(data_list_name)
+
+    # Build a Graph that computes the logits predictions from the
+    # inference model.
+    logits_eval = citycam.inference(images_eval)
+
+    # Calculate predictions.
+    top_k_op = tf.nn.in_top_k(logits_eval, labels_eval, 1)
+
+
+    # Start the queue runners.
+    coord = tf.train.Coordinator()
+    try:
+      threads = []
+      for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
+        threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
+                                         start=True))
+
+      num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
+      true_count = 0  # Counts the number of correct predictions.
+      total_sample_count = num_iter * FLAGS.batch_size
+      step = 0
+      while step < num_iter and not coord.should_stop():
+        predictions = sess.run([top_k_op])
+        true_count += np.sum(predictions)
+        step += 1
+
+      # Compute precision @ 1.
+      precision = true_count / total_sample_count
+      print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+
+      summary = tf.Summary()
+      summary.ParseFromString(sess.run(summary_op))
+      summary.value.add(tag='Precision @ 1', simple_value=precision)
+      summary_writer.add_summary(summary, global_step)
+    except Exception as e:  # pylint: disable=broad-except
+      coord.request_stop(e)
+
+    coord.request_stop()
+    coord.join(threads, stop_grace_period_secs=10)
+
+
+
+
 def train():
-  """Train citycam-2 for a number of steps."""
+  """Train citycam for a number of steps."""
   with tf.Graph().as_default():
     global_step = tf.Variable(0, trainable=False)
 
@@ -110,6 +162,9 @@ def train():
       if step % FLAGS.period_summary == 0:
         summary_str = sess.run(summary_op)
         summary_writer.add_summary(summary_str, step)
+
+      if step % 2 == 0:
+        eval_at_training (sess, 'test_list.txt')
 
       # Save the model checkpoint periodically.
       if step % FLAGS.period_checkpoint == 0 or (step + 1) == FLAGS.max_steps:

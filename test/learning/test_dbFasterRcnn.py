@@ -1,16 +1,16 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperTesting
 import shutil
-from dbFasterRcnn import *
-from dbFasterRcnn import _writeXmlString_
+from helperTesting         import TestMicroDbBase
+from learning.dbFasterRcnn import *
+from learning.dbFasterRcnn import _writeXmlString_
 
 
-class TestMicroDb (helperTesting.TestMicroDbBase):
+class TestMicroDb (TestMicroDbBase):
 
     def tearDown (self):
         super(TestMicroDb, self).tearDown()

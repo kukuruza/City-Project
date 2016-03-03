@@ -1,16 +1,15 @@
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import logging
 import glob
 import shutil
 import sqlite3
-from helperDb import carField, imageField
-from utilities import bbox2roi, roi2bbox, bottomCenter, drawRoi
-import helperSetup
-import helperImg
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from dbModify import isRoiAtBorder
+from helperDb    import carField, imageField
+from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperImg   import ReaderVideo, ProcessorImagefile
+from dbUtilities import bbox2roi, roi2bbox, bottomCenter, drawRoi
+from dbModify    import isRoiAtBorder
 
 
 
@@ -21,8 +20,8 @@ def _prettify_ (elem):
 
 
 def _writeXmlString_ (c, imagefile, car_entries, params = {}):
-    helperSetup.assertParamIsThere (params, 'out_dataset')
-    helperSetup.setParamUnlessThere (params, 'annotation', 'automatic')
+    assertParamIsThere (params, 'out_dataset')
+    setParamUnlessThere (params, 'annotation', 'automatic')
 
     # will need that later
     c.execute('SELECT src, width, height FROM images WHERE imagefile=?', (imagefile,))
@@ -97,10 +96,10 @@ def exportSparseCars (c, out_dataset, params = {}):
     '''
 
     logging.info ('==== exportSparseCars ====')
-    helperSetup.setParamUnlessThere (params, 'constraint', '1')
-    helperSetup.setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_reader', helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'image_writer', helperImg.ProcessorImagefile())
+    setParamUnlessThere (params, 'constraint', '1')
+    setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'image_reader', ReaderVideo())
+    setParamUnlessThere (params, 'image_writer', ProcessorImagefile())
     params['out_dataset'] = out_dataset
 
     if op.exists (op.join(params['relpath'], out_dataset)):

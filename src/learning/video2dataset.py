@@ -1,16 +1,12 @@
 import os, sys, os.path as op
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 import numpy as np
 import cv2
 import logging
 import sqlite3
 import datetime
-from helperSetup import atcity, _setupCopyDb_
-import helperSetup
-import helperDb
-import helperImg
-import utilities
+from helperSetup import atcity, _setupCopyDb_, setParamUnlessThere, assertParamIsThere
+from helperDb    import createDb, carField
+from dbUtilities import bbox2roi, drawScoredRoi
 
 
 
@@ -21,7 +17,7 @@ def video2dataset (c, image_video_file, mask_video_file, time_file, name, params
       time_file:  if None, null values will be written to db
     '''
     logging.info ('==== video2dataset ====')
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
 
     logging.info ('image file: %s' % image_video_file)
     logging.info ('mask file:  %s' % mask_video_file)
@@ -79,7 +75,7 @@ def make_dataset (video_dir, db_prefix, params = {}):
     The format may change over time.
     '''
     logging.info ('==== make_dataset ====')
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
 
     # form video and time paths
     image_video_file = op.join(video_dir, 'src.avi')
@@ -93,8 +89,8 @@ def make_dataset (video_dir, db_prefix, params = {}):
     if not op.exists(db_dir): os.makedirs (db_dir)
     conn_frame = sqlite3.connect (op.join(params['relpath'], '%s-image.db' % db_prefix))
     conn_ghost = sqlite3.connect (op.join(params['relpath'], '%s-ghost.db' % db_prefix))
-    helperDb.createDb(conn_frame)
-    helperDb.createDb(conn_ghost)
+    createDb(conn_frame)
+    createDb(conn_ghost)
     c_frame = conn_frame.cursor()
     c_ghost = conn_ghost.cursor()
 
@@ -115,7 +111,7 @@ def make_back_dataset (video_dir, out_db_file, params = {}):
     The format may change over time.
     '''
     logging.info ('==== make_back_dataset ====')
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
 
     # form video and time paths
     back_video_file  = op.join(video_dir, 'back.avi')
@@ -134,7 +130,7 @@ def make_back_dataset (video_dir, out_db_file, params = {}):
         os.remove(atcity(out_db_file))
 
     conn = sqlite3.connect(atcity(out_db_file))
-    helperDb.createDb(conn)
+    createDb(conn)
     c = conn.cursor()
 
     video2dataset (c, back_video_file, mask_video_file, time_file, name)
@@ -146,8 +142,8 @@ def make_back_dataset (video_dir, out_db_file, params = {}):
 
 def exportVideo (c, params = {}):
     logging.info ('==== exportVideo ====')
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    helperSetup.assertParamIsThere  (params, 'image_processor')
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    assertParamIsThere  (params, 'image_processor')
 
     c.execute('SELECT imagefile FROM images')
     for (imagefile,) in c.fetchall():
@@ -156,14 +152,14 @@ def exportVideo (c, params = {}):
 
         c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         for car_entry in c.fetchall():
-            roi       = utilities.bbox2roi (helperDb.carField(car_entry, 'bbox'))
-            imagefile = helperDb.carField (car_entry, 'imagefile')
-            name      = helperDb.carField (car_entry, 'name')
-            score     = helperDb.carField (car_entry, 'score')
+            roi       = bbox2roi (carField(car_entry, 'bbox'))
+            imagefile = carField (car_entry, 'imagefile')
+            name      = carField (car_entry, 'name')
+            score     = carField (car_entry, 'score')
 
             if score is None: score = 1
             logging.debug ('roi: %s, score: %f' % (str(roi), score))
-            utilities.drawScoredRoi (frame, roi, name, score)
+            drawScoredRoi (frame, roi, name, score)
 
         params['image_processor'].imwrite(frame, imagefile)
 

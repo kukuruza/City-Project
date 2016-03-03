@@ -44,6 +44,8 @@ MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
 # names of the summaries when visualizing a model.
 TOWER_NAME = 'tower'
 
+tf.app.flags.DEFINE_float('MOVING_AVERAGE_DECAY', MOVING_AVERAGE_DECAY, '')
+
 
 def _activation_summary(x):
   """Helper to create summaries for activations.

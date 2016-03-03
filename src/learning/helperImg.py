@@ -1,11 +1,11 @@
+import os, sys, os.path as op
 import abc
 import numpy as np
 import cv2
-import os, sys
-import os.path as op
 import logging
-import helperSetup
 from pkg_resources import parse_version
+from helperSetup import setParamUnlessThere, assertParamIsThere
+
 
 # returns OpenCV VideoCapture property id given, e.g., "FPS"
 def capPropId(prop):
@@ -42,7 +42,7 @@ class ReaderVideo (ProcessorBase):
     '''
 
     def __init__ (self, params = {}):
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.relpath = params['relpath']
         self.image_cache = {}    # cache of previously read image(s)
         self.mask_cache = {}     # cache of previously read mask(s)
@@ -115,8 +115,8 @@ class ProcessorVideo (ReaderVideo):
     def __init__ (self, params = {}):
         super(ProcessorVideo, self).__init__(params)
 
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        helperSetup.assertParamIsThere  (params, 'out_dataset')
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        assertParamIsThere  (params, 'out_dataset')
         self.relpath = params['relpath']
         self.out_dataset = params['out_dataset']
         self.out_image_video = {}    # map from image video name to VideoWriter object
@@ -211,7 +211,7 @@ class ProcessorImagefile (ProcessorBase):
     '''
 
     def __init__ (self, params = {}):
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.relpath = params['relpath']
         self.image_cache = {}   # cache of previously read image(s)
         self.mask_cache = {}    # cache of previously read mask(s)
@@ -276,7 +276,7 @@ class ProcessorFolder (ProcessorBase):
     '''
 
     def __init__ (self, params = {}):
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.relpath = params['relpath']
         self.image_cache = {}   # cache of previously read image(s)
         self.mask_cache = {}    # cache of previously read mask(s)
@@ -339,7 +339,7 @@ class ProcessorRandom (ProcessorBase):
     '''    
 
     def __init__ (self, params):
-        helperSetup.assertParamIsThere (params, 'dims')
+        assertParamIsThere (params, 'dims')
         self.dims = params['dims']
 
     def imread (self, image_id = None):

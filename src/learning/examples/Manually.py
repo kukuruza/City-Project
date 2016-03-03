@@ -1,13 +1,14 @@
-import logging
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-import helperSetup
-import dbManual
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
+import logging
+from learning.helperSetup import setupLogging, dbInit
+from learning.dbManual    import show
 
-helperSetup.setupLogging ('log/learning/Manually.log', logging.INFO, 'a')
 
-db_in_path =  'datasets/labelme/Databases/572-Nov28-10h-pair/detected/ex0.1-di0.3-er0.3-filt.db'
+setupLogging ('log/learning/Manually.log', logging.INFO, 'a')
 
-(conn, cursor) = helperSetup.dbInit(db_in_path, db_out_path)
-dbManual.labelMatches()
+db_in_file = 'databases/sparse/all-Feb29.db'
+
+(conn, cursor) = dbInit(db_in_file, backup=False)
+show(cursor, params={})
 conn.close()

@@ -1,10 +1,10 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-from utilities import *
+from learning.dbUtilities import *
 
 
 class TestGammaProb (unittest.TestCase):

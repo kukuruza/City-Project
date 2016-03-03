@@ -1,12 +1,12 @@
 import os, sys
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
 import unittest
-import helperTesting
-from helperDb import doesTableExist, isColumnInTable
-from dbUpgrade import *
+from helperTesting       import TestMicroDbBase
+from learning.helperDb  import doesTableExist, isColumnInTable
+from learning.dbUpgrade import *
 
 
 

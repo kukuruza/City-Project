@@ -1,16 +1,13 @@
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import numpy as np
 import cv2
 import logging
-from helperDb import deleteCar, carField
-import helperDb
-from utilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi
-import utilities
-import helperSetup
-import helperKeys
-import helperImg
 import sqlite3
+from dbUtilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi, getCenter
+from helperDb    import deleteCar, carField, createTableMatches
+from helperSetup import setParamUnlessThere
+from helperKeys  import KeyReaderUser, getCalibration
+from helperImg   import ReaderVideo
 
 
 
@@ -20,9 +17,9 @@ def show (c, params = {}):
     Any key will scroll to the next image.
     '''
     logging.info ('==== show ====')
-    helperSetup.setParamUnlessThere (params, 'display_scale',    1.0)
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'display_scale',    1.0)
+    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
@@ -58,10 +55,10 @@ def examine (c, params = {}):
     This is an enhanced version of show() function for careful examination.
     '''
     logging.info ('==== examine ====')
-    helperSetup.setParamUnlessThere (params, 'disp_scale',       1.5)
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
-    keys = helperKeys.getCalibration()
+    setParamUnlessThere (params, 'disp_scale',       1.5)
+    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
+    keys = getCalibration()
 
     color_config = {}
     color_config['']       = None
@@ -147,11 +144,11 @@ def classifyName (c, params = {}):
     Assign a name to each car (currently most names reflect car type)
     '''
     logging.info ('==== classifyName ====')
-    helperSetup.setParamUnlessThere (params, 'disp_scale',       1.5)
-    helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',  helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
-    keys = helperKeys.getCalibration()
+    setParamUnlessThere (params, 'disp_scale',       1.5)
+    setParamUnlessThere (params, 'car_constraint',   '1')
+    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
+    keys = getCalibration()
 
     keys[ord(' ')] = 'vehicle'    # but can't see the type, or not in the list
     keys[ord('s')] = 'sedan'      # generic small car
@@ -258,11 +255,11 @@ def classifyName (c, params = {}):
 
 def classifyColor (c, params = {}):
     logging.info ('==== classifyColor ====')
-    helperSetup.setParamUnlessThere (params, 'disp_scale', 1.5)
-    helperSetup.setParamUnlessThere (params, 'car_constraint',   '1')
-    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
-    keys = helperKeys.getCalibration()
+    setParamUnlessThere (params, 'disp_scale', 1.5)
+    setParamUnlessThere (params, 'car_constraint',   '1')
+    setParamUnlessThere (params, 'image_processor',     ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
+    keys = getCalibration()
 
     keys[ord(' ')] = ''
     keys[ord('k')] = 'black'
@@ -402,8 +399,8 @@ def __drawMatch__ (img, roi1, roi2):
     roi2[2] += offsetY
     drawRoi (img, roi1, None, color)
     drawRoi (img, roi2, None, color)
-    center1 = utilities.getCenter(roi1)
-    center2 = utilities.getCenter(roi2)
+    center1 = getCenter(roi1)
+    center2 = getCenter(roi2)
     cv2.line(img, center1, center2, color)
 
 
@@ -431,13 +428,13 @@ def labelMatches (c, params = {}):
     - Pass 'imagefile_start' number in parameters to start with a certain image pair.
     '''
     logging.info ('==== labelMatches ====')
-    helperSetup.setParamUnlessThere (params, 'debug', False)
-    helperSetup.setParamUnlessThere (params, 'disp_scale', 1.5)
-    helperSetup.setParamUnlessThere (params, 'image_processor',     helperImg.ReaderVideo())
-    helperSetup.setParamUnlessThere (params, 'key_reader',       helperKeys.KeyReaderUser())
-    keys = helperKeys.getCalibration()
+    setParamUnlessThere (params, 'debug', False)
+    setParamUnlessThere (params, 'disp_scale', 1.5)
+    setParamUnlessThere (params, 'image_processor',     ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
+    keys = getCalibration()
 
-    helperDb.createTableMatches(c)
+    createTableMatches(c)
 
     c.execute('SELECT imagefile FROM images')
     image_entries = c.fetchall()

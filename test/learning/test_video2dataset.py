@@ -1,25 +1,22 @@
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'test/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import random
 import logging
 import sqlite3
-import unittest
-import helperTesting
 import shutil
-from video2dataset import video2dataset, exportVideo
-import helperImg
-import helperDb
+import unittest
+from learning.video2dataset import video2dataset, exportVideo
+from learning.helperImg     import ProcessorRandom, ProcessorVideo
+from learning.helperDb      import imageField, createDb
 
 
 class TestVideo (unittest.TestCase):
 
     def setUp (self):
-        self.imgProcessor = helperImg.ProcessorRandom ({'dims': (240,352), 'relpath': '.'})
+        self.imgProcessor = ProcessorRandom ({'dims': (240,352), 'relpath': '.'})
 
         conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb(conn)
+        createDb(conn)
         self.conn = conn
 
     def tearDown(self):
@@ -48,12 +45,12 @@ class TestVideo (unittest.TestCase):
         c.execute ('SELECT * FROM images')
         image_entries = c.fetchall()
         self.assertEqual (len(image_entries), 3)
-        imagefile0 = helperDb.imageField(image_entries[0], 'imagefile')
-        imagefile2 = helperDb.imageField(image_entries[2], 'imagefile')
-        maskfile0  = helperDb.imageField(image_entries[0], 'maskfile')
-        maskfile2  = helperDb.imageField(image_entries[2], 'maskfile')
-        width      = helperDb.imageField(image_entries[0], 'width')
-        height     = helperDb.imageField(image_entries[0], 'height')
+        imagefile0 = imageField(image_entries[0], 'imagefile')
+        imagefile2 = imageField(image_entries[2], 'imagefile')
+        maskfile0  = imageField(image_entries[0], 'maskfile')
+        maskfile2  = imageField(image_entries[2], 'maskfile')
+        width      = imageField(image_entries[0], 'width')
+        height     = imageField(image_entries[0], 'height')
         self.assertEqual (imagefile0, 'testdata/video/cam119/000000')
         self.assertEqual (imagefile2, 'testdata/video/cam119/000002')
         self.assertEqual (maskfile0,  'testdata/video/cam119/000000')
@@ -66,7 +63,7 @@ class TestExportVideo (unittest.TestCase):
     
     def setUp (self):
         self.conn = sqlite3.connect(':memory:')  # in RAM
-        helperDb.createDb(self.conn)
+        createDb(self.conn)
         c = self.conn.cursor()
 
         s = 'images(imagefile,width,height)'
@@ -96,7 +93,7 @@ class TestExportVideo (unittest.TestCase):
 
     def test_exportVideo (self):
         c = self.conn.cursor()
-        image_processor = helperImg.ProcessorVideo \
+        image_processor = ProcessorVideo \
            ({'relpath': '.', 
              'out_dataset': {'testdata/Cassini/images.avi': 'testdata/Cassini/imwrite.avi',
                              'testdata/Moon/images.avi': 'testdata/Moon/imwrite.avi'}

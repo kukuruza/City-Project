@@ -6,7 +6,6 @@
 #
 
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import math
 import numpy as np
 import scipy.ndimage.filters
@@ -18,10 +17,10 @@ import glob
 import shutil
 import sqlite3
 import random
-from utilities import bbox2roi, getCenter
-import helperSetup
-import helperDb
-import helperImg
+from dbUtilities import bbox2roi, getCenter
+from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperDb    import carField
+from helperImg   import ReaderVideo
 
 
 def _generateNoiseMask_ ((height, width, depth), level, avg_pixelation):
@@ -39,12 +38,12 @@ def _generateNoiseMask_ ((height, width, depth), level, avg_pixelation):
 
 def _grayCircle_ (c, imagefile, out_images_dir, params):
 
-    helperSetup.assertParamIsThere  (params, 'blur_sigma')
-    helperSetup.assertParamIsThere  (params, 'noise_level')
-    helperSetup.assertParamIsThere  (params, 'pixelation')
-    helperSetup.setParamUnlessThere (params, 'spot_scale',   0.6)
-    helperSetup.setParamUnlessThere (params, 'debug_show',   False)
-    helperSetup.assertParamIsThere  (params, 'image_processor')
+    assertParamIsThere  (params, 'blur_sigma')
+    assertParamIsThere  (params, 'noise_level')
+    assertParamIsThere  (params, 'pixelation')
+    setParamUnlessThere (params, 'spot_scale',   0.6)
+    setParamUnlessThere (params, 'debug_show',   False)
+    assertParamIsThere  (params, 'image_processor')
 
     image = params['image_processor'].imread(imagefile)
 
@@ -56,7 +55,7 @@ def _grayCircle_ (c, imagefile, out_images_dir, params):
     logging.debug ('%d objects found in %s' % (len(car_entries), imagefile))
 
     for car_entry in car_entries:
-        bbox = helperDb.carField(car_entry, 'bbox')
+        bbox = carField(car_entry, 'bbox')
         spot_scale = params['spot_scale']
         axes = (int(bbox[2] * spot_scale / 2), int(bbox[3] * spot_scale / 2))
         (cx, cy) = getCenter(bbox2roi(bbox))
@@ -81,15 +80,15 @@ def _grayCircle_ (c, imagefile, out_images_dir, params):
 
 def _grayMasked_ (c, imagefile, out_images_dir, params):
 
-    helperSetup.assertParamIsThere  (params, 'blur_sigma')
-    helperSetup.assertParamIsThere  (params, 'noise_level')
-    helperSetup.assertParamIsThere  (params, 'pixelation')
-    helperSetup.setParamUnlessThere (params, 'dilate',       1. / 4)
-    helperSetup.setParamUnlessThere (params, 'erode',        1. / 2.5)
-    helperSetup.setParamUnlessThere (params, 'width_step',   0.5)
-    helperSetup.setParamUnlessThere (params, 'debug_show',   False)
-    helperSetup.setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
-    helperSetup.assertParamIsThere  (params, 'image_processor')
+    assertParamIsThere  (params, 'blur_sigma')
+    assertParamIsThere  (params, 'noise_level')
+    assertParamIsThere  (params, 'pixelation')
+    setParamUnlessThere (params, 'dilate',       1. / 4)
+    setParamUnlessThere (params, 'erode',        1. / 2.5)
+    setParamUnlessThere (params, 'width_step',   0.5)
+    setParamUnlessThere (params, 'debug_show',   False)
+    setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
+    assertParamIsThere  (params, 'image_processor')
 
     image = params['image_processor'].imread(imagefile)
 
@@ -171,12 +170,12 @@ def negativeGrayspots (c, out_images_dir, params = {}):
     '''
     logging.info ('=== negatives.negativeGrayspots ===')
     logging.info ('out_images_dir: %s' % out_images_dir)
-    helperSetup.setParamUnlessThere (params, 'method',      'mask')
-    helperSetup.setParamUnlessThere (params, 'debug_show',  False)
-    helperSetup.setParamUnlessThere (params, 'noise_level', 30)
-    helperSetup.setParamUnlessThere (params, 'pixelation',  10)
-    helperSetup.setParamUnlessThere (params, 'blur_sigma',  2)
-    helperSetup.setParamUnlessThere (params, 'relpath',     os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'method',      'mask')
+    setParamUnlessThere (params, 'debug_show',  False)
+    setParamUnlessThere (params, 'noise_level', 30)
+    setParamUnlessThere (params, 'pixelation',  10)
+    setParamUnlessThere (params, 'blur_sigma',  2)
+    setParamUnlessThere (params, 'relpath',     os.getenv('CITY_DATA_PATH'))
 
     out_images_dir = op.join(params['relpath'], out_images_dir)
     if not op.exists (out_images_dir):
@@ -206,11 +205,11 @@ def _getBboxesFromImage_ (image, num, params):
     '''
     Collect 'num' of random bboxes from 'img'.
     '''
-    helperSetup.setParamUnlessThere (params, 'minwidth', 20)
-    helperSetup.setParamUnlessThere (params, 'maxwidth', 200)
-    helperSetup.setParamUnlessThere (params, 'ratio',    0.75)
-    helperSetup.setParamUnlessThere (params, 'max_masked_perc', 0.5)
-    helperSetup.setParamUnlessThere (params, 'mask', np.zeros(image.shape[0:2], dtype = np.uint8))
+    setParamUnlessThere (params, 'minwidth', 20)
+    setParamUnlessThere (params, 'maxwidth', 200)
+    setParamUnlessThere (params, 'ratio',    0.75)
+    setParamUnlessThere (params, 'max_masked_perc', 0.5)
+    setParamUnlessThere (params, 'mask', np.zeros(image.shape[0:2], dtype = np.uint8))
 
     assert (image is not None)
     (im_height, im_width, depth) = image.shape
@@ -254,10 +253,10 @@ def fillNegativeDbWithBboxes (c, params = {}):
       Bboxes are extracted from there.
     '''
     logging.info ('=== negatives.fillNegativeDbWithBboxes ===')
-    helperSetup.setParamUnlessThere (params, 'number', 100)
-    helperSetup.setParamUnlessThere (params, 'debug_mask', False)
-    helperSetup.setParamUnlessThere (params, 'relpath',      os.getenv('CITY_DATA_PATH'))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
+    setParamUnlessThere (params, 'number',          100)
+    setParamUnlessThere (params, 'debug_mask',      False)
+    setParamUnlessThere (params, 'relpath',         os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'image_processor', ReaderVideo())
 
     # if 'size_map_path' provided, load it to further use as a mask
     if 'size_map_path' in params:

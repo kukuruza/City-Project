@@ -2,12 +2,12 @@ import numpy as np
 import cv2
 import scipy.cluster.hierarchy
 import matplotlib.pyplot
-from math import atan
+import matplotlib.pyplot as plt  # for colormaps
 import sys, os, os.path as op
 import logging
-import helperSetup
 from scipy.stats import gamma
-import matplotlib.pyplot as plt  # for colormaps
+from math import atan
+from helperSetup import setParamUnlessThere
 
 
 
@@ -163,7 +163,7 @@ def hierarchicalClusterRoi (rois, params = {}):
     if not rois:         return [], [], []
     elif len(rois) == 1: return rois, [0], [1]
 
-    helperSetup.setParamUnlessThere (params, 'debug_clustering', False)
+    setParamUnlessThere (params, 'debug_clustering', False)
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
@@ -231,7 +231,7 @@ def hierarchicalClusterPolygons (polygons, params):
     if not polygons:         return [], []
     elif len(polygons) == 1: return [polygon2roi(polygons[0])], [0]
 
-    params = helperSetup.setParamUnlessThere (params, 'debug_clustering', False)
+    params = setParamUnlessThere (params, 'debug_clustering', False)
 
     N = len(polygons)
     pairwise_distances = np.zeros((N,N), dtype = float)

@@ -8,24 +8,23 @@
 
 from __future__ import print_function
 import os, sys, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
 import abc
 import logging
 import shutil
 import glob
 import json
 import sqlite3
-import numpy as np, cv2
-import helperDb
-from helperDb import carField
-from utilities import bbox2roi, expandRoiFloat
-import helperSetup
-import h5py
-import datetime  # to print creation timestamp in readme.txt
+import numpy as np
+import cv2
 import copy
-import helperH5
-import helperImg
-import helperKeys
+import h5py
+from datetime    import datetime  # to print creation timestamp in readme.txt
+from helperDb    import carField
+from dbUtilities import bbox2roi, expandRoiFloat
+from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperImg   import ReaderVideo
+from helperH5    import writeNextPatch, readPatch
+from helperKeys  import KeyReaderUser
 
 
 '''
@@ -64,7 +63,7 @@ class PatchHelperBase (object):
 class PatchHelperFolder (PatchHelperBase):
 
     def __init__ (self, params = {}):
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.relpath = params['relpath']
 
 
@@ -113,11 +112,11 @@ class PatchHelperFolder (PatchHelperBase):
 class PatchHelperHDF5 (PatchHelperBase):
 
     def __init__ (self, params = {}):
-        helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.params = params
 
     def initDataset (self, name, params = {}):
-        helperSetup.setParamUnlessThere (params, 'mode', 'r')
+        setParamUnlessThere (params, 'mode', 'r')
 
         out_h5_path = op.join (self.params['relpath'], '%s.h5' % name)
         # remove hdf5 file if exists
@@ -141,7 +140,7 @@ class PatchHelperHDF5 (PatchHelperBase):
 
     def writePatch (self, patch, carid, label = None):
         logging.debug ('writing carid %d' % carid)
-        helperH5.writeNextPatch (self.f, patch, carid, label)
+        writeNextPatch (self.f, patch, carid, label)
 
     def readPatch (self):
         ''' Read next patch. Return (patch, carid, label). '''
@@ -154,7 +153,7 @@ class PatchHelperHDF5 (PatchHelperBase):
             self.patch_index = 0
         # actually read patch
         logging.debug ('reading patch #%d' % self.patch_index)
-        return helperH5.readPatch(self.f, self.patch_index)
+        return readPatch(self.f, self.patch_index)
 
 
 # the end of PatchHelper-s #
@@ -167,8 +166,8 @@ def convertFormat (in_dataset, out_dataset, params):
     '''
     # it's a little ugly to pass essential things in parameters
     logging.info ('==== convertFormat ====')
-    helperSetup.assertParamIsThere (params,  'in_patch_helper')
-    helperSetup.assertParamIsThere (params, 'out_patch_helper')
+    assertParamIsThere (params,  'in_patch_helper')
+    assertParamIsThere (params, 'out_patch_helper')
 
     params[ 'in_patch_helper'].initDataset(in_dataset)
     params['out_patch_helper'].initDataset(out_dataset, {'mode': 'w'})
@@ -193,7 +192,7 @@ def writeReadme (in_db_path, dataset_name, params_in = {}):
     '''
     params = copy.deepcopy(params_in)
 
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
     writeReadmeDir = op.join(params['relpath'], op.dirname(dataset_name))
     if not op.exists(writeReadmeDir):
         os.makedirs (writeReadmeDir)
@@ -224,16 +223,16 @@ def _distortPatch_ (image, roi, params = {}):
     Write down all 'number' output patches.
     Constrast +/- is not supported at the moment.
     '''
-    helperSetup.setParamUnlessThere (params, 'number', 1)
-    helperSetup.setParamUnlessThere (params, 'flip', False)
-    helperSetup.setParamUnlessThere (params, 'blur',        0)
-    helperSetup.setParamUnlessThere (params, 'contrast',    0)
-    helperSetup.setParamUnlessThere (params, 'color',       0)
-    helperSetup.setParamUnlessThere (params, 'scale',       0)
-    helperSetup.setParamUnlessThere (params, 'rotate_deg',  0)
-    helperSetup.setParamUnlessThere (params, 'transl_perc', 0)
-    helperSetup.setParamUnlessThere (params, 'debug', False)
-    helperSetup.setParamUnlessThere (params, 'key_reader', helperKeys.KeyReaderUser())
+    setParamUnlessThere (params, 'number',      1)
+    setParamUnlessThere (params, 'flip',        False)
+    setParamUnlessThere (params, 'blur',        0)
+    setParamUnlessThere (params, 'contrast',    0)
+    setParamUnlessThere (params, 'color',       0)
+    setParamUnlessThere (params, 'scale',       0)
+    setParamUnlessThere (params, 'rotate_deg',  0)
+    setParamUnlessThere (params, 'transl_perc', 0)
+    setParamUnlessThere (params, 'debug',       False)
+    setParamUnlessThere (params, 'key_reader',  KeyReaderUser())
     assert len(image.shape) == 3 and image.shape[2] == 3
     N = params['number']
 
@@ -304,10 +303,10 @@ def collectPatches (c, out_dataset, params = {}):
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
-    helperSetup.setParamUnlessThere (params, 'label', None)
-    helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
-    helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
+    assertParamIsThere  (params, 'resize') # (width,height)
+    setParamUnlessThere (params, 'label',           None)
+    setParamUnlessThere (params, 'patch_helper',    PatchHelperHDF5(params))
+    setParamUnlessThere (params, 'image_processor', ReaderVideo())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
     params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})
@@ -344,9 +343,9 @@ def collectByMatch (c, out_dataset, params = {}):
     Each db entry which satisfies the provided filters is saved as an image.
     '''
     logging.info ('==== collectGhosts ====')
-    helperSetup.assertParamIsThere  (params, 'resize') # (width,height)
-    helperSetup.setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
-    helperSetup.setParamUnlessThere (params, 'image_processor', helperImg.ReaderVideo())
+    assertParamIsThere  (params, 'resize') # (width,height)
+    setParamUnlessThere (params, 'patch_helper', PatchHelperHDF5(params))
+    setParamUnlessThere (params, 'image_processor', ReaderVideo())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
     params['patch_helper'].initDataset(out_dataset, {'mode': 'w'})
@@ -399,7 +398,7 @@ def collectGhostsTask (c, tasks_path, out_dir, params = {}):
     Use filters to cluster and transform, and save the ghosts 
     '''
     logging.info ('=== exporting.collectGhostsTask ===')
-    helperSetup.setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
     tasks_path = op.join (params['relpath'], tasks_path)
     out_dir    = op.join (params['relpath'], out_dir)
 
@@ -419,13 +418,13 @@ def collectGhostsTask (c, tasks_path, out_dir, params = {}):
     for task in tasks:
         assert ('name' in task)
         logging.info ('task name %s' % task['name'])
-        helperSetup.setParamUnlessThere (task, 'constraint', '1')
+        setParamUnlessThere (task, 'constraint', '1')
         # FIXME: insert dbModify.customFilter for managing task constraint
 
         collectPatches (c, op.join(out_dir, task['name']), task)
 
     # write info
     with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
-        readme.write('created at: %s\n' % datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y"))
+        readme.write('created at: %s\n' % datetime.now().strftime("%I:%M%p on %B %d, %Y"))
         readme.write('with tasks %s\n' % json.dumps(tasks, indent=4))
 
