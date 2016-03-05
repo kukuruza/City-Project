@@ -1,4 +1,5 @@
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import argparse
 import json
 import cv2
@@ -6,8 +7,7 @@ from processScene import process_frame
 from Video import Video
 from Camera import Camera
 from Cad import Cad
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import setupLogging, atcity
+from learning.helperSetup import setupLogging, atcity
 
 
 if __name__ == "__main__":

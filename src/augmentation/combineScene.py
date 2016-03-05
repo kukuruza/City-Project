@@ -2,9 +2,7 @@ import sys, os, os.path as op
 import json
 import logging
 import bpy
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import atcity, setupLogging, setParamUnlessThere
+from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
 

@@ -8,8 +8,7 @@ import string
 import logging
 import datetime
 from numpy.random import normal, uniform, choice
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import atcity, setupLogging
+from learning.helperSetup import atcity, setupLogging
 from Cad import Cad
 
 WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')

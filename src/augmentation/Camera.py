@@ -4,8 +4,7 @@ import logging
 import json
 #import cv2
 #import argparse
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import setupLogging, atcity
+from learning.helperSetup import setupLogging, atcity
 
 
 class Camera:

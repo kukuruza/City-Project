@@ -1,4 +1,5 @@
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 from glob import glob
 from time import sleep, time
 import json
@@ -12,19 +13,13 @@ import shutil
 from datetime import datetime, timedelta
 from math import pi, atan, atan2, pow, sqrt
 
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/monitor'))
-import helperSetup
-import helperDb
-import helperImg
-import utilities
-from helperImg import ProcessorVideo
-from helperSetup import _setupCopyDb_, setupLogging, atcity
-from helperSetup import setParamUnlessThere, assertParamIsThere
+from learning.dbUtilities import *
+from learning.helperImg import ProcessorVideo
+from learning.helperSetup import _setupCopyDb_, setupLogging, atcity
+from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 from placeCars import generate_current_frame
-from video2dataset import make_back_dataset
-from MonitorDatasetClient import MonitorDatasetClient
+from learning.video2dataset import make_back_dataset
+from monitor.MonitorDatasetClient import MonitorDatasetClient
 from Cad import Cad
 from Camera import Camera
 from Video import Video

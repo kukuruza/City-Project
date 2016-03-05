@@ -1,4 +1,5 @@
 import os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import sys
 import json
 import logging
@@ -10,10 +11,8 @@ import multiprocessing
 import traceback
 import shutil
 import argparse
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import atcity, setupLogging
-from utilities import expandRoiToRatio, bbox2roi
+from learning.helperSetup import atcity, setupLogging
+from learning.dbUtilities import expandRoiToRatio, bbox2roi
 
 
 COLLECTIONS_DIR  = atcity('augmentation/CAD')

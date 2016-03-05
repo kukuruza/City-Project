@@ -5,8 +5,7 @@ import ConfigParser
 import traceback
 from datetime import datetime
 from elasticsearch import Elasticsearch, RequestsHttpConnection
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import atcity, setupLogging
+from learning.helperSetup import atcity, setupLogging
 
 README_NAME = 'readme-blended.json'
 

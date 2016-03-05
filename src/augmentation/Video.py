@@ -5,9 +5,8 @@ import logging
 import json
 import cv2
 import argparse
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from Camera import Camera
-from helperSetup import setupLogging, atcity
+from learning.helperSetup import setupLogging, atcity
 
 VIDEO_DIR_REGEX     = r'^[A-Z][a-z].*[0-9]{2}-[0-9]{2}h$'
 VIDEO_DIR_STRPTIME  = '%b%d-%Hh'

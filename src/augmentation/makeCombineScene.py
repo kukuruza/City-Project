@@ -4,8 +4,7 @@ import sys
 import json
 import logging
 from mathutils import Color, Euler, Vector
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import atcity
+from learning.helperSetup import atcity
 
 import numpy as np
 

@@ -4,9 +4,7 @@ import sys
 import json
 import logging
 from mathutils import Color, Euler, Vector
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
-from helperSetup import atcity
+from learning.helperSetup import atcity
 
 WORK_DIR         = atcity('augmentation/blender/current-scene')
 EMPTY_SCENE_FILE = 'augmentation/scenes/empty-render.blend'

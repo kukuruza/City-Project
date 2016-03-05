@@ -1,5 +1,6 @@
 import bpy
 import os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import sys
 import json
 import logging
@@ -7,10 +8,8 @@ from math import cos, sin, pi, sqrt
 import numpy as np
 from numpy.random import normal, uniform
 from mathutils import Color, Euler, Vector
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import common
-from helperSetup import atcity, setupLogging, setParamUnlessThere
+from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 '''
 Functions to parse blender output into images, masks, and annotations

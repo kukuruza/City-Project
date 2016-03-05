@@ -3,9 +3,10 @@ from contextlib import closing
 from selenium.webdriver import Firefox # pip install selenium
 from selenium.webdriver.support.ui import WebDriverWait
 
+import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import urllib2
 import logging
-import sys, os, os.path as op
 import json
 import string
 import argparse
@@ -13,9 +14,7 @@ import shutil
 import time
 import traceback
 
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/augmentation'))
-from helperSetup import atcity, setupLogging
+from learning.helperSetup import atcity, setupLogging
 from Cad import Cad
 
 

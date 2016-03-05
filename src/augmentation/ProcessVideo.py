@@ -1,4 +1,5 @@
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import argparse
 import json
 import logging
@@ -8,9 +9,7 @@ from processScene import process_video
 from Video import Video
 from Camera import Camera
 from Cad import Cad
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/backend'))
-from helperSetup import setupLogging, atcity
+from learning.helperSetup import setupLogging, atcity
 
 
 
