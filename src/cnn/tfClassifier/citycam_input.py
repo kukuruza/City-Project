@@ -34,8 +34,8 @@ IMAGE_WIDTH = 80
 IMAGE_HEIGHT = 60
 NUM_CHANNELS = 3
 NUM_CLASSES = 2
-NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 5000
-NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1000
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1024
+NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1024
 
 
 
@@ -65,7 +65,7 @@ def read_my_file_format(filename_and_label):
 
 
 def _generate_image_and_label_batch(image, label, min_queue_examples,
-                                    batch_size):
+                                    batch_size, dataset_tag=''):
   """Construct a queued batch of images and labels.
 
   Args:
@@ -90,13 +90,13 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
       min_after_dequeue=min_queue_examples)
 
   # Display the training images in the visualizer.
-  tf.image_summary('images', images)
+  tf.image_summary('images' + dataset_tag, images, max_images=10)
 
   return images, tf.reshape(label_batch, [batch_size])
 
 
 
-def distorted_inputs(data_list_path, batch_size):
+def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
   """Construct distorted input for CIFAR training using the Reader ops.
 
     Returns:
@@ -145,11 +145,12 @@ def distorted_inputs(data_list_path, batch_size):
 
   # Generate a batch of images and labels by building up a queue of examples.
   return _generate_image_and_label_batch(float_image, label,
-                                         min_queue_examples, batch_size)
+                                         min_queue_examples, batch_size, 
+                                         dataset_tag)
 
 
 
-def inputs(data_list_path, batch_size):
+def inputs(data_list_path, batch_size, dataset_tag=''):
   """
     Returns:
       images: Images. 4D tensor of 
@@ -191,7 +192,8 @@ def inputs(data_list_path, batch_size):
 
   # Generate a batch of images and labels by building up a queue of examples.
   return _generate_image_and_label_batch(float_image, label,
-                                         min_queue_examples, batch_size)
+                                         min_queue_examples, batch_size, 
+                                         dataset_tag)
 
   # min_after_dequeue defines how big a buffer we will randomly sample
   #   from -- bigger means better shuffling but slower start up and more

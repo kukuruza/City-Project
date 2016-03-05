@@ -105,7 +105,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   return var
 
 
-def distorted_inputs():
+def distorted_inputs (data_list_name, dataset_tag=''):
   """Construct distorted input for CIFAR training using the Reader ops.
 
   Returns:
@@ -118,15 +118,13 @@ def distorted_inputs():
   """
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
-  train_list_path = os.path.join(FLAGS.data_dir, 'train_list.txt')
-  return citycam_input.distorted_inputs(train_list_path, FLAGS.batch_size)
+  train_list_path = os.path.join(FLAGS.data_dir, data_list_name)
+  return citycam_input.distorted_inputs(train_list_path, FLAGS.batch_size, 
+                                        '/'+op.splitext(data_list_name)[0])
 
 
-def inputs(data_list_name='train_list.txt'):
+def inputs (data_list_name, dataset_tag=''):
   """Construct input for CIFAR evaluation using the Reader ops.
-
-#  Args:
-#    eval_data: bool, indicating if one should use the train or eval data set.
 
   Returns:
     images: Images. 4D tensor of 
@@ -139,7 +137,8 @@ def inputs(data_list_name='train_list.txt'):
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
   data_list_path = os.path.join(FLAGS.data_dir, data_list_name)
-  return citycam_input.inputs(data_list_path, FLAGS.batch_size)
+  return citycam_input.inputs(data_list_path, FLAGS.batch_size,
+                              '/'+op.splitext(data_list_name)[0])
 
 
 
