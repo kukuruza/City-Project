@@ -79,6 +79,19 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x), integer_result =
 
     half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
     half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
+    # the result must be within (imheight, imwidth)
+    imheight_new = roi[2] + 1 - roi[0] + half_delta_y * 2
+    imwidth_new  = roi[3] + 1 - roi[1] + half_delta_x * 2
+    if imheight_new > imheight or imwidth_new > imwidth:
+        logging.warning ('expanded bbox of size (%d,%d) does not fit into image (%d,%d)' %
+            (imheight_new, imwidth_new, imheight, imwidth))
+        # if so, decrease half_delta_y, half_delta_x
+        coef = min(imheight / imheight_new, imwidth / imwidth_new)
+        imheight_new *= coef
+        imwidth_new  *= coef
+        logging.warning ('decreased bbox to (%d,%d)' % (imheight_new, imwidth_new))
+        half_delta_y = (imheight_new - imheight) * 0.5
+        half_delta_x = (imwidth_new  - imwidth)  * 0.5
     # expand each side
     roi[0] -= half_delta_y
     roi[1] -= half_delta_x
@@ -98,8 +111,8 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x), integer_result =
         roi[1] -= abs((imwidth-1) - roi[3])
         roi[3] = imwidth-1
     # check that now averything is within borders (bbox is not too big)
-    assert (roi[0] >= 0 and roi[1] >= 0)
-    assert (roi[2] <= imheight-1 and roi[3] <= imwidth-1)
+    assert roi[0] >= 0 and roi[1] >= 0, str(roi)
+    assert roi[2] <= imheight-1 and roi[3] <= imwidth-1, str(roi)
     # make integer
     if integer_result:
         roi = [int(round(x)) for x in roi]

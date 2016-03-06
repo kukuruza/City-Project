@@ -1,18 +1,18 @@
-import os, os.path as op
+import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
-import sys
 import json
 import logging
 import numpy as np
 import cv2
 import glob
+from math import ceil
 import subprocess
 import multiprocessing
 import traceback
 import shutil
 import argparse
 from learning.helperSetup import atcity, setupLogging
-from learning.dbUtilities import expandRoiToRatio, bbox2roi
+from learning.dbUtilities import expandRoiToRatio, expandRoiFloat, bbox2roi
 
 
 COLLECTIONS_DIR  = atcity('augmentation/CAD')
@@ -20,7 +20,7 @@ RESULT_DIR       = atcity('augmentation/patches')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
 PATCHES_HOME_DIR = atcity('augmentation/patches')
 FRAME_INFO_NAME  = 'frame_info.json'
-EXT = 'png'
+EXT = 'jpg'  # format of output patches
 
 
 class Diapason:
@@ -82,17 +82,30 @@ def extract_bbox (render_png_path):
     return (x1, y1, width, height)
 
 
-def crop_patches (vehicle, expand_perc, ratio, target_width, keep_src):
+def crop_patches (vehicle, expand_perc, target_width, target_height, keep_src):
+    '''TL;DR: crop patches in vehicle directory according to their masks.
+
+    We have a directory with patches and masks. 
+    Their names follow convention 01blabla-normal.png and 01blabla-mask.png.
+    Each '-normal' is the actual car, it is cropped according to its '-mask'.
+    Each result is recorded as 01blabla.EXT.
+
+    Args:
+      vehicle:  Dir info. It's a dict with fields model_id and collection_id.
+      keep_src:  boolean. If true, the '-normal' and '-mask' are not deleted.
+
+    Returns nothing.
+    '''
     patches_dir = op.join(PATCHES_HOME_DIR, vehicle['collection_id'], vehicle['model_id'])
-    normal_paths = glob.glob(op.join(patches_dir, '*-normal.%s' % EXT))
+    normal_paths = glob.glob(op.join(patches_dir, '*-normal.png'))
     logging.info ('found %d patches for model %s' % (len(normal_paths), vehicle['model_id']))
 
     for normal_path in normal_paths:
         try:
             name = op.splitext(op.basename(normal_path))[0][:-7]
             patches_dir = op.dirname(normal_path)
-            mask_path = op.join(patches_dir, '%s-mask.%s' % (name, EXT))
-            out_path = op.join(patches_dir, '%s.jpg' % name)
+            mask_path = op.join(patches_dir, '%s-mask.png' % name)
+            out_path = op.join(patches_dir, '%s.%s' % (name, EXT))
 
             normal = cv2.imread(normal_path)
             assert normal is not None
@@ -100,9 +113,12 @@ def crop_patches (vehicle, expand_perc, ratio, target_width, keep_src):
             bbox = extract_bbox(mask_path)
             assert bbox is not None, 'Mask is empty. Car is outside of the image.'
             roi = bbox2roi(bbox)
-            expandRoiToRatio (roi, (normal.shape[0], normal.shape[1]), expand_perc, ratio)
+            ratio = float(target_height) / target_width
+            imshape = (normal.shape[0], normal.shape[1])
+            expandRoiToRatio (roi, imshape, 0, ratio)
+            expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
 
-            target_shape = (target_width, int(target_width * ratio))
+            target_shape = (target_width, target_height)
 
             crop = normal[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
             crop = cv2.resize(crop, target_shape)#, interpolation=cv2.INTER_LINEAR)
@@ -168,10 +184,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--logging_level', type=int,   default=20)
-    parser.add_argument('--num_per_model', type=int,   default=1)
+    parser.add_argument('--number',        type=int,   default=1)
     parser.add_argument('--expand_perc',   type=float, default=0.1)
-    parser.add_argument('--ratio',         type=float, default=0.75)
     parser.add_argument('--target_width',  type=int,   default=40)
+    parser.add_argument('--target_height', type=int,   default=30)
     parser.add_argument('--render', default='SEQUENTIAL')
     parser.add_argument('--keep_src', action='store_true',
                         help='do not delete "normal" and "mask" images')
@@ -187,14 +203,16 @@ if __name__ == "__main__":
 
     collection = json.load(open( op.join(collection_dir, 'readme-blended.json') ))
 
-    for i, _ in enumerate(collection['vehicles']):
-        collection['vehicles'][i]['collection_id'] = collection['collection_id']
-        collection['vehicles'][i]['start_id'] = i
-        collection['vehicles'][i]['num_per_model'] = args.num_per_model
-
     diapason = Diapason (len(collection['vehicles']), args.models_range)
     vehicles = diapason.filter_list(collection['vehicles'])
-    print len(vehicles)
+    logging.info('Total %d vehicles in the collection' % len(vehicles))
+
+    num_per_model = int(ceil(float(args.number) / len(vehicles)))
+    logging.info('Number of patches per model: %d' % num_per_model)
+    for i, _ in enumerate(vehicles):
+        vehicles[i]['collection_id'] = collection['collection_id']
+        vehicles[i]['start_id'] = i
+        vehicles[i]['num_per_model'] = num_per_model
 
     if args.render == 'SEQUENTIAL':
         photo_session_sequential (vehicles)
@@ -210,5 +228,6 @@ if __name__ == "__main__":
         raise Exception ('wrong args.render: %s' % args.render)
 
     for vehicle in vehicles:
-        crop_patches(vehicle, args.expand_perc, args.ratio, args.target_width, args.keep_src)
+        crop_patches(vehicle, args.expand_perc, 
+                     args.target_width, args.target_height, args.keep_src)
 

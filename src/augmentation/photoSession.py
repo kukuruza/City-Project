@@ -1,9 +1,8 @@
 import bpy
-import os, os.path as op
-import sys
+import sys, os, os.path as op
 import json
 import logging
-from math import cos, sin, pi, sqrt
+from math import cos, sin, pi, sqrt, ceil
 import numpy as np
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
@@ -22,11 +21,11 @@ EXT = 'png'
 WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getppid())
 
 
-SCALE_FACTOR = 1.5
+SCALE_FACTOR = 3
 
 SCALE_NOISE_SIGMA = 0.1
-PITCH_LOW      = 10 * pi / 180
-PITCH_HIGH     = 50 * pi / 180
+PITCH_LOW         = 5 * pi / 180
+PITCH_HIGH        = 30 * pi / 180
 SUN_ALTITUDE_LOW  = 20
 SUN_ALTITUDE_HIGH = 70
 
@@ -85,7 +84,7 @@ def weather_photo_session (patches_dir, num_per_model, car_sz, id_offset):
 def photo_session (vehicle):
 
     start_id      = vehicle['start_id']
-    num_per_model = vehicle['num_per_model']
+    num_per_model = int(ceil(vehicle['num_per_model'] / 3.0)) # one per 3 weather types
     collection_id = vehicle['collection_id']
 
     # open the blender file

@@ -94,7 +94,7 @@ def examine (c, params = {}):
     while button != 27 and index_im < len(image_entries):
         (imagefile,) = image_entries[index_im]
 
-        img = params['image_processor'].imread(imagefile)
+        img = None
 
         c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
@@ -110,6 +110,9 @@ def examine (c, params = {}):
             color     = carField(car_entry, 'color')
 
             # TODO: color based on score
+
+            # lazily load image
+            if img is None: img = params['image_processor'].imread(imagefile)
 
             display = img.copy()  # each car roi is drawn on a copy
             drawRoi (display, roi, name, color_config[color or ''])

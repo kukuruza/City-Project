@@ -31,7 +31,7 @@ from helperKeys  import KeyReaderUser
 Patch-helpers are responsible to write down a collection of patches.
 
 Different patch-helper classes write patches in different formats:
-  1) as a collection of .png files or 2) as an hdf5 file.
+  1) as a collection of image files or 2) as an hdf5 file.
 
 Ability to write patches in different ways in the language of architecture
   introduces a "point of variability". That means that we want to be able
@@ -64,7 +64,9 @@ class PatchHelperFolder (PatchHelperBase):
 
     def __init__ (self, params = {}):
         setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+        setParamUnlessThere (params, 'ext', 'png')
         self.relpath = params['relpath']
+        self.ext = params['ext']
 
 
     def initDataset (self, name, params = {}):
@@ -99,7 +101,7 @@ class PatchHelperFolder (PatchHelperBase):
     def writePatch (self, patch, carid, label = None):
         logging.debug ('writing carid #%d' % carid)
         assert len(patch.shape) == 3 and patch.shape[2] == 3
-        imagepath = op.join (self.out_dir, '%08d.png' % carid)
+        imagepath = op.join (self.out_dir, '%08d.%s' % (carid, self.ext))
         cv2.imwrite (imagepath, patch)
         self.f_ids.write ('%08d\n' % carid)
         if label is not None:
@@ -330,7 +332,7 @@ def collectPatches (c, out_dataset, params = {}):
 
             # write patch
             carid = carField(car_entry, 'id')
-            patch = cv2.resize(patch, params['resize'])
+            patch = cv2.resize(patch, params['resize'], interpolation=cv2.INTER_LINEAR)
             params['patch_helper'].writePatch(patch, carid, params['label'])
 
     params['patch_helper'].closeDataset()
