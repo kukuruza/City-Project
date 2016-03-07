@@ -13,25 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 
-"""A binary to train binary citycam using a single GPU.
-
-Accuracy:
-citycam_train.py achieves ~86% accuracy after 100K steps (256 epochs of
-data) as judged by citycam_eval.py.
-
-Speed: With batch_size 128.
-
-System        | Step Time (sec/batch)  |     Accuracy
-------------------------------------------------------------------
-1 Tesla K20m  | 0.35-0.60              | ~86% at 60K steps  (5 hours)
-1 Tesla K40m  | 0.25-0.35              | ~86% at 100K steps (4 hours)
-
-Usage:
-Please see the tutorial and website for how to download the CIFAR-10
-data set, compile the program and train the model.
-
-http://tensorflow.org/tutorials/deep_cnn/
-"""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -52,7 +33,7 @@ FLAGS = tf.app.flags.FLAGS
 
 
 
-def evaluate_set (sess, top_k_op, num_examples):
+def evaluate_set (sess, (correct_op, predicted_op, labels_op), num_examples):
   """Convenience function to run evaluation for for every batch. 
      Sum the number of correct predictions and output one precision value.
   Args:
@@ -64,10 +45,13 @@ def evaluate_set (sess, top_k_op, num_examples):
   total_sample_count = num_iter * FLAGS.batch_size
 
   for step in xrange(num_iter):
-    #assert not coord.should_stop(), 'num_eval_examples must be small enough'
 
-    predictions = sess.run([top_k_op])
-    true_count += np.sum(predictions)
+    [correct, predicted, labels]  = sess.run([correct_op, predicted_op, labels_op])
+    true_count += np.sum(correct)
+    print ('labels shape:' + str(labels.shape))
+    print ('predicted shape:' + str(predicted.shape))
+
+  #print sk.metrics.confusion_matrix(y_true, y_pred)
 
   # Compute precision
   return true_count / total_sample_count
@@ -83,7 +67,7 @@ def train():
 
         # Get images and labels for citycam.
         images, labels           = citycam.distorted_inputs('train_list.txt')
-        images_eval, labels_eval = citycam.inputs('train_eval_list.txt')
+        images_eval, labels_eval = citycam.distorted_inputs('train_eval_list.txt')
         images_test, labels_test = citycam.inputs('test_list.txt')
 
         # Build a Graph that computes the logits predictions from the
@@ -96,10 +80,9 @@ def train():
         # Calculate loss.
         loss = citycam.loss(logits, labels)
 
-        # To evaluate precision.
-        top_k       = tf.nn.in_top_k (logits,      labels, 1)
-        top_k_eval  = tf.nn.in_top_k (logits_eval, labels_eval, 1)
-        top_k_test  = tf.nn.in_top_k (logits_test, labels_test, 1)
+        predict_ops      = citycam.predict(logits,      labels)
+        predict_eval_ops = citycam.predict(logits_eval, labels_eval)
+        predict_test_ops = citycam.predict(logits_test, labels_test)
 
         summary_train_prec = tf.placeholder(tf.float32)
         summary_eval_prec  = tf.placeholder(tf.float32)
@@ -155,9 +138,9 @@ def train():
                                    examples_per_sec, sec_per_batch))
 
             if step % FLAGS.period_evaluate == 0:
-              prec_train = evaluate_set (sess, top_k,      FLAGS.num_eval_examples)
-              prec_eval  = evaluate_set (sess, top_k_eval, FLAGS.num_eval_examples)
-              prec_test  = evaluate_set (sess, top_k_test, FLAGS.num_eval_examples)
+              prec_train = evaluate_set (sess, predict_ops,      FLAGS.num_eval_examples)
+              prec_eval  = evaluate_set (sess, predict_eval_ops, FLAGS.num_eval_examples)
+              prec_test  = evaluate_set (sess, predict_test_ops, FLAGS.num_eval_examples)
               print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
               print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
               print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))

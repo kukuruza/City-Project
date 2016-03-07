@@ -26,12 +26,12 @@ import tensorflow as tf
 
 
 # Dimensions of images stored in jpeg
-IN_IMAGE_WIDTH = 80
-IN_IMAGE_HEIGHT = 60
+IN_IMAGE_WIDTH = 32
+IN_IMAGE_HEIGHT = 32
 
 # Dimensions that CNN trains for
-IMAGE_WIDTH = 80
-IMAGE_HEIGHT = 60
+IMAGE_WIDTH = 24
+IMAGE_HEIGHT = 24
 NUM_CHANNELS = 3
 NUM_CLASSES = 2
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1024
@@ -39,7 +39,7 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1024
 
 
 
-def read_my_file_format(filename_and_label):
+def read_my_file_format(filename_and_label, width, height):
   """Consumes a single filename and label as a ' '-delimited string.
 
   Args:
@@ -55,7 +55,7 @@ def read_my_file_format(filename_and_label):
   filepath = tf.constant(os.getenv('CITY_DATA_PATH') + '/') + filename
   file_contents = tf.read_file( filepath )
   example = tf.image.decode_jpeg(file_contents)
-  example.set_shape([IN_IMAGE_HEIGHT, IN_IMAGE_WIDTH, NUM_CHANNELS])
+  example.set_shape([height, width, NUM_CHANNELS])
 
   # process label
   label = tf.string_to_number(label_str, out_type=tf.int32)
@@ -111,7 +111,8 @@ def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
   filename_queue = tf.train.string_input_producer(file_label_pairs)
 
   # Read examples from files in the filename queue.
-  uint8image, label = read_my_file_format(filename_queue.dequeue())
+  uint8image, label = read_my_file_format(filename_queue.dequeue(),
+                                   IN_IMAGE_WIDTH, IN_IMAGE_HEIGHT)
   reshaped_image = tf.to_float(uint8image)
 
   width = IMAGE_WIDTH
@@ -169,19 +170,17 @@ def inputs(data_list_path, batch_size, dataset_tag=''):
   filename_queue = tf.train.string_input_producer(file_label_pairs)
 
   # Read example and label from files in the filename queue.
-  uint8image, label = read_my_file_format(filename_queue.dequeue())
+  uint8image, label = read_my_file_format(filename_queue.dequeue(),
+                                          IMAGE_WIDTH, IMAGE_HEIGHT)
   reshaped_image = tf.to_float(uint8image)
-
-  width = IMAGE_WIDTH
-  height = IMAGE_HEIGHT
 
   # Image processing for evaluation.
   # Crop the central [height, width] of the image.
-  resized_image = tf.image.resize_image_with_crop_or_pad(reshaped_image, 
-                                                         width, height)
+#  resized_image = tf.image.resize_image_with_crop_or_pad(reshaped_image, 
+#                                              IMAGE_WIDTH, IMAGE_HEIGHT)
 
   # Subtract off the mean and divide by the variance of the pixels.
-  float_image = tf.image.per_image_whitening(resized_image)
+  float_image = tf.image.per_image_whitening(reshaped_image)
 
   # Ensure that the random shuffling has good mixing properties.
   min_fraction_of_examples_in_queue = 0.4
@@ -194,16 +193,4 @@ def inputs(data_list_path, batch_size, dataset_tag=''):
   return _generate_image_and_label_batch(float_image, label,
                                          min_queue_examples, batch_size, 
                                          dataset_tag)
-
-  # min_after_dequeue defines how big a buffer we will randomly sample
-  #   from -- bigger means better shuffling but slower start up and more
-  #   memory used.
-  # capacity must be larger than min_after_dequeue and the amount larger
-  #   determines the maximum we will prefetch.  Recommendation:
-  #   min_after_dequeue + (num_threads + a small safety margin) * batch_size
-  # min_after_dequeue = 1000
-  # capacity = min_after_dequeue + 3 * batch_size
-  # example_batch, label_batch = tf.train.shuffle_batch(
-  #     [example, label], batch_size=batch_size, capacity=capacity,
-  #     min_after_dequeue=min_after_dequeue)
-  # return example_batch, label_batch
+ 

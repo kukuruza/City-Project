@@ -184,6 +184,11 @@ def inputs (data_list_name, dataset_tag=''):
 
 
 
+def predict (logits_op, labels_op):
+  correct_op = tf.nn.in_top_k (logits_op, labels_op, 1)
+  predicted_op = tf.argmax(logits_op, 1)
+
+  return correct_op, predicted_op, labels_op
 
 
 
