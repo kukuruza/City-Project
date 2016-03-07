@@ -58,6 +58,7 @@ def import_blend_car (blend_path, model_id, car_name=None):
     '''Import model_id object from blend_path .blend file, and rename it to car_name
     '''
     # append object from .blend file
+    assert op.exists(blend_path)
     with bpy.data.libraries.load(blend_path, link=False) as (data_src, data_dst):
         data_dst.objects = [model_id]
 
@@ -69,6 +70,7 @@ def import_blend_car (blend_path, model_id, car_name=None):
     # raname
     if car_name is None: car_name = model_id
     obj.name = car_name
+    logging.debug ('model_id %s imported' % model_id)
 
 
 
