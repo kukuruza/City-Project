@@ -30,7 +30,6 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
     Return:
       Tensor of shape [(Y+2*pad)*grid_Y, (X+2*pad)*grid_X, NumChannels, 1].
     '''
-
     # pad X and Y
     x1 = tf.pad(kernel, tf.constant( [[pad,pad],[pad, pad],[0,0],[0,0]] ))
 
@@ -48,28 +47,33 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
     # organize grid on X axis
     x5 = tf.reshape(x4, tf.pack([1, X * grid_X, Y * grid_Y, 3]))
     
-    # back to normal order
+    # back to normal order (not combining with the next step for clarity)
     x6 = tf.transpose(x5, (2, 1, 3, 0))
 
+    # to tf.image_summary order [batch_size, height, width, channels],
+    #   where in this case batch_size == 1
+    x7 = tf.transpose(x6, (3, 0, 1, 2))
+
     # scale to [0, 1]
-    x_min = tf.reduce_min(x6)
-    x_max = tf.reduce_max(x6)
-    x7 = (x6 - x_min) / (x_max - x_min)
+    x_min = tf.reduce_min(x7)
+    x_max = tf.reduce_max(x7)
+    x8 = (x7 - x_min) / (x_max - x_min)
 
     # scale to [0, 255] and convert to uint8
-    return tf.image.convert_image_dtype(x7, dtype=tf.uint8)
+    return tf.image.convert_image_dtype(x8, dtype=tf.uint8)
 
 
 x = tf.placeholder(tf.uint8, shape=(Y, X, 3, 6))
 
-grid_X = 3
-grid_Y = 2
+grid_X = 2
+grid_Y = 3
 y = tf.to_float(x) / 255 * 0.5 - 0.4
 reshaped = put_kernels_on_grid (y, (grid_Y, grid_X))
 
 with tf.Session() as sess:
     
     icons = sess.run([reshaped], feed_dict={x: np.array(icons, dtype=np.uint8)})[0]
+    icons = np.transpose(icons, [1,2,3,0])
 
     print icons.shape
     print icons.dtype
