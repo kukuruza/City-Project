@@ -24,6 +24,7 @@ import math
 import argparse
 
 import numpy as np
+from sklearn.metrics import confusion_matrix
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
@@ -44,14 +45,21 @@ def evaluate_set (sess, (correct_op, predicted_op, labels_op), num_examples):
   true_count = 0  # Counts the number of correct predictions.
   total_sample_count = num_iter * FLAGS.batch_size
 
+  predicted_list = []
+  labels_list    = []
+
   for step in xrange(num_iter):
 
     [correct, predicted, labels]  = sess.run([correct_op, predicted_op, labels_op])
-    true_count += np.sum(correct)
-    print ('labels shape:' + str(labels.shape))
-    print ('predicted shape:' + str(predicted.shape))
+    #print (correct)
+    #print (predicted)
+    #print (labels)
 
-  #print sk.metrics.confusion_matrix(y_true, y_pred)
+    true_count     += np.sum(correct)
+    predicted_list += predicted.tolist()
+    labels_list    += labels.tolist()
+
+  print (confusion_matrix(np.array(predicted_list), np.array(labels_list)))
 
   # Compute precision
   return true_count / total_sample_count
@@ -79,6 +87,12 @@ def train():
 
         # Calculate loss.
         loss = citycam.loss(logits, labels)
+
+        # Visualize conv1 features
+        with tf.variable_scope('conv1') as scope_conv:
+          weights = tf.get_variable('weights')
+          grid = citycam.put_kernels_on_grid (weights, (8, 8))
+          tf.image_summary('conv1/features', grid, max_images=1)
 
         predict_ops      = citycam.predict(logits,      labels)
         predict_eval_ops = citycam.predict(logits_eval, labels_eval)
@@ -194,6 +208,7 @@ if __name__ == '__main__':
                       help='Epochs after which learning rate decays.')
   parser.add_argument('--learning_rate_decay_factor', default=0.1, type=float)
   parser.add_argument('--initial_learning_rate_decay', default=0.1, type=float)
+  parser.add_argument('--num_preprocess_threads', default=16, type=int)
 
   args = parser.parse_args()
 
@@ -220,5 +235,6 @@ if __name__ == '__main__':
                               args.learning_rate_decay_factor, '')
   tf.app.flags.DEFINE_float('INITIAL_LEARNING_RATE', 
                               args.initial_learning_rate_decay, '')
+  tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
 
   tf.app.run()

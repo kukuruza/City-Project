@@ -37,6 +37,8 @@ NUM_CLASSES = 2
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1024
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1024
 
+FLAGS = tf.app.flags.FLAGS
+
 
 
 def read_my_file_format(filename_and_label, width, height):
@@ -81,16 +83,15 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
   """
   # Create a queue that shuffles the examples, and then
   # read 'batch_size' images + labels from the example queue.
-  num_preprocess_threads = 16
   images, label_batch = tf.train.shuffle_batch(
       [image, label],
       batch_size=batch_size,
-      num_threads=num_preprocess_threads,
+      num_threads=FLAGS.num_preprocess_threads,
       capacity=min_queue_examples + 3 * batch_size,
       min_after_dequeue=min_queue_examples)
 
   # Display the training images in the visualizer.
-  tf.image_summary('images' + dataset_tag, images, max_images=10)
+  tf.image_summary('images' + dataset_tag, images, max_images=3)
 
   return images, tf.reshape(label_batch, [batch_size])
 
