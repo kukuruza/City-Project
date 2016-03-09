@@ -28,14 +28,22 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
       pad:               number of black pixels around each filter (between them)
     
     Return:
-      Tensor of shape [(Y+2*pad)*grid_Y, (X+2*pad)*grid_X, NumChannels, 1].
+      Tensor of shape [(Y+pad)*grid_Y, (X+pad)*grid_X, NumChannels, 1].
     '''
+    # scale to [0, 1]
+    x_min = tf.reduce_min(kernel)
+    x_max = tf.reduce_max(kernel)
+    x_0to1 = (kernel - x_min) / (x_max - x_min)
+
+    # scale to [0, 255] and convert to uint8
+    x_0to255_uint8 = tf.image.convert_image_dtype(x_0to1, dtype=tf.uint8)
+
     # pad X and Y
-    x1 = tf.pad(kernel, tf.constant( [[pad,pad],[pad, pad],[0,0],[0,0]] ))
+    x1 = tf.pad(x_0to255_uint8, tf.constant( [[pad,0],[pad,0],[0,0],[0,0]] ))
 
     # X and Y dimensions, w.r.t. padding
-    Y = kernel.get_shape()[0] + 2 * pad
-    X = kernel.get_shape()[1] + 2 * pad
+    Y = kernel.get_shape()[0] + pad
+    X = kernel.get_shape()[1] + pad
 
     # put NumKernels to the 1st dimension
     x2 = tf.transpose(x1, (3, 0, 1, 2))
@@ -52,15 +60,7 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
 
     # to tf.image_summary order [batch_size, height, width, channels],
     #   where in this case batch_size == 1
-    x7 = tf.transpose(x6, (3, 0, 1, 2))
-
-    # scale to [0, 1]
-    x_min = tf.reduce_min(x7)
-    x_max = tf.reduce_max(x7)
-    x8 = (x7 - x_min) / (x_max - x_min)
-
-    # scale to [0, 255] and convert to uint8
-    return tf.image.convert_image_dtype(x8, dtype=tf.uint8)
+    return tf.transpose(x6, (3, 0, 1, 2))
 
 
 x = tf.placeholder(tf.uint8, shape=(Y, X, 3, 6))
@@ -68,7 +68,7 @@ x = tf.placeholder(tf.uint8, shape=(Y, X, 3, 6))
 grid_X = 2
 grid_Y = 3
 y = tf.to_float(x) / 255 * 0.5 - 0.4
-reshaped = put_kernels_on_grid (y, (grid_Y, grid_X))
+reshaped = put_kernels_on_grid (y, (grid_Y, grid_X), pad=10)
 
 with tf.Session() as sess:
     

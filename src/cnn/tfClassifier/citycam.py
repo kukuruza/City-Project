@@ -11,14 +11,12 @@ import tensorflow as tf
 
 import citycam_input
 
-#import numpy as np
-#from PIL import Image
 
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters. UPDATE: set in main()
-# tf.app.flags.DEFINE_integer('batch_size', 128,
-#                             """Number of images to process in a batch.""")
+tf.app.flags.DEFINE_integer('batch_size', 128,
+                            """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_string('data_dir', 
 #               op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/patches'),
 #                            """Path to the citycam data directory.""")
@@ -45,6 +43,25 @@ MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
 TOWER_NAME = 'tower'
 
 tf.app.flags.DEFINE_float('MOVING_AVERAGE_DECAY', MOVING_AVERAGE_DECAY, '')
+
+
+
+# def setupLogging (filename, level=logging.INFO, filemode='w'):
+#     log = logging.getLogger('')
+#     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
+#     log.setLevel(level)
+
+#     log_path = os.path.join (os.getenv('CITY_PATH'), filename)
+#     if not op.exists (op.dirname(log_path)):
+#         os.makedirs (op.dirname(log_path))
+#     fh = logging.handlers.RotatingFileHandler(log_path, mode=filemode)
+#     fh.setFormatter(formatter)
+#     log.addHandler(fh)
+
+#     sh = logging.StreamHandler(sys.stdout)
+#     sh.setFormatter(formatter)
+#     log.addHandler(sh)
+
 
 
 def _activation_summary(x):
@@ -143,91 +160,50 @@ def inputs (data_list_name, dataset_tag=''):
 
 
 
-
-# filename_queue = tf.train.string_input_producer(path_label_pairs)
-# image_op, label_op = read_my_file_format(filename_queue.dequeue())
-
-#example_batch, label_batch = inputs(path_label_pairs, FLAGS.batch_size)
-
-
-# with tf.Session() as sess:
-#     tf.initialize_all_variables().run()
-#     print('Initialized!')
-
-#     # Start input enqueue threads.
-#     coord = tf.train.Coordinator()
-#     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-#     try:
-#         for i in range(2): # length of your filename list
-#         #while not coord.should_stop():
-#             # Run training steps or whatever
-#             #sess.run(train_op)
-#             # image = image_op.eval()
-#             # label = int(label_op.eval())
-#             # print image.shape, label
-#             #Image.fromarray(np.asarray(image)).show()
-#             print example_batch.eval().shape
-#             print label_batch.eval()
-
-#     except tf.errors.OutOfRangeError:
-#         print('Done training -- epoch limit reached')
-#     finally:
-#         # When done, ask the threads to stop.
-#         coord.request_stop()
-
-#     # Wait for threads to finish.
-#     coord.join(threads)
-#     sess.close()
-
-
-
 def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
-    '''Visualize conv. features as an image (mostly for the 1st layer).
-    Place kernel into a grid, with some paddings between adjacent filters.
+  '''Visualize conv. features as an image (mostly for the 1st layer).
+  Place kernel into a grid, with some paddings between adjacent filters.
 
-    Args:
-      kernel:            tensor of shape [Y, X, NumChannels, NumKernels]
-      (grid_Y, grid_X):  shape of the grid. Require: NumKernels == grid_Y * grid_X
-                           User is responsible of how to break into two multiples.
-      pad:               number of black pixels around each filter (between them)
-    
-    Return:
-      Tensor of shape [(Y+2*pad)*grid_Y, (X+2*pad)*grid_X, NumChannels, 1].
-    '''
+  Args:
+    kernel:            tensor of shape [Y, X, NumChannels, NumKernels]
+    (grid_Y, grid_X):  shape of the grid. Require: NumKernels == grid_Y * grid_X
+                         User is responsible of how to break into two multiples.
+    pad:               number of black pixels around each filter (between them)
+  
+  Return:
+    Tensor of shape [(Y+pad)*grid_Y, (X+pad)*grid_X, NumChannels, 1].
+  '''
+  # scale to [0, 1]
+  x_min = tf.reduce_min(kernel)
+  x_max = tf.reduce_max(kernel)
+  x_0to1 = (kernel - x_min) / (x_max - x_min)
 
-    # pad X and Y
-    x1 = tf.pad(kernel, tf.constant( [[pad,pad],[pad, pad],[0,0],[0,0]] ))
+  # scale to [0, 255] and convert to uint8
+  x_0to255_uint8 = tf.image.convert_image_dtype(x_0to1, dtype=tf.uint8)
 
-    # X and Y dimensions, w.r.t. padding
-    Y = kernel.get_shape()[0] + 2 * pad
-    X = kernel.get_shape()[1] + 2 * pad
+  # pad X and Y
+  x1 = tf.pad(x_0to255_uint8, tf.constant( [[pad,0],[pad,0],[0,0],[0,0]] ))
 
-    # put NumKernels to the 1st dimension
-    x2 = tf.transpose(x1, (3, 0, 1, 2))
-    # organize grid on Y axis
-    x3 = tf.reshape(x2, tf.pack([grid_X, Y * grid_Y, X, 3]))
-    
-    # switch X and Y axes
-    x4 = tf.transpose(x3, (0, 2, 1, 3))
-    # organize grid on X axis
-    x5 = tf.reshape(x4, tf.pack([1, X * grid_X, Y * grid_Y, 3]))
-    
-    # back to normal order (not combining with the next step for clarity)
-    x6 = tf.transpose(x5, (2, 1, 3, 0))
+  # X and Y dimensions, w.r.t. padding
+  Y = kernel.get_shape()[0] + pad
+  X = kernel.get_shape()[1] + pad
 
-    # to tf.image_summary order [batch_size, height, width, channels],
-    #   where in this case batch_size == 1
-    x7 = tf.transpose(x6, (3, 0, 1, 2))
+  # put NumKernels to the 1st dimension
+  x2 = tf.transpose(x1, (3, 0, 1, 2))
+  # organize grid on Y axis
+  x3 = tf.reshape(x2, tf.pack([grid_X, Y * grid_Y, X, 3]))
+  
+  # switch X and Y axes
+  x4 = tf.transpose(x3, (0, 2, 1, 3))
+  # organize grid on X axis
+  x5 = tf.reshape(x4, tf.pack([1, X * grid_X, Y * grid_Y, 3]))
+  
+  # back to normal order (not combining with the next step for clarity)
+  x6 = tf.transpose(x5, (2, 1, 3, 0))
 
-    # scale to [0, 1]
-    x_min = tf.reduce_min(x7)
-    x_max = tf.reduce_max(x7)
-    x8 = (x7 - x_min) / (x_max - x_min)
-
-    # scale to [0, 255] and convert to uint8
-    return tf.image.convert_image_dtype(x8, dtype=tf.uint8)
-
+  # to tf.image_summary order [batch_size, height, width, channels],
+  #   where in this case batch_size == 1
+  return tf.transpose(x6, (3, 0, 1, 2))
 
 
 def predict (logits_op, labels_op):
@@ -298,7 +274,7 @@ def inference(images):
                                           stddev=0.04, wd=0.004)
     biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
     local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
-    _activation_summary(local3)
+    #_activation_summary(local3)
 
   # local4
   with tf.variable_scope('local4') as scope:
@@ -306,7 +282,7 @@ def inference(images):
                                           stddev=0.04, wd=0.004)
     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
     local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
-    _activation_summary(local4)
+    #_activation_summary(local4)
 
   # softmax, i.e. softmax(WX + b)
   with tf.variable_scope('softmax_linear') as scope:
@@ -315,9 +291,10 @@ def inference(images):
     biases = _variable_on_cpu('biases', [NUM_CLASSES],
                               tf.constant_initializer(0.0))
     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
-    _activation_summary(softmax_linear)
+    #_activation_summary(softmax_linear)
 
   return softmax_linear
+
 
 
 def loss(logits, labels):
