@@ -46,6 +46,7 @@ def read_my_file_format(filename_and_label, width, height):
 
   Args:
     filename_and_label: A scalar string tensor.
+        Filenames in filename_and_label are relative to FLAGS.data_dir
 
   Returns:
     Two tensors: the decoded image, and the string label.
@@ -54,7 +55,8 @@ def read_my_file_format(filename_and_label, width, height):
   filename, label_str = tf.decode_csv(filename_and_label, [[""], [""]], " ")
 
   # open and read that imagefile
-  filepath = tf.constant(os.getenv('CITY_DATA_PATH') + '/') + filename
+  filedir = tf.constant(op.join(os.getenv('CITY_DATA_PATH'), FLAGS.data_dir) + '/')
+  filepath = filedir + filename
   file_contents = tf.read_file( filepath )
   example = tf.image.decode_jpeg(file_contents)
   example.set_shape([height, width, NUM_CHANNELS])
