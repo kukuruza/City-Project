@@ -7,9 +7,9 @@ import logging
 import glob
 import shutil
 import sqlite3
-from learning.helperDb import createLabelmeDb, queryField, createPolygonsTable
+from learning.helperDb import createLabelmeDb, createTablePolygons
 from learning.dbUtilities import *
-from learning.helperSetup import setParamUnlessThere
+from learning.helperSetup import setParamUnlessThere, atcity
 from learning.labelme.parser import FrameParser, PairParser
 
 
@@ -24,24 +24,24 @@ def __pointsOfPolygon__ (annotation):
     return xs, ys
 
 
-def __processFrame__ (c, imagefile, params):
+def __processFrame__ (c, imagefile, annotations_dir, params):
 
     # get paths and names
-    (labelme_dir, folder) = somefile2dirs (imagefile)
     imagename = op.basename(imagefile)
     annotation_name = op.splitext(imagename)[0] + '.xml'
-    annotation_file = op.join(labelme_dir, 'Annotations', folder, annotation_name)
+    annotation_file = atcity(op.join(annotations_dir, annotation_name))
     logging.debug ('annotation_file: ' + annotation_file)
+
+    # if annotation file does not exist then this imagre is not annotated
+    if not op.exists(atcity(annotation_file)):
+        logging.debug ('this image is not annotated. Skip it.')
+        return
 
     tree = ET.parse(op.join(os.getenv('CITY_DATA_PATH'), annotation_file))
 
-    # consistancy between folder and image in anntation and imagefile
-    folder_ann = tree.getroot().find('folder').text
-    imagename_ann = tree.getroot().find('filename').text
-    if (folder_ann != folder):
-        logging.warning('folder: ' + folder + ', folder_ann: ' + folder_ann)
-    if (imagename_ann != imagename):
-        logging.warning('imagename: ' + imagename + ', imagename_ann: ' + imagename_ann)
+    # get dimensions
+    c.execute('SELECT height,width FROM images WHERE imagefile=?', (imagefile,))
+    sz = (height,width) = c.fetchone()
 
     if params['debug_show']:
         img = cv2.imread(op.join(os.getenv('CITY_DATA_PATH'), imagefile))
@@ -71,16 +71,15 @@ def __processFrame__ (c, imagefile, params):
 
         # filter out degenerate polygons
         if len(xs) == 2 or min(xs) == max(xs) or min(ys) == max(ys):
-            logging.info ('degenerate polygon ' + str(xs) + ',' + str(ys) + 'in: ' + annotation_name)
+            logging.info ('degenerate polygon %s,%s in %s' % (str(xs), str(ys), annotation_name))
             continue
 
         # make roi
         roi = [min(ys), min(xs), max(ys), max(xs)]
 
         # validate roi
-        sz = img.shape
         if roi[0] < 0 or roi[1] < 0 or roi[2] >= sz[0] or roi[3] >= sz[1]:
-            logging.warning ('roi ' + str(roi) + ' out of borders: ' + str((sz[0],sz[1])));
+            logging.warning ('roi %s out of borders: %s' % (str(roi), str(sz)))
         roi[0] = max(roi[0], 0)
         roi[1] = max(roi[1], 0)
         roi[2] = min(roi[2], sz[0]-1)
@@ -92,7 +91,7 @@ def __processFrame__ (c, imagefile, params):
 
         # write to db
         s = 'cars(imagefile,name,x1,y1,width,height)'
-        c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?);', car_entry)
+        c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?);' % s, car_entry)
 
         carid = c.lastrowid
         for i in range(len(xs)):
@@ -111,20 +110,20 @@ def __processFrame__ (c, imagefile, params):
 
 
 
-def folder2frames (c, params):
+def folder2frames (c, annotations_dir, params):
 
     logging.info ('==== folder2frames ====')
     setParamUnlessThere (params, 'debug_show', False)
     params['parser'] = FrameParser()
 
-    createPolygonsTable(c)
+    createTablePolygons(c)
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
 
     for (imagefile,) in imagefiles:
         logging.debug ('processing imagefile: ' + imagefile)
-        __processFrame__ (c, imagefile, params)
+        __processFrame__ (c, imagefile, annotations_dir, params)
 
 
 
@@ -183,14 +182,14 @@ def __bypartiteMatch__ (captions_t, captions_b, cars_t, cars_b, file_name):
 
 
 
-def __processPair__ (c, imagefile1, imagefile2, params):
+def __processPair__ (c, imagefile1, imagefile2, annotations_dir, params):
 
     # get annotations
     (labelme_dir, folder) = somefile2dirs (imagefile1)
     imagename1strip = op.splitext(op.basename(imagefile1))[0]
     imagename2strip = op.splitext(op.basename(imagefile2))[0]
     annotation_name = imagename1strip + '-' + imagename2strip + '.xml'
-    annotation_file = op.join(labelme_dir, 'Annotations', folder, annotation_name)
+    annotation_file = atcity(op.join(annotations_dir, annotation_name))
     tree = ET.parse(op.join(os.getenv('CITY_DATA_PATH'), annotation_file))
 
     objects = tree.getroot().findall('object')
@@ -296,8 +295,8 @@ def __processPair__ (c, imagefile1, imagefile2, params):
             c.execute('SELECT x1,y1,width,height FROM cars WHERE id = ?', (pair[1],))
             bbox2 = c.fetchone()
             bbox2 = (bbox2[0], bbox2[1]+height, bbox2[2], bbox2[3])
-            center1 = getCenter(bbox2roi(bbox1)
-            center2 = getCenter(bbox2roi(bbox2)
+            center1 = getCenter(bbox2roi(bbox1))
+            center2 = getCenter(bbox2roi(bbox2))
             cv2.line (imgpair, center1, center2, (255,0,0))
 
     if not pairs: logging.warning ('file has no valid polygons: ' + annotation_file)
@@ -394,14 +393,14 @@ def __mergeSameCars__ (c, imagefile, params):
 
 
 
-def folder2pairs (c, params):
+def folder2pairs (c, annotations_dir, params):
 
     logging.info ('==== folder2pairs ====')
     setParamUnlessThere (params, 'debug_show', False)
     setParamUnlessThere (params, 'threshold', 0.6)
     params['parser'] = PairParser()
 
-    createPolygonsTable (c)
+    createTablePolygons (c)
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
@@ -411,7 +410,7 @@ def folder2pairs (c, params):
         (imagefile1,) = imagefiles[i]
         (imagefile2,) = imagefiles[i+1]
         logging.debug ('processing imagepair: ' + imagefile1 + ' - ' + imagefile2)
-        __processPair__ (c, imagefile1, imagefile2, params)
+        __processPair__ (c, imagefile1, imagefile2, annotations_dir, params)
 
     # merge bottom-image1 to top-image2
     for (imagefile,) in imagefiles:

@@ -17,20 +17,23 @@ def show (c, params = {}):
     Any key will scroll to the next image.
     '''
     logging.info ('==== show ====')
-    setParamUnlessThere (params, 'display_scale',    1.0)
-    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
-    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
+    setParamUnlessThere (params, 'show_empty_frames', False)
+    setParamUnlessThere (params, 'display_scale',     1.0)
+    setParamUnlessThere (params, 'image_processor',   ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',        KeyReaderUser())
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
 
     for (imagefile,) in imagefiles:
-
-        display = params['image_processor'].imread(imagefile)
-
         c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
         car_entries = c.fetchall()
         logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+
+        if len(car_entries) == 0 and not params['show_empty_frames']:
+            continue
+
+        display = params['image_processor'].imread(imagefile)
 
         for car_entry in car_entries:
             roi       = bbox2roi (carField(car_entry, 'bbox'))
