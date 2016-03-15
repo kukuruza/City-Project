@@ -1,14 +1,10 @@
 import bpy
-import os, os.path as op
+import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
-import sys
 import json
 import logging
-from math import cos, sin, pi, sqrt
 import numpy as np
-from numpy.random import normal, uniform
-from mathutils import Color, Euler, Vector
-import common
+from augmentation.common import *
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 '''
@@ -16,91 +12,38 @@ Functions to parse blender output into images, masks, and annotations
 This file knows about how we store data in SQL
 '''
 
-# debug option
-render_satellite     = False
-render_cars_as_cubes = False
-save_blend_file      = False
-
 WORK_RENDER_DIR   = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
-NORMAL_FILENAME   = 'normal.png'
-CARSONLY_FILENAME = 'cars-only.png'
-CAR_RENDER_TEMPL  = 'vehicle-'
 
 WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
 
 
-def position_car (car_name, x, y, azimuth):
-    '''Put the car to a certain position on the ground plane
+
+def make_snapshot (render_dir, car_names, params):
+    '''Set up the weather, and render vehicles into files:
+      NORMAL, CARSONLY, and CAR_RENDER_TEMPL
     Args:
-      car_name:        name of the blender model
-      x, y:            target position in the blender x,y coordinate frame
-      azimuth:         angle in degrees, 0 is North (y-axis) and 90 deg. is East
-    '''
-    # TODO: now assumes object is at the origin.
-    #       instead of transform, assign coords and rotation
-
-    assert car_name in bpy.data.objects
-
-    # select only car
-    bpy.ops.object.select_all(action='DESELECT')  
-    bpy.data.objects[car_name].select = True
-
-    bpy.ops.transform.translate (value=(x, y, 0))
-    bpy.ops.transform.rotate (value=(90 - azimuth) * pi / 180, axis=(0,0,1))
-
-
-
-def render_frame (frame_info, render_dir):
-    '''Position cars in 3D according to input, and render frame
-    Args:
-      frame_info:  dictionary with frame information
       render_dir:  path to directory where to put all rendered images
+      car_names:   names of car objects in the scene
+      params:      dictionary with frame information
     Returns:
       nothing
     '''
 
-    logging.info ('started a frame')
+    logging.info ('make_snapshot: started')
 
-    points  = frame_info['vehicles']
-    weather = frame_info['weather']
-    setParamUnlessThere (frame_info, 'scale', 1)
-    setParamUnlessThere (frame_info, 'render_individual_cars', True)
+    setParamUnlessThere (params, 'scale', 1)
+    setParamUnlessThere (params, 'render_individual_cars', True)
+    # debug options
+    setParamUnlessThere (params, 'save_blend_file', False)
+    setParamUnlessThere (params, 'render_satellite', False)
+    setParamUnlessThere (params, 'render_cars_as_cubes', False)
 
-    # set weather
-    if 'Dry'    in weather: 
-        logging.info ('setting dry weather')
-        common.set_dry()
-    if 'Wet'    in weather: 
-        logging.info ('setting wet weather')
-        common.set_wet()
-    if 'Cloudy' in weather: 
-        logging.info ('setting cloudy weather')
-        common.set_cloudy()
-    if 'Sunny'  in weather: 
-        alt = frame_info['sun_altitude']
-        azi = frame_info['sun_azimuth']
-        logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))
-        common.set_sunny()
-        common.set_sun_angle(azi, alt)
+    set_weather (params)
 
     # render the image from satellite, when debuging
-    bpy.data.objects['-Satellite'].hide_render = not render_satellite
-
-    # place all cars
-    for i,point in enumerate(points):
-        if render_cars_as_cubes:
-            location = (point['x'], point['y'], 0.1)
-            bpy.ops.mesh.primitive_cube_add(location=location, radius=0.3)
-        else:
-            collection_id = point['collection_id']
-            model_id = point['model_id']
-            blend_path = atcity(op.join('augmentation/CAD', collection_id, 'blend', '%s.blend' % model_id))
-            car_name = 'car_%i' % i
-            common.import_blend_car (blend_path, model_id, car_name)
-            position_car (car_name, x=point['x'], y=point['y'], azimuth=point['azimuth'])
-            scale = frame_info['scale']
-            bpy.ops.transform.resize (value=(scale, scale, scale))
+    if '-Satellite' in bpy.data.objects:
+        bpy.data.objects['-Satellite'].hide_render = not params['render_satellite']
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
@@ -114,52 +57,59 @@ def render_frame (frame_info, render_dir):
 
     # render all cars and shadows
     bpy.data.objects['-Ground'].hide_render = False
-    common.render_scene(op.join(render_dir, NORMAL_FILENAME))
+    render_scene(op.join(render_dir, NORMAL_FILENAME))
 
-    # render all cars without ground plane
+    # render all cars without ground plane or sky
+    bpy.context.scene.render.alpha_mode = 'TRANSPARENT'
     bpy.data.objects['-Ground'].hide_render = True
-    common.render_scene(op.join(render_dir, CARSONLY_FILENAME))
+    render_scene(op.join(render_dir, CARSONLY_FILENAME))
 
     # render just the car for each car (to extract bbox)
-    if frame_info['render_individual_cars'] and not render_cars_as_cubes:
+    if params['render_individual_cars'] and not params['render_cars_as_cubes']:
         # hide all cars
-        for i,point in enumerate(points):
-            car_name = 'car_%i' % i
-            common.hide_car (car_name)
+        for car_name in car_names:
+            hide_car (car_name)
         # show, render, and hide each car one by one
-        for i,point in enumerate(points):
-            car_name = 'car_%i' % i
-            common.show_car (car_name)
-            common.render_scene( op.join(render_dir, '%s%d.png' % (CAR_RENDER_TEMPL, i)) )
-            common.hide_car (car_name)
+        for i,car_name in enumerate(car_names):
+            show_car (car_name)
+            render_scene( op.join(render_dir, '%s%d.png' % (CAR_RENDER_TEMPL, i)) )
+            hide_car (car_name)
 
+    # clean up
     bpy.data.objects['-Ground'].hide_render = False
+    if not params['render_cars_as_cubes']:
+        for car_name in car_names:
+            show_car (car_name)
 
-
-    if save_blend_file:
-        # show all cars
-        if not render_cars_as_cubes:
-            for i,point in enumerate(points):
-                car_name = 'car_%i' % i
-                common.show_car (car_name)
+    if params['save_blend_file']:
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
-    # NOT USED now because the .blend file is discarded after this
-    # delete all cars
-    #for i,point in enumerate(points):
-    #    car_name = 'car_%i' % i
-    #    common.delete_car (car_name)
-
     # logging.info ('objects in the end of frame: %d' % len(bpy.data.objects))
-    logging.info ('successfully finished a frame')
+    logging.info ('make_snapshot: successfully finished a frame')
     
 
 
-#bpy.context.user_preferences.system.compute_device_type = 'CUDA'
-#bpy.context.user_preferences.system.compute_device = 'CUDA_0'
 
 setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
 
 frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
+setParamUnlessThere (frame_info, 'render_cars_as_cubes', False)
 
-render_frame (frame_info, WORK_DIR)
+# place all cars
+car_names = []
+for i,vehicle in enumerate(frame_info['vehicles']):
+    if frame_info['render_cars_as_cubes']:
+        location = (vehicle['x'], vehicle['y'], 0.1)
+        bpy.ops.mesh.primitive_cube_add(location=location, radius=0.3)
+    else:
+        collection_id = vehicle['collection_id']
+        model_id = vehicle['model_id']
+        blend_path = atcity(op.join('augmentation/CAD', collection_id, 'blend', '%s.blend' % model_id))
+        car_name = 'car_%i' % i
+        car_names.append(car_name)
+        import_blend_car (blend_path, model_id, car_name)
+        position_car (car_name, x=vehicle['x'], y=vehicle['y'], azimuth=vehicle['azimuth'])
+        scale = frame_info['scale']
+        bpy.ops.transform.resize (value=(scale, scale, scale))
+
+make_snapshot (WORK_DIR, car_names, frame_info)

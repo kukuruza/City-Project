@@ -1,10 +1,13 @@
+#!/usr/bin/env python
 import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 import logging
 import numpy as np
+from random import choice
+from numpy.random import normal, uniform
 import cv2
-import glob
+from glob import glob
 from math import ceil
 import subprocess
 import multiprocessing
@@ -13,15 +16,21 @@ import shutil
 import argparse
 from learning.helperSetup import atcity, setupLogging
 from learning.dbUtilities import expandRoiToRatio, expandRoiFloat, bbox2roi
+from augmentation.Cad import Cad
 
-
-COLLECTIONS_DIR  = atcity('augmentation/CAD')
 RESULT_DIR       = atcity('augmentation/patches')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
-PATCHES_HOME_DIR = atcity('augmentation/patches')
-FRAME_INFO_NAME  = 'frame_info.json'
+PATCHES_HOME_DIR = atcity('augmentation/patches/')
+JOB_INFO_NAME    = 'job_info.json'
 EXT = 'jpg'  # format of output patches
 
+# placing other cars
+PROB_SAME_LANE    = 0.3
+SIGMA_AZIMUTH     = 5
+SIGMA_SAME        = 0.3
+SIGMA_SIDE        = 0.1
+MEAN_SAME         = 1.5
+MEAN_SIDE         = 1.5
 
 class Diapason:
 
@@ -55,139 +64,215 @@ class Diapason:
 
 
 
+def pick_spot_for_a_vehicle (dims0, model):
+    '''Given car dimensions, randomly pick a spot around the main car
+
+    Args:
+      dims0:     dict with fields 'x' and 'y' for the main model
+      model:     a dict with field 'dims'
+    Returns:
+      vehicle:   same as model, but with x,y,azimuth fields
+    '''
+    # in the same lane or on the lanes on the sides
+    is_in_same_lane = (uniform() < PROB_SAME_LANE)
+
+    # define probabilities for other vehicles
+    if is_in_same_lane:
+        x = normal(MEAN_SAME, SIGMA_SAME) * choice([-1,1])
+        y = normal(0, SIGMA_SAME)
+    else: 
+        x = normal(0, 1.5)
+        y = normal(MEAN_SIDE, SIGMA_SIDE) * choice([-1,1])
+
+    # normalize to our car size
+    x *= (dims0['x'] + model['dims']['x']) / 2
+    y *= (dims0['y'] + model['dims']['y']) / 2
+    azimuth = normal(0, SIGMA_AZIMUTH) + 90
+    vehicle = model
+    vehicle['x'] = x
+    vehicle['y'] = y
+    vehicle['azimuth'] = azimuth
+    return vehicle
 
 
-def extract_bbox (render_png_path):
+
+def place_occluding_vehicles (vehicle0, other_models):
+    '''Distributes existing models across the scene.
+    Vehicle[0] is the main photo-session character. It is in the center.
+
+    Args:
+      vehicles0:       main model dict with x,y,azimuth
+      other_models:    dicts without x,y,azimuth
+    Returns:
+      other_vehicles:  same as other_models, but with x,y,azimuth fields
+    '''
+    vehicles = []
+    for i,model in enumerate(other_models):
+        logging.debug ('place_occluding_vehicles: try %d on model_id %s' 
+                       % (i, model['model_id']))
+
+        # pick its location and azimuth
+        assert 'dims' in vehicle0, '%s' % json.dumps(vehicle0, indent=4)
+        vehicle = pick_spot_for_a_vehicle(vehicle0['dims'], model)
+
+        # find if it intersects with anything (cars are almost parallel)
+        x1     = vehicle['x']
+        y1     = vehicle['y']
+        dim_x1 = vehicle['dims']['x']
+        dim_y1 = vehicle['dims']['y']
+        does_intersect = False
+        # compare to all previous vehicles (O(N^2) haha)
+        for existing_vehicle in vehicles:
+            x2 = existing_vehicle['x']
+            y2 = existing_vehicle['y']
+            dim_x2 = existing_vehicle['dims']['x']
+            dim_y2 = existing_vehicle['dims']['y']
+            if (abs(x1-x2) < (dim_x1+dim_x2)/2 and abs(y1-y2) < (dim_y1+dim_y2)/2):
+                logging.debug ('place_occluding_vehicles: intersecting, dismiss')
+                does_intersect = True
+                break
+        if not does_intersect:
+            vehicles.append(vehicle)
+            logging.debug ('place_occluding_vehicles: placed this one')
+
+    return vehicles
+
+
+
+def extract_bbox (mask):
     '''Extract a single (if any) bounding box from the image
     Args:
-      render_png_path:  has only one (or no) car in the image.
+      mask:  boolean mask of the car
     Returns:
       bbox:  (x1, y1, width, height)
     '''
-    if not op.exists(render_png_path):
-        logging.error ('Car render image does not exist: %s' % render_png_path)
-    vehicle_render = cv2.imread(render_png_path, -1)
-    assert vehicle_render is not None
-    assert vehicle_render.shape[2] == 4   # need alpha channel
-    alpha = vehicle_render[:,:,3]
-    
     # keep only vehicles with resonable bboxes
-    if np.count_nonzero(alpha) == 0:   # or are there any artifacts
+    if np.count_nonzero(mask) == 0:
         return None
 
     # get bbox
-    nnz_indices = np.argwhere(alpha)
+    nnz_indices = np.argwhere(mask)
     (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
     (height, width) = y2 - y1, x2 - x1
     return (x1, y1, width, height)
 
 
-def crop_patches (vehicle, expand_perc, target_width, target_height, keep_src):
-    '''TL;DR: crop patches in vehicle directory according to their masks.
 
-    We have a directory with patches and masks. 
-    Their names follow convention 01blabla-normal.png and 01blabla-mask.png.
-    Each '-normal' is the actual car, it is cropped according to its '-mask'.
-    Each result is recorded as 01blabla.EXT.
-
+def crop_patches (patch_dir, expand_perc, target_width, target_height):
+    '''Crop patches in patch_dir directory according to their masks.
     Args:
-      vehicle:  Dir info. It's a dict with fields model_id and collection_id.
-      keep_src:  boolean. If true, the '-normal' and '-mask' are not deleted.
-
-    Returns nothing.
+      patch_dir:     dir with files depth-all.png, depth-car.png
+      keep_src:      boolean. If true, the '-normal' and '-mask' are not deleted.
+    Returns:
+      cropped image
     '''
-    patches_dir = op.join(PATCHES_HOME_DIR, vehicle['collection_id'], vehicle['model_id'])
-    normal_paths = glob.glob(op.join(patches_dir, '*-normal.png'))
-    logging.info ('found %d patches for model %s' % (len(normal_paths), vehicle['model_id']))
-
-    for normal_path in normal_paths:
-        try:
-            name = op.splitext(op.basename(normal_path))[0][:-7]
-            patches_dir = op.dirname(normal_path)
-            mask_path = op.join(patches_dir, '%s-mask.png' % name)
-            out_path = op.join(patches_dir, '%s.%s' % (name, EXT))
-
-            normal = cv2.imread(normal_path)
-            assert normal is not None
-
-            bbox = extract_bbox(mask_path)
-            assert bbox is not None, 'Mask is empty. Car is outside of the image.'
-            roi = bbox2roi(bbox)
-            ratio = float(target_height) / target_width
-            imshape = (normal.shape[0], normal.shape[1])
-            expandRoiToRatio (roi, imshape, 0, ratio)
-            expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
-
-            target_shape = (target_width, target_height)
-
-            crop = normal[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
-            crop = cv2.resize(crop, target_shape)#, interpolation=cv2.INTER_LINEAR)
-            cv2.imwrite(out_path, crop)
-
-            logging.info ('cropped patch %s' % op.basename(out_path))
-        except:
-            logging.error('job for %s failed to process: %s' % \
-                          (vehicle['model_id'], traceback.format_exc()))
-
-        if not keep_src:
-            if op.exists(normal_path): os.remove(normal_path)
-            if op.exists(mask_path):   os.remove(mask_path)
-
-
-
-def photo_session_sequential (vehicles):
-    WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getpid())
-    if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
-
-    for vehicle in vehicles:
-        try:
-            frame_info_path = op.join(WORK_DIR, FRAME_INFO_NAME)
-            with open(frame_info_path, 'w') as f:
-                f.write(json.dumps(vehicle, indent=4))
-
-            command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background',
-                       '--python', '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
-            returncode = subprocess.call (command, shell=False)
-            logging.info ('blender returned code %s' % str(returncode))
-        except:
-            logging.error('job for %s failed to process: %s' % \
-                          (vehicle['model_id'], traceback.format_exc()))
-
-    if op.exists(WORK_DIR): shutil.rmtree(WORK_DIR)
-        
-
-
-
-def photo_session_parallel (vehicle):
-    WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getpid())
-    if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
-
     try:
-        frame_info_path = op.join(WORK_DIR, FRAME_INFO_NAME)
-        with open(frame_info_path, 'w') as f:
-            f.write(json.dumps(vehicle, indent=4))
+        patch = cv2.imread(op.join(patch_dir, 'render.png'))
+        mask  = cv2.imread(op.join(patch_dir, 'depth-car.png'), 0) < 255
 
-        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background',
-                   '--python', '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
+        bbox = extract_bbox(mask)
+        assert bbox is not None, 'Mask is empty. Car is outside of the image.'
+        roi = bbox2roi(bbox)
+        ratio = float(target_height) / target_width
+        imshape = (patch.shape[0], patch.shape[1])
+        expandRoiToRatio (roi, imshape, 0, ratio)
+        expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
+
+        target_shape = (target_width, target_height)
+
+        crop = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
+        crop = cv2.resize(crop, target_shape)#, interpolation=cv2.INTER_LINEAR)
+        return crop
+    except:
+        logging.error('crop for %s failed: %s' % (patch_dir, traceback.format_exc()))
+        return None
+
+
+
+def get_visible_perc (patch_dir):
+    '''Some parts of the main car is occluded. 
+    Calculate the percentage of the occluded part.
+    Args:
+      patch_dir:     dir with files depth-all.png, depth-car.png
+    Returns:
+      visible_perc:  occluded fraction
+    '''
+    logging.debug ('making a mask in %s' % patch_dir)
+
+    depth_all = cv2.imread(op.join(patch_dir, 'depth-all.png'), -1)
+    depth_car = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1)
+    assert depth_all is not None
+    assert depth_car is not None
+
+    # full main car mask (including occluded parts)
+    mask_car = (depth_car < 255*255)
+    # main car mask of visible regions
+    visible_car = depth_car == depth_all
+    un_mask_car = np.logical_not(mask_car)
+    visible_car[un_mask_car] = False
+    # visible percentage
+    nnz_car     = np.count_nonzero(mask_car)
+    nnz_visible = np.count_nonzero(visible_car)
+    visible_perc = float(nnz_visible) / nnz_car
+    logging.info ('visible perc: %0.2f' % visible_perc)
+    return visible_perc
+
+
+
+def run_patches_job (job):
+    WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getpid())
+    if op.exists(WORK_DIR):
+        shutil.rmtree(WORK_DIR)
+    os.makedirs(WORK_DIR)
+
+    logging.info ('run_patches_job started job %d' % job['i'])
+
+    main_model  = choice(job['main_models'])
+    del job['main_models']
+    occl_models = Cad().get_random_ready_models (number=job['num_occluding'])
+    del job['num_occluding']
+
+    # place the main vehicle
+    main_vehicle = main_model
+    main_vehicle.update({'x': 0, 'y': 0, 'azimuth': 90})
+
+    # place occluding vehicles
+    occl_vehicles = place_occluding_vehicles (main_vehicle, occl_models)
+    logging.info ('have total of %d occluding cars' % len(occl_vehicles))
+    
+    job['vehicles'] = [main_vehicle] + occl_vehicles
+
+    job_path = op.join(WORK_DIR, JOB_INFO_NAME)
+    with open(job_path, 'w') as f:
+        f.write(json.dumps(job, indent=4))
+    try:
+        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
+                   '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
         returncode = subprocess.call (command, shell=False)
         logging.info ('blender returned code %s' % str(returncode))
-
     except:
-        logging.error('job for %s failed to process: %s' % \
-                      (vehicle['model_id'], traceback.format_exc()))
+        logging.error('job for %s failed to process: %s' %
+                      (job['vehicles'][0]['model_id'], traceback.format_exc()))
 
-    if op.exists(WORK_DIR): shutil.rmtree(WORK_DIR)
+    # move patches-id dirs to the new home dir and number them
+    scene_dir = op.join(PATCHES_HOME_DIR, job['patches_name'], 'scene-%06d' % job['i'])
+    logging.debug('moving %s to %s' % (WORK_DIR, scene_dir))
+    shutil.move(WORK_DIR, scene_dir)
 
 
+    
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--logging_level', type=int,   default=20)
-    parser.add_argument('--number',        type=int,   default=1)
-    parser.add_argument('--expand_perc',   type=float, default=0.1)
-    parser.add_argument('--target_width',  type=int,   default=40)
-    parser.add_argument('--target_height', type=int,   default=30)
+    parser.add_argument('--patches_name',    type=str,   default='test')
+    parser.add_argument('--logging_level',   type=int,   default=20)
+    parser.add_argument('--number',          type=int,   default=1)
+    parser.add_argument('--num_per_session', type=int,   default=1)
+    parser.add_argument('--num_occluding',   type=int,   default=5)
+    parser.add_argument('--expand_perc',     type=float, default=0.1)
+    parser.add_argument('--target_width',    type=int,   default=40)
+    parser.add_argument('--target_height',   type=int,   default=30)
     parser.add_argument('--render', default='SEQUENTIAL')
     parser.add_argument('--keep_src', action='store_true',
                         help='do not delete "normal" and "mask" images')
@@ -198,28 +283,38 @@ if __name__ == "__main__":
 
     setupLogging('log/augmentation/MakePatches.log', args.logging_level, 'w')
 
-    collection_dir = op.join(COLLECTIONS_DIR, args.collection_id)
-    #collection_dir = atcity('augmentation/CAD/7c7c2b02ad5108fe5f9082491d52810')
+    # delete and recreate patches_name dir
+    if args.render != 'NONE':
+        if op.exists(op.join(PATCHES_HOME_DIR, args.patches_name)):
+            shutil.rmtree(op.join(PATCHES_HOME_DIR, args.patches_name))
+        os.makedirs(op.join(PATCHES_HOME_DIR, args.patches_name))
 
-    collection = json.load(open( op.join(collection_dir, 'readme-blended.json') ))
+    models   = Cad().get_all_models_in_collection (args.collection_id)
+    diapason = Diapason (len(models), args.models_range)
+    models   = diapason.filter_list(models)
+    for model in models: 
+        model['collection_id'] = args.collection_id
+    logging.info('Using total %d models.' % len(models))
 
-    diapason = Diapason (len(collection['vehicles']), args.models_range)
-    vehicles = diapason.filter_list(collection['vehicles'])
-    logging.info('Total %d vehicles in the collection' % len(vehicles))
+    job = {'num_per_session': args.num_per_session,
+           'num_occluding':   args.num_occluding,
+           'patches_name':    args.patches_name,
+           'main_models':     models}
 
-    num_per_model = int(ceil(float(args.number) / len(vehicles)))
-    logging.info('Number of patches per model: %d' % num_per_model)
-    for i, _ in enumerate(vehicles):
-        vehicles[i]['collection_id'] = collection['collection_id']
-        vehicles[i]['start_id'] = i
-        vehicles[i]['num_per_model'] = num_per_model
+    # give a number to each job
+    num_sessions = int(ceil(float(args.number) / args.num_per_session))
+    logging.info ('num_sessions: %d' % num_sessions)
+    jobs = [job.copy() for i in range(num_sessions)]
+    for i,job in enumerate(jobs): job['i'] = i
 
+    # workhorse
     if args.render == 'SEQUENTIAL':
-        photo_session_sequential (vehicles)
+        for job in jobs:
+            run_patches_job (job)
     elif args.render == 'PARALLEL':
         pool = multiprocessing.Pool()
         logging.info ('the pool has %d workers' % pool._processes)
-        pool.map (photo_session_parallel, vehicles)
+        pool.map (run_patches_job, jobs)
         pool.close()
         pool.join()
     elif args.render == 'NONE':
@@ -227,7 +322,29 @@ if __name__ == "__main__":
     else:
         raise Exception ('wrong args.render: %s' % args.render)
 
-    for vehicle in vehicles:
-        crop_patches(vehicle, args.expand_perc, 
-                     args.target_width, args.target_height, args.keep_src)
+    # postprocess
+    visibility_path = op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt')
+    with open(visibility_path, 'w') as f:
+        for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
+            scene_name = op.basename(scene_dir)
+            for patch_dir in glob(op.join(scene_dir, '??????')):
+                visible_perc = get_visible_perc (patch_dir)
+                crop = crop_patches(patch_dir, args.expand_perc, 
+                                    args.target_width, args.target_height)
+                
+                # something went wrong
+                if crop is None: continue
+
+                # write cropped image and visible_perc and remove the source dir
+                out_name = '%s.%s' % (op.basename(patch_dir), EXT)
+                out_path = op.join(scene_dir, out_name)
+                cv2.imwrite(out_path, crop)
+                logging.info ('wrote cropped patch: %s/%s' % (scene_name, out_name))
+
+                # remove patch directory, if not 'keep_src'
+                if not args.keep_src:
+                    shutil.rmtree(patch_dir)
+
+                # write visibility
+                f.write('%s %f\n' % (op.join(scene_name, out_name), visible_perc))
 

@@ -1,5 +1,6 @@
-import logging
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
+import logging
 import json
 import ConfigParser
 import traceback
@@ -56,6 +57,9 @@ class Cad:
             [self.server_address],
             connection_class=RequestsHttpConnection,
             http_auth=(creds[0], creds[1]),
+            timeout=30,
+            max_retries=10, 
+            retry_on_timeout=True
         )
 
         self._collections = []
@@ -75,11 +79,11 @@ class Cad:
             index=self.index_name,
             doc_type=self.type_name,
             body = {
-                      'query': {
-                        'term': {
-                          'model_id': '%s' % model_id 
-                        }
-                      }
+                     'query': {
+                       'term': {
+                         'model_id': '%s' % model_id 
+                       }
+                     }
                    }
             )
         hits = result['hits']['hits']
@@ -94,6 +98,8 @@ class Cad:
 
     def get_hit_by_id_and_collection (self, model_id, collection_id):
         '''Find a model in ES, if any (result should be unique)
+        While (model_id, collection_id) combination is unique,
+          other collections may have the same model_id, but tagged invalid.
         '''
         result = self.es.search(
             index=self.index_name,
@@ -132,6 +138,31 @@ class Cad:
         return hit['_source'] if hit else None
 
 
+    def get_all_models_in_collection (self, collection_id):
+        ''' get _source fields from all hits '''
+        result = self.es.search(
+            index=self.index_name,
+            doc_type=self.type_name,
+            body = {
+                      'size': 10000,
+                      'query': {
+                        'bool': {
+                          'must':
+                          {
+                            'term': {
+                              'collection_id': '%s' % collection_id
+                            }
+                          }
+                        }
+                      }
+                   }
+        )
+
+        hits = result['hits']['hits']
+        logging.info ('get_all_models_in_collection: got %d hits' % len(hits))
+        return [hit['_source'] for hit in hits]
+
+
     def is_model_in_other_collections (self, model_id, collection_id):
         ''' check if this model is known as a part of some other collection '''
         seen_models = self._get_models_by_id_ (model_id)
@@ -147,17 +178,55 @@ class Cad:
         return seen_collection_ids
 
 
-    def update_model (self, vehicle, collection_id):
-        assert 'model_id' in vehicle
+    def get_random_ready_models (self, number=1):
+        result = self.es.search(
+            index=self.index_name,
+            doc_type=self.type_name,
+            body = {
+                      'size': number,
+                      'query': {
+                        'function_score': {
+                          'functions': [
+                            {
+                              'random_score' : {}
+                            }
+                          ],
+                          'score_mode': 'sum',
+                          'query': {
+                            'bool': {
+                              'must': [
+                                {
+                                  'term': {
+                                    'ready': True
+                                  }
+                                },
+                                {
+                                  'term': {
+                                    'valid': True
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                   }
+        )
+        hits = result['hits']['hits']
+        return [hit['_source'] for hit in hits]
 
-        # add some fields to vehicle
-        vehicle['collection_id'] = collection_id
-        if 'date' not in vehicle:
+
+    def update_model (self, model, collection_id):
+        assert 'model_id' in model
+
+        # add some fields to model
+        model['collection_id'] = collection_id
+        if 'date' not in model:
             timestr = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-            vehicle['date'] = timestr + self.cam_timezone
-        logging.debug (json.dumps(vehicle, indent=4))
+            model['date'] = timestr + self.cam_timezone
+        logging.debug (json.dumps(model, indent=4))
 
-        hit = self.get_hit_by_id_and_collection (vehicle['model_id'], collection_id)
+        hit = self.get_hit_by_id_and_collection (model['model_id'], collection_id)
         logging.debug(json.dumps(hit, indent=4))
 
         # if update
@@ -168,19 +237,19 @@ class Cad:
                 index=self.index_name, 
                 doc_type=self.type_name, 
                 id=_id, 
-                body=vehicle)
+                body=model)
         # if insert
         else:
             logging.info ('update_model_id: inserting model')
             return self.es.index(
                 index=self.index_name, 
                 doc_type=self.type_name, 
-                body=vehicle)
+                body=model)
 
 
     def upload_collection_to_db (self, collection):
-        for vehicle in collection['vehicles']:
-            self.update_model (vehicle, collection['collection_id'])
+        for model in collection['vehicles']:
+            self.update_model (model, collection['collection_id'])
 
 
 
@@ -192,7 +261,28 @@ if __name__ == "__main__":
 
     cad = Cad()
     result = cad.check_connection()
-    result = cad._get_models_by_id_('test')
-    result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
-    result = cad.update_model ({'model_id': 'test'}, collection_id='test')
+    result = cad._get_models_by_id_('u538bb613-5b24-4b10-8137-4ea81d17f3c9')
+    print json.dumps(result, indent=4)
+    #result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
+    #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
 
+    # from glob import glob
+    # for collection_path in glob('/Users/evg/projects/City-Project/data/augmentation/CAD/*'):
+    #     if not op.isdir(collection_path): continue
+    #     if not op.exists(op.join(collection_path, 'readme-blended.json')): continue
+    
+    #     collection_id = op.basename(collection_path)
+    #     collection = json.load(open( op.join(collection_path, 'readme-blended.json') ))
+    #     for model in collection['vehicles']:
+    #         model['author_name']     = collection['author_name']
+    #         model['author_id']       = collection['author_id']
+    #         model['collection_name'] = collection['collection_name']
+    #         model['collection_id']   = collection['collection_id']
+    #         assert 'ready' in model and 'valid' in model 
+    #         cad.update_model (model, collection_id)
+
+    # models = cad.get_all_models_in_collection (collection_id)
+    # for model in models:
+    #     assert 'ready' in model
+    # print (json.dumps(models, indent=4))
+    # print len(models)

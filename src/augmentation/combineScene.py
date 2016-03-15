@@ -46,6 +46,7 @@ if op.exists(correction_path):
     #                (hsv_node.color_hue, hsv_node.color_saturation))
 
 # render and save
+# TODO: should delete bpy.data.scenes['Scene'].render.filepath ??
 bpy.data.scenes['Scene'].render.filepath = atcity(op.join(WORK_DIR, RENDER_NAME))
 bpy.ops.render.render (write_still=True) 
 

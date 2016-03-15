@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import argparse
@@ -18,11 +19,11 @@ if __name__ == "__main__":
     parser.add_argument('--no_combine', action='store_true')
     parser.add_argument('--no_correction', action='store_true')
     parser.add_argument('--logging_level', default=20, type=int)
-    parser.add_argument('--video_dir')
+    parser.add_argument('--video_dir', required=True)
     parser.add_argument('--background_file')
     parser.add_argument('--render_blend_file')
     parser.add_argument('--num_cars', default=10, type=int)
-    parser.add_argument('--collection_names', nargs='+', 
+    parser.add_argument('--collection_names', nargs='+',
                         default=['7c7c2b02ad5108fe5f9082491d52810'])
     args = parser.parse_args()
 

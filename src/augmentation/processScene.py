@@ -18,7 +18,7 @@ from learning.helperImg import ProcessorVideo
 from learning.helperSetup import _setupCopyDb_, setupLogging, atcity
 from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 from placeCars import generate_current_frame
-from learning.video2dataset import make_back_dataset
+from learning.video2dataset import make_dataset
 from monitor.MonitorDatasetClient import MonitorDatasetClient
 from Cad import Cad
 from Camera import Camera
@@ -147,6 +147,8 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
         frame_info['scale'] = camera.info['scale']
         frame_info['render_individual_cars'] = params['render_individual_cars']
         traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
+        if not op.exists(op.dirname(traffic_path)):
+            os.makedirs(op.dirname(traffic_path))
         with open(traffic_path, 'w') as f:
             f.write(json.dumps(frame_info, indent=4))
 
@@ -392,10 +394,12 @@ def create_in_db (job):
         camera_name = op.basename(op.dirname(video_dir))
         video_name  = op.basename(video_dir)
         camdata_video_dir = op.join('camdata', camera_name, video_name)
-        in_db_file = op.join('databases/augmentation', camera_name, video_name, 'back.db')
+        in_db_file = op.join('databases/augmentation', camera_name, video_name, 'temp-back.db')
         job['in_db_file'] = in_db_file
         logging.info ('will create in_db_file from video: %s' % job['in_db_file'])        
     if not op.exists(atcity(job['in_db_file'])):
-        make_back_dataset (camdata_video_dir, job['in_db_file'])
+        # make an init db and change its name in the job
+        db_prefix = job['in_db_file'][:-8]   # becomes '..../temp'
+        make_dataset (camdata_video_dir, db_prefix, params={'videotypes': ['back']})
     else:
         logging.warning ('in_db_file exists. Will not rewrite it: %s', job['in_db_file'])

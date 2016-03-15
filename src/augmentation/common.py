@@ -1,12 +1,17 @@
 import bpy
-import os, os.path as op
-import sys
+import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 from math import cos, sin, pi, sqrt
 import numpy as np
 import logging
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
+from learning.helperSetup import setParamUnlessThere, assertParamIsThere
+
+NORMAL_FILENAME   = 'normal.png'
+CARSONLY_FILENAME = 'cars-only.png'
+CAR_RENDER_TEMPL  = 'vehicle-'
 
 
 
@@ -202,3 +207,45 @@ def set_sun_angle (azimuth, altitude):
     sun.data.color = c
 
 
+
+def set_weather (params):
+    '''Set sun and weather conditions
+    '''
+    assertParamIsThere  (params, 'weather')
+
+    if 'Dry'    in params['weather']: 
+        logging.info ('setting dry weather')
+        set_dry()
+    if 'Wet'    in params['weather']: 
+        logging.info ('setting wet weather')
+        set_wet()
+    if 'Cloudy' in params['weather']: 
+        logging.info ('setting cloudy weather')
+        set_cloudy()
+    if 'Sunny'  in params['weather']: 
+        alt = params['sun_altitude']
+        azi = params['sun_azimuth']
+        logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))
+        set_sunny()
+        set_sun_angle(azi, alt)
+
+
+
+def position_car (car_name, x, y, azimuth):
+    '''Put the car to a certain position on the ground plane
+    Args:
+      car_name:        name of the blender model
+      x, y:            target position in the blender x,y coordinate frame
+      azimuth:         angle in degrees, 0 is North (y-axis) and 90 deg. is East
+    '''
+    # TODO: now assumes object is at the origin.
+    #       instead of transform, assign coords and rotation
+
+    assert car_name in bpy.data.objects
+
+    # select only car
+    bpy.ops.object.select_all(action='DESELECT')  
+    bpy.data.objects[car_name].select = True
+
+    bpy.ops.transform.translate (value=(x, y, 0))
+    bpy.ops.transform.rotate (value=(90 - azimuth) * pi / 180, axis=(0,0,1))

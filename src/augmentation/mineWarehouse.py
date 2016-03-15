@@ -135,8 +135,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
         if seen_collection_ids:
             error = 'is a part of %d collections. First is %s' % \
                          (len(seen_collection_ids), seen_collection_ids[0])
-            model_info['valid'] = False
-            model_info['error'] = error
+            model_info = {'model_id': model_id, 'valid': False, 'error': error}
             logging.warning ('model_id %s %s' % (model_id, error))
             counts['skipped'] += 1
             cad.update_model (model_info, collection_id)
