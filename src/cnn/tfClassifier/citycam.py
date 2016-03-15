@@ -206,6 +206,16 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
   return tf.transpose(x6, (3, 0, 1, 2))
 
 
+def demo_visualize_kernels(kernel):
+  # scale weights to [0 255] and convert to uint8 (maybe change scaling?)
+  x_min = tf.reduce_min(kernel)
+  x_max = tf.reduce_max(kernel)
+  kernel_0_to_1 = (kernel - x_min) / (x_max - x_min)
+  kernel_0_to_255_uint8 = tf.image.convert_image_dtype (kernel_0_to_1, dtype=tf.uint8)
+  # to tf.image_summary format [batch_size, height, width, channels]
+  return tf.transpose (kernel_0_to_1, [3, 0, 1, 2])
+
+
 def predict (logits_op, labels_op):
   correct_op = tf.nn.in_top_k (logits_op, labels_op, 1)
   predicted_op = tf.argmax(logits_op, 1)

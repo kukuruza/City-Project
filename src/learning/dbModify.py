@@ -381,7 +381,6 @@ def filterCustom (c, params = {}):
     '''
     setParamUnlessThere (params, 'image_constraint', '1')
     setParamUnlessThere (params, 'car_constraint', '1')
-    # image constraint
     c.execute('DELETE FROM images WHERE NOT (%s)' % params['image_constraint'])
     c.execute('''SELECT id FROM cars WHERE 
                  NOT (%s) OR imagefile NOT IN 
@@ -390,6 +389,11 @@ def filterCustom (c, params = {}):
     car_ids = c.fetchall()
     for (car_id,) in car_ids:
         deleteCar (c, car_id)
+
+
+def deleteEmptyImages (c, params = {}):
+    c.execute('DELETE FROM images WHERE imagefile NOT IN '
+              '(SELECT imagefile FROM cars)')
 
 
 def thresholdScore (c, params = {}):

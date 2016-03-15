@@ -1,15 +1,16 @@
 function makeMultipleMaskBack (camListFile, videoName, varargin)
-% Download video from a bunch of cameras.
+% Make mask, ghost, and background (default way) for a list of videos.
+%   Videos must be from different cameras, but must have the same name.
 % This functon knows about our organization of data, e.g.
 %   camdata/cam001/Jan01-01h
 %
 % Input:
 %   camListPath - path (relative to 'relpath') to text file with list of cameras,
 %                   this file must have one camera number per line
-%   numMinutes  - number of minutes to download video for
+%   videoName   - video name for all cameras in the list, e.g. Jan01-01h
 % Optional parameters:
 %   relpath     - defaults to CITY_DATA_PATH
-%   timeZone    - the default '-05:00' (for NYC in winter time)
+%   verbose     - 0 (default), 1, or 2. Will pass it down to functions.
 
 
 % set paths
