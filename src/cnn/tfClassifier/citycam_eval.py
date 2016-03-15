@@ -107,9 +107,9 @@ def evaluate():
     # Get images and labels for citycam.
     images, labels = citycam.inputs(FLAGS.data_list_name)
 
-    # Build a Graph that computes the logits predictions from the
-    # inference model.
-    logits = citycam.inference(images)
+    # Build a Graph that computes the logits predictions from the inference model.
+    with tf.variable_scope("inference") as scope:
+      logits = citycam.inference(images)
 
     # Calculate predictions.
     top_k_op = tf.nn.in_top_k(logits, labels, 1)
@@ -118,7 +118,7 @@ def evaluate():
     variable_averages = tf.train.ExponentialMovingAverage(
         citycam.MOVING_AVERAGE_DECAY)
     variables_to_restore = variable_averages.variables_to_restore()
-    saver = tf.train.Saver(variables_to_restore)
+    saver = tf.train.Saver([v for v in tf.all_variables() if v.name.find('inference') >= 0])
 
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
@@ -144,22 +144,22 @@ def main(argv=None):  # pylint: disable=unused-argument
 if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('--data_dir', default='augmentation/patches',
-                      help='Path to the citycam data directory.')
+#  parser.add_argument('--data_dir', default='augmentation/patches',
+#                      help='Path to the citycam data directory.')
   parser.add_argument('--eval_dir', default='log/tensorflow/classifier_eval',
                       help='Directory where to write event logs.')
   parser.add_argument('--train_eval', action='store_true',
-                      help='Either "test" or "train_eval".')
-  parser.add_argument('--checkpoint_dir', default='log/tensorflow/classifier_train',
+                      help='Either "test" (default) or "train_eval".')
+  parser.add_argument('--restore_from_dir', default='log/tensorflow/classifier_train',
                       help='Directory where to read model checkpoints.')
   parser.add_argument('--eval_interval_secs', default=60*5, type=int,
                       help='How often to run the eval.')
-  parser.add_argument('--num_examples', default=10000, type=int,
+  parser.add_argument('--num_examples', default=1000, type=int,
                       help='Whether to run eval only once.')
-  parser.add_argument('--batch_size', default=128, type=int,
-                      help='Number of images to process in a batch.')
   parser.add_argument('--run_once', action='store_true',
                       help='Whether to run eval only once.')
+  parser.add_argument('--num_preprocess_threads', default=16, type=int)
+
   args = parser.parse_args()
 
 
@@ -168,15 +168,16 @@ if __name__ == '__main__':
   def atcitydata(x):
     return os.path.join(os.getenv('CITY_DATA_PATH'), x)
 
-  tf.app.flags.DEFINE_string('data_dir', atcitydata(args.data_dir), '')
+  tf.app.flags.DEFINE_string('data_dir', '/home/etoropov/projects/City-Project/data/augmentation/patches-100K', '')
   tf.app.flags.DEFINE_string('eval_dir', atcity(args.eval_dir), '')
   data_list_name = 'train_eval_list.txt' if args.train_eval else 'test_list.txt'
   tf.app.flags.DEFINE_string('data_list_name', data_list_name, '')
-  tf.app.flags.DEFINE_string('checkpoint_dir', atcity(args.checkpoint_dir), '')
+  tf.app.flags.DEFINE_string('checkpoint_dir', atcity(args.restore_from_dir), '')
   tf.app.flags.DEFINE_integer('eval_interval_secs', args.eval_interval_secs, '')
   tf.app.flags.DEFINE_integer('num_examples', args.num_examples, '')
-  tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
   tf.app.flags.DEFINE_boolean('run_once', args.run_once, '')
+  tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
 
+  print ('data_dir: %s' % FLAGS.data_dir)
 
   tf.app.run()

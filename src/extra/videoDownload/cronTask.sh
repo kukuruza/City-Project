@@ -17,5 +17,13 @@ else
     DeleteOnExit="false"
 fi
 
+# 4th argument is optional. It is a comment, if provided
+if [ $# -eq 4 ]; then
+    echo "comment argument was provided, will take it value"
+    Comment=$4
+else
+    # default. No comments
+    Comment=""
+fi
 
-matlab -nodisplay -r "cd(fullfile(getenv('CITY_PATH'), 'src')); subdirPathsSetup; downloadMultipleCams('"$CameraListPath"', "$NumMinutes", 'deleteOnExit', "$DeleteOnExit"); exit"
+matlab -nodisplay -r "cd(fullfile(getenv('CITY_PATH'), 'src')); subdirPathsSetup; downloadMultipleCams('"$CameraListPath"', "$NumMinutes", 'deleteOnExit', "$DeleteOnExit", 'comment', '"$Comment"'); exit"

@@ -27,9 +27,11 @@ parsed = parser.Results;
 
 % input
 in_image_videopath = fullfile(CITY_DATA_PATH, in_video_dir, 'src.avi');
+fprintf ('in_image_videopath: %s\n', in_image_videopath);
 
 % output
 out_mask_videofile = fullfile(in_video_dir, 'mask.avi');
+fprintf ('out_mask_videofile: %s\n', out_mask_videofile);
 
 % what to do
 write = true;
