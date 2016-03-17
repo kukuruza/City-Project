@@ -7,6 +7,7 @@ import numpy as np
 import logging
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
+from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
