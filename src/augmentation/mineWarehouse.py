@@ -163,6 +163,11 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
 
         new_models_info.append(model_info)
 
+        # backing up on each step
+        with open (op.join(collection_dir, README_NAME + '-models.backup'), 'w') as f:
+            f.write(json.dumps(new_models_info, indent=4))
+
+
     logging.info ('out of %d models in collection: \n' % len(model_urls) +
                   '    skipped:     %d\n' % counts['skipped'] + 
                   '    downloaded:  %d\n' % counts['downloaded'] +
