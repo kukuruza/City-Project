@@ -138,7 +138,7 @@ class Cad:
         return hit['_source'] if hit else None
 
 
-    def get_all_models_in_collection (self, collection_id):
+    def get_ready_models_in_collection (self, collection_id):
         ''' get _source fields from all hits '''
         result = self.es.search(
             index=self.index_name,
@@ -147,12 +147,23 @@ class Cad:
                       'size': 10000,
                       'query': {
                         'bool': {
-                          'must':
-                          {
-                            'term': {
-                              'collection_id': '%s' % collection_id
+                          'must': [
+                            {
+                              'term': {
+                                'collection_id': '%s' % collection_id
+                              }
+                            },
+                            {
+                              'term': {
+                                'ready': True
+                              }
+                            },
+                            {
+                              'term': {
+                                'valid': True
+                              }
                             }
-                          }
+                          ]
                         }
                       }
                    }

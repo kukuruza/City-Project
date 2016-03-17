@@ -291,7 +291,7 @@ if __name__ == "__main__":
 
     cad = Cad()
 
-    models   = cad.get_all_models_in_collection (args.collection_id)
+    models   = cad.get_ready_models_in_collection (args.collection_id)
     diapason = Diapason (len(models), args.models_range)
     models   = diapason.filter_list(models)
     for model in models: 
