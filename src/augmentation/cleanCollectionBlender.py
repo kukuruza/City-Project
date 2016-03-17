@@ -1,18 +1,20 @@
-import json
 import sys, os, os.path as op
-import argparse
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
+import json
 import logging
 import collections
 import time
+import shutil
 from math import cos, sin, pi, sqrt
 
 import bpy
 from mathutils import Vector
 
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/augmentation'))
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import setupLogging, _setupCopyDb_  # untended use of _setupCopyDb_
-import common
+from learning.helperSetup import atcity, setupLogging
+from augmentation.common import *
+
+WORK_DIR = atcity('augmentation/blender/current-collection')
 
 
 
@@ -168,39 +170,45 @@ def get_origin_and_dims_adjusted (car_group_name, min_count = 10):
     return origin, dims
 
 
-# def get_origin_and_dims_4single (car_group_name):
+def get_origin_and_dims_single (car_group_name, mirrors=False):
+    '''
+    Args:
+      mirrors:   if True, adjust 'y' for mirrors
+    '''
 
-#     obj = bpy.data.groups[car_group_name].objects[0]
-#     roi = bounds(obj)
-#     origin = [(roi.x.min+roi.x.max)/2, (roi.y.min+roi.y.max)/2, roi.z.min]
-#     origin = dict(zip(['x', 'y', 'z'], origin))
-#     dims = [roi.x.max-roi.x.min, roi.y.max-roi.y.min, roi.z.max-roi.z.min]
-#     dims = dict(zip(['x', 'y', 'z'], dims))
-#     return origin, dims
+    obj = bpy.data.groups[car_group_name].objects[0]
+    roi = bounds(obj)
+    origin = [(roi.x.min+roi.x.max)/2, (roi.y.min+roi.y.max)/2, roi.z.min]
+    origin = dict(zip(['x', 'y', 'z'], origin))
+    dims = [roi.x.max-roi.x.min, roi.y.max-roi.y.min, roi.z.max-roi.z.min]
+    dims = dict(zip(['x', 'y', 'z'], dims))
+    if mirrors:
+        dims['y'] *= 0.87
+    return origin, dims
     
 
 
-def process_car_obj (scene_path, collection_dir, vehicle, dims_true):
+def process_car_obj (scene_path, vehicle, dims_true):
     '''Rewrites all .obj models as .blend files. 
     The model will consist of many, many parts, and be all in one group
     Returns:
       nothing
     '''
+    # start with assuming the bad
+    vehicle['valid'] = False
+    vehicle['ready'] = False
+
     model_id = vehicle['model_id']
     logging.info ('processing model: %s' % model_id)
-
-    obj_path   = op.join(collection_dir, 'obj', '%s.obj' % model_id)
-    blend_path = op.join(collection_dir, 'blend', '%s.blend' % model_id)
-    jpg_path   = op.join(collection_dir, 'examples', '%s.png' % model_id)
 
     # start with an empty file
     bpy.ops.wm.open_mainfile(filepath=scene_path)
 
     try:
-        common.import_car_obj(obj_path, car_group_name=model_id)
+        obj_path = atcity(model['src_obj_file'])
+        import_car_obj(obj_path, car_group_name=model_id)
     except:
         logging.error('could not open .obj file')
-        vehicle['valid'] = False
         vehicle['error'] = 'blender cannot open .obj file'
         return
 
@@ -209,12 +217,11 @@ def process_car_obj (scene_path, collection_dir, vehicle, dims_true):
         origin, dims = get_origin_and_dims (model_id, height_ratio = 1)
     except Exception as e:
         logging.error (str(e))
-        vehicle['valid'] = False
         vehicle['error'] = str(e)
         return
     if dims['x'] < dims['y']:
-        bpy.ops.transform.rotate (value=90*pi/180, axis=(0,0,1))
         logging.info ('will rotate: x=%.2f < y=%.2f' % (dims['x'], dims['y']))
+        bpy.ops.transform.rotate (value=90*pi/180, axis=(0,0,1))
     else:
         logging.info ('will NOT rotate: x=%.2f > y=%.2f' % (dims['x'], dims['y']))
 
@@ -223,7 +230,7 @@ def process_car_obj (scene_path, collection_dir, vehicle, dims_true):
     logging.info ('model width: %.2f' % dims['y'])
 
     # we don't need model parts anymore (they were used in get_origin_and_dims)
-    obj = common.join_car_meshes (model_id)
+    obj = join_car_meshes (model_id)
     obj.select = True
 
     # set model origin to center(x,y) and z_min, and center model
@@ -239,66 +246,61 @@ def process_car_obj (scene_path, collection_dir, vehicle, dims_true):
     dims.update((x, round(y * scale, 2)) for x, y in dims.items())
     vehicle['dims'] = dims
 
-    # save a rendered image
-    common.render_scene(jpg_path)
-
-    bpy.ops.wm.save_as_mainfile(filepath=blend_path)
-
-    #bpy.ops.object.delete()
     vehicle['valid'] = True
+    vehicle['ready'] = True
 
 
 
-def process_car_blend (scene_path, collection_dir, vehicle, dims_true):
+def process_car_blend (scene_path, vehicle, dims_true):
     '''Rewrites all .obj models as .blend files. 
     The model will consist of many, many parts, and be all in one group
     Returns:
       nothing
     '''
+    # start with assuming the bad
+    vehicle['valid'] = False
+    vehicle['ready'] = False
+
     model_id = vehicle['model_id']
     logging.info ('processing model: %s' % model_id)
-
-    blend_src_path = op.join(collection_dir, 'blend_src', '%s.blend' % model_id)
-    blend_dst_path = op.join(collection_dir, 'blend',     '%s.blend' % model_id)
-    jpg_path       = op.join(collection_dir, 'examples',  '%s.png'   % model_id)
 
     # start with an empty file
     bpy.ops.wm.open_mainfile(filepath=scene_path)
 
     try:
-        common.import_blend_car (blend_src_path, model_id)
+        import_blend_car (atcity(model['src_blend_file']), model_id)
     except:
         logging.error('could not import .blend model')
-        vehicle['valid'] = False
         vehicle['error'] = 'blender cannot import .blend model'
         return
 
+    # select the car as object
+    obj = bpy.data.objects[model_id]
+    obj.select = True
+
     # create a group with the same name to match .obj import 
     car_group = bpy.data.groups.new(model_id)
-    bpy.context.scene.objects.active = bpy.context.scene.objects[model_id]
+    bpy.context.scene.objects.active = obj
     bpy.ops.object.group_link (group=model_id)
 
     # rotate model 90 degrees if necessary
     try:
-        origin, dims = get_origin_and_dims (model_id, height_ratio=1, min_count=1)
+        origin, dims = get_origin_and_dims_single (model_id)
     except Exception as e:
         logging.error (str(e))
-        vehicle['valid'] = False
         vehicle['error'] = str(e)
         return
     if dims['x'] < dims['y']:
-        bpy.ops.transform.rotate (value=90*pi/180, axis=(0,0,1))
         logging.info ('will rotate: x=%.2f < y=%.2f' % (dims['x'], dims['y']))
+        logging.debug ('dims/origin before rotation: %s, %s' % (str(dims), str(origin)))
+        bpy.context.scene.objects.active = bpy.context.scene.objects[model_id]
+        bpy.ops.transform.rotate (value=90*pi/180, axis=(0,0,1))
     else:
         logging.info ('will NOT rotate: x=%.2f > y=%.2f' % (dims['x'], dims['y']))
 
     # get the origin and dims. At this point model is oriented along X
-    origin, dims = get_origin_and_dims_adjusted (model_id, min_count=1)
-    logging.info ('model width: %.2f' % dims['y'])
-
-    # we don't need model parts anymore (they were used in get_origin_and_dims)
-    obj = common.join_car_meshes (model_id)
-    obj.select = True
+    origin, dims = get_origin_and_dims_single (model_id, mirrors=True)
+    logging.debug ('dims/origin before moving: %s, %s' % (str(dims), str(origin)))
 
     # set model origin to center(x,y) and z_min, and center model
     bpy.context.scene.cursor_location = (origin['x'], origin['y'], origin['z'])
@@ -313,74 +315,67 @@ def process_car_blend (scene_path, collection_dir, vehicle, dims_true):
     dims.update((x, round(y * scale, 2)) for x, y in dims.items())
     vehicle['dims'] = dims
 
-    # save a rendered image
-    common.render_scene(jpg_path)
+    # print dims
+    origin, dims = get_origin_and_dims_single (model_id, mirrors=True)
+    logging.debug ('dims/origin final: %s, %s' % (str(dims), str(origin)))
 
-    bpy.ops.wm.save_as_mainfile(filepath=blend_dst_path)
-
-    #bpy.ops.object.delete()
     vehicle['valid'] = True
+    vehicle['ready'] = True
+
+
+
+def process_model (scene_path, model):
+    '''Rewrite the .blend file and change provided model dict
+    Returns:
+      nothing but changes 'model'
+    '''
+    valid = model['valid'] if 'valid' in model else True
+    if not valid: 
+        logging.info ('skip invalid midel %s' % model['model_id'])
+        return
+
+    if 'dims_true' in model:
+        dims_true = model['dims_true']
+    else:
+        # defaults for each model type
+        assert model['vehicle_type'] in width_true, \
+            'no default size for model type %s' % model['vehicle_type']
+        dims_true = {'y': width_true[model['vehicle_type']]}
+    logging.info ('will use true dims: %s' % str(dims_true))
+
+    if 'src_blend_file' in model:
+        process_car_blend (scene_path, model, dims_true)
+    elif 'src_obj_file' in model:
+        process_car_obj   (scene_path, model, dims_true)
+    else:
+        raise Exception('not supported')
+
+    # save clean blend
+    dst_blend_file = model['dst_blend_file']
+    if not op.exists(atcity(op.dirname(dst_blend_file))):
+        os.makedirs(atcity(op.dirname(dst_blend_file)))
+    logging.info ('writing model to %s' % dst_blend_file)
+    bpy.ops.wm.save_as_mainfile(filepath=atcity(dst_blend_file))
+
+    # save a rendered example
+    example_file = model['example_file']
+    if not op.exists(atcity(op.dirname(example_file))): 
+        os.makedirs(atcity(op.dirname(example_file)))
+    logging.info ('writing example to %s' % example_file)
+    render_scene(atcity(example_file))
 
 
 
 
+setupLogging('log/augmentation/cleanCollectionBlender.log', logging.DEBUG, 'a')
 
-def process_collection (collection_dir, scene_path):
+scene_path = atcity('augmentation/scenes/empty-import.blend')
 
-    collection_old_path = op.join(collection_dir, 'readme-src.json')
-    collection_new_path = op.join(collection_dir, 'readme-blended.json')
-    # back up collection json
-    _setupCopyDb_ (collection_old_path, collection_new_path)
-    collection = json.load(open(collection_old_path))
+src_model_path = op.join(WORK_DIR, 'model-src.json')
+model = json.load(open(src_model_path))
 
-    if not op.exists (op.join(collection_dir, 'blend')):
-        os.makedirs (op.join(collection_dir, 'blend'))
-    if not op.exists (op.join(collection_dir, 'examples')):
-        os.makedirs (op.join(collection_dir, 'examples'))
+process_model(scene_path, model)
 
-    for i,vehicle in enumerate(collection['vehicles']):
-        valid = vehicle['valid'] if 'valid' in vehicle else True
-        if not valid: 
-            logging.debug ('skip invalid midel %s' % vehicle['model_id'])
-            continue
-
-        if 'dims_true' in vehicle:
-            dims_true = vehicle['dims_true']
-        else:
-            # defaults for each vehicle type
-            dims_true = {'y': width_true[vehicle['vehicle_type']]}
-        logging.info ('will use true dims: %s' % str(dims_true))
-
-        if vehicle['skp2blend'] == 'BlendUp':
-            process_car_blend (scene_path, collection_dir, vehicle, dims_true)
-        elif vehicle['skp2blend'] == 'exportObj':
-            process_car_obj   (scene_path, collection_dir, vehicle, dims_true)
-        else:
-            raise Exception('not supported')
-
-        # update collection
-        collection['vehicles'][i] = vehicle
-
-    # rewrite the collection
-    with open(collection_new_path, 'w') as f:
-        f.write(json.dumps(collection, indent=4))
-
-
-
-#if __name__ == "__main__":
-#
-#    parser = argparse.ArgumentParser()
-#    parser.add_argument('--collection_path')
-#    parser.add_argument('--scale')
-#    args = parser.parse_args()
-#
-#    scaleCollection (args.collection_path, args.scale)
-
-scene_path = op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/scenes/empty-import.blend')
-
-collection_dir = op.join(os.getenv('CITY_DATA_PATH'), 
-    'augmentation/CAD/taxi-without-collection')
-
-setupLogging('log/augmentation/obj2blend.log', logging.DEBUG, 'w')
-
-process_collection (collection_dir, scene_path)
+dst_model_path = op.join(WORK_DIR, 'model-dst.json')
+with open(dst_model_path, 'w') as f:
+    f.write(json.dumps(model, indent=4))

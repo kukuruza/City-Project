@@ -60,7 +60,8 @@ def download_model (browser, url, model_dir, args):
                   'model_name':   model_name,
                   'vehicle_type': args.vehicle_type,
                   'description':  description,
-                  'valid':        True}
+                  'valid':        True,
+                  'ready':        False}
     logging.debug ('vehicle info: %s' % str(model_info))
     print (json.dumps(model_info, indent=4))
 
@@ -123,11 +124,12 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
                 else:
                     logging.info ('skipping bad for some reason model: %s' % model_id)
                     counts['skipped'] += 1
+                    new_models_info.append(model_info)
                     continue
             else:
                 logging.info ('skipping previously downloaded model_id %s' % model_id)
-                model_info['valid'] = True
                 counts['skipped'] += 1
+                new_models_info.append(model_info)
                 continue
 
         # check if this model is known as a part of some other collection
@@ -135,10 +137,12 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
         if seen_collection_ids:
             error = 'is a part of %d collections. First is %s' % \
                          (len(seen_collection_ids), seen_collection_ids[0])
-            model_info = {'model_id': model_id, 'valid': False, 'error': error}
-            logging.warning ('model_id %s %s' % (model_id, error))
+            model_info = {'model_id': model_id, 
+                          'valid': False, 
+                          'ready': False, 
+                          'error': error}
             counts['skipped'] += 1
-            cad.update_model (model_info, collection_id)
+            logging.warning ('model_id %s %s' % (model_id, error))
             new_models_info.append(model_info)
             continue
 
@@ -153,10 +157,10 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
                % (model_id, traceback.format_exc()))
             model_info = {'model_id': model_id, 
                           'valid': False,
+                          'ready': False,
                           'error': 'download failed: timeout error'}
             counts['failed'] += 1
 
-        cad.update_model (model_info, collection_id)
         new_models_info.append(model_info)
 
     logging.info ('out of %d models in collection: \n' % len(model_urls) +
@@ -171,7 +175,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
 def download_collection (browser, collection_id, cad, args):
 
     # collection_id is the last part of the url
-    url = 'https://3dwarehouse.sketchup.com/collection.html?id=' + collection_id
+    url = 'https://3dwarehouse.sketchup.com/collection.html?id=%s' % collection_id
     collection_dir = op.join(CAD_DIR, collection_id)
     logging.info ('will download coleection_id: %s' % collection_id)
 
@@ -253,12 +257,84 @@ def download_collection (browser, collection_id, cad, args):
 
 
 
+def download_author_models (browser, author_id, cad, args):
+    '''Write models of an author, which are not in any collection
+    '''
+    # collection_id is made up as 'author-%s' % author_id
+    url = 'https://3dwarehouse.sketchup.com/user.html?id=%s' % author_id
+    collection_id = 'author-%s' % author_id
+    collection_dir = op.join(CAD_DIR, collection_id)
+    logging.info ('will download coleection_id: %s' % collection_id)
+
+    # if collection exists
+    collection_path = op.join(collection_dir, README_NAME)
+    if op.exists(collection_path):
+        # if 'overwrite' enabled, remove everything and write from scratch
+        if args.overwrite_collection:
+            shutil.rmtree(collection_dir)
+        else:
+            # if 'overwrite' disabled, try to read what was downloaded
+            try:
+                collection_info = json.load(open(collection_path))
+                models_info = collection_info['vehicles']
+            # if 'overwrite' disabled and can't read/parse the readme
+            except:
+                raise Exception('Failed to parse the collection due to: %s'
+                    % sys.exc_info()[0])
+    else:
+        models_info = []
+        if not op.exists(op.join(collection_dir, 'skp_src')):
+            os.makedirs(op.join(collection_dir, 'skp_src'))
+
+    # open the page with collection
+    browser.get(url)
+    WebDriverWait(browser, timeout=args.timeout).until(
+        lambda x: x.find_elements_by_class_name('results-entity-link'))
+
+    # get author
+    element = browser.find_element_by_id('display-name')
+    author_name = validateString(element.text.encode('ascii','ignore'))
+
+    # keep scrolling the page until models show up (for pages with many models)
+    prev_number = 0
+    while True:
+        browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        elements = browser.find_elements_by_class_name('results-entity-link')
+        logging.info ('found %d models' % len(elements))
+        if prev_number == len(elements):
+            break
+        else:
+            prev_number = len(elements)
+            time.sleep(1)
+    # get the model urls
+    model_urls = []
+    for element in elements:
+        model_url = element.get_attribute('href')
+        model_urls.append(model_url)
+
+    # download all models
+    new_models_info = download_all_models (model_urls, models_info, 
+                                           collection_id, collection_dir)
+
+    collection_info = {'collection_id': collection_id,
+                       'collection_name': '',
+                       'author_id': author_id,
+                       'author_name': author_name,
+                       'vehicles': new_models_info
+                       }
+
+    with open (op.join(collection_dir, README_NAME), 'w') as f:
+        f.write(json.dumps(collection_info, indent=4))
+
+
+
 
 if __name__ == "__main__":
     setupLogging('log/augmentation/MineWarehouse.log', logging.INFO, 'w')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--collection_id')
+    parser.add_argument('--author_id')
     parser.add_argument('--overwrite_collection', action='store_true')
     parser.add_argument('--vehicle_type', nargs='?', default='object')
     parser.add_argument('--timeout', nargs='?', default=10, type=int)
@@ -268,4 +344,9 @@ if __name__ == "__main__":
 
     # use firefox to get page with javascript generated content
     with closing(Firefox()) as browser:
-        download_collection (browser, args.collection_id, cad, args)
+        if   args.collection_id is not None and args.author_id is None:
+            download_collection (browser, args.collection_id, cad, args)
+        elif args.collection_id is None and args.author_id is not None:
+            download_author_models (browser, args.author_id, cad, args)
+        else:
+            logging.error ('Supply exatcly one of collection_id or author_id')

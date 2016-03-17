@@ -216,17 +216,22 @@ class Cad:
         return [hit['_source'] for hit in hits]
 
 
-    def update_model (self, model, collection_id):
+    def update_model (self, model, collection):
         assert 'model_id' in model
+        assert 'ready' in model and 'valid' in model 
 
         # add some fields to model
-        model['collection_id'] = collection_id
+        model['author_name']     = collection['author_name']
+        model['author_id']       = collection['author_id']
+        model['collection_name'] = collection['collection_name']
+        model['collection_id']   = collection['collection_id']
         if 'date' not in model:
             timestr = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             model['date'] = timestr + self.cam_timezone
         logging.debug (json.dumps(model, indent=4))
 
-        hit = self.get_hit_by_id_and_collection (model['model_id'], collection_id)
+        hit = self.get_hit_by_id_and_collection (
+            model['model_id'], collection['collection_id'])
         logging.debug(json.dumps(hit, indent=4))
 
         # if update
@@ -247,9 +252,9 @@ class Cad:
                 body=model)
 
 
-    def upload_collection_to_db (self, collection):
+    def update_collection (self, collection):
         for model in collection['vehicles']:
-            self.update_model (model, collection['collection_id'])
+            self.update_model (model, collection)
 
 
 
@@ -261,25 +266,29 @@ if __name__ == "__main__":
 
     cad = Cad()
     result = cad.check_connection()
-    result = cad._get_models_by_id_('u538bb613-5b24-4b10-8137-4ea81d17f3c9')
-    print json.dumps(result, indent=4)
+    #result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
+    #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
+
     #result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
     #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
 
     # from glob import glob
-    # for collection_path in glob('/Users/evg/projects/City-Project/data/augmentation/CAD/*'):
-    #     if not op.isdir(collection_path): continue
-    #     if not op.exists(op.join(collection_path, 'readme-blended.json')): continue
-    
-    #     collection_id = op.basename(collection_path)
-    #     collection = json.load(open( op.join(collection_path, 'readme-blended.json') ))
-    #     for model in collection['vehicles']:
-    #         model['author_name']     = collection['author_name']
-    #         model['author_id']       = collection['author_id']
-    #         model['collection_name'] = collection['collection_name']
-    #         model['collection_id']   = collection['collection_id']
-    #         assert 'ready' in model and 'valid' in model 
-    #         cad.update_model (model, collection_id)
+    # for collection_dir in glob(atcity('augmentation/CAD/*')):
+    #     if not op.isdir(collection_dir): continue
+    #     for blend1_path in glob(op.join(collection_dir, 'blend/*.blend1')):
+    #         os.remove (blend1_path)
+    #     for blend1_path in glob(op.join(collection_dir, 'blend_src/*.blend1')):
+    #         os.remove (blend1_path)
+
+        # if not op.isdir(collection_dir): continue
+        # collection_path = op.join(collection_dir, 'readme-blended.json')
+        # if not op.exists(collection_path): continue
+        # collection = json.load(open(collection_path))
+        # update_collection(collection)
+
+    collection_path = atcity('augmentation/CAD/5f08583b1f45a9a7c7193c87bbfa9088/readme-blended.json')
+    collection = json.load(open(collection_path))
+    cad.update_collection(collection)
 
     # models = cad.get_all_models_in_collection (collection_id)
     # for model in models:
