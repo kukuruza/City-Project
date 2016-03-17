@@ -229,8 +229,8 @@ def run_patches_job (job):
 
     main_model  = choice(job['main_models'])
     del job['main_models']
-    occl_models = Cad().get_random_ready_models (number=job['num_occluding'])
-    del job['num_occluding']
+    occl_models = job['occl_models']
+    del job['occl_models']
 
     # place the main vehicle
     main_vehicle = main_model
@@ -289,7 +289,9 @@ if __name__ == "__main__":
             shutil.rmtree(op.join(PATCHES_HOME_DIR, args.patches_name))
         os.makedirs(op.join(PATCHES_HOME_DIR, args.patches_name))
 
-    models   = Cad().get_all_models_in_collection (args.collection_id)
+    cad = Cad()
+
+    models   = cad.get_all_models_in_collection (args.collection_id)
     diapason = Diapason (len(models), args.models_range)
     models   = diapason.filter_list(models)
     for model in models: 
@@ -297,7 +299,6 @@ if __name__ == "__main__":
     logging.info('Using total %d models.' % len(models))
 
     job = {'num_per_session': args.num_per_session,
-           'num_occluding':   args.num_occluding,
            'patches_name':    args.patches_name,
            'main_models':     models}
 
@@ -305,7 +306,13 @@ if __name__ == "__main__":
     num_sessions = int(ceil(float(args.number) / args.num_per_session))
     logging.info ('num_sessions: %d' % num_sessions)
     jobs = [job.copy() for i in range(num_sessions)]
-    for i,job in enumerate(jobs): job['i'] = i
+    for i,job in enumerate(jobs): 
+        job['i'] = i
+        job['occl_models'] = cad.get_random_ready_models (args.num_occluding)
+        for occl_model in job['occl_models']:
+            if 'description' in occl_model:
+                del occl_model['description']  # to make it more compact
+
 
     # workhorse
     if args.render == 'SEQUENTIAL':
