@@ -306,9 +306,8 @@ def inference1(images):
   return softmax_linear
 
 
-#keep_prob = tf.placeholder(tf.float32) # dropout (keep probability)
 
-def inference2 (images): #, _dropout=1.0):
+def inference2 (images, _dropout):
     '''Build a deeper net (input is 64x64x3 images)
     '''
     # conv1
@@ -388,7 +387,7 @@ def inference2 (images): #, _dropout=1.0):
       #_activation_summary(local4)
 
       # only during training
-      #local4 = tf.nn.dropout(local4, _dropout)
+      local4 = tf.nn.dropout(local4, _dropout)
 
     # softmax, i.e. softmax(WX + b)
     with tf.variable_scope('softmax_linear') as scope:
@@ -404,9 +403,9 @@ def inference2 (images): #, _dropout=1.0):
 
 
 
-def inference(images):
+def inference(images, keep_prob):
     '''Thin proxy'''
-    return inference2(images)
+    return inference2(images, keep_prob)
 
 
 

@@ -37,7 +37,7 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 
 
 
-def evaluate_set (sess, (correct_op, predicted_op, labels_op), num_examples):
+def evaluate_set (sess, (correct_op, predicted_op, labels_op), keep_prob, num_examples):
   """Convenience function to run evaluation for for every batch. 
      Sum the number of correct predictions and output one precision value.
   Args:
@@ -54,7 +54,8 @@ def evaluate_set (sess, (correct_op, predicted_op, labels_op), num_examples):
 
   for step in xrange(num_iter):
 
-    [correct, predicted, labels]  = sess.run([correct_op, predicted_op, labels_op])
+    [correct, predicted, labels]  = sess.run([correct_op, predicted_op, labels_op],
+                                             feed_dict={keep_prob: 1.0})
     #print (correct)
     #print (predicted)
     #print (labels)
@@ -87,10 +88,12 @@ def train():
     # Build a Graph that computes the logits predictions from the inference model.
     with tf.variable_scope("inference") as scope:
 
-      logits      = citycam.inference(images)
+      keep_prob = tf.placeholder(tf.float32) # dropout (keep probability)
+
+      logits      = citycam.inference(images, keep_prob)
       scope.reuse_variables()
-      logits_eval = citycam.inference(images_eval)
-      logits_test = citycam.inference(images_test)
+      logits_eval = citycam.inference(images_eval, keep_prob)
+      logits_test = citycam.inference(images_test, keep_prob)
 
       predict_ops      = citycam.predict(logits,      labels)
       predict_eval_ops = citycam.predict(logits_eval, labels_eval)
@@ -168,7 +171,7 @@ def train():
             break
 
           start_time = time.time()
-          _, loss_value = sess.run([train_op, loss])
+          _, loss_value = sess.run([train_op, loss], feed_dict={keep_prob: 0.5})
           duration = time.time() - start_time
 
           assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -184,9 +187,9 @@ def train():
                                  examples_per_sec, sec_per_batch))
 
           if step % FLAGS.period_evaluate == 0:
-            prec_train = evaluate_set (sess, predict_ops,      FLAGS.num_eval_examples)
-            prec_eval  = evaluate_set (sess, predict_eval_ops, FLAGS.num_eval_examples)
-            prec_test  = evaluate_set (sess, predict_test_ops, FLAGS.num_eval_examples)
+            prec_train = evaluate_set (sess, predict_ops,      keep_prob, FLAGS.num_eval_examples)
+            prec_eval  = evaluate_set (sess, predict_eval_ops, keep_prob, FLAGS.num_eval_examples)
+            prec_test  = evaluate_set (sess, predict_test_ops, keep_prob, FLAGS.num_eval_examples)
             print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
             print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
             print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
