@@ -109,6 +109,7 @@ def make_snapshot (render_dir, car_names, params):
     bpy.ops.render.render (write_still=True)
 
     # move to a better name
+    assert op.exists(atcity(op.join(render_dir, 'Image0001'))), 'didnt render color'
     os.rename(atcity(op.join(render_dir, 'Image0001')), 
               atcity(op.join(render_dir, 'render.png')))
 
@@ -128,6 +129,7 @@ def make_snapshot (render_dir, car_names, params):
     bpy.ops.render.render (write_still=True)
 
     # move to a better name
+    assert op.exists(atcity(op.join(render_dir, 'Image0001'))), 'didnt render all depth'
     os.rename(atcity(op.join(render_dir, 'Image0001')), 
               atcity(op.join(render_dir, 'depth-all.png')))
 
@@ -143,6 +145,7 @@ def make_snapshot (render_dir, car_names, params):
     bpy.ops.render.render (write_still=True)
 
     # move to a better name
+    assert op.exists(atcity(op.join(render_dir, 'Image0001'))), 'didnt render main depth'
     os.rename(atcity(op.join(render_dir, 'Image0001')), 
               atcity(op.join(render_dir, 'depth-car.png')))
 
@@ -169,6 +172,11 @@ def photo_session (job):
     # open the blender file
     scene_path = atcity('augmentation/scenes/photo-session.blend')
     bpy.ops.wm.open_mainfile (filepath=scene_path)
+
+    setParamUnlessThere (job, 'render_width',  200)
+    setParamUnlessThere (job, 'render_height', 150)
+    bpy.context.scene.render.resolution_x = job['render_width']
+    bpy.context.scene.render.resolution_y = job['render_height']
 
     car_names = []
     for i,vehicle in enumerate(vehicles):
