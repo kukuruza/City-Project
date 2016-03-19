@@ -26,12 +26,12 @@ import tensorflow as tf
 
 
 # Dimensions of images stored in jpeg
-IN_IMAGE_WIDTH = 32
-IN_IMAGE_HEIGHT = 32
+IN_IMAGE_WIDTH = 72
+IN_IMAGE_HEIGHT = 72
 
 # Dimensions that CNN trains for
-IMAGE_WIDTH = 24
-IMAGE_HEIGHT = 24
+IMAGE_WIDTH = 64
+IMAGE_HEIGHT = 64
 NUM_CHANNELS = 3
 NUM_CLASSES = 2
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1024

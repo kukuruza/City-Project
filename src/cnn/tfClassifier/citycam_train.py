@@ -80,7 +80,7 @@ def train():
     with tf.name_scope("train_images"): 
       images, labels           = citycam.distorted_inputs('train_list.txt')
     with tf.name_scope("eval_images"): 
-      images_eval, labels_eval = citycam.distorted_inputs('train_eval_list.txt')
+      images_eval, labels_eval = citycam.distorted_inputs('eval_list.txt')
     with tf.name_scope("test_images"): 
       images_test, labels_test = citycam.inputs('test_list.txt')
 
