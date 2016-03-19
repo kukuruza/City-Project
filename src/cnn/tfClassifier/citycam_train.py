@@ -197,8 +197,9 @@ def train():
           if step % FLAGS.period_summary == 0:
             summary_str = sess.run(summary_op, 
               feed_dict={summary_train_prec: prec_train,
-                         summary_eval_prec: prec_eval,
-                         summary_test_prec: prec_test})
+                         summary_eval_prec:  prec_eval,
+                         summary_test_prec:  prec_test,
+                         keep_prob:          1.0})
             summary_writer.add_summary(summary_str, step)
 
           # Save the model checkpoint periodically.
