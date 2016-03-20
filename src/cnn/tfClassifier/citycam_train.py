@@ -82,8 +82,8 @@ def train():
       images, labels           = citycam.distorted_inputs('train_list.txt')
     with tf.name_scope("eval_images"): 
       images_eval, labels_eval = citycam.distorted_inputs('eval_list.txt')
-#    with tf.name_scope("test_images"): 
-#      images_test, labels_test = citycam.inputs('test_list.txt')
+    with tf.name_scope("test_images"): 
+      images_test, labels_test = citycam.inputs('test_list.txt')
 
     # Build a Graph that computes the logits predictions from the inference model.
     with tf.variable_scope("inference") as scope:
@@ -93,18 +93,18 @@ def train():
       logits      = citycam.inference(images, keep_prob)
       scope.reuse_variables()
       logits_eval = citycam.inference(images_eval, keep_prob)
-#      logits_test = citycam.inference(images_test, keep_prob)
+      logits_test = citycam.inference(images_test, keep_prob)
 
       predict_ops      = citycam.predict(logits,      labels)
       predict_eval_ops = citycam.predict(logits_eval, labels_eval)
-#      predict_test_ops = citycam.predict(logits_test, labels_test)
+      predict_test_ops = citycam.predict(logits_test, labels_test)
 
       summary_train_prec = tf.placeholder(tf.float32)
       summary_eval_prec  = tf.placeholder(tf.float32)
-#      summary_test_prec  = tf.placeholder(tf.float32)
+      summary_test_prec  = tf.placeholder(tf.float32)
       tf.scalar_summary('precision/train.', summary_train_prec)
       tf.scalar_summary('precision/eval.', summary_eval_prec)
-#      tf.scalar_summary('precision/test.', summary_test_prec)
+      tf.scalar_summary('precision/test.', summary_test_prec)
 
       with tf.name_scope('visualization'):
         kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'), (8,8))
@@ -189,16 +189,16 @@ def train():
           if step % FLAGS.period_evaluate == 0:
             prec_train = evaluate_set (sess, predict_ops,      keep_prob, FLAGS.num_eval_examples)
             prec_eval  = evaluate_set (sess, predict_eval_ops, keep_prob, FLAGS.num_eval_examples)
-#            prec_test  = evaluate_set (sess, predict_test_ops, keep_prob, FLAGS.num_eval_examples)
+            prec_test  = evaluate_set (sess, predict_test_ops, keep_prob, FLAGS.num_eval_examples)
             print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
             print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
-#            print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
+            print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
 
           if step % FLAGS.period_summary == 0:
             summary_str = sess.run(summary_op, 
               feed_dict={summary_train_prec: prec_train,
                          summary_eval_prec:  prec_eval,
-#                         summary_test_prec:  prec_test,
+                         summary_test_prec:  prec_test,
                          keep_prob:          1.0})
             summary_writer.add_summary(summary_str, step)
 
