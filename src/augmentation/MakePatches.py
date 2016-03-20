@@ -139,19 +139,24 @@ def place_occluding_vehicles (vehicle0, other_models):
 
 
 
-def extract_bbox (mask):
+def mask2bbox (mask):
     '''Extract a single (if any) bounding box from the image
     Args:
       mask:  boolean mask of the car
     Returns:
       bbox:  (x1, y1, width, height)
     '''
+    assert mask is not None
+    assert len(mask.shape) == 2, 'mask.shape: %s' % str(mask.shape)
+
     # keep only vehicles with resonable bboxes
     if np.count_nonzero(mask) == 0:
         return None
 
     # get bbox
     nnz_indices = np.argwhere(mask)
+    if len(nnz_indices) == 0:
+      return None
     (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
     (height, width) = y2 - y1, x2 - x1
     return (x1, y1, width, height)
@@ -168,10 +173,14 @@ def crop_patches (patch_dir, expand_perc, target_width, target_height):
     '''
     try:
         patch = cv2.imread(op.join(patch_dir, 'render.png'))
-        mask  = cv2.imread(op.join(patch_dir, 'depth-car.png'), 0) < 255
+        mask  = cv2.imread(op.join(patch_dir, 'mask.png'), 0)
+        assert patch is not None
+        assert mask is not None and mask.dtype == np.uint8
+        assert patch.shape[0:2] == mask.shape[0:2]
 
-        bbox = extract_bbox(mask)
-        assert bbox is not None, 'Mask is empty. Car is outside of the image.'
+        bbox = mask2bbox(mask)
+        if bbox is None:
+            raise Exception('Mask is empty. Car is outside of the image.')
         roi = bbox2roi(bbox)
         ratio = float(target_height) / target_width
         imshape = (patch.shape[0], patch.shape[1])
@@ -180,12 +189,35 @@ def crop_patches (patch_dir, expand_perc, target_width, target_height):
 
         target_shape = (target_width, target_height)
 
-        crop = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
-        crop = cv2.resize(crop, target_shape)#, interpolation=cv2.INTER_LINEAR)
-        return crop
+        crop_patch = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
+        crop_mask  = mask [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+        crop_patch = cv2.resize(crop_patch, target_shape)#, interpolation=cv2.INTER_LINEAR)
+        crop_mask  = cv2.resize(crop_mask,  target_shape, interpolation=cv2.INTER_NEAREST)
+        return (crop_patch, crop_mask)
     except:
         logging.error('crop for %s failed: %s' % (patch_dir, traceback.format_exc()))
-        return None
+        return (None, None)
+
+
+
+def write_visible_mask (patch_dir):
+    '''Write the mask of the car visible area
+    '''
+    logging.debug ('making a mask in %s' % patch_dir)
+    mask_path = op.join(patch_dir, 'mask.png')
+
+    depth_all = cv2.imread(op.join(patch_dir, 'depth-all.png'), -1)
+    depth_car = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1)
+    assert depth_all is not None
+    assert depth_car is not None
+
+    # full main car mask (including occluded parts)
+    mask_car = (depth_car < 255*255)
+    # main_car mask of visible regions
+    visible_car = depth_car == depth_all
+    un_mask_car = np.logical_not(mask_car)
+    visible_car[un_mask_car] = False
+    cv2.imwrite(mask_path, visible_car.astype(np.uint8)*255)
 
 
 
@@ -197,26 +229,17 @@ def get_visible_perc (patch_dir):
     Returns:
       visible_perc:  occluded fraction
     '''
-    logging.debug ('making a mask in %s' % patch_dir)
+    visible_car = cv2.imread(op.join(patch_dir, 'mask.png'), 0) > 0
+    mask_car    = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1) < 255*255
+    assert visible_car is not None
+    assert mask_car is not None
 
-    depth_all = cv2.imread(op.join(patch_dir, 'depth-all.png'), -1)
-    depth_car = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1)
-    assert depth_all is not None
-    assert depth_car is not None
-
-    # full main car mask (including occluded parts)
-    mask_car = (depth_car < 255*255)
-    # main car mask of visible regions
-    visible_car = depth_car == depth_all
-    un_mask_car = np.logical_not(mask_car)
-    visible_car[un_mask_car] = False
     # visible percentage
     nnz_car     = np.count_nonzero(mask_car)
     nnz_visible = np.count_nonzero(visible_car)
     visible_perc = float(nnz_visible) / nnz_car
     logging.info ('visible perc: %0.2f' % visible_perc)
     return visible_perc
-
 
 
 def run_patches_job (job):
@@ -330,28 +353,39 @@ if __name__ == "__main__":
         raise Exception ('wrong args.render: %s' % args.render)
 
     # postprocess
-    visibility_path = op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt')
-    with open(visibility_path, 'w') as f:
-        for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
-            scene_name = op.basename(scene_dir)
-            for patch_dir in glob(op.join(scene_dir, '??????')):
-                visible_perc = get_visible_perc (patch_dir)
-                crop = crop_patches(patch_dir, args.expand_perc, 
-                                    args.target_width, args.target_height)
-                
-                # something went wrong
-                if crop is None: continue
+    vis_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt'), 'w')
+    roi_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'roi.txt'), 'w')
 
-                # write cropped image and visible_perc and remove the source dir
-                out_name = '%s.%s' % (op.basename(patch_dir), EXT)
-                out_path = op.join(scene_dir, out_name)
-                cv2.imwrite(out_path, crop)
-                logging.info ('wrote cropped patch: %s/%s' % (scene_name, out_name))
+    for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
+        scene_name = op.basename(scene_dir)
+        for patch_dir in glob(op.join(scene_dir, '??????')):
+            write_visible_mask (patch_dir)
+            visible_perc = get_visible_perc (patch_dir)
+            patch, mask = crop_patches(patch_dir, args.expand_perc, 
+                                       args.target_width, args.target_height)
 
-                # remove patch directory, if not 'keep_src'
-                if not args.keep_src:
-                    shutil.rmtree(patch_dir)
+            # something went wrong, probably the mask is empty
+            if patch is None or mask is None: continue
 
-                # write visibility
-                f.write('%s %f\n' % (op.join(scene_name, out_name), visible_perc))
+            # write cropped image and visible_perc and remove the source dir
+            patch_name = '%sp.%s' % (op.basename(patch_dir), EXT)
+            mask_name  = '%sm.png' % op.basename(patch_dir)
+            patch_path = op.join(scene_dir, patch_name)
+            mask_path  = op.join(scene_dir, mask_name)
+            cv2.imwrite(patch_path, patch)
+            cv2.imwrite(mask_path, mask)
+            logging.info ('wrote cropped patch: %s/%s' % (scene_name, patch_name))
 
+            # remove patch directory, if not 'keep_src'
+            if not args.keep_src:
+                shutil.rmtree(patch_dir)
+
+            # write bboxes and visibility
+            bbox = mask2bbox (mask)
+            assert bbox is not None
+            roi_str = ' '.join([str(x) for x in bbox2roi(bbox)])
+            roi_f.write('%s %s\n' % (op.join(scene_name, patch_name), roi_str))
+            vis_f.write('%s %f\n' % (op.join(scene_name, patch_name), visible_perc))
+
+    vis_f.close()
+    roi_f.close()
