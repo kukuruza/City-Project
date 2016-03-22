@@ -37,12 +37,12 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 
 
 
-def evaluate_set (sess, (correct_op, predicted_op, labels_op), keep_prob, num_examples):
+def evaluate_set (sess, (correct, predicted, labels), keep_prob, num_examples):
   """Convenience function to run evaluation for for every batch. 
      Sum the number of correct predictions and output one precision value.
   Args:
     sess:      current Session
-    (correct_op, predicted_op, labels_op):  helper graph nodes
+    (correct, predicted, labels):  helper graph nodes
     num_examples:  number of examples to evaluate
   """
   num_iter = int(math.ceil(num_examples / FLAGS.batch_size))
@@ -54,15 +54,15 @@ def evaluate_set (sess, (correct_op, predicted_op, labels_op), keep_prob, num_ex
 
   for step in xrange(num_iter):
 
-    [correct, predicted, labels]  = sess.run([correct_op, predicted_op, labels_op],
-                                             feed_dict={keep_prob: 1.0})
-    #print (correct)
-    #print (predicted)
-    #print (labels)
+    [correct_val, predicted_val, labels_val] = sess.run([correct, predicted, labels],
+                                                        feed_dict={keep_prob: 1.0})
+    #print (correct_val)
+    #print (predicted_val)
+    #print (labels_val)
 
-    true_count     += np.sum(correct)
-    predicted_list += predicted.tolist()
-    labels_list    += labels.tolist()
+    true_count     += np.sum(correct_val)
+    predicted_list += predicted_val.tolist()
+    labels_list    += labels_val.tolist()
 
   print (confusion_matrix(np.array(predicted_list), np.array(labels_list)))
 

@@ -189,95 +189,53 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
 
 
 def demo_visualize_kernels(kernel):
+  '''Send a kernel to image_summary
+  Args
+    kernel:   tensor of shape [Y, X, num_channels, num_filters]
+  Returns
+    the same kernel scaled and reshaped for expected image_summary input
+  '''
   # scale weights to [0 255] and convert to uint8 (maybe change scaling?)
   x_min = tf.reduce_min(kernel)
   x_max = tf.reduce_max(kernel)
   kernel_0_to_1 = (kernel - x_min) / (x_max - x_min)
-  kernel_0_to_255_uint8 = tf.image.convert_image_dtype (kernel_0_to_1, dtype=tf.uint8)
   # to tf.image_summary format [batch_size, height, width, channels]
   return tf.transpose (kernel_0_to_1, [3, 0, 1, 2])
 
 
-def predict (logits_op, labels_op):
-  correct_op = tf.nn.in_top_k (logits_op, labels_op, 1)
-  predicted_op = tf.argmax(logits_op, 1)
+def rcnn_visualization (responses, neuron_id, images):
+  '''TL;DR: Visualize a CNN layer returning "most exciting" patches for a neuron.
+  Send many patches to the inference pipeline. Look at the response from the neuron.
+  Sort patches by their response and visualize the top N.
+  Args:
+    response:   layer responses, tensor
+    neuron_id:  position of the neuron in the layer [y, x, z]
+    images:     patches to use
+  Returns:
+    best_ids:   numbers of patches with highest response
+  '''
+  # put image_id to the last dimension
+  x1 = tf.transpose(responses, (1, 2, 3, 0))
+  # extract indices of the "most exciting" patches for a neuron
+  _, x2 = tf.nn.top_k(x1, k=1)
 
-  return correct_op, predicted_op, labels_op
+  # take the reponse only for neuron_id of interest
+  x3 = tf.slice(x2, begin=[0]+neuron_id, size=[-1,1,1,1])
 
 
 
-def inference1(images):
-  # We instantiate all variables using tf.get_variable() instead of
-  # tf.Variable() in order to share variables across multiple GPU training runs.
-  # If we only ran this model on a single GPU, we could simplify this function
-  # by replacing all instances of tf.get_variable() with tf.Variable().
-  #
-  # conv1
-  with tf.variable_scope('conv1') as scope:
-    kernel = _variable_with_weight_decay('weights', shape=[5, 5, 3, 64],
-                                         stddev=1e-4, wd=0.0)
-    conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
-    bias = tf.nn.bias_add(conv, biases)
-    conv1 = tf.nn.relu(bias, name=scope.name)
-    _activation_summary(conv1)
 
-  # pool1
-  pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],
-                         padding='SAME', name='pool1')
-  # norm1
-  norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-                    name='norm1')
 
-  # conv2
-  with tf.variable_scope('conv2') as scope:
-    kernel = _variable_with_weight_decay('weights', shape=[5, 5, 64, 64],
-                                         stddev=1e-4, wd=0.0)
-    conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
-    biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
-    bias = tf.nn.bias_add(conv, biases)
-    conv2 = tf.nn.relu(bias, name=scope.name)
-    _activation_summary(conv2)
 
-  # norm2
-  norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
-                    name='norm2')
-  # pool2
-  pool2 = tf.nn.max_pool(norm2, ksize=[1, 3, 3, 1],
-                         strides=[1, 2, 2, 1], padding='SAME', name='pool2')
 
-  # local3
-  with tf.variable_scope('local3') as scope:
-    # Move everything into depth so we can perform a single matrix multiply.
-    dim = 1
-    for d in pool2.get_shape()[1:].as_list():
-      dim *= d
-    reshape = tf.reshape(pool2, [FLAGS.batch_size, dim])
 
-    weights = _variable_with_weight_decay('weights', shape=[dim, 384],
-                                          stddev=0.04, wd=0.004)
-    biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
-    local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
-    #_activation_summary(local3)
+def predict (logits, labels):
+  correct = tf.nn.in_top_k (logits, labels, 1)
+  predicted = tf.argmax(logits, 1)
 
-  # local4
-  with tf.variable_scope('local4') as scope:
-    weights = _variable_with_weight_decay('weights', shape=[384, 192],
-                                          stddev=0.04, wd=0.004)
-    biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
-    local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
-    #_activation_summary(local4)
+  return correct, predicted, labels
 
-  # softmax, i.e. softmax(WX + b)
-  with tf.variable_scope('softmax_linear') as scope:
-    weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
-                                          stddev=1/192.0, wd=0.0)
-    biases = _variable_on_cpu('biases', [NUM_CLASSES],
-                              tf.constant_initializer(0.0))
-    softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
-    #_activation_summary(softmax_linear)
 
-  return softmax_linear
 
 
 def make_conv(input, name, shape, padding='SAME', wd=0.0):
@@ -328,7 +286,7 @@ def inference2(images, keep_prob):
   local3 = make_local  (reshape, name='local3', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
   local4 = make_local  (local3,  name='local4', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
   softmax = make_softmax(local4, shape=[192, NUM_CLASSES])
-  return softmax
+  return softmax, conv2, pool2
 
 
 

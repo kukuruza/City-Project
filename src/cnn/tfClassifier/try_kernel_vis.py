@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-icons = cv2.imread('/Users/evg/Desktop/icons.jpg')
+icons = cv2.imread('icons.jpg')
 
 Y = icons.shape[0] / 2
 X = icons.shape[1] / 3

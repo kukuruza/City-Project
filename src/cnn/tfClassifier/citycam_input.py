@@ -80,8 +80,8 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
     batch_size: Number of images per batch.
 
   Returns:
-    images: Images. 4D tensor of [batch_size, height, width, 3] size.
-    labels: Labels. 1D tensor of [batch_size] size.
+    images: 4D tensor of [batch_size, height, width, 3] size.
+    labels: 1D tensor of [batch_size] size.
   """
   # Create a queue that shuffles the examples, and then
   # read 'batch_size' images + labels from the example queue.
@@ -103,9 +103,9 @@ def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
   """Construct distorted input for CIFAR training using the Reader ops.
 
     Returns:
-      images: Images. 4D tensor of 
-                 [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CHANNELS] size.
-      labels: Labels. 1D tensor of [batch_size] size.
+      images: 4D tensor of 
+                 [batch_size, IN_IMAGE_WIDTH, IN_IMAGE_HEIGHT, NUM_CHANNELS] size.
+      labels: 1D tensor of [batch_size] size.
   """
   with open(data_list_path) as f:
     file_label_pairs = f.read().splitlines() 
