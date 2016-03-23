@@ -7,7 +7,7 @@ import logging
 import glob
 import shutil
 import sqlite3
-from learning.helperDb import createLabelmeDb, createTablePolygons
+from learning.helperDb import createTablePolygons
 from learning.dbUtilities import *
 from learning.helperSetup import setParamUnlessThere, atcity
 from learning.labelme.parser import FrameParser, PairParser

@@ -60,6 +60,7 @@ def createTableMatches (cursor):
                      );''')
 
 
+# TODO: change conn to cursor
 def createDb (conn):
     cursor = conn.cursor()
 
@@ -68,21 +69,6 @@ def createDb (conn):
     createTableImages(cursor)
     createTableCars(cursor)
     createTableMatches(cursor)
-
-
-def createLabelmeDb (db_path):
-    conn = sqlite3.connect (db_path)
-    cursor = conn.cursor()
-
-    conn.execute('PRAGMA user_version = 3')
-    #createTableSets(cursor)
-    createTableImages(cursor)
-    createTableCars(cursor)
-    createTablePolygons(cursor)
-    createTableMatches(cursor)
-    conn.commit()
-    conn.close()
-
 
 
 def deleteCar (cursor, carid):

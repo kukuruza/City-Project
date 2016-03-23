@@ -274,3 +274,30 @@ def hierarchicalClusterPolygons (polygons, params):
     logging.debug(Z)
 
     return centers, clusters
+
+
+
+def mask2bbox (mask):
+    '''Extract a single (if any) bounding box from the image
+    Args:
+      mask:  boolean mask of the car
+    Returns:
+      bbox:  (x1, y1, width, height)
+    '''
+    assert mask is not None
+    assert len(mask.shape) == 2, 'mask.shape: %s' % str(mask.shape)
+
+    # keep only vehicles with resonable bboxes
+    if np.count_nonzero(mask) == 0:
+        return None
+
+    # get bbox
+    nnz_indices = np.argwhere(mask)
+    if len(nnz_indices) == 0:
+      return None
+    (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
+    (height, width) = y2 - y1, x2 - x1
+    return (x1, y1, width, height)
+
+
+

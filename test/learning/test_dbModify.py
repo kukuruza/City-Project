@@ -6,7 +6,7 @@ import sqlite3
 import unittest
 from helperTesting       import TestMicroDbBase
 from learning.helperImg  import ProcessorRandom
-from learning.helperDb   import createDb
+from learning.helperDb   import createDb, createTablePolygons
 from learning.helperKeys import KeyReaderSequence
 from learning.dbModify   import *
 
@@ -104,6 +104,8 @@ class TestMicroDb (TestMicroDbBase):
         return params
 
     # filterByBorder
+
+    # TODO: add a test with polygons
 
     def test_filterByBorder_defaults (self):
         ''' Check default parameters. None of the cars is close to border '''
@@ -386,6 +388,11 @@ class TestMicroDb (TestMicroDbBase):
 
     def test_merge_same (self):
         c = self.conn.cursor()
+        createTablePolygons(c)
+        s = 'polygons(carid,x,y)'
+        c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (1,1,1))
+        c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (1,1,3))
+        c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (1,3,1))
         merge(c, c)
         # cars
         c.execute('SELECT name,x1 FROM cars')
@@ -397,6 +404,22 @@ class TestMicroDb (TestMicroDbBase):
         self.assertEqual (car_entries[3], ('sedan', 24))
         self.assertEqual (car_entries[4], ('vehicle', 44))
         self.assertEqual (car_entries[5], ('vehicle', 24))
+        # polygons
+        c.execute('SELECT x,y FROM polygons WHERE carid = 1')
+        polygon_entries = c.fetchall()
+        self.assertEqual (len(polygon_entries), 3)
+        self.assertEqual (polygon_entries[0], (1,1))
+        self.assertEqual (polygon_entries[1], (1,3))
+        self.assertEqual (polygon_entries[2], (3,1))
+        c.execute('SELECT x,y FROM polygons WHERE carid = 4')
+        polygon_entries = c.fetchall()
+        self.assertEqual (len(polygon_entries), 3)
+        self.assertEqual (polygon_entries[0], (1,1))
+        self.assertEqual (polygon_entries[1], (1,3))
+        self.assertEqual (polygon_entries[2], (3,1))
+        c.execute('SELECT x,y FROM polygons WHERE carid NOT IN (1,4)')
+        polygon_entries = c.fetchall()
+        self.assertEqual (len(polygon_entries), 0)
         # images
         c.execute('SELECT imagefile FROM images')
         image_entries = c.fetchall()

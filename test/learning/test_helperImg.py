@@ -224,15 +224,21 @@ class TestProcessorVideo (unittest.TestCase):
 
 
     def test_imwrite (self):
-        image1read = self.processor.imread ('testdata/Cassini/images/000000')
-        self.processor.imwrite (image1read, 'testdata/Cassini/images/000000')
-        image2read = self.processor.imread ('testdata/Moon/images/000000')
-        self.processor.imwrite (image2read, 'testdata/Moon/images/000000')
+        image1read  = self.processor.imread ('testdata/Cassini/images/000000')
+        image1wrote = self.processor.imwrite (image1read, 'testdata/Cassini/images/000000')
+        image2read  = self.processor.imread ('testdata/Moon/images/000000')
+        image2wrote = self.processor.imwrite (image2read, 'testdata/Moon/images/000000')
         #
-        image3read = self.processor.imread ('testdata/Cassini/images/000001')
-        self.processor.imwrite (image3read, 'testdata/Cassini/images/000001')
-        image4read = self.processor.imread ('testdata/Moon/images/000001')
-        self.processor.imwrite (image4read, 'testdata/Moon/images/000001')
+        image3read  = self.processor.imread  ('testdata/Cassini/images/000001')
+        image3wrote = self.processor.imwrite (image3read, 'testdata/Cassini/images/000001')
+        image4read  = self.processor.imread  ('testdata/Moon/images/000001')
+        image4wrote = self.processor.imwrite (image4read, 'testdata/Moon/images/000001')
+        #
+        # check that processor returned the new imagefile
+        self.assertEqual(image1wrote, 'testdata/Cassini/imwrite/000000')
+        self.assertEqual(image2wrote, 'testdata/Moon/imwrite/000000')
+        self.assertEqual(image3wrote, 'testdata/Cassini/imwrite/000001')
+        self.assertEqual(image4wrote, 'testdata/Moon/imwrite/000001')
         #
         self.processor.close()
         video = cv2.VideoCapture('testdata/Cassini/imwrite.avi')
@@ -255,15 +261,21 @@ class TestProcessorVideo (unittest.TestCase):
         video.release()
 
     def test_maskwrite (self):
-        mask1read = self.processor.maskread ('testdata/Cassini/masks/000000')
-        self.processor.maskwrite (mask1read, 'testdata/Cassini/masks/000000')
-        mask2read = self.processor.maskread ('testdata/Moon/masks/000000')
-        self.processor.maskwrite (mask2read, 'testdata/Moon/masks/000000')
+        mask1read  = self.processor.maskread ('testdata/Cassini/masks/000000')
+        mask1wrote = self.processor.maskwrite (mask1read, 'testdata/Cassini/masks/000000')
+        mask2read  = self.processor.maskread ('testdata/Moon/masks/000000')
+        mask2wrote = self.processor.maskwrite (mask2read, 'testdata/Moon/masks/000000')
         #
-        mask3read = self.processor.maskread ('testdata/Cassini/masks/000001')
-        self.processor.maskwrite (mask3read, 'testdata/Cassini/masks/000001')
-        mask4read = self.processor.maskread ('testdata/Moon/masks/000001')
-        self.processor.maskwrite (mask4read, 'testdata/Moon/masks/000001')
+        mask3read  = self.processor.maskread ('testdata/Cassini/masks/000001')
+        mask3wrote = self.processor.maskwrite (mask3read, 'testdata/Cassini/masks/000001')
+        mask4read  = self.processor.maskread ('testdata/Moon/masks/000001')
+        mask4wrote = self.processor.maskwrite (mask4read, 'testdata/Moon/masks/000001')
+        #
+        # check that processor returned the new imagefile
+        self.assertEqual(mask1wrote, 'testdata/Cassini/maskwrite/000000')
+        self.assertEqual(mask2wrote, 'testdata/Moon/maskwrite/000000')
+        self.assertEqual(mask3wrote, 'testdata/Cassini/maskwrite/000001')
+        self.assertEqual(mask4wrote, 'testdata/Moon/maskwrite/000001')
         #
         self.processor.close()
         video = cv2.VideoCapture('testdata/Cassini/maskwrite.avi')

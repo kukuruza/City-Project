@@ -10,12 +10,13 @@ import shutil
 import sqlite3
 import json
 import dbUtilities
-from helperDb          import deleteCar, carField, imageField, doesTableExist
+from helperDb          import deleteCar, carField, imageField
+from helperDb          import doesTableExist, createTablePolygons
 from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
 from annotations.terms import TermTree
 from helperSetup       import setParamUnlessThere, assertParamIsThere
 from helperKeys        import KeyReaderUser
-from helperImg         import ReaderVideo
+from helperImg         import ReaderVideo, ProcessorVideo
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -64,18 +65,22 @@ def _filterBorderCar_ (c, car_entry, params):
         # get polygon
         c.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
         polygon_entries = c.fetchall()
-        xs = [polygon_entry[0] for polygon_entry in polygon_entries]
-        ys = [polygon_entry[1] for polygon_entry in polygon_entries]
-        assert (len(xs) > 2 and min(xs) != max(xs) and min(ys) != max(ys))
-        # filter border
-        if isPolygonAtBorder(xs, ys, width, height, params): 
-            logging.info ('border polygon ' + str(xs) + ', ' + str(ys))
-            border_prob = 0
-    else:
-        # filter border
-        if isRoiAtBorder(roi, width, height, params): 
-            logging.info ('border polygon ' + str(roi))
-            border_prob = 0
+        if not polygon_entries:
+            logging.debug ('no polygon for carid %s. Skip' % carid)
+        else:
+            xs = [polygon_entry[0] for polygon_entry in polygon_entries]
+            ys = [polygon_entry[1] for polygon_entry in polygon_entries]
+            assert len(xs) > 2 and min(xs) != max(xs) and min(ys) != max(ys), \
+                   'xs: %s, ys: %s' % (xs, ys)
+            # filter border
+            if isPolygonAtBorder(xs, ys, width, height, params): 
+                logging.info ('border polygon %s, %s' % (str(xs), str(ys)))
+                border_prob = 0
+
+    # filter border
+    if isRoiAtBorder(roi, width, height, params): 
+        logging.info ('border roi %s' % str(roi))
+        border_prob = 0
 
     # get current score
     c.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
@@ -538,15 +543,15 @@ def moveDir (c, params):
 
 
     
-def merge (c, cursor_add, params = {}):
+def merge (c, c_add, params = {}):
     '''
-    Merge images and cars (TODO: matches) from 'cursor_add' to current database
+    Merge images and cars (TODO: matches) from 'c_add' to current database
     '''
     logging.info ('==== merge ====')
 
     # copy images
-    cursor_add.execute('SELECT * FROM images')
-    image_entries = cursor_add.fetchall()
+    c_add.execute('SELECT * FROM images')
+    image_entries = c_add.fetchall()
 
     for image_entry in image_entries:
         imagefile = image_entry[0]
@@ -554,20 +559,35 @@ def merge (c, cursor_add, params = {}):
         c.execute('SELECT count(*) FROM images WHERE imagefile=?', (imagefile,))
         (num,) = c.fetchone()
         if num > 0:
-            logging.warning ('duplicate image found ' + imagefile) 
+            logging.warning ('duplicate image found %s' % imagefile) 
             continue
         # insert image
         logging.info ('merge: insert imagefile: %s' % (imagefile,))
-        c.execute('INSERT INTO images VALUES (?,?,?,?,?,?);', image_entry)
+        c.execute('INSERT INTO images VALUES (?,?,?,?,?,?)', image_entry)
     
-    # copy cars
-    cursor_add.execute('SELECT * FROM cars')
-    car_entries = cursor_add.fetchall()
+    # copy cars and polygons
+    c_add.execute('SELECT * FROM cars')
+    car_entries = c_add.fetchall()
 
     for car_entry in car_entries:
+
+        # insert car
         carid = carField (car_entry, 'id')
         s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
-        c.execute('INSERT INTO ' + s + ' VALUES (?,?,?,?,?,?,?,?,?,?);', car_entry[1:])
+        c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?)' % s, car_entry[1:])
+        new_carid = c.lastrowid
+
+        # insert all its polygons
+        if doesTableExist(c_add, 'polygons'):
+            if not doesTableExist(c, 'polygons'): 
+                createTablePolygons(c)
+            c_add.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+            polygon_entries = c_add.fetchall()
+            for x,y in polygon_entries:
+                s = 'polygons(carid,x,y)'
+                c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (new_carid,x,y))
+
+
 
 
 
@@ -604,44 +624,38 @@ def maskScores (c, params = {}):
 # need a unit test
 def polygonsToMasks (c, params = {}):
     '''
-    Transform polygon db table into bboxes when processing results from labelme
+    Create masks and maskfile db entries from polygons table.
+    Currently only supports ProcessorVideo (writes masks to video)
     '''
     logging.info ('==== polygonsToMasks ====')
+    setParamUnlessThere (params, 'relpath',    os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'mask_name',  'mask-poly.avi')
 
-    c.execute('SELECT * FROM images')
+    # Assume mask field is null. Deduce the out mask name from imagefile.
+    #   Also send the image video to processor, so that it deduces video params.
+    c.execute('SELECT imagefile,width,height FROM images')
     image_entries = c.fetchall()
-
-    imagefile = imageField (image_entries[0], 'imagefile')
-    folder = op.basename(op.dirname(imagefile))
-    labelme_dir = op.dirname(op.dirname(op.dirname(imagefile)))
-    maskdir = op.join(os.getenv('CITY_DATA_PATH'), labelme_dir, 'Masks', folder)
-    if op.exists (maskdir): 
-        shutil.rmtree (maskdir) 
-    os.mkdir (maskdir)
+    in_image_video_file = '%s.avi' % op.dirname(image_entries[0][0])
+    out_mask_video_file = '%s/%s' % (op.dirname(in_image_video_file), params['mask_name'])
+    logging.info ('polygonsToMasks: in_image_video_file: %s' % in_image_video_file)
+    logging.info ('polygonsToMasks: out_mask_video_file: %s' % out_mask_video_file)
+    processor = ProcessorVideo \
+         ({'out_dataset': {in_image_video_file: out_mask_video_file} })
 
     # copy images and possibly masks
-    for image_entry in image_entries:
+    for (imagefile,width,height) in image_entries:
+        processor.maskread (imagefile)  # processor needs to read first
 
-        imagefile = imageField (image_entry, 'imagefile')
-        imagename = op.basename(imagefile)
-        maskname = op.splitext(imagename)[0] + '.png'
-        folder = op.basename(op.dirname(imagefile))
-        labelme_dir = op.dirname(op.dirname(op.dirname(imagefile)))
-        maskfile = op.join(labelme_dir, 'Masks', folder, maskname)
-
-        c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
-
-        height = imageField (image_entry, 'height')
-        width = imageField (image_entry, 'width')
         mask = np.zeros((height, width), dtype=np.uint8)
-
         c.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
         for (carid,) in c.fetchall():
             c.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
             polygon_entries = c.fetchall()
             pts = [[pt[0], pt[1]] for pt in polygon_entries]
             cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
-    
-        logging.info ('saving mask to file: ' + maskfile)
-        cv2.imwrite (op.join(os.getenv('CITY_DATA_PATH'), maskfile), mask)
+        mask = mask > 0
+
+        maskfile = processor.maskwrite (mask, imagefile)
+        c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+        logging.info ('saved mask to file: %s' % maskfile)
 

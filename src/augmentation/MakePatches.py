@@ -15,7 +15,7 @@ import traceback
 import shutil
 import argparse
 from learning.helperSetup import atcity, setupLogging
-from learning.dbUtilities import expandRoiToRatio, expandRoiFloat, bbox2roi
+from learning.dbUtilities import expandRoiToRatio, expandRoiFloat, bbox2roi, mask2bbox
 from augmentation.Cad import Cad
 
 RESULT_DIR       = atcity('augmentation/patches')
@@ -136,30 +136,6 @@ def place_occluding_vehicles (vehicle0, other_models):
             logging.debug ('place_occluding_vehicles: placed this one')
 
     return vehicles
-
-
-
-def mask2bbox (mask):
-    '''Extract a single (if any) bounding box from the image
-    Args:
-      mask:  boolean mask of the car
-    Returns:
-      bbox:  (x1, y1, width, height)
-    '''
-    assert mask is not None
-    assert len(mask.shape) == 2, 'mask.shape: %s' % str(mask.shape)
-
-    # keep only vehicles with resonable bboxes
-    if np.count_nonzero(mask) == 0:
-        return None
-
-    # get bbox
-    nnz_indices = np.argwhere(mask)
-    if len(nnz_indices) == 0:
-      return None
-    (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
-    (height, width) = y2 - y1, x2 - x1
-    return (x1, y1, width, height)
 
 
 
@@ -353,6 +329,7 @@ if __name__ == "__main__":
         raise Exception ('wrong args.render: %s' % args.render)
 
     # postprocess
+    ids_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'ids.txt'), 'w')
     vis_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt'), 'w')
     roi_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'roi.txt'), 'w')
 
@@ -368,8 +345,8 @@ if __name__ == "__main__":
             if patch is None or mask is None: continue
 
             # write cropped image and visible_perc and remove the source dir
-            patch_name = '%sp.%s' % (op.basename(patch_dir), EXT)
-            mask_name  = '%sm.png' % op.basename(patch_dir)
+            patch_name = '%s.%s' % (op.basename(patch_dir), EXT)
+            mask_name  = '%s.png' % op.basename(patch_dir)
             patch_path = op.join(scene_dir, patch_name)
             mask_path  = op.join(scene_dir, mask_name)
             cv2.imwrite(patch_path, patch)
@@ -381,11 +358,13 @@ if __name__ == "__main__":
                 shutil.rmtree(patch_dir)
 
             # write bboxes and visibility
+            ids_f.write('%s\n' % op.join(scene_name, op.basename(patch_name)))
             bbox = mask2bbox (mask)
             assert bbox is not None
             roi_str = ' '.join([str(x) for x in bbox2roi(bbox)])
             roi_f.write('%s %s\n' % (op.join(scene_name, patch_name), roi_str))
             vis_f.write('%s %f\n' % (op.join(scene_name, patch_name), visible_perc))
 
+    ids_f.close()
     vis_f.close()
     roi_f.close()

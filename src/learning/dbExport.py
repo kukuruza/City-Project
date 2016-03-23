@@ -19,8 +19,8 @@ import cv2
 import copy
 import h5py
 from datetime    import datetime  # to print creation timestamp in readme.txt
-from helperDb    import carField
-from dbUtilities import bbox2roi, expandRoiFloat
+from helperDb    import carField, doesTableExist
+from dbUtilities import bbox2roi, expandRoiFloat, mask2bbox
 from helperSetup import setParamUnlessThere, assertParamIsThere
 from helperImg   import ReaderVideo
 from helperH5    import writeNextPatch, readPatch
@@ -64,9 +64,7 @@ class PatchHelperFolder (PatchHelperBase):
 
     def __init__ (self, params = {}):
         setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        setParamUnlessThere (params, 'ext', 'png')
         self.relpath = params['relpath']
-        self.ext = params['ext']
 
 
     def initDataset (self, name, params = {}):
@@ -85,27 +83,34 @@ class PatchHelperFolder (PatchHelperBase):
         self.f_label = open(self.label_path, 'w')
         logging.debug ('writing labels to %s' % self.label_path)
 
+        self.roi_path = op.join(self.out_dir, 'roi.txt')
+        self.f_roi = open(self.roi_path, 'w')
+        logging.debug ('writing rois to %s' % self.roi_path)
+
 
     def closeDataset (self):
         self.f_ids.close()
         self.f_label.close()
-        # Check if labels number is the same as ids number. 
-        #   If not labels either were None or were inconsistent.
-        # In any case, then remove the labels
-        with open(self.ids_path) as f_ids:
-            with open(self.label_path) as f_label:
-                if len(f_ids.readlines()) != len(f_label.readlines()):
-                    os.remove (self.label_path)
+        self.f_roi.close()
 
 
-    def writePatch (self, patch, carid, label = None):
+    def writePatch (self, patch, carid, label = None, mask = None, roi = None):
         logging.debug ('writing carid #%d' % carid)
         assert len(patch.shape) == 3 and patch.shape[2] == 3
-        imagepath = op.join (self.out_dir, '%08d.%s' % (carid, self.ext))
-        cv2.imwrite (imagepath, patch)
+        patchfile = op.join (self.out_dir, '%08d.jpg' % carid)
+        cv2.imwrite (patchfile, patch)
         self.f_ids.write ('%08d\n' % carid)
         if label is not None:
-            self.f_label.write ('%d\n' % label)
+          self.f_label.write ('%08d %d\n' % (carid, label))
+        if mask is not None:
+          assert len(mask.shape) == 2
+          assert mask.shape[:2] == patch.shape[:2]
+          assert mask.dtype == np.uint8
+          maskfile = op.join (self.out_dir, '%08d.png' % carid)
+          cv2.imwrite (maskfile, mask)
+        if roi is not None:
+          self.f_roi.write ('%08d %s\n' % (carid, ' '.join([str(x) for x in roi])))
+
 
     # TODO: implement readPatch
 
@@ -298,6 +303,25 @@ def _distortPatch_ (image, roi, params = {}):
     return patches
 
 
+def _polygons2mask_ (c, imagefile, carid):
+    '''
+    Extract a mask that is saved as polygons
+    (Much faster than to create a mask with dbModify.polygonsToMasks())
+    '''
+    c.execute('SELECT width,height FROM images WHERE imagefile = ?', (imagefile,))
+    width, height = c.fetchone()
+
+    mask = np.zeros((height, width), dtype=np.uint8)
+    c.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+    polygon_entries = c.fetchall()
+    pts = [[pt[0], pt[1]] for pt in polygon_entries]
+
+    # trivial case
+    if len(pts) < 3: return mask
+    
+    cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+    return mask > 0
+
 
 def collectPatches (c, out_dataset, params = {}):
     '''
@@ -326,14 +350,45 @@ def collectPatches (c, out_dataset, params = {}):
 
         # extract patch
         roi = carField(car_entry, 'roi')
-        patches = _distortPatch_ (image, roi, params)
+        carid = carField(car_entry, 'id')
 
-        for patch in patches:
+        # crop (TODO: do so inside _distort_)
+        img_patch = image[roi[0]:roi[2], roi[1]:roi[3], :]
+        img_patch = cv2.resize(img_patch, params['resize'], interpolation=cv2.INTER_LINEAR)
 
-            # write patch
-            carid = carField(car_entry, 'id')
-            patch = cv2.resize(patch, params['resize'], interpolation=cv2.INTER_LINEAR)
-            params['patch_helper'].writePatch(patch, carid, params['label'])
+        # get and crop the mask if exists
+        c.execute('SELECT maskfile FROM images WHERE imagefile = ?', (imagefile,))
+        (maskfile,) = c.fetchone()
+        if doesTableExist (c, 'polygons'):
+            # TODO: besides doesTableExist, check if there are polygons for that carid
+            mask = _polygons2mask_ (c, imagefile, carid)
+            # empirically, labelme polygon mask is too wide
+            mask = cv2.erode(mask.astype(np.uint8), kernel=np.ones((3,3))).astype(bool)
+        elif maskfile is not None:
+            mask = params['image_processor'].maskread(maskfile)
+        else:
+            mask = None
+        if mask is not None:  # from either polygons or maskfile
+            msk_patch = mask[roi[0]:roi[2], roi[1]:roi[3]].astype(np.uint8) * 255
+            msk_patch = cv2.resize(msk_patch, params['resize'], interpolation=cv2.INTER_NEAREST)
+            bbox = mask2bbox(msk_patch)
+            if bbox is None:
+                logging.warning('carid %s has an empty bbox. Skip.')
+                continue
+            roi = bbox2roi(bbox)
+        else:
+            logging.warning('no mask or roi for imagefile %s' % imagefile)
+            msk_patch = None
+            roi = None
+
+        params['patch_helper'].writePatch(img_patch, carid, params['label'], msk_patch, roi)
+
+        # img_patches = _distortPatch_ (image, roi, params)
+        # for img_patch in img_patches:
+
+        #     # write patch
+        #     img_patch = cv2.resize(img_patch, params['resize'], interpolation=cv2.INTER_LINEAR)
+        #     params['patch_helper'].writePatch(img_patch, carid, params['label'])
 
     params['patch_helper'].closeDataset()
 

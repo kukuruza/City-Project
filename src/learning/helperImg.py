@@ -121,7 +121,7 @@ class ProcessorVideo (ReaderVideo):
         self.out_dataset = params['out_dataset']
         self.out_image_video = {}    # map from image video name to VideoWriter object
         self.out_mask_video = {}     # map from mask  video name to VideoWriter object
-        #self.out_current_frame = {}  # used for checks
+        self.out_current_frame = {}  # used to return imagefile and maskfile 
         self.frame_size = {}         # used for checks
 
     def _openVideoWriter_ (self, videofile, ref_video, ismask):
@@ -133,7 +133,7 @@ class ProcessorVideo (ReaderVideo):
         frame_size = (width, height)
 
         self.frame_size[videofile] = frame_size
-        #self.out_current_frame[videofile] = 0
+        self.out_current_frame[videofile] = -1  # first write will turn in to 0
 
         logging.info ('opening video: %s' % videofile)
         videopath = op.join (self.relpath, videofile)
@@ -157,7 +157,7 @@ class ProcessorVideo (ReaderVideo):
         in_videopath = op.dirname(image_id) + '.avi'
         # write frame only if it has been read before
         logging.debug ('in_videopath: %s' % in_videopath)
-        assert in_videopath in in_video_dict
+        assert in_videopath in in_video_dict, 'in_videopath: %s' % in_videopath
         # write only from videos, where we have the rule to make output video name
         if in_videopath not in self.out_dataset:
             raise Exception ('video %s is not in out_dataset' % in_videopath)
@@ -174,28 +174,34 @@ class ProcessorVideo (ReaderVideo):
         out_video_dict = self.out_mask_video if ismask else self.out_image_video
         assert out_videopath in out_video_dict
 
+        # Disabled because want to write from Nth from in augmentation/processScene.py
         # write the frame only if it is the next frame
-        # frame_expected = self.out_current_frame[out_videopath]
+        # frame_expected = self.out_current_frame[out_videopath] + 1
         # frame_actual  = int(filter(lambda x: x.isdigit(), op.basename(image_id)))  # number
         # if frame_actual != frame_expected:
         #     raise Exception('''Random access for writing is not supported now.
         #                        New frame is #%d, but the expected frame is #%d''' % 
         #                        (frame_actual, frame_expected))
-        # self.out_current_frame[out_videopath] += 1  # update
+        self.out_current_frame[out_videopath] += 1  # update
 
         # check frame size and write
         assert (image.shape[1], image.shape[0]) == self.frame_size[out_videopath]
         out_video_dict[out_videopath].write(image)
 
+        # return imagefile / maskfile
+        return op.join (op.splitext(out_videopath)[0], 
+                        '%06d' % self.out_current_frame[out_videopath])
+
     def imwrite (self, image, image_id):
+        '''Returns:  recorded imagefile'''
         assert len(image.shape) == 3 and image.shape[2] == 3
-        self.writeImpl (image, image_id, ismask=False)
+        return self.writeImpl (image, image_id, ismask=False)
 
     def maskwrite (self, mask, mask_id):
         assert len(mask.shape) == 2
         assert mask.dtype == bool
         mask = mask.copy().astype(np.uint8) * 255
-        self.writeImpl (mask, mask_id, ismask=True)
+        return self.writeImpl (mask, mask_id, ismask=True)
 
     def close (self):
         for video in self.out_mask_video.itervalues():
