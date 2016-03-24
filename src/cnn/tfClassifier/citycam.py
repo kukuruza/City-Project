@@ -25,7 +25,6 @@ tf.app.flags.DEFINE_integer('batch_size', 128,
 # Global constants describing the citycam data set.
 IMAGE_WIDTH  = citycam_input.IMAGE_WIDTH
 IMAGE_HEIGHT = citycam_input.IMAGE_HEIGHT
-NUM_CHANNELS = citycam_input.NUM_CHANNELS
 NUM_CLASSES  = citycam_input.NUM_CLASSES
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = citycam_input.NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL  = citycam_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
@@ -93,7 +92,7 @@ def distorted_inputs (data_list_name, dataset_tag=''):
 
   Returns:
     images: Images. 4D tensor of 
-               [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CHANNELS] size.
+               [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.
 
   Raises:
@@ -111,7 +110,7 @@ def inputs (data_list_name, dataset_tag=''):
 
   Returns:
     images: Images. 4D tensor of 
-               [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CHANNELS] size.
+               [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, 3] size.
     labels: Labels. 1D tensor of [batch_size] size.
 
   Raises:
@@ -328,13 +327,20 @@ def loss(logits, regressions, labels, rois):
 
   Add summary for for "Loss" and "Loss/avg".
   Args:
-    logits: Logits from inference().
-    labels: Labels from distorted_inputs or inputs(). 1-D tensor
-            of shape [batch_size]
+    logits:       Logits from inference().
+    regressions:  2D Tensor of type tf.int32, [batch_size, 4]
+    labels:       1D Tensor of type tf.int32, [batch_size]
+                  Labels from distorted_inputs or inputs(). 
+    rois:         2D Tensor of type tf.int32, [batch_size, 4]
 
   Returns:
     Loss tensor of type float.
   """
+  assert regressions.get_shape()[0] == FLAGS.batch_size
+  assert regressions.get_shape()[1] == 4
+  assert rois.get_shape()[0] == FLAGS.batch_size
+  assert rois.get_shape()[1] == 4
+
   # Calculate the average cross entropy loss across the batch.
   labels = tf.cast(labels, tf.int64)
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -345,14 +351,14 @@ def loss(logits, regressions, labels, rois):
   # Calculate the total regression loss
   rois = tf.to_float(rois)
   regression_loss = tf.reduce_sum(L1_smooth(regressions - rois),
-      name='regression_loss_per_example')
+      reduction_indices=[1], name='regression_loss_per_example')
   regression_loss_mean = tf.reduce_mean(regression_loss, name='regr_loss')
-  lambda_regr = 0.02
+  lambda_regr = 0.5
   tf.add_to_collection('losses', regression_loss_mean * lambda_regr)
 
   # The total loss is defined as the cross entropy loss plus all of the weight
   # decay terms (L2 loss).
-  return tf.add_n(tf.get_collection('losses'), name='total_loss')
+  return tf.add_n(tf.get_collection('losses'), name='total_loss'), regression_loss
 
 
 def _add_loss_summaries(total_loss):

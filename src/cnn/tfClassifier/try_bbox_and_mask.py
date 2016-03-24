@@ -11,6 +11,8 @@ def atcity(x):
 tf.app.flags.DEFINE_string('train_dir', '/tmp/try_bbox_and_mask', '')
 tf.app.flags.DEFINE_string('data_dir',  atcity('augmentation/patches-Mar23'), '')
 tf.app.flags.DEFINE_string('list_name', 'eval_list-vis60.txt', '')
+# 'eval_list-vis60.txt'
+# 'labelme_list-x64.txt'
 
 tf.app.flags.DEFINE_integer('num_preprocess_threads', 1, '')
 

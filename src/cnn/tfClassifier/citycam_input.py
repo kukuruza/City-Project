@@ -32,7 +32,6 @@ IN_IMAGE_HEIGHT = 72
 # Dimensions that CNN trains for
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
-NUM_CHANNELS = 3
 NUM_CLASSES = 2
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1024
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1024
@@ -49,7 +48,10 @@ def read_my_file_format(filename_and_label, width, height):
         Filenames in filename_and_label are relative to FLAGS.data_dir
 
   Returns:
-    Two tensors: the decoded image, and the string label.
+    image:  3D Tensor of tf.uint8, [height, width, 3]
+    label:  scalar Tensor of tf.int32, []
+    roi:    1D Tensor of tf.int32, [4]
+    mask:   2D Tensor of tf.uint8, [height, width]
   """
   # read a line of imagefile and label from the list
   record = tf.decode_csv(filename_and_label, [['']]*7, ' ')
@@ -63,17 +65,17 @@ def read_my_file_format(filename_and_label, width, height):
   imagepath = _dir + imagename
   image_contents = tf.read_file(imagepath)
   image = tf.image.decode_jpeg(image_contents)
-  image.set_shape([height, width, NUM_CHANNELS])
+  image.set_shape([height, width, 3])
+
+  # process roi
+  roi0 = tf.string_to_number(roi0_str, out_type=tf.int32)
+  roi1 = tf.string_to_number(roi1_str, out_type=tf.int32)
+  roi2 = tf.string_to_number(roi2_str, out_type=tf.int32)
+  roi3 = tf.string_to_number(roi3_str, out_type=tf.int32)
+  roi = tf.pack([roi0, roi1, roi2, roi3])
 
   # process label
   label = tf.string_to_number(label_str, out_type=tf.int32)
-
-  # process roi
-  roi0 = tf.string_to_number(roi0_str, out_type=tf.float32) / height
-  roi1 = tf.string_to_number(roi1_str, out_type=tf.float32) / width
-  roi2 = tf.string_to_number(roi2_str, out_type=tf.float32) / height
-  roi3 = tf.string_to_number(roi3_str, out_type=tf.float32) / width
-  roi = tf.expand_dims(tf.pack([roi0, roi1, roi2, roi3]), 0)
 
   # open and read maskfile
   _dir = tf.constant(op.join(os.getenv('CITY_DATA_PATH'), FLAGS.data_dir) + '/')
@@ -91,15 +93,19 @@ def _generate_image_and_label_batch(image, label, roi, mask, min_queue_examples,
   """Construct a queued batch of images and labels.
 
   Args:
-    image: 3-D Tensor of [height, width, 3] of type.float32.
-    label: 1-D Tensor of type.int32
+    image:  3D Tensor of type.float32,   [height, width, 3]
+    label:  scalar Tensor of type.int32, []
+    roi:    1D Tensor of type.int32      [4]
+    mask:   2D Tensor of type.uint8,     [height, width]
     min_queue_examples: int32, minimum number of samples to retain
       in the queue that provides of batches of examples.
     batch_size: Number of images per batch.
 
   Returns:
-    images: 4D tensor of [batch_size, height, width, 3] size.
-    labels: 1D tensor of [batch_size] size.
+    images: 4D Tensor of type tf.uint8, [batch_size, height, width, 3]
+    labels: 1D Tensor of type tf.int32, [batch_size]
+    rois:   2D Tensor of type tf.int32, [batch_size, 4]
+    masks:  3D Tensor of type tf.uint8, [batch_size, hieght, width]
   """
   # Scale mask to [img_min, img_max]
   img_min = tf.reduce_min(image)
@@ -116,19 +122,52 @@ def _generate_image_and_label_batch(image, label, roi, mask, min_queue_examples,
       min_after_dequeue=min_queue_examples)
 
   # Display the images in the visualizer.
+  rois = tf.expand_dims(rois, 1)  # from [batch_size,4] to [batch_size,1,4]
   masks_disp  = tf.image.grayscale_to_rgb(tf.expand_dims(masks_disp, dim=-1))
+  masks_disp  = tf.image.draw_bounding_boxes(masks_disp, rois)
   images_disp = tf.image.draw_bounding_boxes(images, rois)
   images_disp = tf.concat(2, [images_disp, masks_disp])
-  tf.image_summary('images' + dataset_tag, images_disp, max_images=3)
-
   rois = tf.squeeze(rois, squeeze_dims=[1])
+  tf.image_summary('images' + dataset_tag, images_disp, max_images=3)
 
   print ('shape of images batch: %s' % str(images.get_shape()))
   print ('shape of masks batch:  %s' % str(masks.get_shape()))
   print ('shape of rois batch:   %s' % str(rois.get_shape()))
 
-  return images, tf.reshape(label_batch, [batch_size]), rois, masks, 
+  return images, tf.reshape(label_batch, [batch_size]), rois, masks
 
+
+def roi_to_float(roi, width, height):
+  roi = tf.pack([tf.to_float(roi[0]) / height,
+                 tf.to_float(roi[1]) / width,
+                 tf.to_float(roi[2]+1) / height,
+                 tf.to_float(roi[3]+1) / width])
+  return roi
+
+
+
+def my_random_crop (image, roi):
+  '''Randomly crop [IMAGE_HEIGHT, IMAGE_WIDTH] from image of size
+  [IN_IMAGE_HEIGHT, IN_IMAGE_WIDTH], and change roi appropriately
+  Args:
+    image:   tensor of shape [IN_IMAGE_HEIGHT, IN_IMAGE_WIDTH, ?]
+    roi:     tensor of shape [4] and type int32
+  Returns:
+    crop:    tensor of shape [IMAGE_HEIGHT, IMAGE_WIDTH, ?]
+    roi:     tensor of shape [4] and type int32
+  '''
+  DY = IN_IMAGE_HEIGHT - IMAGE_HEIGHT
+  DX = IN_IMAGE_WIDTH - IMAGE_WIDTH
+
+  dy = tf.random_uniform(shape=[], minval=0, maxval=DY, dtype=tf.int32)
+  dx = tf.random_uniform(shape=[], minval=0, maxval=DX, dtype=tf.int32)
+  crop = tf.slice(image, begin=tf.pack([dy, dx, tf.constant(0)]), 
+                          size=[IMAGE_HEIGHT, IMAGE_WIDTH, -1])
+  roi = tf.pack([tf.maximum(roi[0] - dy, 0),
+                 tf.maximum(roi[1] - dx, 0),
+                 tf.minimum(roi[2] - dy, IMAGE_HEIGHT),
+                 tf.minimum(roi[3] - dx, IMAGE_WIDTH)])
+  return crop, roi
 
 
 def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
@@ -136,7 +175,7 @@ def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
 
     Returns:
       images: 4D tensor of 
-                 [batch_size, IN_IMAGE_WIDTH, IN_IMAGE_HEIGHT, NUM_CHANNELS] size.
+                 [batch_size, IN_IMAGE_WIDTH, IN_IMAGE_HEIGHT, 3] size.
       labels: 1D tensor of [batch_size] size.
   """
   with open(data_list_path) as f:
@@ -149,23 +188,23 @@ def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
   uint8image, label, roi, mask = read_my_file_format(filename_queue.dequeue(),
                                               IN_IMAGE_WIDTH, IN_IMAGE_HEIGHT)
 
-  width = IMAGE_WIDTH
-  height = IMAGE_HEIGHT
-
   # Image processing for training the network. Note the many random
   # distortions applied to the image.
 
   # Prepare to crop and flip the image and the mask together
   rgba = tf.concat(2, [uint8image, mask])
 
-  # Randomly crop a [height, width] section of the image.
-  #rgba = tf.random_crop(rgba, [height, width, 4])
-
-  # Image processing for evaluation.
-  rgba = tf.image.resize_images(rgba,  IMAGE_WIDTH, IMAGE_HEIGHT)
-
   # Randomly flip the image horizontally.
   rgba = tf.image.random_flip_left_right(rgba)
+
+  # Image processing for evaluation.
+  #rgba = tf.image.resize_images(rgba,  IMAGE_WIDTH, IMAGE_HEIGHT)
+
+  # Randomly crop a [height, width] section of the image.
+  #rgba = tf.random_crop(rgba, [height, width, 4])
+  rgba, roi = my_random_crop (rgba, roi)
+
+  roi = roi_to_float(roi, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
 
   # Split back into image and mask
   cropped_image = tf.slice(rgba, begin=[0,0,0], size=[-1,-1,3])
@@ -202,7 +241,7 @@ def inputs(data_list_path, batch_size, dataset_tag=''):
   """
     Returns:
       images: Images. 4D tensor of 
-                 [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, NUM_CHANNELS] size.
+                 [batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, 3] size.
       labels: Labels. 1D tensor of [batch_size] size.
   """
   if op.basename(data_list_path) == 'test_list.txt':
@@ -229,6 +268,8 @@ def inputs(data_list_path, batch_size, dataset_tag=''):
 
   # Subtract off the mean and divide by the variance of the pixels.
   float_image = tf.image.per_image_whitening(reshaped_image)
+
+  roi = roi_to_float(roi, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
 
   # Ensure that the random shuffling has good mixing properties.
   min_fraction_of_examples_in_queue = 0.4

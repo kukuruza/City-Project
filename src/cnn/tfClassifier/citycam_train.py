@@ -116,7 +116,7 @@ def train():
     # Calculate loss.
     with tf.name_scope('train'):
       assert rois_train.get_shape()[1] == 4
-      loss = citycam.loss(logits, regr_train, labels, rois_train)
+      loss, regression_loss = citycam.loss(logits, regr_train, labels, rois_train)
 
       # Build a Graph that trains the model with one batch of examples and
       # updates the model parameters.
@@ -175,7 +175,8 @@ def train():
             break
 
           start_time = time.time()
-          _, loss_value, regr_train_val = sess.run([train_op, loss, regr_train], 
+          _, loss_value, regr_train_val, regression_loss_val = sess.run(
+                  [train_op, loss, regr_train, regression_loss], 
                   feed_dict={keep_prob: 0.5})
           duration = time.time() - start_time
 
@@ -199,7 +200,7 @@ def train():
             print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
             print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
             print('regr_train_val: \n', regr_train_val[:8])
-
+            print('regr_loss_val: \n', regression_loss_val[:8])
 
           if step % FLAGS.period_summary == 0:
             summary_str = sess.run(summary_op, 
