@@ -30,6 +30,9 @@ import tensorflow as tf
 
 import citycam
 
+np.set_printoptions(precision=2)
+np.set_printoptions(suppress=True)
+
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
@@ -90,10 +93,10 @@ def train():
 
       keep_prob = tf.placeholder(tf.float32) # dropout (keep probability)
 
-      logits, regressions_train, _     = citycam.inference(images, keep_prob)
+      logits, regr_train, _     = citycam.inference(images, keep_prob)
       scope.reuse_variables()
-      logits_eval, regressions_eval, _ = citycam.inference(images_eval, keep_prob)
-      logits_test, regressions_test, _ = citycam.inference(images_test, keep_prob)
+      logits_eval, regr_eval, _ = citycam.inference(images_eval, keep_prob)
+      logits_test, regr_test, _ = citycam.inference(images_test, keep_prob)
 
       predict_ops      = citycam.predict(logits,      labels)
       predict_eval_ops = citycam.predict(logits_eval, labels_eval)
@@ -113,7 +116,7 @@ def train():
     # Calculate loss.
     with tf.name_scope('train'):
       assert rois_train.get_shape()[1] == 4
-      loss = citycam.loss(logits, regressions_train, labels, rois_train)
+      loss = citycam.loss(logits, regr_train, labels, rois_train)
 
       # Build a Graph that trains the model with one batch of examples and
       # updates the model parameters.
@@ -172,7 +175,8 @@ def train():
             break
 
           start_time = time.time()
-          _, loss_value = sess.run([train_op, loss], feed_dict={keep_prob: 0.5})
+          _, loss_value, regr_train_val = sess.run([train_op, loss, regr_train], 
+                  feed_dict={keep_prob: 0.5})
           duration = time.time() - start_time
 
           assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -194,6 +198,8 @@ def train():
             print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
             print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
             print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
+            print('regr_train_val: \n', regr_train_val[:8])
+
 
           if step % FLAGS.period_summary == 0:
             summary_str = sess.run(summary_op, 

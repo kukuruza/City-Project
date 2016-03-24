@@ -340,15 +340,15 @@ def loss(logits, regressions, labels, rois):
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
       logits, labels, name='cross_entropy_per_example')
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-  tf.add_to_collection('losses', cross_entropy_mean)
+  #tf.add_to_collection('losses', cross_entropy_mean)
 
   # Calculate the total regression loss
   rois = tf.to_float(rois)
   regression_loss = tf.reduce_sum(L1_smooth(regressions - rois),
       name='regression_loss_per_example')
   regression_loss_mean = tf.reduce_mean(regression_loss, name='regr_loss')
-  lambda_regr = 0.3
-  #tf.add_to_collection('losses', regression_loss_mean * lambda_regr)
+  lambda_regr = 0.02
+  tf.add_to_collection('losses', regression_loss_mean * lambda_regr)
 
   # The total loss is defined as the cross entropy loss plus all of the weight
   # decay terms (L2 loss).
