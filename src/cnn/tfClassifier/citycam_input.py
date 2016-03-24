@@ -124,17 +124,18 @@ def _generate_image_and_label_batch(image, label, roi, mask, min_queue_examples,
   # Display the images in the visualizer.
   rois = tf.expand_dims(rois, 1)  # from [batch_size,4] to [batch_size,1,4]
   masks_disp  = tf.image.grayscale_to_rgb(tf.expand_dims(masks_disp, dim=-1))
-  masks_disp  = tf.image.draw_bounding_boxes(masks_disp, rois)
+  masks_wroi  = tf.image.draw_bounding_boxes(masks_disp, rois)
   images_disp = tf.image.draw_bounding_boxes(images, rois)
-  images_disp = tf.concat(2, [images_disp, masks_disp])
+  images_disp = tf.concat(1, [tf.concat(2, [masks_disp, images_disp]),
+                              tf.concat(2, [masks_wroi, images])])
   rois = tf.squeeze(rois, squeeze_dims=[1])
-  tf.image_summary('images' + dataset_tag, images_disp, max_images=3)
+  #tf.image_summary('images' + dataset_tag, images_disp, max_images=3)
 
   print ('shape of images batch: %s' % str(images.get_shape()))
   print ('shape of masks batch:  %s' % str(masks.get_shape()))
   print ('shape of rois batch:   %s' % str(rois.get_shape()))
 
-  return images, tf.reshape(label_batch, [batch_size]), rois, masks
+  return images, tf.reshape(label_batch, [batch_size]), rois, masks, images_disp
 
 
 def roi_to_float(roi, width, height):

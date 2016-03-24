@@ -15,8 +15,8 @@ import citycam_input
 FLAGS = tf.app.flags.FLAGS
 
 # Basic model parameters. UPDATE: set in main()
-tf.app.flags.DEFINE_integer('batch_size', 128,
-                            """Number of images to process in a batch.""")
+#tf.app.flags.DEFINE_integer('batch_size', 128,
+#                            """Number of images to process in a batch.""")
 # tf.app.flags.DEFINE_string('data_dir', 
 #               op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/patches'),
 #                            """Path to the citycam data directory.""")
@@ -186,25 +186,8 @@ def demo_visualize_kernels(kernel):
   return tf.transpose (kernel_0_to_1, [3, 0, 1, 2])
 
 
-def rcnn_visualization (responses, neuron_id, images):
-  '''TL;DR: Visualize a CNN layer returning "most exciting" patches for a neuron.
-  Send many patches to the inference pipeline. Look at the response from the neuron.
-  Sort patches by their response and visualize the top N.
-  Args:
-    response:   layer responses, tensor
-    neuron_id:  position of the neuron in the layer [y, x, z]
-    images:     patches to use
-  Returns:
-    best_ids:   numbers of patches with highest response
-  '''
-  # put image_id to the last dimension
-  x1 = tf.transpose(responses, (1, 2, 3, 0))
-  # extract indices of the "most exciting" patches for a neuron
-  _, x2 = tf.nn.top_k(x1, k=1)
-
-  # take the reponse only for neuron_id of interest
-  x3 = tf.slice(x2, begin=[0]+neuron_id, size=[-1,1,1,1])
-
+def vis_localization (masks, rois):
+  pass
 
 
 
@@ -218,6 +201,10 @@ def predict (logits, labels):
 
   return correct, predicted, labels
 
+
+def localize (regr, rois):
+  ''' At the moment just a thin wrapper '''
+  return regr, rois
 
 
 def L1_smooth(x):
@@ -264,7 +251,7 @@ def make_regr(input_, shape):
   return regressions
 
 
-def inference2(images, keep_prob):
+def inference2(images, keep_prob, wd=0.004):
   conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[11, 11, 3, 64])
   pool1 = tf.nn.max_pool(conv1,  name='pool1', padding='VALID', ksize=[1, 9, 9, 1], strides=[1, 5, 5, 1])
   norm1 = make_norm     (pool1,  name='norm1') 
@@ -277,18 +264,18 @@ def inference2(images, keep_prob):
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
   dim = 64 * 6 * 6
   reshape = tf.reshape (pool2, [FLAGS.batch_size, dim])
-  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
-  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
 
-  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
   return softmax, regressions, pool2
 
 
 
-def inference3(images, keep_prob):
+def inference3(images, keep_prob, wd=0.004):
   images = tf.image.resize_images(images, 61, 61)
   # 61
   conv1 = make_conv     (images, name='conv1', padding='VALID', shape=[7, 7, 3, 32])
@@ -306,8 +293,8 @@ def inference3(images, keep_prob):
   # 7
   dim = 128 * 7 * 7
   reshape = tf.reshape (pool3, [FLAGS.batch_size, dim])
-  fc1 = make_fc  (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
-  fc2 = make_fc  (fc1,     name='fc2', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  fc1 = make_fc  (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc2 = make_fc  (fc1,     name='fc2', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
   softmax = make_softmax(fc2, shape=[192, NUM_CLASSES])
   return softmax
 
@@ -315,10 +302,10 @@ def inference3(images, keep_prob):
 
 
 
-def inference(images, keep_prob):
+def inference(images, keep_prob, wd):
     '''Thin proxy'''
-    return inference2(images, keep_prob)
-#    return inference3(images, keep_prob)
+    return inference2(images, keep_prob=keep_prob, wd=wd)
+#    return inference3(images, keep_prob=keep_prob, wd=wd)
 
 
 
@@ -346,7 +333,7 @@ def loss(logits, regressions, labels, rois):
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
       logits, labels, name='cross_entropy_per_example')
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-  #tf.add_to_collection('losses', cross_entropy_mean)
+  tf.add_to_collection('losses', cross_entropy_mean)
 
   # Calculate the total regression loss
   rois = tf.to_float(rois)

@@ -37,18 +37,18 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
+tf.app.flags.DEFINE_float('wd', 0.01, 'weight_decay for all fc layers')
 
 
 
-def evaluate_set (sess, (correct, predicted, labels), keep_prob, num_examples):
+def evaluate_set (sess, (correct, predicted, labels), (regressions, rois), keep_prob):
   """Convenience function to run evaluation for for every batch. 
      Sum the number of correct predictions and output one precision value.
   Args:
     sess:      current Session
     (correct, predicted, labels):  helper graph nodes
-    num_examples:  number of examples to evaluate
   """
-  num_iter = int(math.ceil(num_examples / FLAGS.batch_size))
+  num_iter = int(math.ceil(FLAGS.num_eval_examples / FLAGS.batch_size))
   true_count = 0  # Counts the number of correct predictions.
   total_sample_count = num_iter * FLAGS.batch_size
 
@@ -82,25 +82,29 @@ def train():
 
     # Get images and labels for citycam.
     with tf.name_scope("train_images"): 
-      images, labels, rois_train, _ = citycam.distorted_inputs(FLAGS.train_list_name)
+      images, labels, rois_train, _, images_disp = citycam.distorted_inputs(FLAGS.train_list_name)
     with tf.name_scope("eval_images"): 
-      images_eval, labels_eval, rois_eval, _ = citycam.distorted_inputs(FLAGS.eval_list_name)
+      images_eval, labels_eval, rois_eval, _, _ = citycam.distorted_inputs(FLAGS.eval_list_name)
     with tf.name_scope("test_images"): 
-      images_test, labels_test, rois_test, _ = citycam.inputs(FLAGS.test_list_name)
+      images_test, labels_test, rois_test, _, _ = citycam.inputs(FLAGS.test_list_name)
 
     # Build a Graph that computes the logits predictions from the inference model.
     with tf.variable_scope("inference") as scope:
 
       keep_prob = tf.placeholder(tf.float32) # dropout (keep probability)
 
-      logits, regr_train, _     = citycam.inference(images, keep_prob)
+      logits, regr_train, _     = citycam.inference(images, keep_prob, wd=FLAGS.wd)
       scope.reuse_variables()
-      logits_eval, regr_eval, _ = citycam.inference(images_eval, keep_prob)
-      logits_test, regr_test, _ = citycam.inference(images_test, keep_prob)
+      logits_eval, regr_eval, _ = citycam.inference(images_eval, keep_prob, wd=FLAGS.wd)
+      logits_test, regr_test, _ = citycam.inference(images_test, keep_prob, wd=FLAGS.wd)
 
       predict_ops      = citycam.predict(logits,      labels)
       predict_eval_ops = citycam.predict(logits_eval, labels_eval)
       predict_test_ops = citycam.predict(logits_test, labels_test)
+
+      localized_tr     = citycam.localize(regr_train, rois_train)
+      localized_ev     = citycam.localize(regr_eval,  rois_eval)
+      localized_te     = citycam.localize(regr_test,  rois_test)
 
       summary_train_prec = tf.placeholder(tf.float32)
       summary_eval_prec  = tf.placeholder(tf.float32)
@@ -121,6 +125,13 @@ def train():
       # Build a Graph that trains the model with one batch of examples and
       # updates the model parameters.
       train_op = citycam.train(loss, global_step)
+
+      with tf.name_scope('visualization'):
+        regr_tr_disp = tf.expand_dims(regr_train, 1)  # from [batch_size,4] to [batch_size,1,4]
+        images_disp = tf.image.draw_bounding_boxes(images_disp, regr_tr_disp / 2)
+        images_disp = tf.pad(images_disp, [[0,0],[4,4],[4,4],[0,0]])
+        tf.image_summary('images/train', images_disp, max_images=3)
+
 
     # Create a saver.
     saver = tf.train.Saver(tf.all_variables())
@@ -193,9 +204,9 @@ def train():
                                  examples_per_sec, sec_per_batch))
 
           if step % FLAGS.period_evaluate == 0:
-            prec_train = evaluate_set (sess, predict_ops,      keep_prob, FLAGS.num_eval_examples)
-            prec_eval  = evaluate_set (sess, predict_eval_ops, keep_prob, FLAGS.num_eval_examples)
-            prec_test  = evaluate_set (sess, predict_test_ops, keep_prob, FLAGS.num_eval_examples)
+            prec_train = evaluate_set (sess, predict_ops,      localized_tr, keep_prob)
+            prec_eval  = evaluate_set (sess, predict_eval_ops, localized_ev, keep_prob)
+            prec_test  = evaluate_set (sess, predict_test_ops, localized_te, keep_prob)
             print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
             print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
             print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
@@ -250,6 +261,8 @@ if __name__ == '__main__':
   parser.add_argument('--train_list_name', default='train_list.txt')
   parser.add_argument('--eval_list_name',  default='eval_list.txt')
   parser.add_argument('--test_list_name',  default='test_list.txt')
+  parser.add_argument('--batch_size', default=128, type=int,
+                      help='Number of images to process in a batch.')
   # flags from citycam
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
@@ -281,6 +294,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_string('restore_from_dir', atcity(args.restore_from_dir), '')
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
   tf.app.flags.DEFINE_integer('num_eval_examples', args.num_eval_examples, '')
+  tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
 
   tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', args.num_epochs_per_decay, '')
   tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', 
@@ -289,5 +303,4 @@ if __name__ == '__main__':
                               args.initial_learning_rate_decay, '')
   tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
 
-  #train()
   tf.app.run()
