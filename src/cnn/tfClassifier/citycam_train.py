@@ -186,8 +186,8 @@ def train():
             break
 
           start_time = time.time()
-          _, loss_value, regr_train_val, regression_loss_val = sess.run(
-                  [train_op, loss, regr_train, regression_loss], 
+          _, loss_value, regr_train_val, rois_train_val, regression_loss_val = sess.run(
+                  [train_op, loss, regr_train, rois_train, regression_loss], 
                   feed_dict={keep_prob: 0.5})
           duration = time.time() - start_time
 
@@ -210,6 +210,7 @@ def train():
             print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
             print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
             print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
+            print('rois_train_val: \n', rois_train_val[:8])
             print('regr_train_val: \n', regr_train_val[:8])
             print('regr_loss_val: \n', regression_loss_val[:8])
 
