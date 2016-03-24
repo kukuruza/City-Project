@@ -4,20 +4,23 @@ function MakeBackVideo (in_video_dir, varargin)
 %   for every pixel the most recent frame that contained background is picked
 %
 % Args:
-%  in_image_videofile - relative to CITY_DATA_PATH, e.g. 'camdata/cam125/Feb07-08h'
+%  in_video_dir       - relative to CITY_DATA_PATH, e.g. 'camdata/cam125/Feb07-08h'
 %  in_ref_backfile    - relative to CITY_DATA_PATH, e.g. 'camdata/cam125/Feb07-08h-back.png'
 %                       if provided, background will be cleaned w.r.t. it
+%  in_src_name        - defaults to 'src.avi', background may be taken
+%                       based on another background too (use with in_ref_backfile)
 %  DilateRadius       - mask is dilated on this ammount
 %  BackLearnRate      - learning rate: how fast background is updated
 %  FilterSigmaCoef    - used by generateCleanBackground when in_ref_backfile provided
 
 % parsing input
 parser = inputParser;
-addRequired(parser,  'in_image_videofile',  @ischar);
+addRequired(parser,  'in_video_dir',        @ischar);
 addParameter(parser, 'DilateRadius',        1, @isscalar);
 addParameter(parser, 'BackLearnRate',       0.2, @isscalar);
 addParameter(parser, 'FilterSigmaCoef',     0.05, @isscalar);
 addParameter(parser, 'in_ref_backfile',     '', @ischar);
+addParameter(parser, 'in_src_name',         'src.avi', @ischar);
 addParameter(parser, 'verbose',             0, @isscalar);
 parse (parser, in_video_dir, varargin{:});
 parsed = parser.Results;
@@ -32,7 +35,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % input
-in_image_videopath  = fullfile(CITY_DATA_PATH, in_video_dir, 'src.avi');
+in_image_videopath  = fullfile(CITY_DATA_PATH, in_video_dir, parsed.in_src_name);
 in_mask_videopath   = fullfile(CITY_DATA_PATH, in_video_dir, 'mask.avi');
 in_ref_backfile     = parsed.in_ref_backfile;
 

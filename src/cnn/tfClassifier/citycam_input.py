@@ -69,10 +69,10 @@ def read_my_file_format(filename_and_label, width, height):
   label = tf.string_to_number(label_str, out_type=tf.int32)
 
   # process roi
-  roi0 = tf.string_to_number(roi0_str, out_type=tf.float32) / IMAGE_HEIGHT
-  roi1 = tf.string_to_number(roi1_str, out_type=tf.float32) / IMAGE_WIDTH
-  roi2 = tf.string_to_number(roi2_str, out_type=tf.float32) / IMAGE_HEIGHT
-  roi3 = tf.string_to_number(roi3_str, out_type=tf.float32) / IMAGE_WIDTH
+  roi0 = tf.string_to_number(roi0_str, out_type=tf.float32) / height
+  roi1 = tf.string_to_number(roi1_str, out_type=tf.float32) / width
+  roi2 = tf.string_to_number(roi2_str, out_type=tf.float32) / height
+  roi3 = tf.string_to_number(roi3_str, out_type=tf.float32) / width
   roi = tf.expand_dims(tf.pack([roi0, roi1, roi2, roi3]), 0)
 
   # open and read maskfile
@@ -159,7 +159,10 @@ def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
   rgba = tf.concat(2, [uint8image, mask])
 
   # Randomly crop a [height, width] section of the image.
-  rgba = tf.random_crop(rgba, [height, width, 4])
+  #rgba = tf.random_crop(rgba, [height, width, 4])
+
+  # Image processing for evaluation.
+  rgba = tf.image.resize_images(rgba,  IMAGE_WIDTH, IMAGE_HEIGHT)
 
   # Randomly flip the image horizontally.
   rgba = tf.image.random_flip_left_right(rgba)
@@ -221,7 +224,6 @@ def inputs(data_list_path, batch_size, dataset_tag=''):
   mask  = tf.squeeze(mask, squeeze_dims=[2])
 
   # Image processing for evaluation.
-  # Crop the central [height, width] of the image.
 #  resized_image = tf.image.resize_image_with_crop_or_pad(reshaped_image, 
 #                                              IMAGE_WIDTH, IMAGE_HEIGHT)
 

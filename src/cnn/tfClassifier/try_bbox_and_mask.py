@@ -1,12 +1,16 @@
+import os, os.path as op
 import tensorflow as tf
 
 import citycam
 
 FLAGS = tf.app.flags.FLAGS
 
+def atcity(x):
+  return op.join(os.getenv('CITY_DATA_PATH'), x)
+
 tf.app.flags.DEFINE_string('train_dir', '/tmp/try_bbox_and_mask', '')
-tf.app.flags.DEFINE_string('data_dir', '/Users/evg/projects/City-Project/data/augmentation/patches', '')
-tf.app.flags.DEFINE_string('list_name', 'test_list.txt', '')
+tf.app.flags.DEFINE_string('data_dir',  atcity('augmentation/patches-Mar23'), '')
+tf.app.flags.DEFINE_string('list_name', 'eval_list-vis60.txt', '')
 
 tf.app.flags.DEFINE_integer('num_preprocess_threads', 1, '')
 
@@ -14,7 +18,7 @@ tf.app.flags.DEFINE_integer('num_preprocess_threads', 1, '')
 
 with tf.Graph().as_default() as graph:
 
-  images, labels, rois, masks = citycam.inputs(FLAGS.list_name)
+  images, labels, rois, masks = citycam.distorted_inputs(FLAGS.list_name)
 
   with tf.Session() as sess:
 
