@@ -64,22 +64,6 @@ def _activation_summary(x):
   tf.scalar_summary(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 
-def _variable_on_cpu(name, shape, initializer):
-  """Helper to create a Variable stored on CPU memory.
-
-  Args:
-    name: name of the variable
-    shape: list of ints
-    initializer: initializer for Variable
-
-  Returns:
-    Variable Tensor
-  """
-  with tf.device('/cpu:0'):
-    var = tf.get_variable(name, shape, initializer=initializer)
-  return var
-
-
 def _variable_with_weight_decay(name, shape, stddev, wd):
   """Helper to create an initialized Variable with weight decay.
 
@@ -96,8 +80,8 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   Returns:
     Variable Tensor
   """
-  var = _variable_on_cpu(name, shape,
-                         tf.truncated_normal_initializer(stddev=stddev))
+  var = tf.get_variable(name, shape,
+                 initializer=tf.truncated_normal_initializer(stddev=stddev))
   if wd:
     weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
     tf.add_to_collection('losses', weight_decay)
@@ -237,37 +221,48 @@ def predict (logits, labels):
 
 
 
+def L1_smooth(x):
+  return tf.select (tf.greater(x, 1.0), tf.abs(x)-0.5, 0.5*tf.square(x))
 
-def make_conv(input, name, shape, padding='SAME', wd=0.0):
+
+
+def make_conv(input_, name, shape, padding='SAME', wd=0.0):
   with tf.variable_scope(name) as scope:
     kernel = _variable_with_weight_decay('weights', shape=shape, stddev=1e-4, wd=wd)
-    conv = tf.nn.conv2d(input, kernel, [1, 1, 1, 1], padding=padding)
-    biases = _variable_on_cpu('biases', [shape[3]], tf.constant_initializer(0.0))
+    conv = tf.nn.conv2d(input_, kernel, [1, 1, 1, 1], padding=padding)
+    biases = tf.get_variable('biases', [shape[3]], initializer=tf.constant_initializer(0.0))
     bias = tf.nn.bias_add(conv, biases)
     conv_layer = tf.nn.relu(bias, name=scope.name)
     _activation_summary(conv_layer)
   return conv_layer
 
-def make_norm(input, name):
-  return tf.nn.lrn(input, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm1')
+def make_norm(input_, name):
+  return tf.nn.lrn(input_, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name='norm1')
 
-def make_local(input, name, shape, stddev=0.04, wd=0.004, keep_prob=1.0):
+def make_fc(input_, name, shape, stddev=0.04, wd=0.004, keep_prob=1.0):
   with tf.variable_scope(name) as scope:
-    weights = _variable_with_weight_decay('weights', shape=shape, stddev=stddev, wd=wd)
-    biases = _variable_on_cpu('biases', shape[1], tf.constant_initializer(0.1))
-    local_layer = tf.nn.relu(tf.matmul(input, weights) + biases, name=scope.name)
-    local_layer = tf.nn.dropout(local_layer, keep_prob)
+    weights  = _variable_with_weight_decay('weights', shape=shape, stddev=stddev, wd=wd)
+    biases   = tf.get_variable('biases', shape[1], initializer=tf.constant_initializer(0.1))
+    fc_layer = tf.nn.relu(tf.matmul(input_, weights) + biases, name=scope.name)
+    fc_layer = tf.nn.dropout(fc_layer, keep_prob)
     #_activation_summary(local3)
-  return local_layer
+  return fc_layer
 
-def make_softmax(input, shape):
+def make_softmax(input_, shape):
   with tf.variable_scope('softmax_linear') as scope:
     weights = _variable_with_weight_decay('weights', shape=shape, stddev=1.0/shape[0], wd=0.0)
-    biases = _variable_on_cpu('biases', [shape[1]], tf.constant_initializer(0.0))
-    softmax_linear = tf.add(tf.matmul(input, weights), biases, name=scope.name)
+    biases = tf.get_variable('biases', [shape[1]], initializer=tf.constant_initializer(0.0))
+    softmax_linear = tf.add(tf.matmul(input_, weights), biases, name=scope.name)
     #_activation_summary(softmax_linear)
   return softmax_linear
-  
+
+def make_regr(input_, shape):
+  assert shape[1] == 4
+  with tf.variable_scope('regression') as scope:
+    weights = _variable_with_weight_decay('weights', shape=shape, stddev=1.0/shape[0], wd=0.0)
+    biases = tf.get_variable('biases', [shape[1]], initializer=tf.random_uniform_initializer(0.0, 1.0))
+    regressions = tf.add(tf.matmul(input_, weights), biases, name=scope.name)
+  return regressions
 
 
 def inference2(images, keep_prob):
@@ -283,10 +278,14 @@ def inference2(images, keep_prob):
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
   dim = 64 * 6 * 6
   reshape = tf.reshape (pool2, [FLAGS.batch_size, dim])
-  local3 = make_local  (reshape, name='local3', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
-  local4 = make_local  (local3,  name='local4', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
-  softmax = make_softmax(local4, shape=[192, NUM_CLASSES])
-  return softmax, conv2, pool2
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
+
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  regressions = make_regr(fc2_regr, shape=[192, 4])
+
+  return softmax, regressions, pool2
 
 
 
@@ -308,9 +307,9 @@ def inference3(images, keep_prob):
   # 7
   dim = 128 * 7 * 7
   reshape = tf.reshape (pool3, [FLAGS.batch_size, dim])
-  local1 = make_local  (reshape, name='local1', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
-  local2 = make_local  (local1,  name='local2', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
-  softmax = make_softmax(local2, shape=[192, NUM_CLASSES])
+  fc1 = make_fc  (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  fc2 = make_fc  (fc1,     name='fc2', shape=[384, 192], stddev=0.04, wd=0.004, keep_prob=keep_prob)
+  softmax = make_softmax(fc2, shape=[192, NUM_CLASSES])
   return softmax
 
 
@@ -324,7 +323,7 @@ def inference(images, keep_prob):
 
 
 
-def loss(logits, labels):
+def loss(logits, regressions, labels, rois):
   """Add L2Loss to all the trainable variables.
 
   Add summary for for "Loss" and "Loss/avg".
@@ -342,6 +341,14 @@ def loss(logits, labels):
       logits, labels, name='cross_entropy_per_example')
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
   tf.add_to_collection('losses', cross_entropy_mean)
+
+  # Calculate the total regression loss
+  rois = tf.to_float(rois)
+  regression_loss = tf.reduce_sum(L1_smooth(regressions - rois),
+      name='regression_loss_per_example')
+  regression_loss_mean = tf.reduce_mean(regression_loss, name='regr_loss')
+  lambda_regr = 0.3
+  #tf.add_to_collection('losses', regression_loss_mean * lambda_regr)
 
   # The total loss is defined as the cross entropy loss plus all of the weight
   # decay terms (L2 loss).

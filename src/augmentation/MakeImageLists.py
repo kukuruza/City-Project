@@ -27,7 +27,7 @@ def make_list (root_dir, name_label_pairs, out_list_name, (vis_min, vis_max)):
         roi_path        = op.join(root_dir, patches_name, 'roi.txt')
 
         # read filenames
-        assert op.exists(ids_path)
+        assert op.exists(ids_path), 'ids_path: %s' % ids_path
         with open(ids_path) as f:
           filenames = f.read().splitlines()
         filenames = [filename.split()[0] for filename in filenames]  # ignore second col.

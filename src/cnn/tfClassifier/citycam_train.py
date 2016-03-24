@@ -79,21 +79,21 @@ def train():
 
     # Get images and labels for citycam.
     with tf.name_scope("train_images"): 
-      images, labels           = citycam.distorted_inputs('train_list.txt')
+      images, labels, rois_train, _ = citycam.distorted_inputs(FLAGS.train_list_name)
     with tf.name_scope("eval_images"): 
-      images_eval, labels_eval = citycam.distorted_inputs('eval_list.txt')
+      images_eval, labels_eval, rois_eval, _ = citycam.distorted_inputs(FLAGS.eval_list_name)
     with tf.name_scope("test_images"): 
-      images_test, labels_test = citycam.inputs('test_list.txt')
+      images_test, labels_test, rois_test, _ = citycam.inputs(FLAGS.test_list_name)
 
     # Build a Graph that computes the logits predictions from the inference model.
     with tf.variable_scope("inference") as scope:
 
       keep_prob = tf.placeholder(tf.float32) # dropout (keep probability)
 
-      logits      = citycam.inference(images, keep_prob)
+      logits, regressions_train, _     = citycam.inference(images, keep_prob)
       scope.reuse_variables()
-      logits_eval = citycam.inference(images_eval, keep_prob)
-      logits_test = citycam.inference(images_test, keep_prob)
+      logits_eval, regressions_eval, _ = citycam.inference(images_eval, keep_prob)
+      logits_test, regressions_test, _ = citycam.inference(images_test, keep_prob)
 
       predict_ops      = citycam.predict(logits,      labels)
       predict_eval_ops = citycam.predict(logits_eval, labels_eval)
@@ -112,7 +112,8 @@ def train():
 
     # Calculate loss.
     with tf.name_scope('train'):
-      loss = citycam.loss(logits, labels)
+      assert rois_train.get_shape()[1] == 4
+      loss = citycam.loss(logits, regressions_train, labels, rois_train)
 
       # Build a Graph that trains the model with one batch of examples and
       # updates the model parameters.
@@ -239,6 +240,9 @@ if __name__ == '__main__':
   parser.add_argument('--period_summary', default=100, type=int)
   parser.add_argument('--period_evaluate', default=100, type=int)
   parser.add_argument('--period_checkpoint', default=1000, type=int)
+  parser.add_argument('--train_list_name', default='train_list.txt')
+  parser.add_argument('--eval_list_name',  default='eval_list.txt')
+  parser.add_argument('--test_list_name',  default='test_list.txt')
   # flags from citycam
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
@@ -263,6 +267,9 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('period_checkpoint', args.period_checkpoint, '')
 
   tf.app.flags.DEFINE_string('data_dir', atcitydata(args.data_dir), '')
+  tf.app.flags.DEFINE_string('train_list_name', args.train_list_name, '')
+  tf.app.flags.DEFINE_string('eval_list_name',  args.eval_list_name, '')
+  tf.app.flags.DEFINE_string('test_list_name',  args.test_list_name, '')
   tf.app.flags.DEFINE_string('train_dir', atcity(args.train_dir), '')
   tf.app.flags.DEFINE_string('restore_from_dir', atcity(args.restore_from_dir), '')
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')

@@ -121,11 +121,13 @@ def _generate_image_and_label_batch(image, label, roi, mask, min_queue_examples,
   images_disp = tf.concat(2, [images_disp, masks_disp])
   tf.image_summary('images' + dataset_tag, images_disp, max_images=3)
 
+  rois = tf.squeeze(rois, squeeze_dims=[1])
+
   print ('shape of images batch: %s' % str(images.get_shape()))
   print ('shape of masks batch:  %s' % str(masks.get_shape()))
   print ('shape of rois batch:   %s' % str(rois.get_shape()))
 
-  return images, tf.reshape(label_batch, [batch_size])
+  return images, tf.reshape(label_batch, [batch_size]), rois, masks, 
 
 
 

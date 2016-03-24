@@ -14,7 +14,7 @@ tf.app.flags.DEFINE_integer('num_preprocess_threads', 1, '')
 
 with tf.Graph().as_default() as graph:
 
-  images, labels = citycam.inputs(FLAGS.list_name)
+  images, labels, rois, masks = citycam.inputs(FLAGS.list_name)
 
   with tf.Session() as sess:
 

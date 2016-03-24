@@ -357,13 +357,14 @@ if __name__ == "__main__":
             if not args.keep_src:
                 shutil.rmtree(patch_dir)
 
-            # write bboxes and visibility
-            ids_f.write('%s\n' % op.join(scene_name, op.basename(patch_name)))
+            # write ids, bboxes and visibility
+            patch_id = op.join(scene_name, op.splitext(patch_name)[0])
             bbox = mask2bbox (mask)
             assert bbox is not None
             roi_str = ' '.join([str(x) for x in bbox2roi(bbox)])
-            roi_f.write('%s %s\n' % (op.join(scene_name, patch_name), roi_str))
-            vis_f.write('%s %f\n' % (op.join(scene_name, patch_name), visible_perc))
+            roi_f.write('%s %s\n' % (patch_id, roi_str))
+            vis_f.write('%s %f\n' % (patch_id, visible_perc))
+            ids_f.write('%s\n'    %  patch_id)
 
     ids_f.close()
     vis_f.close()
