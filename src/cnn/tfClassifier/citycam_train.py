@@ -156,25 +156,25 @@ def train():
 
       # Restore previous training, if provided with restore_from_dir.
       #   In this case values of initialized variables will be replaced
-      if FLAGS.restore_from_dir is not None:
+    #   if FLAGS.restore_from_dir is not None:
 
-        # Restore the moving average version of the learned variables for eval.
-    #        variable_averages = tf.train.ExponentialMovingAverage(
-    #            citycam.MOVING_AVERAGE_DECAY)
-    #        variable_averages.variables_to_restore()
-        restorer = tf.train.Saver([v for v in tf.all_variables() if
-                                   v.name.find('conv') > 0 or 
-                                   v.name.find('norm') > 0 or
-                                   v.name.find('pool') > 0])
+    #     # Restore the moving average version of the learned variables for eval.
+    # #        variable_averages = tf.train.ExponentialMovingAverage(
+    # #            citycam.MOVING_AVERAGE_DECAY)
+    # #        variable_averages.variables_to_restore()
+    #     restorer = tf.train.Saver([v for v in tf.all_variables() if
+    #                                v.name.find('conv') > 0 or 
+    #                                v.name.find('norm') > 0 or
+    #                                v.name.find('pool') > 0])
 
-        ckpt = tf.train.get_checkpoint_state(FLAGS.restore_from_dir)
-        if ckpt and ckpt.model_checkpoint_path:
-          # Restores from checkpoint
-          restorer.restore(sess, ckpt.model_checkpoint_path)
-          restored_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
-          print ('Restored the model from step %s' % restored_step)
-        else:
-          raise Exception('No checkpoint file found in %s' % FLAGS.restore_from_dir)
+    #     ckpt = tf.train.get_checkpoint_state(FLAGS.restore_from_dir)
+    #     if ckpt and ckpt.model_checkpoint_path:
+    #       # Restores from checkpoint
+    #       restorer.restore(sess, ckpt.model_checkpoint_path)
+    #       restored_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+    #       print ('Restored the model from step %s' % restored_step)
+    #     else:
+    #       raise Exception('No checkpoint file found in %s' % FLAGS.restore_from_dir)
 
       # Start the queue runners.
       coord = tf.train.Coordinator()
@@ -297,7 +297,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
   tf.app.flags.DEFINE_integer('num_eval_examples', args.num_eval_examples, '')
   tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
-  tf.app.flags.DEFINE_float('labmda_regr', args.labmda_regr, '')
+  tf.app.flags.DEFINE_float('lambda_regr', args.lambda_regr, '')
 
   tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', args.num_epochs_per_decay, '')
   tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', 

@@ -276,36 +276,36 @@ def inference2(images, keep_prob, wd=0.004):
 
 
 def inference3(images, keep_prob, wd=0.004):
-  images = tf.image.resize_images(images, 61, 61)
-  # 61
-  conv1 = make_conv     (images, name='conv1', padding='VALID', shape=[7, 7, 3, 32])
-  norm1 = make_norm     (conv1,  name='norm1') 
-  pool1 = tf.nn.max_pool(norm1,  name='pool1', padding='VALID', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
-  # 27
-  conv2 = make_conv     (pool1,  name='conv2', padding='SAME',  shape=[5, 5, 32, 64])
+  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 64])
+  conv2 = make_conv     (conv1,  name='conv2', padding='SAME',  shape=[5, 5, 64, 64])
   norm2 = make_norm     (conv2,  name='norm2')
-  pool2 = tf.nn.max_pool(norm2,  name='pool2', padding='VALID', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
-  # 13
-  conv3 = make_conv     (pool2,  name='conv3', padding='SAME',  shape=[5, 5, 64, 128])
-#  norm3 = make_norm     (conv3,  name='norm3')
-#  pool3 = tf.nn.max_pool(norm3,  name='pool3', padding='SAME',  ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
-  pool3 = tf.nn.max_pool(conv3,  name='pool3', padding='SAME',  ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
-  # 7
-  dim = 128 * 7 * 7
+  pool2 = tf.nn.max_pool(norm2,  name='pool2', padding='VALID', ksize=[1, 9, 9, 1], strides=[1, 5, 5, 1])
+
+  conv3 = make_conv     (pool2,  name='conv3', padding='SAME',  shape=[5, 5, 64, 64])
+  norm3 = make_norm     (conv3,  name='norm3')
+  pool3 = tf.nn.max_pool(norm3,  name='pool3', padding='SAME',  ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
+
+  #dim = 1
+  #for d in pool2.get_shape()[1:].as_list(): dim *= d
+  dim = 64 * 6 * 6
   reshape = tf.reshape (pool3, [FLAGS.batch_size, dim])
-  fc1 = make_fc  (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=wd, keep_prob=keep_prob)
-  fc2 = make_fc  (fc1,     name='fc2', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
-  softmax = make_softmax(fc2, shape=[192, NUM_CLASSES])
-  return softmax
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
+
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  regressions = make_regr(fc2_regr, shape=[192, 4])
+
+  return softmax, regressions, pool2
 
 
 
 
 
 def inference(images, keep_prob, wd):
-    '''Thin proxy'''
-    return inference2(images, keep_prob=keep_prob, wd=wd)
-#    return inference3(images, keep_prob=keep_prob, wd=wd)
+    '''Thin proxy too pick the architecture'''
+#    return inference2(images, keep_prob=keep_prob, wd=wd)
+    return inference3(images, keep_prob=keep_prob, wd=wd)
 
 
 
