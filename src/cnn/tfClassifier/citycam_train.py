@@ -46,7 +46,10 @@ def evaluate_clas (sess, logits, labels, keep_prob):
      Sum the number of correct predictions and output one precision value.
   Args:
     sess:      current Session
-    (correct, predicted, labels):  helper graph nodes
+    logits:    2D Tensor of shape [batch_size, NUM_CLASSES]. 
+               Probabilities by class, NOT sortmax-normalized
+    labels:    2D Tensor of shape [batch_size], values in range [0,NUM_CLASSES)
+    keep_prob: scalar Tensor placeholder. Always equals 1 (for evaluation)
   """
   correct = tf.nn.in_top_k (logits, labels, 1)
   predict = tf.argmax (logits, 1)
@@ -128,13 +131,9 @@ def train():
       loss_regr = citycam.loss_regr (regress[sn], rois[sn])
       loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
 
-      # Build a Graph that trains the model with one batch of examples and
-      # updates the model parameters.
-      train_op = citycam.train(loss, global_step)
-
-
-    # Create a saver.
-    saver = tf.train.Saver(tf.all_variables())
+    # Build a Graph that trains the model with one batch of examples and
+    # updates the model parameters.
+    train_op = citycam.train(loss, global_step)
 
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
@@ -143,6 +142,12 @@ def train():
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir,
                                             graph_def=graph.as_graph_def())
 
+    # Create a saver for all variables
+    saver = tf.train.Saver(tf.all_variables())
+
+    # Restore the moving average version of the learned variables for eval.
+    ema = tf.train.ExponentialMovingAverage(citycam.MOVING_AVERAGE_DECAY)
+    restorer = tf.train.Saver(ema.variables_to_restore())
 
 
     #######    The graph is built by this point   #######
@@ -156,25 +161,16 @@ def train():
 
       # Restore previous training, if provided with restore_from_dir.
       #   In this case values of initialized variables will be replaced
-    #   if FLAGS.restore_from_dir is not None:
+      if FLAGS.restore_from_dir is not None:
 
-    #     # Restore the moving average version of the learned variables for eval.
-    # #        variable_averages = tf.train.ExponentialMovingAverage(
-    # #            citycam.MOVING_AVERAGE_DECAY)
-    # #        variable_averages.variables_to_restore()
-    #     restorer = tf.train.Saver([v for v in tf.all_variables() if
-    #                                v.name.find('conv') > 0 or 
-    #                                v.name.find('norm') > 0 or
-    #                                v.name.find('pool') > 0])
-
-    #     ckpt = tf.train.get_checkpoint_state(FLAGS.restore_from_dir)
-    #     if ckpt and ckpt.model_checkpoint_path:
-    #       # Restores from checkpoint
-    #       restorer.restore(sess, ckpt.model_checkpoint_path)
-    #       restored_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
-    #       print ('Restored the model from step %s' % restored_step)
-    #     else:
-    #       raise Exception('No checkpoint file found in %s' % FLAGS.restore_from_dir)
+        ckpt = tf.train.get_checkpoint_state(FLAGS.restore_from_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+          # Restores from checkpoint
+          restorer.restore(sess, ckpt.model_checkpoint_path)
+          restored_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
+          print ('Restored the model from step %s' % restored_step)
+        else:
+          raise Exception('No checkpoint file found in %s' % FLAGS.restore_from_dir)
 
       # Start the queue runners.
       coord = tf.train.Coordinator()
@@ -232,7 +228,7 @@ def main(argv=None):  # pylint: disable=unused-argument
 if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('--train_dir',   default='log/tensorflow/classifier_train',
+  parser.add_argument('--train_dir', default='log/tensorflow/classifier_train',
                       help='Directory where to write event logs and checkpoint.')
   parser.add_argument('--restore_from_dir', default=None,
                       help='Directory where to read model checkpoints. '
@@ -252,7 +248,6 @@ if __name__ == '__main__':
   parser.add_argument('--batch_size', default=128, type=int,
                       help='Number of images to process in a batch.')
   parser.add_argument('--lambda_regr', default=0.5, type=float)
-  # flags from citycam
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
   parser.add_argument('--num_preprocess_threads', default=16, type=int)

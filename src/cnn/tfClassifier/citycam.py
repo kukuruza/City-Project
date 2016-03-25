@@ -239,7 +239,7 @@ def make_fc(input_, name, shape, stddev=0.04, wd=0.004, keep_prob=1.0):
     biases   = tf.get_variable('biases', shape[1], initializer=tf.constant_initializer(0.1))
     fc_layer = tf.nn.relu(tf.matmul(input_, weights) + biases, name=scope.name)
     fc_layer = tf.nn.dropout(fc_layer, keep_prob)
-    #_activation_summary(local3)
+    _activation_summary(fc_layer)
   return fc_layer
 
 def make_softmax(input_, shape):
@@ -247,7 +247,7 @@ def make_softmax(input_, shape):
     weights = _variable_with_weight_decay('weights', shape=shape, stddev=1.0/shape[0], wd=0.0)
     biases = tf.get_variable('biases', [shape[1]], initializer=tf.constant_initializer(0.0))
     softmax_linear = tf.add(tf.matmul(input_, weights), biases, name=scope.name)
-    #_activation_summary(softmax_linear)
+    _activation_summary(softmax_linear)
   return softmax_linear
 
 def make_regr(input_, shape):
@@ -430,9 +430,8 @@ def train(total_loss, global_step):
       tf.histogram_summary(var.op.name + '/gradients', grad)
 
   # Track the moving averages of all trainable variables.
-  variable_averages = tf.train.ExponentialMovingAverage(
-      FLAGS.MOVING_AVERAGE_DECAY, global_step)
-  variables_averages_op = variable_averages.apply(tf.trainable_variables())
+  ema = tf.train.ExponentialMovingAverage(FLAGS.MOVING_AVERAGE_DECAY, global_step)
+  variables_averages_op = ema.apply(tf.trainable_variables())
 
   with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
     train_op = tf.no_op(name='train')
