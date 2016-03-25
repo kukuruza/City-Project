@@ -88,8 +88,8 @@ def read_my_file_format(filename_and_label, width, height):
 
 
 
-def _generate_image_and_label_batch(image, label, roi, mask, min_queue_examples,
-                                    batch_size, dataset_tag=''):
+def _generate_image_and_label_batch(image, label, roi, mask, 
+                                    min_queue_examples, batch_size):
   """Construct a queued batch of images and labels.
 
   Args:
@@ -107,35 +107,20 @@ def _generate_image_and_label_batch(image, label, roi, mask, min_queue_examples,
     rois:   2D Tensor of type tf.int32, [batch_size, 4]
     masks:  3D Tensor of type tf.uint8, [batch_size, hieght, width]
   """
-  # Scale mask to [img_min, img_max]
-  img_min = tf.reduce_min(image)
-  img_max = tf.reduce_max(image)
-  mask_disp = tf.to_float(mask) / 255 * (img_max - img_min) + img_min
-
   # Create a queue that shuffles the examples, and then
   # read 'batch_size' images + labels from the example queue.
-  images, label_batch, rois, masks, masks_disp = tf.train.shuffle_batch(
-      [image, label, roi, mask, mask_disp],
+  images, label_batch, rois, masks = tf.train.shuffle_batch(
+      [image, label, roi, mask],
       batch_size=batch_size,
       num_threads=FLAGS.num_preprocess_threads,
       capacity=min_queue_examples + 3 * batch_size,
       min_after_dequeue=min_queue_examples)
 
-  # Display the images in the visualizer.
-  rois = tf.expand_dims(rois, 1)  # from [batch_size,4] to [batch_size,1,4]
-  masks_disp  = tf.image.grayscale_to_rgb(tf.expand_dims(masks_disp, dim=-1))
-  masks_wroi  = tf.image.draw_bounding_boxes(masks_disp, rois)
-  images_disp = tf.image.draw_bounding_boxes(images, rois)
-  images_disp = tf.concat(1, [tf.concat(2, [masks_disp, images_disp]),
-                              tf.concat(2, [masks_wroi, images])])
-  rois = tf.squeeze(rois, squeeze_dims=[1])
-  #tf.image_summary('images' + dataset_tag, images_disp, max_images=3)
-
   print ('shape of images batch: %s' % str(images.get_shape()))
   print ('shape of masks batch:  %s' % str(masks.get_shape()))
   print ('shape of rois batch:   %s' % str(rois.get_shape()))
 
-  return images, tf.reshape(label_batch, [batch_size]), rois, masks, images_disp
+  return images, tf.reshape(label_batch, [batch_size]), rois, masks
 
 
 def roi_to_float(roi, width, height):
@@ -171,7 +156,7 @@ def my_random_crop (image, roi):
   return crop, roi
 
 
-def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
+def distorted_inputs(data_list_path, batch_size):
   """Construct distorted input for CIFAR training using the Reader ops.
 
     Returns:
@@ -233,12 +218,11 @@ def distorted_inputs(data_list_path, batch_size, dataset_tag=''):
 
   # Generate a batch of images and labels by building up a queue of examples.
   return _generate_image_and_label_batch(float_image, label, roi, cropped_mask,
-                                         min_queue_examples, batch_size, 
-                                         dataset_tag)
+                                         min_queue_examples, batch_size)
 
 
 
-def inputs(data_list_path, batch_size, dataset_tag=''):
+def inputs(data_list_path, batch_size):
   """
     Returns:
       images: Images. 4D tensor of 
@@ -281,6 +265,5 @@ def inputs(data_list_path, batch_size, dataset_tag=''):
 
   # Generate a batch of images and labels by building up a queue of examples.
   return _generate_image_and_label_batch(float_image, label, roi, mask,
-                                         min_queue_examples, batch_size, 
-                                         dataset_tag)
+                                         min_queue_examples, batch_size)
  

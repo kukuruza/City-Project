@@ -32,9 +32,9 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL  = citycam_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-# NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
-# LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
-# INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
+INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 
 # If a model is trained with multiple GPU's prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -42,6 +42,10 @@ MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
 TOWER_NAME = 'tower'
 
 tf.app.flags.DEFINE_float('MOVING_AVERAGE_DECAY', MOVING_AVERAGE_DECAY, '')
+tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', NUM_EPOCHS_PER_DECAY, 
+                          """Epochs after which learning rate decays.""")
+tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', LEARNING_RATE_DECAY_FACTOR, '')
+tf.app.flags.DEFINE_float('INITIAL_LEARNING_RATE', INITIAL_LEARNING_RATE, '')
 
 
 
@@ -87,7 +91,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   return var
 
 
-def distorted_inputs (data_list_name, dataset_tag=''):
+def distorted_inputs (data_list_name):
   """Construct distorted input for CIFAR training using the Reader ops.
 
   Returns:
@@ -101,11 +105,10 @@ def distorted_inputs (data_list_name, dataset_tag=''):
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
   train_list_path = os.path.join(FLAGS.data_dir, data_list_name)
-  return citycam_input.distorted_inputs(train_list_path, FLAGS.batch_size, 
-                                        '/'+op.splitext(data_list_name)[0])
+  return citycam_input.distorted_inputs(train_list_path, FLAGS.batch_size)
 
 
-def inputs (data_list_name, dataset_tag=''):
+def inputs (data_list_name):
   """Construct input for CIFAR evaluation using the Reader ops.
 
   Returns:
@@ -119,8 +122,7 @@ def inputs (data_list_name, dataset_tag=''):
   if not FLAGS.data_dir:
     raise ValueError('Please supply a data_dir')
   data_list_path = os.path.join(FLAGS.data_dir, data_list_name)
-  return citycam_input.inputs(data_list_path, FLAGS.batch_size,
-                              '/'+op.splitext(data_list_name)[0])
+  return citycam_input.inputs(data_list_path, FLAGS.batch_size)
 
 
 
@@ -171,6 +173,7 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
   return tf.transpose(x6, (3, 0, 1, 2))
 
 
+
 def demo_visualize_kernels(kernel):
   '''Send a kernel to image_summary
   Args
@@ -186,25 +189,30 @@ def demo_visualize_kernels(kernel):
   return tf.transpose (kernel_0_to_1, [3, 0, 1, 2])
 
 
-def vis_localization (masks, rois):
-  pass
+
+def my_image_summary (images, masks, rois, setname):
+  # Scale mask to [img_min, img_max]
+  # img_min = tf.reduce_min(image)
+  # img_max = tf.reduce_max(image)
+  # mask_disp = tf.to_float(mask) / 255 * (img_max - img_min) + img_min
+
+  # Display the images in the visualizer.
+  rois = tf.expand_dims(rois, 1)  # from [batch_size,4] to [batch_size,1,4]
+  masks_disp  = tf.to_float(masks) / 255
+  masks_disp  = tf.image.grayscale_to_rgb(tf.expand_dims(masks_disp, dim=-1))
+  masks_wroi  = tf.image.draw_bounding_boxes(masks_disp, rois)
+  images_wroi = tf.image.draw_bounding_boxes(images, rois)
+  grid = tf.concat(1, [tf.concat(2, [images, images_wroi]),
+                       tf.concat(2, [masks_disp, masks_wroi])])
+  grid = tf.pad(grid, [[0,0],[4,4],[4,4],[0,0]])
+
+  #   regress_disp = tf.expand_dims(regress[sn], 1)  # from [batch_size,4] to [batch_size,1,4]
+  #   images_disp = tf.image.draw_bounding_boxes(images_disp, regr_tr_disp / 2)
+
+  tf.image_summary('images/%s' % op.splitext(setname)[0], grid, max_images=3)
 
 
 
-
-
-
-
-def predict (logits, labels):
-  correct = tf.nn.in_top_k (logits, labels, 1)
-  predicted = tf.argmax(logits, 1)
-
-  return correct, predicted, labels
-
-
-def localize (regr, rois):
-  ''' At the moment just a thin wrapper '''
-  return regr, rois
 
 
 def L1_smooth(x):
@@ -309,31 +317,36 @@ def inference(images, keep_prob, wd):
 
 
 
-def loss(logits, regressions, labels, rois):
+def loss_clas (logits, labels):
   """Add L2Loss to all the trainable variables.
-
   Add summary for for "Loss" and "Loss/avg".
   Args:
     logits:       Logits from inference().
-    regressions:  2D Tensor of type tf.int32, [batch_size, 4]
     labels:       1D Tensor of type tf.int32, [batch_size]
                   Labels from distorted_inputs or inputs(). 
-    rois:         2D Tensor of type tf.int32, [batch_size, 4]
-
   Returns:
     Loss tensor of type float.
   """
-  assert regressions.get_shape()[0] == FLAGS.batch_size
-  assert regressions.get_shape()[1] == 4
-  assert rois.get_shape()[0] == FLAGS.batch_size
-  assert rois.get_shape()[1] == 4
-
   # Calculate the average cross entropy loss across the batch.
   labels = tf.cast(labels, tf.int64)
   cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
       logits, labels, name='cross_entropy_per_example')
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
   tf.add_to_collection('losses', cross_entropy_mean * (1.0 - FLAGS.lambda_regr))
+
+
+
+def loss_regr (regressions, rois):
+  """Add L2Loss to all the trainable variables.
+  Add summary for for "Loss" and "Loss/avg".
+  Args:
+    regressions:  2D Tensor of type tf.int32, [batch_size, 4]
+    rois:         2D Tensor of type tf.int32, [batch_size, 4]
+  Returns:
+    Loss tensor of type float.
+  """
+  assert regressions.get_shape()[0] == FLAGS.batch_size
+  assert regressions.get_shape()[1] == 4
 
   # Calculate the total regression loss
   rois = tf.to_float(rois)
@@ -342,9 +355,6 @@ def loss(logits, regressions, labels, rois):
   regression_loss_mean = tf.reduce_mean(regression_loss, name='regr_loss')
   tf.add_to_collection('losses', regression_loss_mean * FLAGS.lambda_regr)
 
-  # The total loss is defined as the cross entropy loss plus all of the weight
-  # decay terms (L2 loss).
-  return tf.add_n(tf.get_collection('losses'), name='total_loss'), regression_loss
 
 
 def _add_loss_summaries(total_loss):

@@ -41,96 +41,96 @@ tf.app.flags.DEFINE_float('wd', 0.01, 'weight_decay for all fc layers')
 
 
 
-def evaluate_set (sess, (correct, predicted, labels), (regressions, rois), keep_prob):
+def evaluate_clas (sess, logits, labels, keep_prob):
   """Convenience function to run evaluation for for every batch. 
      Sum the number of correct predictions and output one precision value.
   Args:
     sess:      current Session
     (correct, predicted, labels):  helper graph nodes
   """
+  correct = tf.nn.in_top_k (logits, labels, 1)
+  predict = tf.argmax (logits, 1)
+
   num_iter = int(math.ceil(FLAGS.num_eval_examples / FLAGS.batch_size))
   true_count = 0  # Counts the number of correct predictions.
   total_sample_count = num_iter * FLAGS.batch_size
 
-  predicted_list = []
-  labels_list    = []
+  predict_list = []
+  labels_list  = []
 
   for step in xrange(num_iter):
 
-    [correct_val, predicted_val, labels_val] = sess.run([correct, predicted, labels],
-                                                        feed_dict={keep_prob: 1.0})
-    #print (correct_val)
-    #print (predicted_val)
-    #print (labels_val)
+    [correct_val, predict_val, labels_val] = sess.run([correct, predict, labels],
+                                                       feed_dict={keep_prob: 1.0})
+    true_count   += np.sum(correct_val)
+    predict_list += predict_val.tolist()
+    labels_list  += labels_val.tolist()
 
-    true_count     += np.sum(correct_val)
-    predicted_list += predicted_val.tolist()
-    labels_list    += labels_val.tolist()
-
-  print (confusion_matrix(np.array(predicted_list), np.array(labels_list)))
-
-  # Compute precision
+  print (confusion_matrix(np.array(predict_list), np.array(labels_list)))
   return true_count / total_sample_count
 
 
 
-
 def train():
+  setnames = FLAGS.setnames.split(',')
+  print ('setnames: %s' % setnames)
 
   with tf.Graph().as_default() as graph:
     global_step = tf.Variable(0, trainable=False, name='global_step')
 
+    images = {}
+    labels = {}
+    rois   = {}
+    masks  = {}
+
     # Get images and labels for citycam.
-    with tf.name_scope("train_images"): 
-      images, labels, rois_train, _, images_disp = citycam.distorted_inputs(FLAGS.train_list_name)
-    with tf.name_scope("eval_images"): 
-      images_eval, labels_eval, rois_eval, _, _ = citycam.distorted_inputs(FLAGS.eval_list_name)
-    with tf.name_scope("test_images"): 
-      images_test, labels_test, rois_test, _, _ = citycam.inputs(FLAGS.test_list_name)
+    for sn in setnames:
+      with tf.name_scope(sn):
+        list_name = '%s.txt' % sn
+        if sn.find('labelme') >= 0:
+          print ('sn: %s, using "input()"' % sn)
+          images[sn], labels[sn], rois[sn], masks[sn] = citycam.inputs(list_name)
+        else:
+          print ('sn: %s, using "distorted_inputs()"' % sn)
+          images[sn], labels[sn], rois[sn], masks[sn] = citycam.distorted_inputs(list_name)
 
     # Build a Graph that computes the logits predictions from the inference model.
     with tf.variable_scope("inference") as scope:
+      logits = {}
+      regress = {}
+      summary_prec = {}
 
-      keep_prob = tf.placeholder(tf.float32) # dropout (keep probability)
+      keep_prob = tf.placeholder(tf.float32) # for dropout
 
-      logits, regr_train, _     = citycam.inference(images, keep_prob, wd=FLAGS.wd)
-      scope.reuse_variables()
-      logits_eval, regr_eval, _ = citycam.inference(images_eval, keep_prob, wd=FLAGS.wd)
-      logits_test, regr_test, _ = citycam.inference(images_test, keep_prob, wd=FLAGS.wd)
+      for sn in setnames:
+        logits[sn], regress[sn], _ = \
+          citycam.inference(images[sn], keep_prob, wd=FLAGS.wd)
+        scope.reuse_variables()
 
-      predict_ops      = citycam.predict(logits,      labels)
-      predict_eval_ops = citycam.predict(logits_eval, labels_eval)
-      predict_test_ops = citycam.predict(logits_test, labels_test)
+        summary_prec[sn] = tf.placeholder(tf.float32)
+        tf.scalar_summary('precision/%s' % sn, summary_prec[sn])
 
-      localized_tr     = citycam.localize(regr_train, rois_train)
-      localized_ev     = citycam.localize(regr_eval,  rois_eval)
-      localized_te     = citycam.localize(regr_test,  rois_test)
-
-      summary_train_prec = tf.placeholder(tf.float32)
-      summary_eval_prec  = tf.placeholder(tf.float32)
-      summary_test_prec  = tf.placeholder(tf.float32)
-      tf.scalar_summary('precision/train.', summary_train_prec)
-      tf.scalar_summary('precision/eval.', summary_eval_prec)
-      tf.scalar_summary('precision/test.', summary_test_prec)
-
-      with tf.name_scope('visualization'):
         kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'), (8,8))
-        tf.image_summary('conv1', kernel, max_images=1)
+
+    # Image summary of kernels, masks, rois
+    with tf.name_scope('visualization'):
+      # visualize conv1 filters
+      tf.image_summary('conv1', kernel, max_images=1)
+      # visualize images with rois and masks
+      for sn in setnames:
+        citycam.my_image_summary (images[sn], masks[sn], rois[sn], sn)
 
     # Calculate loss.
     with tf.name_scope('train'):
-      assert rois_train.get_shape()[1] == 4
-      loss, regression_loss = citycam.loss(logits, regr_train, labels, rois_train)
+      sn = setnames[0]
+      assert rois[sn].get_shape()[1] == 4
+      loss_clas = citycam.loss_clas (logits[sn], labels[sn])
+      loss_regr = citycam.loss_regr (regress[sn], rois[sn])
+      loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
 
       # Build a Graph that trains the model with one batch of examples and
       # updates the model parameters.
       train_op = citycam.train(loss, global_step)
-
-      with tf.name_scope('visualization'):
-        regr_tr_disp = tf.expand_dims(regr_train, 1)  # from [batch_size,4] to [batch_size,1,4]
-        images_disp = tf.image.draw_bounding_boxes(images_disp, regr_tr_disp / 2)
-        images_disp = tf.pad(images_disp, [[0,0],[4,4],[4,4],[0,0]])
-        tf.image_summary('images/train', images_disp, max_images=3)
 
 
     # Create a saver.
@@ -186,43 +186,29 @@ def train():
             break
 
           start_time = time.time()
-          _, loss_value, regr_train_val, rois_train_val, regression_loss_val = sess.run(
-                  [train_op, loss, regr_train, rois_train, regression_loss], 
-                  feed_dict={keep_prob: 0.5})
+          _, loss_val = sess.run([train_op, loss], feed_dict={keep_prob: 0.5})
           duration = time.time() - start_time
 
-          assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+          assert not np.isnan(loss_val), 'Model diverged with loss = NaN'
 
           if step % FLAGS.period_print == 0:
-            num_examples_per_step = FLAGS.batch_size
-            examples_per_sec = num_examples_per_step / duration
-            sec_per_batch = float(duration)
-
-            format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
-                          'sec/batch)')
-            print (format_str % (datetime.now(), step, loss_value,
-                                 examples_per_sec, sec_per_batch))
+            print ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f sec/batch)' %
+                    (datetime.now(), step, loss_val, 
+                     FLAGS.batch_size / float(duration), float(duration)))
 
           if step % FLAGS.period_evaluate == 0:
-            prec_train = evaluate_set (sess, predict_ops,      localized_tr, keep_prob)
-            prec_eval  = evaluate_set (sess, predict_eval_ops, localized_ev, keep_prob)
-            prec_test  = evaluate_set (sess, predict_test_ops, localized_te, keep_prob)
-            print('%s: prec_train = %.3f' % (datetime.now(), prec_train))
-            print('%s: prec_eval  = %.3f' % (datetime.now(), prec_eval))
-            print('%s: prec_test  = %.3f' % (datetime.now(), prec_test))
-            print('rois_train_val: \n', rois_train_val[:8])
-            print('regr_train_val: \n', regr_train_val[:8])
-            print('regr_loss_val: \n', regression_loss_val[:8])
+            summary_feed_dict = {keep_prob: 1}
+            for sn in setnames:
+              prec = evaluate_clas (sess, logits[sn], labels[sn], keep_prob)
+              summary_feed_dict[summary_prec[sn]] = prec
+              print('%s: prec %s = %.3f' % (datetime.now(), sn, prec))
+            # print('regr_train_val: \n', regr_train_val[:8])
+            # print('regr_loss_val: \n', regression_loss_val[:8])
 
           if step % FLAGS.period_summary == 0:
-            summary_str = sess.run(summary_op, 
-              feed_dict={summary_train_prec: prec_train,
-                         summary_eval_prec:  prec_eval,
-                         summary_test_prec:  prec_test,
-                         keep_prob:          1.0})
+            summary_str = sess.run(summary_op, feed_dict=summary_feed_dict)
             summary_writer.add_summary(summary_str, step)
 
-          # Save the model checkpoint periodically.
           if step % FLAGS.period_checkpoint == 0 or (step + 1) == FLAGS.max_steps:
             checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
             saver.save(sess, checkpoint_path, global_step=global_step)
@@ -259,24 +245,18 @@ if __name__ == '__main__':
   parser.add_argument('--period_summary', default=100, type=int)
   parser.add_argument('--period_evaluate', default=100, type=int)
   parser.add_argument('--period_checkpoint', default=1000, type=int)
-  parser.add_argument('--train_list_name', default='train_list.txt')
-  parser.add_argument('--eval_list_name',  default='eval_list.txt')
-  parser.add_argument('--test_list_name',  default='test_list.txt')
+  parser.add_argument('--list_names', nargs='+', 
+                      help='multiple names of datasets, e.g. train_list.txt. '
+                           'By convention, the first in the list is to train, '
+                           'ones with "labelme" in name are not distorted now')
   parser.add_argument('--batch_size', default=128, type=int,
                       help='Number of images to process in a batch.')
   parser.add_argument('--lambda_regr', default=0.5, type=float)
   # flags from citycam
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
-  # parameters from citycam
-  parser.add_argument('--num_epochs_per_decay', default=350.0, type=float,
-                      help='Epochs after which learning rate decays.')
-  parser.add_argument('--learning_rate_decay_factor', default=0.1, type=float)
-  parser.add_argument('--initial_learning_rate_decay', default=0.1, type=float)
   parser.add_argument('--num_preprocess_threads', default=16, type=int)
-
   args = parser.parse_args()
-
 
   def atcity(x):
     return None if x is None else os.path.join(os.getenv('CITY_PATH'), x)
@@ -289,9 +269,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('period_checkpoint', args.period_checkpoint, '')
 
   tf.app.flags.DEFINE_string('data_dir', atcitydata(args.data_dir), '')
-  tf.app.flags.DEFINE_string('train_list_name', args.train_list_name, '')
-  tf.app.flags.DEFINE_string('eval_list_name',  args.eval_list_name, '')
-  tf.app.flags.DEFINE_string('test_list_name',  args.test_list_name, '')
+  tf.app.flags.DEFINE_string('setnames', ','.join(args.list_names), '')
   tf.app.flags.DEFINE_string('train_dir', atcity(args.train_dir), '')
   tf.app.flags.DEFINE_string('restore_from_dir', atcity(args.restore_from_dir), '')
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
@@ -299,11 +277,6 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
   tf.app.flags.DEFINE_float('lambda_regr', args.lambda_regr, '')
 
-  tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', args.num_epochs_per_decay, '')
-  tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', 
-                              args.learning_rate_decay_factor, '')
-  tf.app.flags.DEFINE_float('INITIAL_LEARNING_RATE', 
-                              args.initial_learning_rate_decay, '')
   tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
 
   tf.app.run()
