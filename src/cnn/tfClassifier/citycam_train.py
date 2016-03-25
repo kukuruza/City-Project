@@ -264,6 +264,7 @@ if __name__ == '__main__':
   parser.add_argument('--test_list_name',  default='test_list.txt')
   parser.add_argument('--batch_size', default=128, type=int,
                       help='Number of images to process in a batch.')
+  parser.add_argument('--lambda_regr', default=0.5, type=float)
   # flags from citycam
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
@@ -296,6 +297,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
   tf.app.flags.DEFINE_integer('num_eval_examples', args.num_eval_examples, '')
   tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
+  tf.app.flags.DEFINE_float('labmda_regr', args.labmda_regr, '')
 
   tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', args.num_epochs_per_decay, '')
   tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', 
