@@ -306,7 +306,7 @@ def inference3(images, keep_prob, wd=0.004):
   fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
-  return softmax, regressions, pool2
+  return softmax, regressions, conv3, pool3
 
 
 

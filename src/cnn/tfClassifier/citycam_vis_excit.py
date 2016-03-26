@@ -402,31 +402,15 @@ def visualize_excitations():
   ''' Restore a trained model, and run one of the visualizations. '''
   with tf.Graph().as_default():
 
-    images, _ = citycam.inputs(FLAGS.data_list_name)
+    images, _, _, _ = citycam.inputs('%s.txt' % FLAGS.list_name)
 
     with tf.variable_scope("inference") as scope:
-      # Get conv2 and pool2 responses
-      _, conv2, pool2 = citycam.inference(images, keep_prob=1.0)
+      # Get conv3 and pool3 responses
+      _, _, conv3, pool3 = citycam.inference(images, keep_prob=1.0)
 
-      print (tf.get_variable('softmax_linear/weights'))
-      vars_ = [v for v in tf.all_variables() 
-               if v.name.find('softmax_linear/weights') > 0]
-      print (vars_)
-      restorer = tf.train.Saver({'inference/softmax_linear/weights': vars_[0]})
-
-
-    # # Restore the moving average version of the learned variables for eval.
-    # variable_averages = tf.train.ExponentialMovingAverage(
-    #     citycam.MOVING_AVERAGE_DECAY)
-    # variables_to_restore = variable_averages.variables_to_restore()
-    # #restorer = tf.train.Saver(variables_to_restore)
-
-    #print(variables_to_restore)
-
-    # restorer = tf.train.Saver([v for v in tf.all_variables() if
-    #                            v.name.find('conv') > 0 or 
-    #                            v.name.find('norm') > 0 or
-    #                            v.name.find('pool') > 0])
+    # Restore the moving average version of the learned variables for eval.
+    ema = tf.train.ExponentialMovingAverage(citycam.MOVING_AVERAGE_DECAY)
+    restorer = tf.train.Saver(ema.variables_to_restore())
 
     with tf.Session() as sess:
 
@@ -442,23 +426,23 @@ def visualize_excitations():
 
       return
 
-      if FLAGS.excitation_layer == 'conv2':
+      if FLAGS.excitation_layer == 'conv3':
         channels=np.asarray([0,31,63])   # first, 31st, and last channels
-        excitation_map = visualize_conv     (sess, images, conv2, channels,
+        excitation_map = visualize_conv     (sess, images, conv3, channels,
                                              half_receptive_field=5,
                                              accum_padding=0,
-                                             stride=2,
+                                             stride=6,
                                              dst_height=96,
                                              num_images=FLAGS.num_examples)
 
-      elif FLAGS.excitation_layer == 'pool2':
+      elif FLAGS.excitation_layer == 'pool3':
         neurons=np.asarray([[0,0,0],     # top-left corner of first map
                             [5,5,63],    # bottom-right corner of last map
                             [3,4,5]])    # in the middle of 5th map
-        excitation_map = visualize_pooling  (sess, images, pool2, neurons,
+        excitation_map = visualize_pooling  (sess, images, pool3, neurons,
                                              half_receptive_field=6,
                                              accum_padding=0,
-                                             stride=4,
+                                             stride=12,
                                              dst_height=96,
                                              num_images=FLAGS.num_examples)
 
@@ -466,8 +450,9 @@ def visualize_excitations():
         raise Exception ('add your own layers and parameters')
 
       excitation_map = cv2.cvtColor(excitation_map, cv2.COLOR_RGB2BGR)
-      cv2.imshow('excitations', excitation_map)
-      cv2.waitKey(-1)
+      cv2.imwrite (op.join(FLAGS.restore_from_dir, 'excitations.png'), excitation_map)
+      #cv2.imshow('excitations', excitation_map)
+      #cv2.waitKey(-1)
 
 
 
@@ -479,14 +464,16 @@ def main(argv=None):  # pylint: disable=unused-argument
 if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
-#  parser.add_argument('--data_dir', default='augmentation/patches',
-#                      help='Path to the citycam data directory.')
-  parser.add_argument('--data_list_name', required=True,
-                      help='test_list.txt, eval_list.txt, or train_list.txt')
+  parser.add_argument('--data_dir', default='augmentation/patches',
+                      help='Path to the citycam data directory.')
+  parser.add_argument('--list_name', required=True,
+                      help='E.g. eval_list, or train_list')
   parser.add_argument('--restore_from_dir', required=True,
                       help='Directory where to read model checkpoints.')
   parser.add_argument('--num_examples', default=1000, type=int)
   parser.add_argument('--num_preprocess_threads', default=16, type=int)
+  parser.add_argument('--lambda_regr', default=0.5, type=float)
+
 
   args = parser.parse_args()
 
@@ -496,13 +483,13 @@ if __name__ == '__main__':
   def atcitydata(x):
     return os.path.join(os.getenv('CITY_DATA_PATH'), x)
 
-  tf.app.flags.DEFINE_string('data_dir', '/Users/evg/projects/City-Project/data/augmentation/patches-Mar18', '')
+  tf.app.flags.DEFINE_string('data_dir', atcitydata(args.data_dir), '')
   tf.app.flags.DEFINE_string('restore_from_dir', atcity(args.restore_from_dir), '')
-  tf.app.flags.DEFINE_string('data_list_name', args.data_list_name, '')
+  tf.app.flags.DEFINE_string('setname', args.list_name, '')
   tf.app.flags.DEFINE_integer('num_examples', args.num_examples, '')
   tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
-
-  tf.app.flags.DEFINE_string('excitation_layer', 'pool2',
+  tf.app.flags.DEFINE_float('lambda_regr', args.lambda_regr, '')
+  tf.app.flags.DEFINE_string('excitation_layer', 'conv3',
                               """Visualize excitations of this layer.""")
 
 

@@ -101,7 +101,7 @@ def train():
       keep_prob = tf.placeholder(tf.float32) # for dropout
 
       for sn in setnames:
-        logits[sn], regress[sn], _ = \
+        logits[sn], regress[sn], _, _ = \
           citycam.inference(images[sn], keep_prob, wd=FLAGS.wd)
         scope.reuse_variables()
 
