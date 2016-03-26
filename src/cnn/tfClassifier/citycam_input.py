@@ -30,8 +30,8 @@ IN_IMAGE_WIDTH = 72
 IN_IMAGE_HEIGHT = 72
 
 # Dimensions that CNN trains for
-IMAGE_WIDTH = 64
-IMAGE_HEIGHT = 64
+IMAGE_WIDTH = 61
+IMAGE_HEIGHT = 61
 NUM_CLASSES = 2
 NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 1024
 NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 1024
@@ -156,6 +156,26 @@ def my_random_crop (image, roi):
   return crop, roi
 
 
+
+def my_resize (image, roi):
+  ''' Resize to [IMAGE_WIDTH, IMAGE_HEIGHT] image and roi of shape
+  [IN_IMAGE_HEIGHT, IN_IMAGE_WIDTH], and change roi appropriately
+  Args:
+    image:   tensor of shape [IN_IMAGE_HEIGHT, IN_IMAGE_WIDTH, ?]
+    roi:     tensor of shape [4] and type int32
+  Returns:
+    crop:    tensor of shape [IMAGE_HEIGHT, IMAGE_WIDTH, ?]
+    roi:     tensor of shape [4] and type int32
+  '''
+  image = tf.image.resize_images(image, IMAGE_WIDTH, IMAGE_HEIGHT)
+  scale = float(IN_IMAGE_HEIGHT) / IMAGE_HEIGHT
+  assert  float(IN_IMAGE_WIDTH) / IMAGE_WIDTH == scale
+  roi = tf.to_int32(tf.to_float(roi) * scale)
+  return image, roi
+
+
+
+
 def distorted_inputs(data_list_path, batch_size):
   """Construct distorted input for CIFAR training using the Reader ops.
 
@@ -171,43 +191,37 @@ def distorted_inputs(data_list_path, batch_size):
   filename_queue = tf.train.string_input_producer(file_label_pairs)
 
   # Read examples from files in the filename queue.
-  uint8image, label, roi, mask = read_my_file_format(filename_queue.dequeue(),
+  image, label, roi, mask = read_my_file_format(filename_queue.dequeue(),
                                               IN_IMAGE_WIDTH, IN_IMAGE_HEIGHT)
 
   # Image processing for training the network. Note the many random
   # distortions applied to the image.
 
   # Prepare to crop and flip the image and the mask together
-  rgba = tf.concat(2, [uint8image, mask])
+  rgba = tf.concat(2, [image, mask])
 
   # Randomly flip the image horizontally.
   rgba = tf.image.random_flip_left_right(rgba)
-
-  # Image processing for evaluation.
-  #rgba = tf.image.resize_images(rgba,  IMAGE_WIDTH, IMAGE_HEIGHT)
 
   # Randomly crop a [height, width] section of the image.
   #rgba = tf.random_crop(rgba, [height, width, 4])
   rgba, roi = my_random_crop (rgba, roi)
 
-  roi = roi_to_float(roi, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
-
   # Split back into image and mask
-  cropped_image = tf.slice(rgba, begin=[0,0,0], size=[-1,-1,3])
-  cropped_mask  = tf.slice(rgba, begin=[0,0,3], size=[-1,-1,1])
-  cropped_mask  = tf.squeeze(cropped_mask, squeeze_dims=[2])
+  image = tf.slice(rgba, begin=[0,0,0], size=[-1,-1,3])
+  mask  = tf.slice(rgba, begin=[0,0,3], size=[-1,-1,1])
+  mask  = tf.squeeze(mask, squeeze_dims=[2])
 
-  cropped_image = tf.to_float(cropped_image)
+  roi = roi_to_float(roi, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
+  image = tf.to_float(image)
 
   # Because these operations are not commutative, consider randomizing
   # randomize the order their operation.
-  distorted_image = tf.image.random_brightness(cropped_image,
-                                               max_delta=63)
-  distorted_image = tf.image.random_contrast(distorted_image,
-                                             lower=0.2, upper=1.8)
+  image = tf.image.random_brightness(image, max_delta=63)
+  image = tf.image.random_contrast(image, lower=0.2, upper=1.8)
 
   # Subtract off the mean and divide by the variance of the pixels.
-  float_image = tf.image.per_image_whitening(distorted_image)
+  image = tf.image.per_image_whitening(image)
 
   # Ensure that the random shuffling has good mixing properties.
   min_fraction_of_examples_in_queue = 0.4
@@ -217,7 +231,7 @@ def distorted_inputs(data_list_path, batch_size):
          'This will take a few minutes.' % min_queue_examples)
 
   # Generate a batch of images and labels by building up a queue of examples.
-  return _generate_image_and_label_batch(float_image, label, roi, cropped_mask,
+  return _generate_image_and_label_batch(image, label, roi, mask,
                                          min_queue_examples, batch_size)
 
 
@@ -241,20 +255,24 @@ def inputs(data_list_path, batch_size):
   filename_queue = tf.train.string_input_producer(file_label_pairs)
 
   # Read example and label from files in the filename queue.
-  uint8image, label, roi, mask = read_my_file_format(filename_queue.dequeue(),
-                                                    IMAGE_WIDTH, IMAGE_HEIGHT)
-  reshaped_image = tf.to_float(uint8image)
+  image, label, roi, mask = read_my_file_format(filename_queue.dequeue(),
+                                               IMAGE_WIDTH, IMAGE_HEIGHT)
 
+  # Prepare to crop and flip the image and the mask together
+  rgba = tf.concat(2, [image, mask])
+
+  # Resize to fit the model
+  rgba, roi = my_resize (rgba, roi)
+
+  # Split back into image and mask
+  image = tf.slice(rgba, begin=[0,0,0], size=[-1,-1,3])
+  mask  = tf.slice(rgba, begin=[0,0,3], size=[-1,-1,1])
   mask  = tf.squeeze(mask, squeeze_dims=[2])
 
-  # Image processing for evaluation.
-#  resized_image = tf.image.resize_image_with_crop_or_pad(reshaped_image, 
-#                                              IMAGE_WIDTH, IMAGE_HEIGHT)
-
   # Subtract off the mean and divide by the variance of the pixels.
-  float_image = tf.image.per_image_whitening(reshaped_image)
-
   roi = roi_to_float(roi, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
+  image = tf.to_float(image)
+  image = tf.image.per_image_whitening(image)
 
   # Ensure that the random shuffling has good mixing properties.
   min_fraction_of_examples_in_queue = 0.4
@@ -264,6 +282,6 @@ def inputs(data_list_path, batch_size):
          'This will take a few minutes.' % min_queue_examples)
 
   # Generate a batch of images and labels by building up a queue of examples.
-  return _generate_image_and_label_batch(float_image, label, roi, mask,
+  return _generate_image_and_label_batch(image, label, roi, mask,
                                          min_queue_examples, batch_size)
  
