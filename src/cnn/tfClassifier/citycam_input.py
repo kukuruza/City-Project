@@ -25,9 +25,12 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 
-# Dimensions of images stored in jpeg
+# Dimensions of images for distorted_input() stored in jpeg
 IN_IMAGE_WIDTH = 72
 IN_IMAGE_HEIGHT = 72
+# Dimensions of images for input() stored in jpeg
+TEST_IMAGE_WIDTH = 64
+TEST_IMAGE_HEIGHT = 64
 
 # Dimensions that CNN trains for
 IMAGE_WIDTH = 61
@@ -256,7 +259,7 @@ def inputs(data_list_path, batch_size):
 
   # Read example and label from files in the filename queue.
   image, label, roi, mask = read_my_file_format(filename_queue.dequeue(),
-                                               IMAGE_WIDTH, IMAGE_HEIGHT)
+                                       TEST_IMAGE_WIDTH, TEST_IMAGE_HEIGHT)
 
   # Prepare to crop and flip the image and the mask together
   rgba = tf.concat(2, [image, mask])

@@ -191,10 +191,6 @@ def demo_visualize_kernels(kernel):
 
 
 def my_image_summary (images, masks, rois, setname):
-  # Scale mask to [img_min, img_max]
-  # img_min = tf.reduce_min(image)
-  # img_max = tf.reduce_max(image)
-  # mask_disp = tf.to_float(mask) / 255 * (img_max - img_min) + img_min
 
   # Display the images in the visualizer.
   rois = tf.expand_dims(rois, 1)  # from [batch_size,4] to [batch_size,1,4]
@@ -439,7 +435,7 @@ def train(total_loss, global_step):
   ema = tf.train.ExponentialMovingAverage(FLAGS.MOVING_AVERAGE_DECAY, global_step)
   variables_averages_op = ema.apply(tf.trainable_variables())
 
-  with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
+  with tf.control_dependencies([apply_gradient_op]): #, variables_averages_op]):
     train_op = tf.no_op(name='train')
 
   return train_op

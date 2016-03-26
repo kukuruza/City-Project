@@ -41,19 +41,14 @@ tf.app.flags.DEFINE_float('wd', 0.01, 'weight_decay for all fc layers')
 
 
 
-def evaluate_clas (sess, logits, labels, keep_prob):
+def evaluate_clas (sess, predict, correct, labels, keep_prob):
   """Convenience function to run evaluation for for every batch. 
      Sum the number of correct predictions and output one precision value.
   Args:
     sess:      current Session
-    logits:    2D Tensor of shape [batch_size, NUM_CLASSES]. 
-               Probabilities by class, NOT sortmax-normalized
     labels:    2D Tensor of shape [batch_size], values in range [0,NUM_CLASSES)
     keep_prob: scalar Tensor placeholder. Always equals 1 (for evaluation)
   """
-  correct = tf.nn.in_top_k (logits, labels, 1)
-  predict = tf.argmax (logits, 1)
-
   num_iter = int(math.ceil(FLAGS.num_eval_examples / FLAGS.batch_size))
   true_count = 0  # Counts the number of correct predictions.
   total_sample_count = num_iter * FLAGS.batch_size
@@ -113,7 +108,7 @@ def train():
         summary_prec[sn] = tf.placeholder(tf.float32)
         tf.scalar_summary('precision/%s' % sn, summary_prec[sn])
 
-        kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'), (8,8))
+        kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'), (4,8))
 
     # Image summary of kernels, masks, rois
     with tf.name_scope('visualization'):
@@ -148,6 +143,13 @@ def train():
     # Restore the moving average version of the learned variables for eval.
     ema = tf.train.ExponentialMovingAverage(citycam.MOVING_AVERAGE_DECAY)
     restorer = tf.train.Saver(ema.variables_to_restore())
+
+    # Will be used in evaluations
+    predicts = {}
+    corrects = {}
+    for sn in setnames:
+      corrects[sn] = tf.nn.in_top_k (logits[sn], labels[sn], 1)
+      predicts[sn] = tf.argmax (logits[sn], 1, 'highest_pred')
 
 
     #######    The graph is built by this point   #######
@@ -195,7 +197,7 @@ def train():
           if step % FLAGS.period_evaluate == 0:
             summary_feed_dict = {keep_prob: 1}
             for sn in setnames:
-              prec = evaluate_clas (sess, logits[sn], labels[sn], keep_prob)
+              prec = evaluate_clas (sess, predicts[sn], corrects[sn], labels[sn], keep_prob)
               summary_feed_dict[summary_prec[sn]] = prec
               print('%s: prec %s = %.3f' % (datetime.now(), sn, prec))
             # print('regr_train_val: \n', regr_train_val[:8])
