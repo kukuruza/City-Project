@@ -37,7 +37,6 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
-tf.app.flags.DEFINE_float('wd', 0.01, 'weight_decay for all fc layers')
 
 
 
@@ -101,14 +100,14 @@ def train():
       keep_prob = tf.placeholder(tf.float32) # for dropout
 
       for sn in setnames:
-        logits[sn], regress[sn], _, _ = \
-          citycam.inference(images[sn], keep_prob, wd=FLAGS.wd)
+        logits[sn], regress[sn], _ = \
+          citycam.inference(images[sn], keep_prob)
         scope.reuse_variables()
 
         summary_prec[sn] = tf.placeholder(tf.float32)
         tf.scalar_summary('precision/%s' % sn, summary_prec[sn])
 
-        kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'), (4,8))
+        kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'))
 
     # Image summary of kernels, masks, rois
     with tf.name_scope('visualization'):
@@ -249,7 +248,6 @@ if __name__ == '__main__':
                            'ones with "labelme" in name are not distorted now')
   parser.add_argument('--batch_size', default=128, type=int,
                       help='Number of images to process in a batch.')
-  parser.add_argument('--lambda_regr', default=0.5, type=float)
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
   parser.add_argument('--num_preprocess_threads', default=16, type=int)
@@ -272,7 +270,6 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('max_steps', args.max_steps, '')
   tf.app.flags.DEFINE_integer('num_eval_examples', args.num_eval_examples, '')
   tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
-  tf.app.flags.DEFINE_float('lambda_regr', args.lambda_regr, '')
 
   tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
 

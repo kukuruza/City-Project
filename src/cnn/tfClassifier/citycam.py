@@ -6,6 +6,7 @@ import os, os.path as op
 import re
 import sys
 import tarfile
+from math import sqrt
 
 import tensorflow as tf
 
@@ -47,6 +48,8 @@ tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', NUM_EPOCHS_PER_DECAY,
 tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', LEARNING_RATE_DECAY_FACTOR, '')
 tf.app.flags.DEFINE_float('INITIAL_LEARNING_RATE', INITIAL_LEARNING_RATE, '')
 
+tf.app.flags.DEFINE_float('wd', 0.01, 'weight_decay for all fc layers')
+tf.app.flags.DEFINE_float('lambda_regr', 0.0, '')
 
 
 def _activation_summary(x):
@@ -127,7 +130,7 @@ def inputs (data_list_name):
 
 
 
-def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
+def put_kernels_on_grid (kernel, pad=1):
   '''Visualize conv. features as an image (mostly for the 1st layer).
   Place kernel into a grid, with some paddings between adjacent filters.
 
@@ -138,8 +141,19 @@ def put_kernels_on_grid (kernel, (grid_Y, grid_X), pad=1):
     pad:               number of black pixels around each filter (between them)
   
   Return:
-    Tensor of shape [(Y+pad)*grid_Y, (X+pad)*grid_X, NumChannels, 1].
+    Tensor of shape [(Y+pad)*grid_Y, (X+pad)*grid_X, NumChannels, 1],
+      where NumKernels == grid_Y * grid_X
   '''
+  # shape of the grid. Require: NumKernels == grid_Y * grid_X
+  def factorization(n):
+    assert isinstance(n, ( int, long ))
+    for i in range(int(sqrt(float(n))), 0, -1):
+      if n % i == 0:
+        if i == 1: print('Who would put a prime number of filters')
+        return (int(i), int(n / i))
+  (grid_Y, grid_X) = factorization (kernel.get_shape()[3].value)
+  print ('(grid_Y, grid_X): %s' % str((grid_Y, grid_X)))
+
   # scale to [0, 1]
   x_min = tf.reduce_min(kernel)
   x_max = tf.reduce_max(kernel)
@@ -255,7 +269,7 @@ def make_regr(input_, shape):
   return regressions
 
 
-def inference2(images, keep_prob, wd=0.004):
+def inference2(images, keep_prob):
   conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[11, 11, 3, 64])
   pool1 = tf.nn.max_pool(conv1,  name='pool1', padding='VALID', ksize=[1, 9, 9, 1], strides=[1, 5, 5, 1])
   norm1 = make_norm     (pool1,  name='norm1') 
@@ -268,18 +282,21 @@ def inference2(images, keep_prob, wd=0.004):
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
   dim = 64 * 6 * 6
   reshape = tf.reshape (pool2, [FLAGS.batch_size, dim])
-  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=wd, keep_prob=keep_prob)
-  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=FLAGS.wd, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=FLAGS.wd, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
 
-  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=FLAGS.wd, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
-  return softmax, regressions, pool2
+  # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
+  layers = {'conv1': (conv1, 0, 1, 5),     'pool1': (pool1, 4, 5, 5+4),
+            'conv2': (conv2, 4, 5, 9+2*5), 'pool2': (pool2, 4, 5*2, 19+1)}
+  return softmax, regressions, layers
 
 
 
-def inference3(images, keep_prob, wd=0.004):
+def inference3(images, keep_prob):
   assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
          'images shape: %s' % str(images.get_shape())
 
@@ -299,23 +316,27 @@ def inference3(images, keep_prob, wd=0.004):
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
   dim = 128 * 6 * 6
   reshape = tf.reshape (pool3, [FLAGS.batch_size, dim])
-  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=wd, keep_prob=keep_prob)
-  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=FLAGS.wd, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=FLAGS.wd, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
 
-  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=wd, keep_prob=keep_prob)
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=FLAGS.wd, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
-  return softmax, regressions, conv3, pool3
+  # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
+  layers = {'conv1': (conv1, 0, 1, 5),      'pool1': (pool1, 0, 3, 5+3), 
+            'conv2': (conv2, 0, 3, 8+2*3),  'pool2': (pool2, 0, 3*2, 14+1),
+            'conv3': (conv3, 0, 6, 15+6*2), 'pool3': (pool3, 0, 6*2, 27+1)}
+  return softmax, regressions, layers
 
 
 
 
 
-def inference(images, keep_prob, wd):
+def inference(images, keep_prob):
     '''Thin proxy too pick the architecture'''
-#    return inference2(images, keep_prob=keep_prob, wd=wd)
-    return inference3(images, keep_prob=keep_prob, wd=wd)
+    return inference2(images, keep_prob=keep_prob)
+#    return inference3(images, keep_prob=keep_prob)
 
 
 

@@ -77,6 +77,7 @@ FLAGS = tf.app.flags.FLAGS
 
 
 
+
 def _prepare_patch (img, response, y, x, dst_height, scale,
                     stride, accum_padding, half_receptive_field):
   '''Scale patch, overlay receptive field, and response
@@ -87,6 +88,11 @@ def _prepare_patch (img, response, y, x, dst_height, scale,
   # resize image
   img = cv2.resize(img, dsize=(0,0), fx=scale, fy=scale,
                    interpolation=cv2.INTER_NEAREST)
+
+  assert img.min() != img.max()
+  img = (img - img.min()) * 255.0 / (img.max() - img.min())
+  assert (img.min() - 0)   < 0.001, img.min()
+  assert (img.max() - 255) < 0.001, img.max()
 
   # overlay response value
   cv2.putText(img, '%0.1f' % response, 
@@ -112,6 +118,15 @@ def _prepare_patch (img, response, y, x, dst_height, scale,
                   color=COLOR, 
                   thickness=THICKNESS)
   return img
+
+
+def _scale_resp (responses, ch_id):
+  # scale responses, so that the highest is 1.
+  responses = np.asarray(responses)
+  resp_max = responses.max()
+  print ('Filter %d: highest responses: %f' % (ch_id, resp_max))
+  return (responses / resp_max).tolist()
+
 
 
 
@@ -248,6 +263,8 @@ def visualize_conv     (sess, images, layer, channels,
   scale = float(dst_height) / src_height
 
   for ch_id, _ in enumerate(channels):
+    resps[ch_id] = _scale_resp (resps[ch_id], ch_id)
+    
     for img_id, img in enumerate(imges[ch_id]):
 
       imges[ch_id][img_id] = _prepare_patch(
@@ -380,8 +397,9 @@ def visualize_pooling  (sess, images, layer, neurons,
   scale = float(dst_height) / src_height
 
   for n_id, n in enumerate(neurons):
+    resps[n_id] = _scale_resp (resps[n_id], n_id)
+    
     for img_id, img in enumerate(imges[n_id]):
-
       imges[n_id][img_id] = _prepare_patch(
             imges[n_id][img_id], resps[n_id][img_id], 
             n[1], n[0], 
@@ -398,15 +416,29 @@ def visualize_pooling  (sess, images, layer, neurons,
 
 
 
-def visualize_excitations():
+def excitations():
   ''' Restore a trained model, and run one of the visualizations. '''
   with tf.Graph().as_default():
 
-    images, _, _, _ = citycam.inputs('%s.txt' % FLAGS.list_name)
-
+    # Get images and labels for citycam.
+    print ('FLAGS.setname: %s' % FLAGS.setname)
+    setname = FLAGS.setname
+    with tf.name_scope(setname):
+      list_name = '%s.txt' % setname
+      if setname.find('labelme') >= 0:
+        print ('sn: %s, using "input()"' % setname)
+        images, _, _, _ = citycam.inputs(list_name)
+      else:
+        print ('sn: %s, using "distorted_inputs()"' % setname)
+        images, _, _, _ = citycam.distorted_inputs(list_name)
+    
+    # Get layers responses
     with tf.variable_scope("inference") as scope:
-      # Get conv3 and pool3 responses
-      _, _, conv3, pool3 = citycam.inference(images, keep_prob=1.0)
+      _, _, layers = citycam.inference(images, keep_prob=1.0)
+
+    # The layer to show maps for
+    assert FLAGS.layer_name in layers, 'no layer named %s in layers' % FLAGS.layer_name
+    (layer, accum_padding, accum_stride, half_receptive_field) = layers[FLAGS.layer_name]
 
     # Restore the moving average version of the learned variables for eval.
     ema = tf.train.ExponentialMovingAverage(citycam.MOVING_AVERAGE_DECAY)
@@ -414,43 +446,37 @@ def visualize_excitations():
 
     with tf.Session() as sess:
 
-
+      # Restores from checkpoint
       ckpt = tf.train.get_checkpoint_state(FLAGS.restore_from_dir)
       if ckpt and ckpt.model_checkpoint_path:
-        # Restores from checkpoint
         restorer.restore(sess, ckpt.model_checkpoint_path)
         restored_step = ckpt.model_checkpoint_path.split('/')[-1].split('-')[-1]
         print ('Restored the model from step %s' % restored_step)
       else:
         raise Exception('No checkpoint file found in %s' % FLAGS.restore_from_dir)
 
-      return
-
-      if FLAGS.excitation_layer == 'conv3':
-        channels=np.asarray([0,31,63])   # first, 31st, and last channels
-        excitation_map = visualize_conv     (sess, images, conv3, channels,
-                                             half_receptive_field=5,
-                                             accum_padding=0,
-                                             stride=6,
+      if FLAGS.layer_name.find('conv') >= 0:
+        channels=np.asarray([0,1,2])
+        excitation_map = visualize_conv     (sess, images, layer, channels,
+                                             half_receptive_field, accum_padding, accum_stride,
                                              dst_height=96,
                                              num_images=FLAGS.num_examples)
 
-      elif FLAGS.excitation_layer == 'pool3':
+      elif FLAGS.layer_name.find('pool') >= 0:
         neurons=np.asarray([[0,0,0],     # top-left corner of first map
-                            [5,5,63],    # bottom-right corner of last map
+                            [5,5,31],    
                             [3,4,5]])    # in the middle of 5th map
-        excitation_map = visualize_pooling  (sess, images, pool3, neurons,
-                                             half_receptive_field=6,
-                                             accum_padding=0,
-                                             stride=12,
+        excitation_map = visualize_pooling  (sess, images, layer, neurons,
+                                             half_receptive_field, accum_padding, accum_stride,
                                              dst_height=96,
                                              num_images=FLAGS.num_examples)
 
       else:
-        raise Exception ('add your own layers and parameters')
+        raise Exception ('only conv and pool layers are supported')
 
       excitation_map = cv2.cvtColor(excitation_map, cv2.COLOR_RGB2BGR)
-      cv2.imwrite (op.join(FLAGS.restore_from_dir, 'excitations.png'), excitation_map)
+      map_path = op.join(FLAGS.restore_from_dir, 'excitations-%s.png' % FLAGS.layer_name)
+      cv2.imwrite (map_path, excitation_map)
       #cv2.imshow('excitations', excitation_map)
       #cv2.waitKey(-1)
 
@@ -458,7 +484,7 @@ def visualize_excitations():
 
 def main(argv=None):  # pylint: disable=unused-argument
   logging.basicConfig (level=logging.INFO)
-  visualize_excitations()
+  excitations()
 
 
 if __name__ == '__main__':
@@ -472,8 +498,9 @@ if __name__ == '__main__':
                       help='Directory where to read model checkpoints.')
   parser.add_argument('--num_examples', default=1000, type=int)
   parser.add_argument('--num_preprocess_threads', default=16, type=int)
-  parser.add_argument('--lambda_regr', default=0.5, type=float)
-
+  parser.add_argument('--batch_size', default=128, type=int,
+                      help='Number of images to process in a batch.')
+  parser.add_argument('--layer_name', required=True)
 
   args = parser.parse_args()
 
@@ -488,13 +515,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_string('setname', args.list_name, '')
   tf.app.flags.DEFINE_integer('num_examples', args.num_examples, '')
   tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
-  tf.app.flags.DEFINE_float('lambda_regr', args.lambda_regr, '')
-  tf.app.flags.DEFINE_string('excitation_layer', 'conv3',
-                              """Visualize excitations of this layer.""")
-
-
-
-
-  print ('data_dir: %s' % FLAGS.data_dir)
+  tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
+  tf.app.flags.DEFINE_string('layer_name', args.layer_name, '')
 
   tf.app.run()

@@ -109,7 +109,7 @@ def evaluate():
 
     # Build a Graph that computes the logits predictions from the inference model.
     with tf.variable_scope("inference") as scope:
-      logits = citycam.inference(images)
+      logits, _, _ = citycam.inference(images)
 
     # Calculate predictions.
     top_k_op = tf.nn.in_top_k(logits, labels, 1)
