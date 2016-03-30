@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
 from __future__ import print_function
 
 import os, os.path as op
@@ -15,14 +13,6 @@ import citycam_input
 
 FLAGS = tf.app.flags.FLAGS
 
-# Basic model parameters. UPDATE: set in main()
-#tf.app.flags.DEFINE_integer('batch_size', 128,
-#                            """Number of images to process in a batch.""")
-# tf.app.flags.DEFINE_string('data_dir', 
-#               op.join(os.getenv('CITY_DATA_PATH'), 'augmentation/patches'),
-#                            """Path to the citycam data directory.""")
-
-
 # Global constants describing the citycam data set.
 IMAGE_WIDTH  = citycam_input.IMAGE_WIDTH
 IMAGE_HEIGHT = citycam_input.IMAGE_HEIGHT
@@ -34,8 +24,8 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL  = citycam_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
 NUM_EPOCHS_PER_DECAY = 1      # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.9  # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.025       # Initial learning rate.
+LEARNING_RATE_DECAY_FACTOR = 0.95  # Learning rate decay factor.
+INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 
 # If a model is trained with multiple GPU's prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -87,8 +77,12 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   Returns:
     Variable Tensor
   """
+#  var = tf.get_variable(name, shape,
+#                 initializer=tf.truncated_normal_initializer(stddev=stddev))
   var = tf.get_variable(name, shape,
-                 initializer=tf.truncated_normal_initializer(stddev=stddev))
+                 initializer=tf.random_uniform_initializer(minval=-stddev, maxval=stddev))
+#  var = tf.get_variable(name, shape,
+#                 initializer=tf.uniform_unit_scaling_initializer(factor=1.43))
   if wd:
     weight_decay = tf.mul(tf.nn.l2_loss(var), wd, name='weight_loss')
     tf.add_to_collection('losses', weight_decay)
@@ -226,15 +220,24 @@ def my_image_summary (images, masks, rois, setname):
 
 
 
-
-
 def L1_smooth(x):
   return tf.select (tf.greater(x, 1.0), tf.abs(x)-0.5, 0.5*tf.square(x))
 
+def xavier_uni (n_in, n_out):
+  ''' Based on the number of input and output neurons, returns scale for uniform initialiazer '''
+  return sqrt(3.0 / (n_in + n_out))
+
+def xavier_conv_uni (shape):
+  ''' Based on the kernel shape, returns scale for uniform initializer '''
+  n_in  = shape[0]*shape[1]*shape[2]
+  n_out = shape[0]*shape[1]*shape[3]
+  return xavier_uni(n_in, n_out)
 
 
-def make_conv(input_, name, shape, padding, wd, stddev=0.01):
+def make_conv(input_, name, shape, padding, wd):
   with tf.variable_scope(name) as scope:
+    stddev = xavier_conv_uni(shape)
+    print ('initialize conv layer %s with xavier uniform with scale %f' % (name, stddev))
     kernel = _variable_with_weight_decay('weights', shape=shape, stddev=stddev, wd=wd)
     conv = tf.nn.conv2d(input_, kernel, [1, 1, 1, 1], padding=padding)
     biases = tf.get_variable('biases', [shape[3]], initializer=tf.constant_initializer(0.0))
@@ -248,6 +251,8 @@ def make_norm(input_, name):
 
 def make_fc(input_, name, shape, wd, stddev=0.01, keep_prob=1.0):
   with tf.variable_scope(name) as scope:
+    stddev = xavier_uni (shape[0], shape[1])
+    print ('initialize fc layer %s with xavier uniform with scale %f' % (name, stddev))
     weights  = _variable_with_weight_decay('weights', shape=shape, stddev=stddev, wd=wd)
     biases   = tf.get_variable('biases', shape[1], initializer=tf.constant_initializer(0.0))
     fc_layer = tf.nn.relu(tf.matmul(input_, weights) + biases, name=scope.name)
@@ -341,15 +346,16 @@ def inference5 (images, keep_prob):
 
   conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 32], wd=FLAGS.wd_conv)
   norm1 = make_norm     (conv1,  name='norm1') 
-  conv2 = make_conv     (norm1,  name='conv2', padding='SAME',  shape=[3, 3, 32, 32], wd=FLAGS.wd_conv)
-  norm2 = make_norm     (conv2,  name='norm2') 
-  pool2 = tf.nn.max_pool(norm2,  name='pool2', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
+  pool1 = tf.nn.max_pool(norm1,  name='pool1', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
   # 31
-  
-  conv3 = make_conv     (pool2,  name='conv3', padding='SAME',  shape=[3, 3, 32, 64], wd=FLAGS.wd_conv)
+
+  conv2 = make_conv     (pool1,  name='conv2', padding='SAME',  shape=[3, 3, 32, 64], wd=FLAGS.wd_conv)
+  norm2 = make_norm     (conv2,  name='norm2') 
+  conv3 = make_conv     (norm2,  name='conv3', padding='SAME',  shape=[3, 3, 64, 64], wd=FLAGS.wd_conv)
   norm3 = make_norm     (conv3,  name='norm3') 
-  pool3 = tf.nn.max_pool(norm3,  name='pool3', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
+  pool3 = tf.nn.max_pool(norm3+conv2,  name='pool3', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
   # 15
+
   conv4 = make_conv     (pool3,  name='conv4', padding='SAME',  shape=[3, 3, 64, 128], wd=FLAGS.wd_conv)
   norm4 = make_norm     (conv4,  name='norm4')
 
@@ -371,12 +377,31 @@ def inference5 (images, keep_prob):
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
   # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
-  layers = {'conv1': (conv1, 0, 1, 1),
-            'conv2': (conv2, 0, 1, 1+1*1),  'pool2': (pool2, 0, 2, 2+1*1),
-            'conv3': (conv3, 0, 2, 3+1*2),  'pool3': (pool3, 0, 2*2, 5+1*4),
-            'conv4': (conv4, 0, 4, 9+1*4), 
-            'conv5': (conv5, 0, 4, 13+1*4), 'pool5': (pool5, 0, 4*2, 17+1*4)}
+  layers = {'conv1': (conv1, 0, 1, 3),      'pool1': (pool1, 0, 2, 1+1*3),
+            'conv2': (conv2, 0, 2, 4+2*1),
+            'conv3': (conv3, 0, 2, 6+1*2),  'pool3': (pool3, 0, 2*2, 8+1*4),
+            'conv4': (conv4, 0, 4, 12+1*4), 
+            'conv5': (conv5, 20, 4, 16+1*4), 'pool5': (pool5, 20, 4*2, 20+1*4)}
   return softmax, regressions, layers
+
+
+def autoencoder_inf5_layer1(images):
+  assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
+         'images shape: %s' % str(images.get_shape())
+
+  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 32], wd=FLAGS.wd_conv)
+  norm1 = make_norm     (conv1,  name='norm1') 
+
+  deco1 = make_conv     (norm1, name='deco1', padding='SAME',  shape=[7, 7, 32, 3], wd=FLAGS.wd_conv)
+  assert images.get_shape() == deco1.get_shape()
+
+  layers = {'conv1': (conv1, 0, 1, 3),
+            'deco1': (deco1, 0, 1, 3+3)}
+  return deco1, None, layers
+
+#  pool1 = tf.nn.max_pool(norm1,  name='pool1', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
+  # 31
+
 
 
 
@@ -402,6 +427,11 @@ def loss_clas (logits, labels):
   cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
   tf.add_to_collection('losses', cross_entropy_mean * (1.0 - FLAGS.lambda_regr))
 
+
+def loss_autoencoder_inf5_layer1 (deco1, images):
+  loss = tf.reduce_mean(tf.square(tf.abs(deco1 - images)))
+  tf.add_to_collection('losses', loss)
+  return loss
 
 
 def loss_regr (regressions, rois):
