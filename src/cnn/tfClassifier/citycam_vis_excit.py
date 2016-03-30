@@ -306,7 +306,7 @@ def visualize_pooling  (sess, images, layer, neurons,
   Args:
     sess:            tensorflow session
     images:          tensor for source images
-    layer:           tensor for a convolutional layer response
+    layer:           tensor for a pooling layer response, [batch_id,y,x,ch]
     neurons:         neurons to see best excitations for. 
                       It's probably only a fraction of the layer neurons.
                       Example: neurons=np.asarray([[0,1,2],[58,60,4]])

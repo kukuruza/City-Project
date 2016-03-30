@@ -30,8 +30,9 @@ import tensorflow as tf
 
 import citycam
 
-np.set_printoptions(precision=2)
+np.set_printoptions(precision=5)
 np.set_printoptions(suppress=True)
+np.set_printoptions(linewidth=120)
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -96,23 +97,30 @@ def train():
       logits = {}
       regress = {}
       summary_prec = {}
+      layers = {}
 
       keep_prob = tf.placeholder(tf.float32) # for dropout
 
       for sn in setnames:
-        logits[sn], regress[sn], _ = \
-          citycam.inference(images[sn], keep_prob)
+        logits[sn], regress[sn], layers[sn] = citycam.inference(images[sn], keep_prob)
         scope.reuse_variables()
 
         summary_prec[sn] = tf.placeholder(tf.float32)
         tf.scalar_summary('precision/%s' % sn, summary_prec[sn])
 
-        kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'))
-
+      kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'))
+    
     # Image summary of kernels, masks, rois
     with tf.name_scope('visualization'):
       # visualize conv1 filters
       tf.image_summary('conv1', kernel, max_images=1)
+      # visualize activations for the first image in a training batch, by layer
+      if FLAGS.debug:
+        for layer_name,layer in layers[setnames[0]].iteritems():
+          (activations, accum_padding, accum_stride, half_receptive_field) = layer
+          activations = tf.transpose (tf.slice (activations, [0,0,0,0], [1,-1,-1,-1]), [1,2,0,3])
+          activations_grid = citycam.put_kernels_on_grid(activations)
+          tf.image_summary('activations/%s' % layer_name, activations_grid, max_images=1)
       # visualize images with rois and masks
       for sn in setnames:
         citycam.my_image_summary (images[sn], masks[sn], rois[sn], sn)
@@ -192,6 +200,11 @@ def train():
             print ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f sec/batch)' %
                     (datetime.now(), step, loss_val, 
                      FLAGS.batch_size / float(duration), float(duration)))
+#            print ('logits mean-abs: %f, logits[0]: %s' % (np.mean(np.abs(logits_val)), str(logits_val[0])))
+#            print (layer_val.shape)
+#            print (np.mean(layer_val[0]), np.std(layer_val[0]))
+#            print (np.amax(layer_val[0], axis=2))
+#            print (np.amax(layer_val[0], (0,1)))
 
           if step % FLAGS.period_evaluate == 0:
             summary_feed_dict = {keep_prob: 1}
@@ -250,6 +263,8 @@ if __name__ == '__main__':
                       help='Number of images to process in a batch.')
   parser.add_argument('--data_dir', default='augmentation/patches',
                       help='Path to the citycam data directory.')
+  parser.add_argument('--debug', action='store_true',
+                      help='Will trigger some debug output')
   parser.add_argument('--num_preprocess_threads', default=16, type=int)
   args = parser.parse_args()
 
@@ -271,6 +286,7 @@ if __name__ == '__main__':
   tf.app.flags.DEFINE_integer('num_eval_examples', args.num_eval_examples, '')
   tf.app.flags.DEFINE_integer('batch_size', args.batch_size, '')
 
+  tf.app.flags.DEFINE_boolean('debug', True, '')
   tf.app.flags.DEFINE_integer('num_preprocess_threads', args.num_preprocess_threads, '')
 
   tf.app.run()
