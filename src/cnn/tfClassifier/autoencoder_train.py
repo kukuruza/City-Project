@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from datetime import datetime
-import os, os.path
+import os, os.path, os.path as op
 import time
 import math
 import argparse
@@ -81,13 +81,11 @@ def train():
     with tf.variable_scope("inference") as scope:
       reconstructions = {}
       layers = {}
+      summary_errors = {}
 
       for sn in setnames:
-        reconstructions[sn], _, layers[sn] = citycam.inference(images[sn])
+        reconstructions[sn], layers[sn] = citycam.autoencoder_inf5_layer1(images[sn])
         scope.reuse_variables()
-
-        summary_error[sn] = tf.placeholder(tf.float32)
-        tf.scalar_summary('mean_error/%s' % sn, summary_error[sn])
 
       kernel = citycam.put_kernels_on_grid(tf.get_variable('conv1/weights'))
     
@@ -102,12 +100,12 @@ def train():
           activations = tf.transpose (tf.slice (activations, [0,0,0,0], [1,-1,-1,-1]), [1,2,0,3])
           activations_grid = citycam.put_kernels_on_grid(activations)
           tf.image_summary('activations/%s' % layer_name, activations_grid, max_images=1)
-      # visualize images with rois and masks
+      # visualize images and reconstructions
       for sn in setnames:
-        grid = tf.concat(1, [tf.concat(2, [images, reconstructions]),
-                             tf.concat(2, [images, tf.abs(images-reconstructions)])])
+        grid = tf.concat(1, [tf.concat(2, [images[sn], reconstructions[sn]]),
+                             tf.concat(2, [images[sn], images[sn]-reconstructions[sn]])])
         grid = tf.pad(grid, [[0,0],[4,4],[4,4],[0,0]])
-        tf.image_summary('images/%s' % op.splitext(setname)[0], grid, max_images=3)
+        tf.image_summary('images/%s' % op.splitext(sn)[0], grid, max_images=3)
 
     # Calculate loss.
     with tf.name_scope('train'):
@@ -176,7 +174,7 @@ def train():
                      FLAGS.batch_size / float(duration), float(duration)))
 
           if step % FLAGS.period_summary == 0:
-            summary_str = sess.run(summary_op, feed_dict=summary_feed_dict)
+            summary_str = sess.run(summary_op)
             summary_writer.add_summary(summary_str, step)
 
           if step % FLAGS.period_checkpoint == 0 or (step + 1) == FLAGS.max_steps:

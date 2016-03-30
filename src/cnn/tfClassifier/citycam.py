@@ -397,7 +397,7 @@ def autoencoder_inf5_layer1(images):
 
   layers = {'conv1': (conv1, 0, 1, 3),
             'deco1': (deco1, 0, 1, 3+3)}
-  return deco1, None, layers
+  return deco1, layers
 
 #  pool1 = tf.nn.max_pool(norm1,  name='pool1', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
   # 31
@@ -428,12 +428,6 @@ def loss_clas (logits, labels):
   tf.add_to_collection('losses', cross_entropy_mean * (1.0 - FLAGS.lambda_regr))
 
 
-def loss_autoencoder_inf5_layer1 (deco1, images):
-  loss = tf.reduce_mean(tf.square(tf.abs(deco1 - images)))
-  tf.add_to_collection('losses', loss)
-  return loss
-
-
 def loss_regr (regressions, rois):
   """Add L2Loss to all the trainable variables.
   Add summary for for "Loss" and "Loss/avg".
@@ -452,6 +446,11 @@ def loss_regr (regressions, rois):
       reduction_indices=[1], name='regression_loss_per_example')
   regression_loss_mean = tf.reduce_mean(regression_loss, name='regr_loss')
   tf.add_to_collection('losses', regression_loss_mean * FLAGS.lambda_regr)
+
+
+def loss_autoencoder_inf5_layer1 (deco1, images):
+  loss = tf.reduce_mean(tf.square(tf.abs(deco1 - images)))
+  return loss
 
 
 
