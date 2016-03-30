@@ -33,9 +33,9 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL  = citycam_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+NUM_EPOCHS_PER_DECAY = 1      # Epochs after which learning rate decays.
+LEARNING_RATE_DECAY_FACTOR = 0.9  # Learning rate decay factor.
+INITIAL_LEARNING_RATE = 0.025       # Initial learning rate.
 
 # If a model is trained with multiple GPU's prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -362,7 +362,7 @@ def inference5 (images, keep_prob):
   #dim = 1
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
   dim = 128 * 7 * 7
-  reshape = tf.reshape (pool3, [FLAGS.batch_size, dim])
+  reshape = tf.reshape (pool5, [FLAGS.batch_size, dim])
   fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
   fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
@@ -372,16 +372,17 @@ def inference5 (images, keep_prob):
 
   # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
   layers = {'conv1': (conv1, 0, 1, 1),
-            'conv2': (conv2, 0, 1, 2),      'pool1': (pool1, 0, 2, 2+1), 
-            'conv2': (conv2, 0, 3, 8+2*3),  'pool2': (pool2, 0, 3*2, 14+1),
-            'conv3': (conv3, 0, 6, 15+6*2), 'pool3': (pool3, 0, 6*2, 27+1)}
+            'conv2': (conv2, 0, 1, 1+1*1),  'pool2': (pool2, 0, 2, 2+1*1),
+            'conv3': (conv3, 0, 2, 3+1*2),  'pool3': (pool3, 0, 2*2, 5+1*4),
+            'conv4': (conv4, 0, 4, 9+1*4), 
+            'conv5': (conv5, 0, 4, 13+1*4), 'pool5': (pool5, 0, 4*2, 17+1*4)}
   return softmax, regressions, layers
 
 
 
 def inference(images, keep_prob):
     '''Thin proxy too pick the architecture'''
-    return inference3 (images, keep_prob=keep_prob)
+    return inference5 (images, keep_prob=keep_prob)
 
 
 def loss_clas (logits, labels):
