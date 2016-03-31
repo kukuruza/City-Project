@@ -226,6 +226,7 @@ def L1_smooth(x):
 def xavier_uni (n_in, n_out):
   ''' Based on the number of input and output neurons, returns scale for uniform initialiazer '''
   return sqrt(3.0 / (n_in + n_out))
+  #return sqrt(1.0 / n_in)
 
 def xavier_conv_uni (shape):
   ''' Based on the kernel shape, returns scale for uniform initializer '''
@@ -389,10 +390,29 @@ def autoencoder_inf5_layer1(images):
   assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
          'images shape: %s' % str(images.get_shape())
 
-  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 32], wd=FLAGS.wd_conv)
-  norm1 = make_norm     (conv1,  name='norm1') 
+  with tf.variable_scope('conv1') as scope:
+    shape = [7, 7, 3, 32]
+    stddev = xavier_conv_uni(shape)
+    print ('initialize conv layer %s with xavier uniform with scale %f' % ('1', stddev))
+    kernel_forw = _variable_with_weight_decay('weights', shape=shape, stddev=stddev, wd=FLAGS.wd_conv)
+    kernel_back = tf.transpose(kernel_forw, [0,1,3,2])
 
-  deco1 = make_conv     (norm1, name='deco1', padding='SAME',  shape=[7, 7, 32, 3], wd=FLAGS.wd_conv)
+    with tf.variable_scope('forw1') as scope:
+      conv = tf.nn.conv2d(images, kernel_forw, [1, 1, 1, 1], padding='SAME')
+      biases = tf.get_variable('biases', [shape[3]], initializer=tf.constant_initializer(0.0))
+      bias = tf.nn.bias_add(conv, biases)
+      conv1 = tf.nn.relu(bias, name=scope.name)
+      _activation_summary(conv1)
+  
+    norm1 = make_norm     (conv1,  name='norm1') 
+  
+    with tf.variable_scope('back1') as scope:
+      conv = tf.nn.conv2d(conv1, kernel_back, [1, 1, 1, 1], padding='SAME')
+      biases = tf.get_variable('biases', [shape[2]], initializer=tf.constant_initializer(0.0))
+      bias = tf.nn.bias_add(conv, biases)
+      deco1 = tf.nn.relu(bias, name=scope.name)
+      _activation_summary(deco1)
+  
   assert images.get_shape() == deco1.get_shape()
 
   layers = {'conv1': (conv1, 0, 1, 3),
@@ -449,8 +469,7 @@ def loss_regr (regressions, rois):
 
 
 def loss_autoencoder_inf5_layer1 (deco1, images):
-  loss = tf.reduce_mean(tf.square(tf.abs(deco1 - images)))
-  return loss
+  return tf.nn.l2_loss(deco1 - images)
 
 
 
