@@ -38,8 +38,6 @@ tf.app.flags.DEFINE_float('NUM_EPOCHS_PER_DECAY', NUM_EPOCHS_PER_DECAY,
 tf.app.flags.DEFINE_float('LEARNING_RATE_DECAY_FACTOR', LEARNING_RATE_DECAY_FACTOR, '')
 tf.app.flags.DEFINE_float('INITIAL_LEARNING_RATE', INITIAL_LEARNING_RATE, '')
 
-tf.app.flags.DEFINE_float('wd_conv', 0.005, 'weight_decay for all conv layers')
-tf.app.flags.DEFINE_float('wd_fc',   0.005, 'weight_decay for all fc layers')
 tf.app.flags.DEFINE_float('lambda_regr', 0.0, '')
 
 
@@ -250,7 +248,7 @@ def make_conv(input_, name, shape, padding, wd):
 def make_norm(input_, name):
   return tf.nn.lrn(input_, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name=name)
 
-def make_fc(input_, name, shape, wd, stddev=0.01, keep_prob=1.0):
+def make_fc(input_, name, shape, wd, keep_prob=1.0):
   with tf.variable_scope(name) as scope:
     stddev = xavier_uni (shape[0], shape[1])
     print ('initialize fc layer %s with xavier uniform with scale %f' % (name, stddev))
@@ -279,26 +277,29 @@ def make_regr(input_, shape):
 
 
 def inference2 (images, keep_prob):
+  wd_conv = 0.005
+  wd_fc   = 0.005
+
   assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
          'images shape: %s' % str(images.get_shape())
 
-  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[11, 11, 3, 64], wd=FLAGS.wd_conv)
+  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[11, 11, 3, 64], wd=wd_conv)
   pool1 = tf.nn.max_pool(conv1,  name='pool1', padding='VALID', ksize=[1, 9, 9, 1], strides=[1, 5, 5, 1])
   norm1 = make_norm     (pool1,  name='norm1') 
 
-  conv2 = make_conv     (norm1,  name='conv2', padding='SAME',  shape=[5, 5, 64, 64], wd=FLAGS.wd_conv)
+  conv2 = make_conv     (norm1,  name='conv2', padding='SAME',  shape=[5, 5, 64, 128], wd=wd_conv)
   norm2 = make_norm     (conv2,  name='norm2')
   pool2 = tf.nn.max_pool(norm2,  name='pool2', padding='SAME',  ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
 
   #dim = 1
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
-  dim = 64 * 6 * 6
+  dim = 128 * 6 * 6
   reshape = tf.reshape (pool2, [FLAGS.batch_size, dim])
-  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
-  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], wd=wd_fc, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], wd=wd_fc, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
 
-  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], wd=wd_fc, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
   # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
@@ -309,16 +310,19 @@ def inference2 (images, keep_prob):
 
 
 def inference3 (images, keep_prob):
+  wd_conv = 0.02
+  wd_fc   = 0.02
+
   assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
          'images shape: %s' % str(images.get_shape())
 
-  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 64], wd=FLAGS.wd_conv)
+  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 64], wd=wd_conv)
   norm1 = make_norm     (conv1,  name='norm1') 
-  conv2 = make_conv     (norm1,  name='conv2', padding='SAME',  shape=[5, 5, 64, 64], wd=FLAGS.wd_conv)
+  conv2 = make_conv     (norm1,  name='conv2', padding='SAME',  shape=[5, 5, 64, 64], wd=wd_conv)
   pool2 = tf.nn.max_pool(conv2,  name='pool2', padding='VALID', ksize=[1, 9, 9, 1], strides=[1, 5, 5, 1])
   norm2 = make_norm     (pool2,  name='norm2') 
 
-  conv3 = make_conv     (norm2,  name='conv3', padding='SAME',  shape=[5, 5, 64, 64], wd=FLAGS.wd_conv)
+  conv3 = make_conv     (norm2,  name='conv3', padding='SAME',  shape=[5, 5, 64, 64], wd=wd_conv)
   norm3 = make_norm     (conv3,  name='norm3')
   pool3 = tf.nn.max_pool(norm3,  name='pool3', padding='SAME',  ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
 
@@ -326,11 +330,11 @@ def inference3 (images, keep_prob):
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
   dim = 64 * 6 * 6
   reshape = tf.reshape (pool3, [FLAGS.batch_size, dim])
-  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
-  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], wd=wd_fc, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], wd=wd_fc, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
 
-  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], wd=FLAGS.wd_fc, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
   # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
@@ -342,25 +346,28 @@ def inference3 (images, keep_prob):
 
 
 def inference5 (images, keep_prob):
+  wd_conv = 0.005
+  wd_fc   = 0.005
+
   assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
          'images shape: %s' % str(images.get_shape())
 
-  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 32], wd=FLAGS.wd_conv)
+  conv1 = make_conv     (images, name='conv1', padding='SAME',  shape=[7, 7, 3, 16], wd=wd_conv)
   norm1 = make_norm     (conv1,  name='norm1') 
   pool1 = tf.nn.max_pool(norm1,  name='pool1', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
   # 31
 
-  conv2 = make_conv     (pool1,  name='conv2', padding='SAME',  shape=[3, 3, 32, 64], wd=FLAGS.wd_conv)
+  conv2 = make_conv     (pool1,  name='conv2', padding='SAME',  shape=[3, 3, 16, 32], wd=wd_conv)
   norm2 = make_norm     (conv2,  name='norm2') 
-  conv3 = make_conv     (norm2,  name='conv3', padding='SAME',  shape=[3, 3, 64, 64], wd=FLAGS.wd_conv)
+  conv3 = make_conv     (norm2,  name='conv3', padding='SAME',  shape=[3, 3, 32, 32], wd=wd_conv)
   norm3 = make_norm     (conv3,  name='norm3') 
-  pool3 = tf.nn.max_pool(norm3+conv2,  name='pool3', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
+  pool3 = tf.nn.max_pool(norm3,  name='pool3', padding='SAME', ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
   # 15
 
-  conv4 = make_conv     (pool3,  name='conv4', padding='SAME',  shape=[3, 3, 64, 128], wd=FLAGS.wd_conv)
+  conv4 = make_conv     (pool3,  name='conv4', padding='SAME',  shape=[3, 3, 32, 64], wd=wd_conv)
   norm4 = make_norm     (conv4,  name='norm4')
 
-  conv5 = make_conv     (norm4,  name='conv5', padding='VALID',  shape=[3, 3, 128, 128], wd=FLAGS.wd_conv)
+  conv5 = make_conv     (norm4,  name='conv5', padding='VALID',  shape=[3, 3, 64, 64], wd=wd_conv)
   norm5 = make_norm     (conv5,  name='norm5')
   # 13
   pool5 = tf.nn.max_pool(norm5,  name='pool5', padding='SAME',  ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1])
@@ -368,13 +375,13 @@ def inference5 (images, keep_prob):
 
   #dim = 1
   #for d in pool2.get_shape()[1:].as_list(): dim *= d
-  dim = 128 * 7 * 7
+  dim = 64 * 7 * 7
   reshape = tf.reshape (pool5, [FLAGS.batch_size, dim])
-  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
-  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
+  fc1 = make_fc (reshape, name='fc1', shape=[dim, 384], wd=wd_fc, keep_prob=keep_prob)
+  fc2_clas = make_fc (fc1, name='fc2_clas', shape=[384, 192], wd=wd_fc, keep_prob=keep_prob)
   softmax = make_softmax(fc2_clas, shape=[192, NUM_CLASSES])
 
-  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], stddev=0.04, wd=FLAGS.wd_fc, keep_prob=keep_prob)
+  fc2_regr = make_fc (fc1, name='fc2_regr', shape=[384, 192], wd=wd_fc, keep_prob=keep_prob)
   regressions = make_regr(fc2_regr, shape=[192, 4])
 
   # Each value is a tuple (layer, accum_padding, accum_stride, half_receptive_field)
@@ -427,7 +434,7 @@ def autoencoder_inf5_layer1(images):
 
 def inference(images, keep_prob):
     '''Thin proxy too pick the architecture'''
-    return inference5 (images, keep_prob=keep_prob)
+    return inference2 (images, keep_prob=keep_prob)
 
 
 def loss_clas (logits, labels):
@@ -549,7 +556,7 @@ def train(total_loss, global_step):
   ema = tf.train.ExponentialMovingAverage(FLAGS.MOVING_AVERAGE_DECAY, global_step)
   variables_averages_op = ema.apply(tf.trainable_variables())
 
-  with tf.control_dependencies([apply_gradient_op]): #, variables_averages_op]):
+  with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
     train_op = tf.no_op(name='train')
 
   return train_op
