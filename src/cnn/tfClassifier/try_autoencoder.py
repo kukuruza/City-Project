@@ -8,41 +8,81 @@ FLAGS = tf.app.flags.FLAGS
 def atcity(x):
   return op.join(os.getenv('CITY_DATA_PATH'), x)
 
-tf.app.flags.DEFINE_string('train_dir', '/tmp/try_autoencoder', '')
+tf.app.flags.DEFINE_string('train_dir', '/tmp/try_autoencoder-2', '')
 tf.app.flags.DEFINE_string('data_dir',  atcity('augmentation/patches-Mar23'), '')
 tf.app.flags.DEFINE_string('list_name', 'train_list-vis60.txt', '')
 
-tf.app.flags.DEFINE_integer('batch_size', 128, '')
+tf.app.flags.DEFINE_integer('batch_size', 8, '')
 tf.app.flags.DEFINE_integer('num_preprocess_threads', 1, '')
 
 
 
+
+def l1_loss(x):
+  return tf.reduce_mean(tf.abs(x))
+
+
+def l2_loss(x):
+  return tf.reduce_mean(tf.square(x))  
+
+
+def make_conv(input_, kernel, name, padding):
+  with tf.variable_scope(name) as scope:
+    conv = tf.nn.conv2d(input_, kernel, [1, 1, 1, 1], padding=padding)
+    biases = tf.get_variable('biases', [kernel.get_shape()[3]], 
+                             initializer=tf.constant_initializer(0.0))
+    bias = tf.nn.bias_add(conv, biases)
+    conv_layer = tf.nn.relu(bias, name=scope.name)
+  return conv_layer
+
+
+def make_unpooling (conv, pool):
+  h = conv.get_shape()[1]
+  w = conv.get_shape()[2]
+  resized = tf.image.resize_images (pool, h, w, method=1)
+  zeros   = tf.zeros (resized.get_shape())
+  return tf.select (tf.greater(resized, conv), zeros, conv)
+
+
+def make_norm(input_, name):
+  return tf.nn.lrn(input_, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75, name=name)
+
+
 def inference(images):
-  assert images.get_shape()[1] == 61 and images.get_shape()[2] == 61, \
+  shape = [5, 5, 3, 32]
+  wd = 0.1
+
+  im_height = im_width = 61
+
+  assert images.get_shape()[1] == im_height and \
+         images.get_shape()[2] == im_width, \
          'images shape: %s' % str(images.get_shape())
 
-  shape = [7, 7, 3, 32]
-  stddev = 0.05
-  print ('initialize conv layer %s with xavier uniform with scale %f' % ('1', stddev))
+  # kernel1
   kernel_forw = tf.get_variable('weights', shape,
-                 initializer=tf.random_uniform_initializer(minval=-stddev, maxval=stddev))
+                 initializer=tf.contrib.layers.xavier_initializer_conv2d())
   kernel_back = tf.transpose(kernel_forw, [0,1,3,2])
+  tf.image_summary('kernel', citycam.put_kernels_on_grid(kernel_forw), max_images=1)
 
-  conv_f = tf.nn.conv2d(images, kernel_forw, [1, 1, 1, 1], padding='SAME')
-  biases_f = tf.get_variable('biases_f', [shape[3]], initializer=tf.constant_initializer(0.0))
-  bias_f = tf.nn.bias_add(conv_f, biases_f)
-  conv1 = tf.nn.relu(bias_f, 'conv1')
+  # conv1 + pool1
+  conv1 = make_conv(images, kernel_forw, 'conv1', padding='SAME')
+  pool1 = tf.nn.max_pool(conv1, padding='SAME', ksize=[1,2,2,1], strides=[1,2,2,1])
 
-  # norm1 = make_norm     (conv1,  name='norm1') 
+  tf.add_to_collection('losses', l1_loss(pool1))
 
-  conv_b = tf.nn.conv2d(conv1, kernel_back, [1, 1, 1, 1], padding='SAME')
-  biases_b = tf.get_variable('biases_b', [shape[2]], initializer=tf.constant_initializer(0.0))
-  bias_b = tf.nn.bias_add(conv_b, biases_b)
-  deco1 = tf.nn.relu(bias_b, 'deco1')
-  
+  # unpool1 + deconv1
+  unpool1 = make_unpooling (conv1, pool1)
+  deco1 = make_conv(unpool1, kernel_back, 'deco1', padding='SAME')
+
   assert images.get_shape() == deco1.get_shape()
 
-  return deco1, (conv1, deco1)
+  grid = tf.concat(1, [tf.concat(2, [images, deco1]),
+                       tf.concat(2, [tf.slice(unpool1, [0,0,0,0], [-1,-1,-1,3]), 
+                                     tf.slice(unpool1, [0,0,0,3], [-1,-1,-1,3])
+                                    ])])
+  tf.image_summary('images', grid, max_images=5)
+
+  return deco1
 
 
 
@@ -51,20 +91,11 @@ with tf.Graph().as_default() as graph:
 
   images, _, _, _ = citycam.distorted_inputs(FLAGS.list_name)
 
-  with tf.variable_scope("inference") as scope:
-    reconstructed, _ = inference(images)
-    scope.reuse_variables()
-    kernel = citycam.put_kernels_on_grid(tf.get_variable('weights'))
-    tf.image_summary('weights', kernel, max_images=1)
+  deco1 = inference(images)
+  tf.add_to_collection('losses', l2_loss(images - deco1))
+  total_loss = tf.add_n(tf.get_collection('losses'))
 
-  loss = tf.reduce_mean(tf.square(reconstructed - images))
-
-  opt = tf.train.GradientDescentOptimizer(0.1)
-  grads = opt.compute_gradients(loss)
-  apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
-  with tf.control_dependencies([apply_gradient_op]):
-    train_op = tf.no_op(name='train')
-
+  train_op = tf.train.GradientDescentOptimizer(0.01).minimize(total_loss)
 
   summary_op = tf.merge_all_summaries()
   summary_writer = tf.train.SummaryWriter(FLAGS.train_dir)
@@ -82,8 +113,8 @@ with tf.Graph().as_default() as graph:
         if coord.should_stop(): 
           break
 
-        _, loss_val = sess.run([train_op, loss])
-        print ('step %d, loss = %.2f' % (step, loss_val))
+        _, loss_val = sess.run([train_op, total_loss])
+        print ('step %d, loss = %.6f' % (step, loss_val))
 
         if step % 100 == 0:
           summary_str = sess.run(summary_op)

@@ -8,7 +8,7 @@ import string
 import logging
 import datetime
 from numpy.random import normal, uniform, choice
-from learning.helperSetup import atcity, setupLogging
+from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 from Cad import Cad
 
 WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
@@ -123,9 +123,11 @@ for line in sun_pos_lines:
 
 
 
-def generate_current_frame (camera, video, cad, time, num_cars):
+def generate_current_frame (camera, video, cad, time, num_cars, params):
     ''' Generate traffic.json traffic file for a single frame
     '''
+    setParamUnlessThere (params, 'save_blend_file', False)
+
     pxl_in_meter   = camera.info['pxls_in_meter']
 
     # get the map of azimuths. 
@@ -155,7 +157,8 @@ def generate_current_frame (camera, video, cad, time, num_cars):
     frame_info = {'sun_altitude': sun_pose['altitude'], \
                   'sun_azimuth':  sun_pose['azimuth'], \
                   'vehicles': vehicles, \
-                  'weather': video.info['weather'] }
+                  'weather': video.info['weather'], \
+                  'save_blender_files': params['save_blend_file'] }
 
     return frame_info
 

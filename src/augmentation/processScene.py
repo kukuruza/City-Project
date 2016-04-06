@@ -128,6 +128,7 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
     All work is in current-frame dir.
     '''
     WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
+    setParamUnlessThere (params, 'save_blender_files', False)
     setParamUnlessThere (params, 'no_traffic', False)
     setParamUnlessThere (params, 'no_render',  False)
     setParamUnlessThere (params, 'no_combine', False)
@@ -143,7 +144,8 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
     mask = None
 
     if not params['no_traffic']:
-        frame_info = generate_current_frame (camera, video, cad, time, num_cars)
+        frame_info = generate_current_frame (camera, video, cad, time, num_cars, 
+                             {'save_blender_files': params['save_blender_files']})
         frame_info['scale'] = camera.info['scale']
         frame_info['render_individual_cars'] = params['render_individual_cars']
         traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
@@ -263,6 +265,7 @@ def process_video (job):
 
     # some default parameters
     create_in_db(job)   # creates job['in_db_file'] if necessary
+    setParamUnlessThere (job, 'save_blender_files', False)
     setParamUnlessThere (job, 'out_db_file', 
         op.join(op.dirname(job['in_db_file']), 'traffic.db'))
     setParamUnlessThere (job, 'out_video_dir', 
@@ -346,7 +349,6 @@ def process_video (job):
         else:
             logging.info ('process frame number %d' % i)
         
-        # generate traffic
         if timestamp is None:
             assert video.start_time is not None, 'no time in .db or in video_info file'
             time = video.start_time + timedelta(minutes=int(float(i) / 960 * 40))

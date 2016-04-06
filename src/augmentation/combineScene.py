@@ -1,4 +1,5 @@
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 import logging
 import bpy
@@ -7,7 +8,10 @@ from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
 
 WORK_RENDER_DIR = atcity('augmentation/blender/current-frame')
-RENDER_NAME         = 'out.png'
+BACKGROUND_FILENAME = 'background.png'
+NORMAL_FILENAME     = 'normal.png'
+CARSONLY_FILENAME   = 'cars-only.png'
+COMBINED_FILENAME   = 'out.png'
 CORRECTION_FILENAME = 'color-correction.json'
 
 WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
@@ -15,21 +19,14 @@ WORK_DIR_SUFFIX = '-%d' % os.getppid()
 
 correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
 
-
 image_node = bpy.context.scene.node_tree.nodes['Image-Background'].image
-path = image_node.filepath
-index = path.find('current-frame') + len('current-frame')
-image_node.filepath = path[:index] + WORK_DIR_SUFFIX + path[index:]
+image_node.filepath = op.join(WORK_DIR, BACKGROUND_FILENAME)
 
 image_node = bpy.context.scene.node_tree.nodes['Image-Cars-Only'].image
-path = image_node.filepath
-index = path.find('current-frame') + len('current-frame')
-image_node.filepath = path[:index] + WORK_DIR_SUFFIX + path[index:]
+image_node.filepath = op.join(WORK_DIR, CARSONLY_FILENAME)
 
 image_node = bpy.context.scene.node_tree.nodes['Image-Normal'].image
-path = image_node.filepath
-index = path.find('current-frame') + len('current-frame')
-image_node.filepath = path[:index] + WORK_DIR_SUFFIX + path[index:]
+image_node.filepath = op.join(WORK_DIR, NORMAL_FILENAME)
 
 
 if op.exists(correction_path):
@@ -47,7 +44,8 @@ if op.exists(correction_path):
 
 # render and save
 # TODO: should delete bpy.data.scenes['Scene'].render.filepath ??
-bpy.data.scenes['Scene'].render.filepath = atcity(op.join(WORK_DIR, RENDER_NAME))
+bpy.data.scenes['Scene'].render.filepath = atcity(op.join(WORK_DIR, COMBINED_FILENAME))
 bpy.ops.render.render (write_still=True) 
 
+bpy.ops.wm.save_as_mainfile (filepath=op.join(WORK_DIR, 'combine.blend'))
 

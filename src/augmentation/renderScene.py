@@ -81,8 +81,8 @@ def make_snapshot (render_dir, car_names, params):
         for car_name in car_names:
             show_car (car_name)
 
-    if params['save_blend_file']:
-        bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
+    if params['save_blender_files']:
+        bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'render.blend')))
 
     # logging.info ('objects in the end of frame: %d' % len(bpy.data.objects))
     logging.info ('make_snapshot: successfully finished a frame')
