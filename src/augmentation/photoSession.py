@@ -46,22 +46,25 @@ def prepare_photo (car_sz):
 
     # pick random camera angle and distance
     scale = normal (1, SCALE_NOISE_SIGMA)
-    yaw   = uniform (low=0, high=2*pi)
-    pitch = uniform (low=PITCH_LOW, high=PITCH_HIGH)
-    print ('scale: %.2f, yaw: %.2f, pitch: %.2f' % (scale, yaw*180/pi, pitch))
+    azimuth  = uniform (low=0, high=2*pi)
+    altitude = uniform (low=PITCH_LOW, high=PITCH_HIGH)
+    print ('scale: %.2f, azimuth: %.2f, altitude: %.2f' % 
+           (scale, azimuth*180/pi, altitude))
 
     # compute camera position
     dist  = car_sz * SCALE_FACTOR / scale
-    x = dist * cos(yaw) * cos(pitch)
-    y = dist * sin(yaw) * cos(pitch)
-    z = dist * sin(pitch)
+    x = dist * cos(azimuth) * cos(altitude)
+    y = dist * sin(azimuth) * cos(altitude)
+    z = dist * sin(altitude)
 
     # set up lighting
     bpy.data.objects['-Camera'].location = (x,y,z)
     bpy.data.objects['-Sky-sunset'].location = (-x,-y,10)
-    bpy.data.objects['-Sky-sunset'].rotation_euler = (60*pi/180, 0, yaw-pi/2)
+    bpy.data.objects['-Sky-sunset'].rotation_euler = (60*pi/180, 0, azimuth-pi/2)
 
     params['save_blend_file'] = False
+    params['azimuth'] = azimuth
+    params['altitude'] = altitude
     return params
 
 
@@ -158,6 +161,12 @@ def make_snapshot (render_dir, car_names, params):
     if params['save_blend_file']:
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
+    ### write down some labelling info
+    angles_path = atcity(op.join(render_dir, 'angles.json'))
+    with open(angles_path, 'w') as f:
+        f.write(json.dumps({'azimuth':  params['azimuth'] * 180 / pi,
+                            'altitude': params['altitude'] * 180 / pi}, indent=4))
+
     logging.info ('make_snapshot: successfully finished a frame')
     
 
@@ -184,7 +193,6 @@ def photo_session (job):
                              'blend/%s.blend' % vehicle['model_id'])
 
         assert op.exists(blend_path), 'blend path does not exist' % blend_path
-        # # FIXME: introduce some 'ready' field into ES, and constrain that, not valid
         # if 'dims' not in vehicle or not op.exists(blend_path):
         #     logging.error ('dims or blend_path does not exist. Skip.')
         #     continue

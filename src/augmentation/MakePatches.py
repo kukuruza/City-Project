@@ -22,7 +22,8 @@ RESULT_DIR       = atcity('augmentation/patches')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
 PATCHES_HOME_DIR = atcity('augmentation/patches/')
 JOB_INFO_NAME    = 'job_info.json'
-EXT = 'jpg'  # format of output patches
+ANGLES_INFO_NAME = 'angles.json'
+EXT = 'png'  # format of output patches
 
 # placing other cars
 PROB_SAME_LANE    = 0.3
@@ -277,7 +278,7 @@ if __name__ == "__main__":
                         help='do not delete "normal" and "mask" images')
     parser.add_argument('--models_range', default='[::]', 
                         help='python style range of models in collection, e.g. "[5::2]"')
-    parser.add_argument('--collection_id')
+    parser.add_argument('--collection_id', required=True)
     args = parser.parse_args()
 
     setupLogging('log/augmentation/MakePatches.log', args.logging_level, 'w')
@@ -329,9 +330,11 @@ if __name__ == "__main__":
         raise Exception ('wrong args.render: %s' % args.render)
 
     # postprocess
+
     ids_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'ids.txt'), 'w')
     vis_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt'), 'w')
     roi_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'roi.txt'), 'w')
+    ang_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'angles.txt'), 'w')
 
     for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
         scene_name = op.basename(scene_dir)
@@ -346,7 +349,7 @@ if __name__ == "__main__":
 
             # write cropped image and visible_perc and remove the source dir
             patch_name = '%s.%s' % (op.basename(patch_dir), EXT)
-            mask_name  = '%s.png' % op.basename(patch_dir)
+            mask_name  = '%sm.png' % op.basename(patch_dir)
             patch_path = op.join(scene_dir, patch_name)
             mask_path  = op.join(scene_dir, mask_name)
             cv2.imwrite(patch_path, patch)
@@ -357,7 +360,10 @@ if __name__ == "__main__":
             if not args.keep_src:
                 shutil.rmtree(patch_dir)
 
-            # write ids, bboxes and visibility
+            # read angles
+            angles = json.load(open( op.join(patch_dir, ANGLES_INFO_NAME) ))
+
+            # write ids, bboxes, visibility, and angles
             patch_id = op.join(scene_name, op.splitext(patch_name)[0])
             bbox = mask2bbox (mask)
             assert bbox is not None
@@ -365,7 +371,9 @@ if __name__ == "__main__":
             roi_f.write('%s %s\n' % (patch_id, roi_str))
             vis_f.write('%s %f\n' % (patch_id, visible_perc))
             ids_f.write('%s\n'    %  patch_id)
+            ang_f.write('%.2f %.2f\n' % (angles['azimuth'], angles['altitude']))
 
     ids_f.close()
     vis_f.close()
     roi_f.close()
+    ang_f.close()
