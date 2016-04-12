@@ -5,6 +5,7 @@ import json
 import logging
 from math import cos, sin, pi, sqrt, ceil
 import numpy as np
+from glob import glob
 from random import choice
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
@@ -15,8 +16,11 @@ from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 
 
 COLLECTIONS_DIR  = atcity('augmentation/CAD')
+ROAD_TEXTURE_DIR = atcity('augmentation/textures/road')
+BLDG_TEXTURE_DIR = atcity('augmentation/textures/buildings')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
+#JOB_OUTPUT_NAME  = 'job_output.json'
 
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
@@ -42,7 +46,7 @@ def prepare_photo (car_sz):
     params = {}
     params['sun_azimuth']  = uniform(low=0, high=360)
     params['sun_altitude'] = uniform(low=SUN_ALTITUDE_MIN, high=SUN_ALTITUDE_MAX)
-    params['weather'] = choice([['Dry','Sunny'], ['Dry','Cloudy'], ['Wet','Cloudy']])
+    params['weather'] = choice(['Rainy', 'Cloudy', 'Sunny', 'Wet'])
 
     # pick random camera angle and distance
     scale = normal (1, SCALE_NOISE_SIGMA)
@@ -62,9 +66,32 @@ def prepare_photo (car_sz):
     bpy.data.objects['-Sky-sunset'].location = (-x,-y,10)
     bpy.data.objects['-Sky-sunset'].rotation_euler = (60*pi/180, 0, azimuth-pi/2)
 
-    params['save_blend_file'] = False
+    # set up road
+    # assign a random texture from the directory
+    road_texture_path = choice(glob(op.join(ROAD_TEXTURE_DIR, '*.jpg')))
+    logging.info ('road_texture_path: %s' % road_texture_path)
+    bpy.data.images['ground'].filepath = road_texture_path
+    # pick a random road width
+    road_width = normal(15, 5)
+    bpy.data.objects['-Ground'].dimensions.x = road_width
+
+    # set up building
+    # assign a random texture from the directory
+    buidling_texture_path = choice(glob(op.join(BLDG_TEXTURE_DIR, '*.jpg')))
+    logging.info ('buidling_texture_path: %s' % buidling_texture_path)
+    bpy.data.images['building'].filepath = buidling_texture_path
+    # put the building at the edge of the road, opposite to the camera
+    bpy.data.objects['-Building'].location.y = road_width/2 * (1 if y < 0 else -1)
+    # pick a random height dim
+    bpy.data.objects['-Building'].dimensions.z = normal(20, 5)
+    # move randomly along a X and Z axes
+    bpy.data.objects['-Building'].location.x = normal(0, 5)
+    bpy.data.objects['-Building'].location.z = uniform(-5, 0)
+
+    params['save_blend_file'] = True
     params['azimuth'] = azimuth
     params['altitude'] = altitude
+
     return params
 
 
@@ -83,74 +110,38 @@ def make_snapshot (render_dir, car_names, params):
     setParamUnlessThere (params, 'save_blend_file', False)
 
     # create render dir
-    if not op.exists(render_dir):
-        os.makedirs(render_dir)
+    print (atcity(render_dir))
+    if not op.exists(atcity(render_dir)):
+        os.makedirs(atcity(render_dir))
 
     # nodes to change output paths
-    render_node = bpy.context.scene.node_tree.nodes['render']
-    depth_node  = bpy.context.scene.node_tree.nodes['depth']
+    bpy.context.scene.node_tree.nodes['render'].base_path = atcity(render_dir)
+    bpy.context.scene.node_tree.nodes['depth-all'].base_path = atcity(render_dir)
+    bpy.context.scene.node_tree.nodes['depth-car'].base_path = atcity(render_dir)
 
     set_weather (params)
-
-    ### render all cars and shadows
-
-    render_node.base_path = atcity(render_dir)
-    depth_node.base_path  = '/dev/null'
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
     for m in bpy.data.materials:
         m.use_transparent_shadows = True
 
-    # gray ground and sky
-    bpy.data.scenes['Scene'].render.use_textures = True
-    bpy.data.scenes['Scene'].render.use_shadows  = True
-    bpy.data.scenes['Scene'].render.use_raytrace = True
-    bpy.data.objects['-Ground'].hide_render = False
-    bpy.context.scene.render.alpha_mode = 'SKY'
+    # add cars to Cars and Depth-all layers and the main car to Depth-car layer
+    for car_name in car_names:
+        for layer_id in range(3):
+            bpy.data.objects[car_name].layers[layer_id] = False
+    for car_name in car_names:
+        bpy.data.objects[car_name].layers[0] = True
+        bpy.data.objects[car_name].layers[1] = True
+    bpy.data.objects[car_names[0]].layers[2] = True
 
-    bpy.ops.render.render (write_still=True)
+    # render scene
+    bpy.ops.render.render (write_still=True, layer='Cars')
 
-    # move to a better name
-    assert op.exists(atcity(op.join(render_dir, 'Image0001'))), 'didnt render color'
-    os.rename(atcity(op.join(render_dir, 'Image0001')), 
-              atcity(op.join(render_dir, 'render.png')))
-
-    ### depth maps
-
-    bpy.data.scenes['Scene'].render.use_textures = False
-    bpy.data.scenes['Scene'].render.use_shadows  = False
-    bpy.data.scenes['Scene'].render.use_raytrace = False
-    bpy.context.scene.render.alpha_mode = 'TRANSPARENT'
-    bpy.data.objects['-Ground'].hide_render = True
-
-    # for all cars
-
-    # TODO: do smth so that it doesn't say it can't write file
-    render_node.base_path = '/dev/null'
-    depth_node.base_path  = atcity(render_dir)
-    bpy.ops.render.render (write_still=True)
-
-    # move to a better name
-    assert op.exists(atcity(op.join(render_dir, 'Image0001'))), 'didnt render all depth'
-    os.rename(atcity(op.join(render_dir, 'Image0001')), 
-              atcity(op.join(render_dir, 'depth-all.png')))
-
-    # for the main car
-
-    # hide all cars except the first (main) one
-    for car_name in car_names[1:]:
-        hide_car (car_name)
-
-    # TODO: do smth so that it doesn't say it can't write file
-    render_node.base_path = '/dev/null'
-    depth_node.base_path  = atcity(render_dir)
-    bpy.ops.render.render (write_still=True)
-
-    # move to a better name
-    assert op.exists(atcity(op.join(render_dir, 'Image0001'))), 'didnt render main depth'
-    os.rename(atcity(op.join(render_dir, 'Image0001')), 
-              atcity(op.join(render_dir, 'depth-car.png')))
+    # change the names of output png files
+    for layer_name in ['render', 'depth-all', 'depth-car']:
+        os.rename(atcity(op.join(render_dir, '%s0001' % layer_name)), 
+                  atcity(op.join(render_dir, '%s.png' % layer_name)))
 
     ### aftermath
     

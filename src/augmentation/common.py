@@ -112,74 +112,79 @@ def show_car (car_name):
 
 
 
+def set_rainy ():
+    
+    set_wet()
+
+    # turn on mist
+    bpy.data.worlds['World'].mist_settings.use_mist = True
+    bpy.data.worlds['World'].mist_settings.intensity = normal(0.15, 0.1)
+
+
 def set_wet ():
+
+    # trun off sun
+    sun = bpy.data.objects['-Sun']
+    sun.hide_render = True
+    sun.hide = True
 
     # pick the material
     mat = bpy.data.materials['Material-wet-asphalt']
-    mat.mirror_color = (0.5, 0.5, 0.5)  # asphalt color
-    #mat.use_only_shadow = True  # no ground plane (must be set)
-
-    # assign the material to the ground
     ground = bpy.data.objects['-Ground']
     if len(ground.data.materials):
         ground.data.materials[0] = mat  # assign to 1st material slot
     else:
         ground.data.materials.append(mat)  # no slots
 
+    bpy.data.objects['-Sky-sunset'].data.energy = 1.0
 
-def set_dry ():
+    bpy.data.worlds['World'].light_settings.environment_energy = 0.5
 
-    # pick the material
-    mat = bpy.data.materials['Material-dry-asphalt']
-    mat.mirror_color = (0.5, 0.5, 0.5)  # asphalt color
-    #mat.use_only_shadow = True  # no ground plane (must be set)
-
-    # assign the material to the ground
-    ground = bpy.data.objects['-Ground']
-    if len(ground.data.materials):
-        ground.data.materials[0] = mat  # assign to 1st material slot
-    else:
-        ground.data.materials.append(mat)  # no slots
+    bpy.data.worlds['World'].mist_settings.use_mist = False
 
 
 def set_sunny ():
+
+    mat = bpy.data.materials['Material-dry-asphalt']
+    ground = bpy.data.objects['-Ground']
+    if len(ground.data.materials):
+        ground.data.materials[0] = mat  # assign to 1st material slot
+    else:
+        ground.data.materials.append(mat)  # no slots
 
     # adjust sun
     sun = bpy.data.objects['-Sun']
     sun.hide_render = False
     sun.hide = False
-    sun.data.energy = 1.5
+    sun.data.energy = normal(5, 1.5)
     sun.data.color = (1.0000, 0.9163, 0.6905)
 
-    # adjust sky
-    sky = bpy.data.objects['-Sky-light']
-    sky.hide_render = False
-    sky.hide = False
-    sky.data.energy = 0.25
-    sky.data.color = (0.688, 0.795, 1.0)
+    bpy.data.objects['-Sky-sunset'].data.energy = 1.0
 
-    # turn off far shadows
-    bpy.data.objects['-Sky-far-shadow'].hide = True
-    bpy.data.objects['-Sky-far-shadow'].hide_render = True
+    bpy.data.worlds['World'].light_settings.environment_energy = normal(1.0, 0.2)
+
+    bpy.data.worlds['World'].mist_settings.use_mist = False
 
 
 def set_cloudy ():
 
-    # adjust sun
+    mat = bpy.data.materials['Material-dry-asphalt']
+    ground = bpy.data.objects['-Ground']
+    if len(ground.data.materials):
+        ground.data.materials[0] = mat  # assign to 1st material slot
+    else:
+        ground.data.materials.append(mat)  # no slots
+
+    # trun off sun
     sun = bpy.data.objects['-Sun']
     sun.hide_render = True
     sun.hide = True
 
-    # adjust sky
-    sky = bpy.data.objects['-Sky-light']
-    sky.hide_render = False
-    sky.hide = False
-    sky.data.energy = 0.75
-    sky.data.color = (0.856, 0.827, 0.940)
+    bpy.data.objects['-Sky-sunset'].data.energy = 1.0
 
-    # turn on far shadows
-    bpy.data.objects['-Sky-far-shadow'].hide = False
-    bpy.data.objects['-Sky-far-shadow'].hide_render = False
+    bpy.data.worlds['World'].light_settings.environment_energy = normal(2, 0.5)
+
+    bpy.data.worlds['World'].mist_settings.use_mist = False
 
 
 def set_sun_angle (azimuth, altitude):
@@ -209,6 +214,32 @@ def set_sun_angle (azimuth, altitude):
 
 
 def set_weather (params):
+    '''Set sun and weather conditions
+    '''
+    assertParamIsThere  (params, 'weather')
+    weather = params['weather']
+
+    if weather == 'Rainy': 
+        logging.info ('setting cloudy weather')
+        set_rainy()
+    elif weather == 'Wet':
+        logging.info ('setting wet weather')
+        set_wet()
+    elif weather == 'Cloudy':
+        logging.info ('setting cloudy weather')
+        set_cloudy()
+    elif weather == 'Sunny': 
+        alt = params['sun_altitude']
+        azi = params['sun_azimuth']
+        logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))
+        set_sunny()
+        set_sun_angle(azi, alt)
+    else:
+        raise Exception ('Invalid weather param: %s' % str(weather))
+
+
+
+def set_weather_old (params):
     '''Set sun and weather conditions
     '''
     assertParamIsThere  (params, 'weather')
