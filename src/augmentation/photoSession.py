@@ -88,7 +88,7 @@ def prepare_photo (car_sz):
     bpy.data.objects['-Building'].location.x = normal(0, 5)
     bpy.data.objects['-Building'].location.z = uniform(-5, 0)
 
-    params['save_blend_file'] = True
+    params['save_blend_file'] = False
     params['azimuth'] = azimuth
     params['altitude'] = altitude
 

@@ -356,12 +356,12 @@ if __name__ == "__main__":
             cv2.imwrite(mask_path, mask)
             logging.info ('wrote cropped patch: %s/%s' % (scene_name, patch_name))
 
+            # read angles
+            angles = json.load(open( op.join(patch_dir, ANGLES_INFO_NAME) ))
+
             # remove patch directory, if not 'keep_src'
             if not args.keep_src:
                 shutil.rmtree(patch_dir)
-
-            # read angles
-            angles = json.load(open( op.join(patch_dir, ANGLES_INFO_NAME) ))
 
             # write ids, bboxes, visibility, and angles
             patch_id = op.join(scene_name, op.splitext(patch_name)[0])
@@ -371,7 +371,7 @@ if __name__ == "__main__":
             roi_f.write('%s %s\n' % (patch_id, roi_str))
             vis_f.write('%s %f\n' % (patch_id, visible_perc))
             ids_f.write('%s\n'    %  patch_id)
-            ang_f.write('%.2f %.2f\n' % (angles['azimuth'], angles['altitude']))
+            ang_f.write('%s %.2f %.2f\n' % (patch_id, angles['azimuth'], angles['altitude']))
 
     ids_f.close()
     vis_f.close()

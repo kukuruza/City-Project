@@ -96,29 +96,31 @@ def make_list (root_dir, name_label_pairs, out_list_name, (vis_min, vis_max)):
 
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--input_list_name', required=True)
-parser.add_argument('--output_list_name', required=True)
-parser.add_argument('--min_visibility', type=float, default=0)
-parser.add_argument('--max_visibility', type=float, default=1)
-parser.add_argument('--root_dir', default='augmentation/patches')
-args = parser.parse_args()
+if __name__ == '__main__':
 
-root_dir = atcity(args.root_dir)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_list_name', required=True)
+    parser.add_argument('--output_list_name', required=True)
+    parser.add_argument('--min_visibility', type=float, default=0)
+    parser.add_argument('--max_visibility', type=float, default=1)
+    parser.add_argument('--root_dir', default='augmentation/patches')
+    args = parser.parse_args()
 
-# input_list looks like:
-#    7c7c2b02ad5108fe5f9082491d52810, 0        # taxi
-#    uecadcbca-a400-428d-9240-a331ac5014f6 1   # schoolbus
+    root_dir = atcity(args.root_dir)
 
-name_label_pairs = []
-with open(op.join(root_dir, args.input_list_name)) as f:
-    lines = f.read().splitlines() 
-    for line in lines:
-        words = line.split()
-        name_label_pairs.append( (words[0], int(words[1])) )
-for name_label in name_label_pairs:
-    print name_label
+    # input_list looks like:
+    #    7c7c2b02ad5108fe5f9082491d52810, 0        # taxi
+    #    uecadcbca-a400-428d-9240-a331ac5014f6 1   # schoolbus
 
-make_list (root_dir, name_label_pairs, args.output_list_name,
-           (args.min_visibility, args.max_visibility))
+    name_label_pairs = []
+    with open(op.join(root_dir, args.input_list_name)) as f:
+        lines = f.read().splitlines() 
+        for line in lines:
+            words = line.split()
+            name_label_pairs.append( (words[0], int(words[1])) )
+    for name_label in name_label_pairs:
+        print name_label
+
+    make_list (root_dir, name_label_pairs, args.output_list_name,
+               (args.min_visibility, args.max_visibility))
 
