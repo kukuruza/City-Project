@@ -19,7 +19,8 @@ WORK_DIR = atcity('augmentation/blender/current-collection')
 
 
 width_true = {'truck': 2.5, 'van': 2.2, 'taxi': 1.9, 
-              'sedan': 1.9, 'bus': 2.5, 'schoolbus': 2.5}
+              'sedan': 1.9, 'bus': 2.5, 'schoolbus': 2.5,
+              'vehicle': 2.5}
 
 
 class MinHeightException(Exception):
@@ -246,6 +247,10 @@ def process_car_obj (scene_path, vehicle, dims_true):
     dims.update((x, round(y * scale, 2)) for x, y in dims.items())
     vehicle['dims'] = dims
 
+    # make all materials recieve ambient light
+    for m in obj.material_slots:
+        m.material.ambient = 1.0
+
     vehicle['valid'] = True
     vehicle['ready'] = True
 
@@ -319,6 +324,10 @@ def process_car_blend (scene_path, vehicle, dims_true):
     origin, dims = get_origin_and_dims_single (model_id, mirrors=True)
     logging.debug ('dims/origin final: %s, %s' % (str(dims), str(origin)))
 
+    # make all materials recieve ambient light
+    for m in obj.material_slots:
+        m.material.ambient = 1.0
+
     vehicle['valid'] = True
     vehicle['ready'] = True
 
@@ -331,7 +340,7 @@ def process_model (scene_path, model):
     '''
     valid = model['valid'] if 'valid' in model else True
     if not valid: 
-        logging.info ('skip invalid midel %s' % model['model_id'])
+        logging.info ('skip invalid model %s' % model['model_id'])
         return
 
     if 'dims_true' in model:
@@ -349,6 +358,12 @@ def process_model (scene_path, model):
         process_car_obj   (scene_path, model, dims_true)
     else:
         raise Exception('not supported')
+
+    # scale the DimsPlane to illustrate dimensions
+    plane = bpy.data.objects['DimsPlane']
+    plane.location = [0, 0, 0]
+    plane.scale.x = model['dims']['x'] * 0.5
+    plane.scale.y = model['dims']['y'] * 0.5
 
     # save clean blend
     dst_blend_file = model['dst_blend_file']

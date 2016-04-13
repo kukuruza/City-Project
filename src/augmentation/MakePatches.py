@@ -276,6 +276,8 @@ if __name__ == "__main__":
     parser.add_argument('--render', default='SEQUENTIAL')
     parser.add_argument('--keep_src', action='store_true',
                         help='do not delete "normal" and "mask" images')
+    parser.add_argument('--save_blender', action='store_true',
+                        help='save .blend render file')
     parser.add_argument('--models_range', default='[::]', 
                         help='python style range of models in collection, e.g. "[5::2]"')
     parser.add_argument('--collection_id', required=True)
@@ -300,7 +302,8 @@ if __name__ == "__main__":
 
     job = {'num_per_session': args.num_per_session,
            'patches_name':    args.patches_name,
-           'main_models':     models}
+           'main_models':     models,
+           'save_blender':    args.save_blender}
 
     # give a number to each job
     num_sessions = int(ceil(float(args.number) / args.num_per_session))
@@ -339,6 +342,7 @@ if __name__ == "__main__":
     for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
         scene_name = op.basename(scene_dir)
         for patch_dir in glob(op.join(scene_dir, '??????')):
+          try:
             write_visible_mask (patch_dir)
             visible_perc = get_visible_perc (patch_dir)
             patch, mask = crop_patches(patch_dir, args.expand_perc, 
@@ -372,6 +376,9 @@ if __name__ == "__main__":
             vis_f.write('%s %f\n' % (patch_id, visible_perc))
             ids_f.write('%s\n'    %  patch_id)
             ang_f.write('%s %.2f %.2f\n' % (patch_id, angles['azimuth'], angles['altitude']))
+          except:
+            logging.error('postprocessing failed for: %s' %
+                          (patch_dir, traceback.format_exc()))
 
     ids_f.close()
     vis_f.close()

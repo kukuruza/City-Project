@@ -118,7 +118,7 @@ def set_rainy ():
 
     # turn on mist
     bpy.data.worlds['World'].mist_settings.use_mist = True
-    bpy.data.worlds['World'].mist_settings.intensity = normal(0.15, 0.1)
+    bpy.data.worlds['World'].mist_settings.intensity = normal(0.1, 0.07)
 
 
 def set_wet ():
@@ -156,7 +156,7 @@ def set_sunny ():
     sun = bpy.data.objects['-Sun']
     sun.hide_render = False
     sun.hide = False
-    sun.data.energy = normal(5, 1.5)
+    sun.data.energy = normal(4.5, 1.0)
     sun.data.color = (1.0000, 0.9163, 0.6905)
 
     bpy.data.objects['-Sky-sunset'].data.energy = 1.0

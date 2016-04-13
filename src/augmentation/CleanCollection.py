@@ -99,11 +99,12 @@ def clean_model (model, params={}):
     if 'src_obj_file'   in model: del model['src_obj_file']
 
     # show example
-    example = cv2.imread(atcity(dst_example_file))
-    assert example is not None, 'example was not written to %s' % dst_example_file
-    if params['show_examples']:
-        cv2.imshow('example', example)
-        cv2.waitKey(-1)
+    if model['valid']:
+      example = cv2.imread(atcity(dst_example_file))
+      assert example is not None, 'example was not written to %s' % dst_example_file
+      if params['show_examples']:
+          cv2.imshow('example', example)
+          cv2.waitKey(-1)
 
     return model
 

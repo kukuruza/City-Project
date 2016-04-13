@@ -39,11 +39,10 @@ SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
 
-def prepare_photo (car_sz):
+def prepare_photo (car_sz, params):
     '''Pick some random parameters, adjust lighting, and finally render a frame
     '''
     # pick random weather
-    params = {}
     params['sun_azimuth']  = uniform(low=0, high=360)
     params['sun_altitude'] = uniform(low=SUN_ALTITUDE_MIN, high=SUN_ALTITUDE_MAX)
     params['weather'] = choice(['Rainy', 'Cloudy', 'Sunny', 'Wet'])
@@ -88,7 +87,6 @@ def prepare_photo (car_sz):
     bpy.data.objects['-Building'].location.x = normal(0, 5)
     bpy.data.objects['-Building'].location.z = uniform(-5, 0)
 
-    params['save_blend_file'] = False
     params['azimuth'] = azimuth
     params['altitude'] = altitude
 
@@ -149,7 +147,7 @@ def make_snapshot (render_dir, car_names, params):
     for car_name in car_names:
         show_car (car_name)
 
-    if params['save_blend_file']:
+    if params['save_blender']:
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
 
     ### write down some labelling info
@@ -168,6 +166,8 @@ def photo_session (job):
     '''
     num_per_session = job['num_per_session']
     vehicles        = job['vehicles']
+
+    params          = {'save_blender': job['save_blender']}
 
     # open the blender file
     scene_path = atcity('augmentation/scenes/photo-session.blend')
@@ -198,7 +198,7 @@ def photo_session (job):
     car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
     for i in range(num_per_session):
         render_dir = op.join(WORK_DIR, '%06d' % i)
-        make_snapshot (render_dir, car_names, prepare_photo(car_sz))
+        make_snapshot (render_dir, car_names, prepare_photo(car_sz, params))
 
 
 
