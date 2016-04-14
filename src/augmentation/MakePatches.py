@@ -23,7 +23,7 @@ WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
 PATCHES_HOME_DIR = atcity('augmentation/patches/')
 JOB_INFO_NAME    = 'job_info.json'
 ANGLES_INFO_NAME = 'angles.json'
-EXT = 'png'  # format of output patches
+EXT = 'jpg'  # format of output patches
 
 # placing other cars
 PROB_SAME_LANE    = 0.3
