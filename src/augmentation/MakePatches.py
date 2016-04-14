@@ -352,7 +352,7 @@ if __name__ == "__main__":
             if patch is None or mask is None: continue
 
             # write cropped image and visible_perc and remove the source dir
-            patch_name = '%s.%s' % (op.basename(patch_dir), EXT)
+            patch_name = '%sp.%s' % (op.basename(patch_dir), EXT)
             mask_name  = '%sm.png' % op.basename(patch_dir)
             patch_path = op.join(scene_dir, patch_name)
             mask_path  = op.join(scene_dir, mask_name)

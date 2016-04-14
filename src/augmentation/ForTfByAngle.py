@@ -71,7 +71,7 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
   for i,line in enumerate(lines):
     words = line.split()
     assert words[0] == filenames[i]  # consistency check
-    azimuth  = float(words[1])
+    azimuth  = (180 - float(words[1])) % 360
     altitude = float(words[2])
     angles.append ((angles_grid(azimuth, altitude), azimuth, altitude))
   assert len(filenames) == len(angles)
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser()
   parser.add_argument('--in_base_dir')
-  parser.add_argument('--out_dir')
+  parser.add_argument('--out_base_dir')
   parser.add_argument('--logging_level', type=int, default=20)
   parser.add_argument('--min_vis', type=float, default=0)
   parser.add_argument('--max_vis', type=float, default=1)
@@ -136,4 +136,4 @@ if __name__ == '__main__':
   assert 360 / azimuth_prec  == int(360 / azimuth_prec),  azimuth_prec
   assert 360 / altitude_prec == int(360 / altitude_prec), altitude_prec
 
-  copy_by_angle (args.in_base_dir, args.out_dir, args.min_vis, args.max_vis)
+  copy_by_angle (args.in_base_dir, args.out_base_dir, args.min_vis, args.max_vis)
