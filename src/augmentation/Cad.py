@@ -138,6 +138,32 @@ class Cad:
         return hit['_source'] if hit else None
 
 
+    def get_all_ready_models (self):
+        ''' get _source fields from all hits '''
+        result = self.es.search(
+            index=self.index_name,
+            doc_type=self.type_name,
+            body = {
+                      'size': 10000,
+                      'query': {
+                        'bool': {
+                          'must': [
+                            {
+                              'term': {
+                                'ready': True
+                              }
+                            }
+                          ]
+                        }
+                      }
+                   }
+        )
+
+        hits = result['hits']['hits']
+        logging.info ('get_all_models_in_collection: got %d hits' % len(hits))
+        return [hit['_source'] for hit in hits]
+
+
     def get_ready_models_in_collection (self, collection_id):
         ''' get _source fields from all hits '''
         result = self.es.search(
@@ -156,11 +182,6 @@ class Cad:
                             {
                               'term': {
                                 'ready': True
-                              }
-                            },
-                            {
-                              'term': {
-                                'valid': True
                               }
                             }
                           ]

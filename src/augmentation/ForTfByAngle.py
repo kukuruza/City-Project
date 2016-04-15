@@ -35,9 +35,13 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
   '''Split patches into dirs by angles.
   Creates a number of dirs in out_base_dir, one per azimuth-altitude pair.'''
 
-  # create necessary dirs and readme-s inside
+  # create necessary dirs
   if op.exists(atcity(out_base_dir)):
     shutil.rmtree(atcity(out_base_dir))
+  os.makedirs(atcity(out_base_dir))
+
+  # write labels file and readme-s inside each dir
+  f_labels = open(atcity(op.join(out_base_dir, 'angle_labels.txt')), 'w')
   fs_readme = []
   for azimuth_id in range(azimuth_steps):
     for altitude_id in range(altitude_steps):
@@ -45,6 +49,7 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
       altitude = altitude_id * altitude_prec
       angle_id = angles_grid(azimuth, altitude)
       os.makedirs(atcity(op.join(out_base_dir, '%03d' % angle_id)))
+      f_labels.write('%03d\n' % angle_id)
       readme_path = atcity(op.join(out_base_dir, '%03d' % angle_id, 'readme.txt'))
       fs_readme.append(open(readme_path, 'w'))
       fs_readme[angle_id].write('azimuth_id:  %d, range [%d, %d]\n' % 
@@ -52,6 +57,7 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
       fs_readme[angle_id].write('altitude_id: %d, range [%d, %d]\n' % 
         (altitude_id, altitude, altitude+altitude_prec))
       fs_readme[angle_id].write('\n')
+  f_labels.close()
 
   ids_path        = atcity(op.join(in_base_dir, 'ids.txt'))
   visibility_path = atcity(op.join(in_base_dir, 'visibility.txt'))
@@ -71,7 +77,7 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
   for i,line in enumerate(lines):
     words = line.split()
     assert words[0] == filenames[i]  # consistency check
-    azimuth  = (180 - float(words[1])) % 360
+    azimuth  = float(words[1])
     altitude = float(words[2])
     angles.append ((angles_grid(azimuth, altitude), azimuth, altitude))
   assert len(filenames) == len(angles)
@@ -97,7 +103,7 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
   print 'total %d out of %d images satify visibility constraints' \
         % (len(filenames), n_orig)
 
-  for i in range(5):
+  for i in range(2):
     print filenames[i], angles[i]
 
   # copy selected files

@@ -22,7 +22,7 @@ RESULT_DIR       = atcity('augmentation/patches')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
 PATCHES_HOME_DIR = atcity('augmentation/patches/')
 JOB_INFO_NAME    = 'job_info.json'
-ANGLES_INFO_NAME = 'angles.json'
+OUT_INFO_NAME    = 'out_info.json'
 EXT = 'jpg'  # format of output patches
 
 # placing other cars
@@ -53,7 +53,8 @@ class Diapason:
         end   = int(arr[1])
         step  = int(arr[2])
         range_py = range(start, end, step)
-        logging.info ('Diapason parsed range_str %s into range of length %d' % (range_str, len(range_py)))
+        logging.info ('Diapason parsed range_str %s into range of length %d' % 
+                      (range_str, len(range_py)))
         logging.debug ('Diapason range %s' % range_py)
         return range_py
 
@@ -168,7 +169,7 @@ def crop_patches (patch_dir, expand_perc, target_width, target_height):
 
         crop_patch = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
         crop_mask  = mask [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
-        crop_patch = cv2.resize(crop_patch, target_shape)#, interpolation=cv2.INTER_LINEAR)
+        crop_patch = cv2.resize(crop_patch, target_shape) # cv2.INTER_LINEAR)
         crop_mask  = cv2.resize(crop_mask,  target_shape, interpolation=cv2.INTER_NEAREST)
         return (crop_patch, crop_mask)
     except:
@@ -215,7 +216,7 @@ def get_visible_perc (patch_dir):
     nnz_car     = np.count_nonzero(mask_car)
     nnz_visible = np.count_nonzero(visible_car)
     visible_perc = float(nnz_visible) / nnz_car
-    logging.info ('visible perc: %0.2f' % visible_perc)
+    logging.debug ('visible perc: %0.2f' % visible_perc)
     return visible_perc
 
 
@@ -270,17 +271,20 @@ if __name__ == "__main__":
     parser.add_argument('--number',          type=int,   default=1)
     parser.add_argument('--num_per_session', type=int,   default=1)
     parser.add_argument('--num_occluding',   type=int,   default=5)
-    parser.add_argument('--expand_perc',     type=float, default=0.1)
-    parser.add_argument('--target_width',    type=int,   default=40)
-    parser.add_argument('--target_height',   type=int,   default=30)
     parser.add_argument('--render', default='SEQUENTIAL')
-    parser.add_argument('--keep_src', action='store_true',
-                        help='do not delete "normal" and "mask" images')
     parser.add_argument('--save_blender', action='store_true',
                         help='save .blend render file')
     parser.add_argument('--models_range', default='[::]', 
                         help='python style range of models in collection, e.g. "[5::2]"')
-    parser.add_argument('--collection_id', required=True)
+    parser.add_argument('--collection_id', required=False,
+                        help='if left empty, use all collections')
+
+    parser.add_argument('--expand_perc',     type=float, default=0.1)
+    parser.add_argument('--target_width',    type=int,   default=40)
+    parser.add_argument('--target_height',   type=int,   default=30)
+    parser.add_argument('--keep_src', action='store_true',
+                        help='do not delete "normal" and "mask" images')
+
     args = parser.parse_args()
 
     setupLogging('log/augmentation/MakePatches.log', args.logging_level, 'w')
@@ -293,16 +297,20 @@ if __name__ == "__main__":
 
     cad = Cad()
 
-    models   = cad.get_ready_models_in_collection (args.collection_id)
-    diapason = Diapason (len(models), args.models_range)
-    models   = diapason.filter_list(models)
-    for model in models: 
-        model['collection_id'] = args.collection_id
-    logging.info('Using total %d models.' % len(models))
+    if args.collection_id is None:
+        logging.info ('using get_all_ready_models')
+        main_models = cad.get_all_ready_models()
+    else:
+        logging.info ('using get_ready_models_in_collection')
+        main_models = cad.get_ready_models_in_collection(args.collection_id)
+
+    diapason = Diapason (len(main_models), args.models_range)
+    main_models   = diapason.filter_list(main_models)
+    logging.info('Using total %d models.' % len(main_models))
 
     job = {'num_per_session': args.num_per_session,
            'patches_name':    args.patches_name,
-           'main_models':     models,
+           'main_models':     main_models,
            'save_blender':    args.save_blender}
 
     # give a number to each job
@@ -337,6 +345,7 @@ if __name__ == "__main__":
     ids_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'ids.txt'), 'w')
     vis_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt'), 'w')
     roi_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'roi.txt'), 'w')
+    typ_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'types.txt'), 'w')
     ang_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'angles.txt'), 'w')
 
     for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
@@ -345,6 +354,9 @@ if __name__ == "__main__":
           try:
             write_visible_mask (patch_dir)
             visible_perc = get_visible_perc (patch_dir)
+            if visible_perc == 0: 
+                logging.warning('nothing visibible for %s' % patch_dir)
+                continue
             patch, mask = crop_patches(patch_dir, args.expand_perc, 
                                        args.target_width, args.target_height)
 
@@ -361,7 +373,7 @@ if __name__ == "__main__":
             logging.info ('wrote cropped patch: %s/%s' % (scene_name, patch_name))
 
             # read angles
-            angles = json.load(open( op.join(patch_dir, ANGLES_INFO_NAME) ))
+            out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
 
             # remove patch directory, if not 'keep_src'
             if not args.keep_src:
@@ -375,12 +387,15 @@ if __name__ == "__main__":
             roi_f.write('%s %s\n' % (patch_id, roi_str))
             vis_f.write('%s %f\n' % (patch_id, visible_perc))
             ids_f.write('%s\n'    %  patch_id)
-            ang_f.write('%s %.2f %.2f\n' % (patch_id, angles['azimuth'], angles['altitude']))
+            typ_f.write('%s %s\n' % (patch_id, out_info['vehicle_type']))
+            ang_f.write('%s %.2f %.2f\n' % 
+                        (patch_id, out_info['azimuth'], out_info['altitude']))
           except:
-            logging.error('postprocessing failed for: %s' %
+            logging.error('postprocessing failed for patch %s: %s' %
                           (patch_dir, traceback.format_exc()))
 
     ids_f.close()
     vis_f.close()
     roi_f.close()
+    typ_f.close()
     ang_f.close()

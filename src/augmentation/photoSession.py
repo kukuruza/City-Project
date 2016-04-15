@@ -20,7 +20,7 @@ ROAD_TEXTURE_DIR = atcity('augmentation/textures/road')
 BLDG_TEXTURE_DIR = atcity('augmentation/textures/buildings')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
-#JOB_OUTPUT_NAME  = 'job_output.json'
+OUT_INFO_NAME    = 'out_info.json'
 
 NORMAL_FILENAME   = 'normal.png'
 CARSONLY_FILENAME = 'cars-only.png'
@@ -34,15 +34,16 @@ SCALE_FACTOR = 3   # how far a camera is from the origin
 # sampling weather and camera position
 SCALE_NOISE_SIGMA = 0.1
 PITCH_LOW         = 5 * pi / 180
-PITCH_HIGH        = 30 * pi / 180
+PITCH_HIGH        = 10 * pi / 180
 SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
 
-def prepare_photo (car_sz, params):
+def prepare_photo (car_sz):
     '''Pick some random parameters, adjust lighting, and finally render a frame
     '''
     # pick random weather
+    params = {}
     params['sun_azimuth']  = uniform(low=0, high=360)
     params['sun_altitude'] = uniform(low=SUN_ALTITUDE_MIN, high=SUN_ALTITUDE_MAX)
     params['weather'] = choice(['Rainy', 'Cloudy', 'Sunny', 'Wet'])
@@ -87,8 +88,8 @@ def prepare_photo (car_sz, params):
     bpy.data.objects['-Building'].location.x = normal(0, 5)
     bpy.data.objects['-Building'].location.z = uniform(-5, 0)
 
-    params['azimuth'] = azimuth
-    params['altitude'] = altitude
+    params['azimuth'] = azimuth * 180 / pi
+    params['altitude'] = altitude * 180 / pi
 
     return params
 
@@ -105,7 +106,6 @@ def make_snapshot (render_dir, car_names, params):
       nothing
     '''
     logging.info ('make_snapshot: started')
-    setParamUnlessThere (params, 'save_blend_file', False)
 
     # create render dir
     print (atcity(render_dir))
@@ -147,16 +147,8 @@ def make_snapshot (render_dir, car_names, params):
     for car_name in car_names:
         show_car (car_name)
 
-    if params['save_blender']:
-        bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
-
-    ### write down some labelling info
-    angles_path = atcity(op.join(render_dir, 'angles.json'))
-    with open(angles_path, 'w') as f:
-        f.write(json.dumps({'azimuth':  params['azimuth'] * 180 / pi,
-                            'altitude': params['altitude'] * 180 / pi}, indent=4))
-
     logging.info ('make_snapshot: successfully finished a frame')
+    return params
     
 
 
@@ -166,8 +158,6 @@ def photo_session (job):
     '''
     num_per_session = job['num_per_session']
     vehicles        = job['vehicles']
-
-    params          = {'save_blender': job['save_blender']}
 
     # open the blender file
     scene_path = atcity('augmentation/scenes/photo-session.blend')
@@ -198,8 +188,17 @@ def photo_session (job):
     car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
     for i in range(num_per_session):
         render_dir = op.join(WORK_DIR, '%06d' % i)
-        make_snapshot (render_dir, car_names, prepare_photo(car_sz, params))
+        params = make_snapshot (render_dir, car_names, prepare_photo(car_sz))
 
+        if job['save_blender']:
+            bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
+
+        ### write down some labelling info
+        out_path = atcity(op.join(render_dir, OUT_INFO_NAME))
+        with open(out_path, 'w') as f:
+            f.write(json.dumps({'azimuth': (180 - params['azimuth']) % 360, # match KITTI
+                                'altitude': params['altitude'],
+                                'vehicle_type': vehicles[0]['vehicle_type']}, indent=4))
 
 
 
