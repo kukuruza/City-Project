@@ -9,6 +9,7 @@ import cv2
 from learning.helperSetup import setupLogging, atcity
 
 EXT = None
+max_altitude = None
 azimuth_prec = None
 altitude_prec = None
 azimuth_steps  = None
@@ -18,7 +19,7 @@ altitude_steps = None
 def angles_grid (azimuth, altitude):
   '''Projects a pair of angles into a coarse grid. Returns the cell id'''
   assert azimuth >= 0 and azimuth < 360
-  assert altitude >= 0 and altitude < 90
+  assert altitude >= 0 and altitude < max_altitude
 
   azimuth_id  = int((azimuth + azimuth_prec/2) % 360 / azimuth_prec)
   altitude_id = int(altitude / altitude_prec)
@@ -140,6 +141,7 @@ if __name__ == '__main__':
   azimuth_steps  = int(360 / azimuth_prec)
   altitude_steps = int(max_altitude / altitude_prec)
   assert 360 / azimuth_prec  == int(360 / azimuth_prec),  azimuth_prec
-  assert 360 / altitude_prec == int(360 / altitude_prec), altitude_prec
+  assert max_altitude / altitude_prec == \
+         int(max_altitude / altitude_prec), altitude_prec
 
   copy_by_angle (args.in_base_dir, args.out_base_dir, args.min_vis, args.max_vis)
