@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from math import pi, floor
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
-from learning.dbUtilities import expandRoiToRatio
+from learning.dbUtilities import expandRoiToRatio, expandRoiFloat
 
 
 def _convert_type(kitti_type):
@@ -25,7 +25,9 @@ def extract_patches (in_base_dir, out_base_dir, params={}):
 
   setParamUnlessThere (params, 'debug_show',  False)
   setParamUnlessThere (params, 'expand_perc', 0)
-  setParamUnlessThere (params, 'ratio',       1)
+  setParamUnlessThere (params, 'target_width',  40)
+  setParamUnlessThere (params, 'target_height', 30)
+  setParamUnlessThere (params, 'keep_ratio',  False)
 
   # recreate out_base_dir
   if op.exists(atcity(out_base_dir)):
@@ -92,16 +94,24 @@ def extract_patches (in_base_dir, out_base_dir, params={}):
         continue
 
       # expand roi
-      roi = expandRoiToRatio (roi, tuple(img.shape[:2]), 
-                              params['expand_perc'], params['ratio'])
+      expand_perc = params['expand_perc']
+      imshape = tuple(img.shape[:2])
+      if params['keep_ratio']:
+        roi = expandRoiToRatio (roi, imshape, 0, params['ratio'])
+      roi = expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
 
       patch_dir = '%06d' % dir_id
       if not op.exists(atcity(op.join(out_base_dir, patch_dir))):
         os.makedirs(atcity(op.join(out_base_dir, patch_dir)))
 
-      # extract and save its patch
+      # extract its patch
       patch_str = op.join(patch_dir, '%08d' % patch_id)
       patch = img[roi[0]:roi[2], roi[1]:roi[3], :]
+
+      # resize its patch
+      target_shape = (params['target_width'], params['target_height'])
+      patch = cv2.resize(patch, target_shape) # cv2.INTER_LINEAR)
+
       cv2.imwrite(atcity(op.join(out_base_dir, '%s.jpg' % patch_str)), patch)
 
       if params['debug_show']:
@@ -112,10 +122,10 @@ def extract_patches (in_base_dir, out_base_dir, params={}):
 
       # write id, vehicle_type, angle
       ids_f.write('%s\n' % patch_str)
-      vis_f.write('%s %f\n' % (patch_str, visibility))
+      vis_f.write('%s %.2f\n' % (patch_str, visibility))
 #      roi_f.write('%s %d %d %d %d\n' % patch_str)
       typ_f.write('%s %s\n' % (patch_str, vehicle_type))
-      ang_f.write('%s %s 0.0\n' % (patch_str, azimuth))
+      ang_f.write('%s %.2f 0.0\n' % (patch_str, azimuth))
 
       patch_id += 1
 
@@ -137,14 +147,18 @@ if __name__ == "__main__":
                       help='number of patches to put in each subdir')
   parser.add_argument('--expand_perc', type=float, default=0.0,
                       help='expand patches by %% on each side')
-  parser.add_argument('--ratio', type=float, default=1.0,
-                      help='target ratio for patches')
+  parser.add_argument('--target_width',    type=int,   default=40)
+  parser.add_argument('--target_height',   type=int,   default=30)
+  parser.add_argument('--keep_ratio', action='store_true',
+                      help='do not distort the patch, and increase bbox if needed')
   parser.add_argument('--debug_show', action='store_true')
 
   args = parser.parse_args()
 
   params = {'expand_perc': args.expand_perc,
-            'ratio': args.ratio,
+            'target_width': args.target_width,
+            'target_height': args.target_height,
+            'keep_ratio': args.keep_ratio,
             'patches_per_dir': args.patches_per_dir,
             'debug_show': args.debug_show}
 
