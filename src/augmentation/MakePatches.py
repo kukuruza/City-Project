@@ -15,15 +15,11 @@ import traceback
 import shutil
 import argparse
 from learning.helperSetup import atcity, setupLogging
-from learning.dbUtilities import expandRoiToRatio, expandRoiFloat, bbox2roi, mask2bbox
 from augmentation.Cad import Cad
 
-RESULT_DIR       = atcity('augmentation/patches')
 WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
-PATCHES_HOME_DIR = atcity('augmentation/patches/')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
-EXT = 'jpg'  # format of output patches
 
 # placing other cars
 PROB_SAME_LANE    = 0.3
@@ -141,85 +137,6 @@ def place_occluding_vehicles (vehicle0, other_models):
 
 
 
-def crop_patches (patch_dir, expand_perc, keep_ratio, target_width, target_height):
-    '''Crop patches in patch_dir directory according to their masks.
-    Args:
-      patch_dir:     dir with files depth-all.png, depth-car.png
-    Returns:
-      cropped image
-    '''
-    try:
-        patch = cv2.imread(op.join(patch_dir, 'render.png'))
-        mask  = cv2.imread(op.join(patch_dir, 'mask.png'), 0)
-        assert patch is not None
-        assert mask is not None and mask.dtype == np.uint8
-        assert patch.shape[0:2] == mask.shape[0:2]
-
-        bbox = mask2bbox(mask)
-        if bbox is None:
-            raise Exception('Mask is empty. Car is outside of the image.')
-        roi = bbox2roi(bbox)
-        ratio = float(target_height) / target_width
-        imshape = (patch.shape[0], patch.shape[1])
-        if keep_ratio:
-          expandRoiToRatio (roi, imshape, 0, ratio)
-        expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
-
-        target_shape = (target_width, target_height)
-
-        crop_patch = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
-        crop_mask  = mask [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
-        crop_patch = cv2.resize(crop_patch, target_shape) # cv2.INTER_LINEAR)
-        crop_mask  = cv2.resize(crop_mask,  target_shape, interpolation=cv2.INTER_NEAREST)
-        return (crop_patch, crop_mask)
-    except:
-        logging.error('crop for %s failed: %s' % (patch_dir, traceback.format_exc()))
-        return (None, None)
-
-
-
-def write_visible_mask (patch_dir):
-    '''Write the mask of the car visible area
-    '''
-    logging.debug ('making a mask in %s' % patch_dir)
-    mask_path = op.join(patch_dir, 'mask.png')
-
-    depth_all = cv2.imread(op.join(patch_dir, 'depth-all.png'), -1)
-    depth_car = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1)
-    assert depth_all is not None
-    assert depth_car is not None
-
-    # full main car mask (including occluded parts)
-    mask_car = (depth_car < 255*255)
-    # main_car mask of visible regions
-    visible_car = depth_car == depth_all
-    un_mask_car = np.logical_not(mask_car)
-    visible_car[un_mask_car] = False
-    cv2.imwrite(mask_path, visible_car.astype(np.uint8)*255)
-
-
-
-def get_visible_perc (patch_dir):
-    '''Some parts of the main car is occluded. 
-    Calculate the percentage of the occluded part.
-    Args:
-      patch_dir:     dir with files depth-all.png, depth-car.png
-    Returns:
-      visible_perc:  occluded fraction
-    '''
-    visible_car = cv2.imread(op.join(patch_dir, 'mask.png'), 0) > 0
-    mask_car    = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1) < 255*255
-    assert visible_car is not None
-    assert mask_car is not None
-
-    # visible percentage
-    nnz_car     = np.count_nonzero(mask_car)
-    nnz_visible = np.count_nonzero(visible_car)
-    visible_perc = float(nnz_visible) / nnz_car
-    logging.debug ('visible perc: %0.2f' % visible_perc)
-    return visible_perc
-
-
 def run_patches_job (job):
     WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getpid())
     if op.exists(WORK_DIR):
@@ -256,7 +173,7 @@ def run_patches_job (job):
                       (job['vehicles'][0]['model_id'], traceback.format_exc()))
 
     # move patches-id dirs to the new home dir and number them
-    scene_dir = op.join(PATCHES_HOME_DIR, job['patches_name'], 'scene-%06d' % job['i'])
+    scene_dir = atcity(op.join(job['out_dir'], 'scene-%06d' % job['i']))
     logging.debug('moving %s to %s' % (WORK_DIR, scene_dir))
     shutil.move(WORK_DIR, scene_dir)
 
@@ -266,7 +183,7 @@ def run_patches_job (job):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--patches_name',    type=str,   default='test')
+    parser.add_argument('--out_dir', default='augmentation/patches/test')
     parser.add_argument('--logging_level',   type=int,   default=20)
     parser.add_argument('--number',          type=int,   default=1)
     parser.add_argument('--num_per_session', type=int,   default=1)
@@ -279,23 +196,14 @@ if __name__ == "__main__":
     parser.add_argument('--collection_id', required=False,
                         help='if left empty, use all collections')
 
-    parser.add_argument('--expand_perc',     type=float, default=0.1)
-    parser.add_argument('--target_width',    type=int,   default=40)
-    parser.add_argument('--target_height',   type=int,   default=30)
-    parser.add_argument('--keep_ratio', action='store_true',
-                        help='do not distort the patch, and increase bbox if needed')
-    parser.add_argument('--keep_src', action='store_true',
-                        help='do not delete "normal" and "mask" images')
-
     args = parser.parse_args()
 
     setupLogging('log/augmentation/MakePatches.log', args.logging_level, 'w')
 
-    # delete and recreate patches_name dir
-    if args.render != 'NONE':
-        if op.exists(op.join(PATCHES_HOME_DIR, args.patches_name)):
-            shutil.rmtree(op.join(PATCHES_HOME_DIR, args.patches_name))
-        os.makedirs(op.join(PATCHES_HOME_DIR, args.patches_name))
+    # delete and recreate out_dir
+    if op.exists(atcity(args.out_dir)):
+        shutil.rmtree(atcity(args.out_dir))
+    os.makedirs(atcity(args.out_dir))
 
     cad = Cad()
 
@@ -311,7 +219,7 @@ if __name__ == "__main__":
     logging.info('Using total %d models.' % len(main_models))
 
     job = {'num_per_session': args.num_per_session,
-           'patches_name':    args.patches_name,
+           'out_dir':         args.out_dir,
            'main_models':     main_models,
            'save_blender':    args.save_blender}
 
@@ -337,67 +245,5 @@ if __name__ == "__main__":
         pool.map (run_patches_job, jobs)
         pool.close()
         pool.join()
-    elif args.render == 'NONE':
-        logging.info ('will skip rendering')
     else:
         raise Exception ('wrong args.render: %s' % args.render)
-
-    # postprocess
-
-    ids_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'ids.txt'), 'w')
-    vis_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'visibility.txt'), 'w')
-    roi_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'roi.txt'), 'w')
-    typ_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'types.txt'), 'w')
-    ang_f = open(op.join(PATCHES_HOME_DIR, args.patches_name, 'angles.txt'), 'w')
-
-    for scene_dir in glob(op.join(PATCHES_HOME_DIR, args.patches_name, 'scene-??????')):
-        scene_name = op.basename(scene_dir)
-        for patch_dir in glob(op.join(scene_dir, '??????')):
-          try:
-            write_visible_mask (patch_dir)
-            visible_perc = get_visible_perc (patch_dir)
-            if visible_perc == 0: 
-                logging.warning('nothing visibible for %s' % patch_dir)
-                continue
-            patch, mask = crop_patches(patch_dir, args.expand_perc, args.keep_ratio,
-                                       args.target_width, args.target_height)
-
-            # something went wrong, probably the mask is empty
-            if patch is None or mask is None: continue
-
-            # write cropped image and visible_perc and remove the source dir
-            patch_name = '%sp.%s' % (op.basename(patch_dir), EXT)
-            mask_name  = '%sm.png' % op.basename(patch_dir)
-            patch_path = op.join(scene_dir, patch_name)
-            mask_path  = op.join(scene_dir, mask_name)
-            cv2.imwrite(patch_path, patch)
-            cv2.imwrite(mask_path, mask)
-            logging.info ('wrote cropped patch: %s/%s' % (scene_name, patch_name))
-
-            # read angles
-            out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
-
-            # remove patch directory, if not 'keep_src'
-            if not args.keep_src:
-                shutil.rmtree(patch_dir)
-
-            # write ids, bboxes, visibility, and angles
-            patch_id = op.join(scene_name, op.splitext(patch_name)[0])
-            bbox = mask2bbox (mask)
-            assert bbox is not None
-            roi_str = ' '.join([str(x) for x in bbox2roi(bbox)])
-            roi_f.write('%s %s\n' % (patch_id, roi_str)) # [y1 x1 y2 x2]
-            vis_f.write('%s %f\n' % (patch_id, visible_perc))
-            ids_f.write('%s\n'    %  patch_id)
-            typ_f.write('%s %s\n' % (patch_id, out_info['vehicle_type']))
-            ang_f.write('%s %.2f %.2f\n' % 
-                        (patch_id, out_info['azimuth'], out_info['altitude']))
-          except:
-            logging.error('postprocessing failed for patch %s: %s' %
-                          (patch_dir, traceback.format_exc()))
-
-    ids_f.close()
-    vis_f.close()
-    roi_f.close()
-    typ_f.close()
-    ang_f.close()
