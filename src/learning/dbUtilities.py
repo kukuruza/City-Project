@@ -80,18 +80,23 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x), integer_result =
     half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
     half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
     # the result must be within (imheight, imwidth)
-    imheight_new = roi[2] + 1 - roi[0] + half_delta_y * 2
-    imwidth_new  = roi[3] + 1 - roi[1] + half_delta_x * 2
-    if imheight_new > imheight or imwidth_new > imwidth:
+    bbox_height = roi[2] + 1 - roi[0] + half_delta_y * 2
+    bbox_width  = roi[3] + 1 - roi[1] + half_delta_x * 2
+    if bbox_height > imheight or bbox_width > imwidth:
         logging.warning ('expanded bbox of size (%d,%d) does not fit into image (%d,%d)' %
-            (imheight_new, imwidth_new, imheight, imwidth))
+            (bbox_height, bbox_width, imheight, imwidth))
         # if so, decrease half_delta_y, half_delta_x
-        coef = min(imheight / imheight_new, imwidth / imwidth_new)
-        imheight_new *= coef
-        imwidth_new  *= coef
-        logging.warning ('decreased bbox to (%d,%d)' % (imheight_new, imwidth_new))
-        half_delta_y = (imheight_new - imheight) * 0.5
-        half_delta_x = (imwidth_new  - imwidth)  * 0.5
+        coef = min(imheight / bbox_height, imwidth / bbox_width)
+        logging.warning ('decreased bbox to (%d,%d)' % (bbox_height, bbox_width))
+        bbox_height *= coef
+        bbox_width  *= coef
+        #logging.warning ('imheight, imwidth (%d,%d)' % (imheight, imwidth))
+        logging.warning ('decreased bbox to (%d,%d)' % (bbox_height, bbox_width))
+        half_delta_y = (bbox_height - (roi[2] + 1 - roi[0])) * 0.5
+        half_delta_x = (bbox_width  - (roi[3] + 1 - roi[1])) * 0.5
+        #logging.warning ('perc_y, perc_x: %.1f, %1.f: ' % (perc_y, perc_x))
+        #logging.warning ('original roi: %s' % str(roi))
+        #logging.warning ('half_delta-s y: %.1f, x: %.1f' % (half_delta_y, half_delta_x))
     # expand each side
     roi[0] -= half_delta_y
     roi[1] -= half_delta_x

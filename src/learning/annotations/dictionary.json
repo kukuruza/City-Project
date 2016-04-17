@@ -8,24 +8,26 @@
             { "name": "Satwik",     "known": false, "children": [] }]
         },
         { "name": "vehicle", "known": true, "children": [
-            { "name": "",          "known": false, "children": [] },
-            { "name": "minivan",   "known": true, "children": [] },
-            { "name": "sedan",     "known": true, "children": [
-                { "name": "car", "known": false, "children": [] }] 
-            }, 
-            { "name": "hatchback", "known": true, "children": [] },
-            { "name": "taxi",    "known": true,  "children": [
-                { "name": "cab", "known": false, "children": [] }] 
-            },
+            { "name": "passenger", "known": false, "children": [
+              { "name": "",          "known": false, "children": [] },
+              { "name": "minivan",   "known": true, "children": [] },
+              { "name": "sedan",     "known": true, "children": [
+                  { "name": "car", "known": false, "children": [] }] 
+              }, 
+              { "name": "hatchback", "known": true, "children": [] },
+              { "name": "taxi",    "known": true,  "children": [
+                  { "name": "cab", "known": false, "children": [] }
+              ]},
+              { "name": "pickup", "known": true, "children": [] },
+              { "name": "suv", "known": true, "children": [] },
+              { "name": "limo", "known": true, "children": [] }
+            ]},
             { "name": "bus", "known": true, "children": [
-                { "name": "schoolbus", "known": true, "children": [] }]
-            },
+                { "name": "schoolbus", "known": true, "children": [] }
+            ]},
             { "name": "truck", "known": true, "children": [] },
-            { "name": "van", "known": true, "children": [] },
-            { "name": "suv", "known": true, "children": [] },
-            { "name": "limo", "known": true, "children": [] },
-            { "name": "pickup", "known": true, "children": [] }]
-        },
+            { "name": "van", "known": true, "children": [] }
+        ]},
         { "name": "pedestrian", "known": true, "children": [
             { "name": "man",    "known": false, "children": [] },
             { "name": "woman",  "known": false, "children": [] },

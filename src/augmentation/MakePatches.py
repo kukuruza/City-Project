@@ -384,7 +384,7 @@ if __name__ == "__main__":
             bbox = mask2bbox (mask)
             assert bbox is not None
             roi_str = ' '.join([str(x) for x in bbox2roi(bbox)])
-            roi_f.write('%s %s\n' % (patch_id, roi_str))
+            roi_f.write('%s %s\n' % (patch_id, roi_str)) # [y1 x1 y2 x2]
             vis_f.write('%s %f\n' % (patch_id, visible_perc))
             ids_f.write('%s\n'    %  patch_id)
             typ_f.write('%s %s\n' % (patch_id, out_info['vehicle_type']))
