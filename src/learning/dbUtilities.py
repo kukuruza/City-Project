@@ -97,11 +97,13 @@ def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x), integer_result =
         #logging.warning ('perc_y, perc_x: %.1f, %1.f: ' % (perc_y, perc_x))
         #logging.warning ('original roi: %s' % str(roi))
         #logging.warning ('half_delta-s y: %.1f, x: %.1f' % (half_delta_y, half_delta_x))
+    # and a small epsilon to account for floating-point imprecisions
+    EPS = 0.001
     # expand each side
-    roi[0] -= half_delta_y
-    roi[1] -= half_delta_x
-    roi[2] += half_delta_y
-    roi[3] += half_delta_x
+    roi[0] -= (half_delta_y - EPS)
+    roi[1] -= (half_delta_x - EPS)
+    roi[2] += (half_delta_y - EPS)
+    roi[3] += (half_delta_x - EPS)
     # move to clip into borders
     if roi[0] < 0:
         roi[2] += abs(roi[0])

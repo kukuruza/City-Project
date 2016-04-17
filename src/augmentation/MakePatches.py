@@ -141,11 +141,10 @@ def place_occluding_vehicles (vehicle0, other_models):
 
 
 
-def crop_patches (patch_dir, expand_perc, target_width, target_height):
+def crop_patches (patch_dir, expand_perc, keep_ratio, target_width, target_height):
     '''Crop patches in patch_dir directory according to their masks.
     Args:
       patch_dir:     dir with files depth-all.png, depth-car.png
-      keep_src:      boolean. If true, the '-normal' and '-mask' are not deleted.
     Returns:
       cropped image
     '''
@@ -162,7 +161,8 @@ def crop_patches (patch_dir, expand_perc, target_width, target_height):
         roi = bbox2roi(bbox)
         ratio = float(target_height) / target_width
         imshape = (patch.shape[0], patch.shape[1])
-        expandRoiToRatio (roi, imshape, 0, ratio)
+        if keep_ratio:
+          expandRoiToRatio (roi, imshape, 0, ratio)
         expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
 
         target_shape = (target_width, target_height)
@@ -282,6 +282,8 @@ if __name__ == "__main__":
     parser.add_argument('--expand_perc',     type=float, default=0.1)
     parser.add_argument('--target_width',    type=int,   default=40)
     parser.add_argument('--target_height',   type=int,   default=30)
+    parser.add_argument('--keep_ratio', action='store_true',
+                        help='do not distort the patch, and increase bbox if needed')
     parser.add_argument('--keep_src', action='store_true',
                         help='do not delete "normal" and "mask" images')
 
@@ -357,7 +359,7 @@ if __name__ == "__main__":
             if visible_perc == 0: 
                 logging.warning('nothing visibible for %s' % patch_dir)
                 continue
-            patch, mask = crop_patches(patch_dir, args.expand_perc, 
+            patch, mask = crop_patches(patch_dir, args.expand_perc, args.keep_ratio,
                                        args.target_width, args.target_height)
 
             # something went wrong, probably the mask is empty
