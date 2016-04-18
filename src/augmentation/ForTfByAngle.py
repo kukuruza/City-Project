@@ -32,7 +32,7 @@ def angles_grid (azimuth, altitude):
 
 
 
-def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
+def copy_by_angle (in_base_dir, suffix, out_base_dir, min_vis, max_vis):
   '''Split patches into dirs by angles.
   Creates a number of dirs in out_base_dir, one per azimuth-altitude pair.'''
 
@@ -60,9 +60,10 @@ def copy_by_angle (in_base_dir, out_base_dir, min_vis, max_vis):
       fs_readme[angle_id].write('\n')
   f_labels.close()
 
-  ids_path        = atcity(op.join(in_base_dir, 'ids.txt'))
-  visibility_path = atcity(op.join(in_base_dir, 'visibility.txt'))
-  angles_path     = atcity(op.join(in_base_dir, 'angles.txt'))
+  if suffix: suffix = '-' + suffix
+  ids_path        = atcity(op.join(in_base_dir, 'ids%s.txt' % suffix))
+  visibility_path = atcity(op.join(in_base_dir, 'visibility%s.txt' % suffix))
+  angles_path     = atcity(op.join(in_base_dir, 'angles%s.txt' % suffix))
 
   # read filenames
   assert op.exists(ids_path), 'ids_path: %s' % ids_path
@@ -131,6 +132,7 @@ if __name__ == '__main__':
   parser.add_argument('--azimuth_prec', type=float, default=60)
   parser.add_argument('--altitude_prec', type=float, default=15)
   parser.add_argument('--max_altitude', type=float, default=30)
+  parser.add_argument('--suffix', default='', help='a suffix e.g. "train"')
   parser.add_argument('--ext', default='jpg')
   args = parser.parse_args()
 
@@ -144,4 +146,5 @@ if __name__ == '__main__':
   assert max_altitude / altitude_prec == \
          int(max_altitude / altitude_prec), altitude_prec
 
-  copy_by_angle (args.in_base_dir, args.out_base_dir, args.min_vis, args.max_vis)
+  copy_by_angle (args.in_base_dir, args.suffix, args.out_base_dir, 
+                 args.min_vis, args.max_vis)
