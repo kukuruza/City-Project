@@ -17,6 +17,7 @@ from learning.dbUtilities import *
 from learning.helperImg import ProcessorVideo
 from learning.helperSetup import _setupCopyDb_, setupLogging, atcity
 from learning.helperSetup import setParamUnlessThere, assertParamIsThere
+from learning.helperDb import createDb
 from placeCars import generate_current_frame
 from learning.video2dataset import make_dataset
 from monitor.MonitorDatasetClient import MonitorDatasetClient
@@ -227,7 +228,7 @@ class Diapason:
             range_str = range_str[1:-1]
         # split into three elements start,end,step. Assign step=1 if missing
         arr = range_str.split(':')
-        assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 commas "," in range string'
+        assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 columns ":" in range string'
         if len(arr) == 2: arr.append('1')
         if arr[0] == '': arr[0] = '0'
         if arr[1] == '': arr[1] = str(length)
@@ -290,10 +291,13 @@ def process_video (job):
     # upload info on parsed vehicles to the monitor server
     monitor = MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
-    # copy input db to output and open it
-    _setupCopyDb_ (in_db_path, out_db_path)
-    conn = sqlite3.connect (out_db_path)
-    c = conn.cursor()
+    # open in_db and create and open a new out_db
+    if op.exists(out_db_path): os.remove(out_db_path)
+    conn_in  = sqlite3.connect (in_db_path)
+    conn_out = sqlite3.connect (out_db_path)
+    createDb(conn_out)
+    c_in  = conn_in.cursor()
+    c_out = conn_out.cursor()
 
     # remove video if exist
     if not op.exists(atcity(job['out_video_dir'])): os.makedirs(atcity(job['out_video_dir']))
@@ -305,8 +309,8 @@ def process_video (job):
     logging.info ('new src name: %s' %  name)
 
     # names of in and out videos
-    c.execute('SELECT imagefile,maskfile FROM images')
-    some_image_entry = c.fetchone()
+    c_in.execute('SELECT imagefile,maskfile FROM images')
+    some_image_entry = c_in.fetchone()
     assert some_image_entry is not None
     in_back_video_file  = op.dirname(some_image_entry[0]) + '.avi'
     in_mask_video_file  = op.dirname(some_image_entry[1]) + '.avi'
@@ -319,8 +323,8 @@ def process_video (job):
            ({'out_dataset': {in_back_video_file: out_image_video_file, 
                              in_mask_video_file: out_mask_video_file} })
 
-    c.execute('SELECT imagefile,maskfile,time,width,height FROM images')
-    image_entries = c.fetchall()
+    c_in.execute('SELECT imagefile,maskfile,time,width,height FROM images')
+    image_entries = c_in.fetchall()
 
     diapason = Diapason (len(image_entries), job['frame_range']).intersect(
                Diapason (len(image_entries), video.info['frame_range']) )
@@ -339,12 +343,10 @@ def process_video (job):
         back = processor.imread(in_backfile)
         in_mask = processor.maskread(in_maskfile)
 
-        if i > diapason.frame_range:
+        if i >= diapason.frame_range[-1]:
             # avoid useless skipping of frames after the last frame:
             break
         elif i not in diapason.frame_range:
-            logging.debug ('skipping frame %d based on frame_range' % i)
-            c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
             continue
         else:
             logging.info ('process frame number %d' % i)
@@ -366,42 +368,39 @@ def process_video (job):
         # update the filename in database
         out_imagefile = op.join(op.splitext(out_image_video_file)[0], op.basename(in_backfile))
         out_maskfile  = op.join(op.splitext(out_mask_video_file)[0], op.basename(in_maskfile))
-        c.execute('UPDATE images SET imagefile=?, maskfile=? WHERE imagefile=?', 
-                    (out_imagefile, out_maskfile, in_backfile))
+        src = 'generated from %s' % in_back_video_file
+        c_out.execute ('INSERT INTO images(imagefile,maskfile,src,width,height,time) VALUES (?,?,?,?,?,?)',
+                       (out_imagefile,out_maskfile,src,width,height,time))
 
         if not job['no_annotations']:
             frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-            extract_annotations (c, frame_info, cad, camera, out_imagefile, monitor)
+            extract_annotations (c_out, frame_info, cad, camera, out_imagefile, monitor)
 
-    # remove what we did not touch, if finished early
-    for (in_backfile, _, _, _, _) in image_entries[i:]:
-        c.execute('DELETE FROM images WHERE imagefile=?', (in_backfile,))
-
-    conn.commit()
-    conn.close()
+    conn_out.commit()
+    conn_in.close()
+    conn_out.close()
 
     shutil.rmtree(WORK_DIR)
 
 
 
 def create_in_db (job):
-    '''If in_db_file is not specified in the job, create it from video.
+    '''Create in_db_file from video, unless it already exists.
     May change as I switch from image_video to ghost_video
     '''
-    if 'in_db_file' in job:
-        logging.info ('found in_db_file in job: %s' % job['in_db_file'])
-    else:
-        assert 'video_dir' in job
-        video_dir = job['video_dir']
-        camera_name = op.basename(op.dirname(video_dir))
-        video_name  = op.basename(video_dir)
-        camdata_video_dir = op.join('camdata', camera_name, video_name)
-        in_db_file = op.join('databases/augmentation', camera_name, video_name, 'temp-back.db')
-        job['in_db_file'] = in_db_file
-        logging.info ('will create in_db_file from video: %s' % job['in_db_file'])        
+    # figure out where is the actual video
+    assert 'video_dir' in job
+    video_dir = job['video_dir']
+    camera_name = op.basename(op.dirname(video_dir))
+    video_name  = op.basename(video_dir)
+    camdata_video_dir = op.join('camdata', camera_name, video_name)
+    # figure out where will be the init db
+    db_prefix = op.join(op.dirname(job['out_db_file']), 'init')
+    # update the job
+    job['in_db_file'] = '%s-back.db' % db_prefix
+
     if not op.exists(atcity(job['in_db_file'])):
-        # make an init db and change its name in the job
-        db_prefix = job['in_db_file'][:-8]   # becomes '..../temp'
+        logging.info ('will create in_db_file from video: %s' % job['in_db_file'])
         make_dataset (camdata_video_dir, db_prefix, params={'videotypes': ['back']})
     else:
         logging.warning ('in_db_file exists. Will not rewrite it: %s', job['in_db_file'])

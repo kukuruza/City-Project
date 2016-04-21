@@ -38,6 +38,8 @@ def color_correction (img_ref, img_target):
     # cv2.imshow('test', stacked)
     # cv2.waitKey(-1)
 
-    return {'dh': h_ref - h_tgt, 'ds': s_ref - s_tgt, 'dv': v_ref - v_tgt}
+    return {'dh': (h_ref - h_tgt) * 0.5, 
+            'ds': (s_ref - s_tgt) * 2, 
+            'dv': (v_ref - v_tgt) * 2}
 
 

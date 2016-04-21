@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import argparse
@@ -5,7 +6,7 @@ import json
 import logging
 import multiprocessing
 import traceback
-from processScene import process_video
+from processScene import process_video, create_in_db
 from Video import Video
 from Camera import Camera
 from Cad import Cad
@@ -19,7 +20,6 @@ def add_args_to_job(job, args):
     if args.timeout:
         job['timeout'] = args.timeout
     job['no_annotations'] = args.no_annotations
-    job['no_correction'] = args.no_correction
 
 
 def process_video_wrapper (job):
@@ -36,8 +36,6 @@ if __name__ == "__main__":
     parser.add_argument('--logging_level', default=20, type=int)
     parser.add_argument('--timeout', type=int, 
                         help='maximum running time, in munutes')
-    parser.add_argument('--no_correction', action='store_true',
-                        help='no color correction along the video')
     parser.add_argument('--no_annotations', action='store_true',
                         help='will speed up rendering since individual cars wont be rendered')
     parser.add_argument('--frame_range', default='[::]', 
@@ -62,5 +60,6 @@ if __name__ == "__main__":
     else:
         logging.info ('job file has a single job')
         job = job_json
+        create_in_db(job)
         add_args_to_job(job, args)
         process_video(job)

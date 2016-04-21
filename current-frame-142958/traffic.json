@@ -1,0 +1,73 @@
+{
+    "scale": 1, 
+    "save_blender_files": false, 
+    "sun_altitude": 14.52, 
+    "sun_azimuth": 136.03, 
+    "vehicles": [
+        {
+            "y": 154.88249348457003, 
+            "x": -37.946145693844031, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "f4186c52d9612928b2955fc4bedecd6b", 
+            "azimuth": 162
+        }, 
+        {
+            "y": 73.869921123155422, 
+            "x": -6.6598104001621916, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "96e50407a08aba56e5f9082491d52810", 
+            "azimuth": 348
+        }, 
+        {
+            "y": 99.561708888364237, 
+            "x": -29.568583903890385, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "7e5639d70b1f5bf79ce2352d24d93b30", 
+            "azimuth": 166
+        }, 
+        {
+            "y": 177.73917835982678, 
+            "x": -6.1562593823145493, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "96e50407a08aba56e5f9082491d52810", 
+            "azimuth": 20
+        }, 
+        {
+            "y": 177.21754309973923, 
+            "x": -30.448037593608923, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "735f565c5e54deec89c4196a7b0a009d", 
+            "azimuth": 342
+        }, 
+        {
+            "y": 142.8222264837438, 
+            "x": -41.673512928367195, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "f4186c52d9612928b2955fc4bedecd6b", 
+            "azimuth": 164
+        }, 
+        {
+            "y": 90.481758691807514, 
+            "x": -4.7782822555216873, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "49b0b9be3679be001cae32f43c09c982", 
+            "azimuth": 352
+        }, 
+        {
+            "y": 145.98979035885344, 
+            "x": -27.770440261017711, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "7e5639d70b1f5bf79ce2352d24d93b30", 
+            "azimuth": 344
+        }, 
+        {
+            "y": 102.81252998373265, 
+            "x": -6.3787042403385454, 
+            "collection_id": "7c7c2b02ad5108fe5f9082491d52810", 
+            "model_id": "e77536ac550f74dab3e483abd80a2f41", 
+            "azimuth": 352
+        }
+    ], 
+    "weather": "Cloudy", 
+    "render_individual_cars": false
+}

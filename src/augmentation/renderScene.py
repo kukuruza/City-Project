@@ -40,6 +40,8 @@ def make_snapshot (render_dir, car_names, params):
     setParamUnlessThere (params, 'render_cars_as_cubes', False)
 
     set_weather (params)
+    bpy.data.worlds['World'].light_settings.environment_energy *= 0.2
+    #bpy.data.objects['-Sky-sunset'].data.energy *= 0.6
 
     # render the image from satellite, when debuging
     if '-Satellite' in bpy.data.objects:

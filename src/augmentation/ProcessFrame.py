@@ -12,6 +12,8 @@ from learning.helperSetup import setupLogging, atcity
 
 
 if __name__ == "__main__":
+    '''Render a frame using default video's background.
+       Leave the frame at the default blender location'''
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--save_blender_files', action='store_true')

@@ -27,7 +27,8 @@ def video2dataset (c, image_video_file, mask_video_file, time_file, name, params
     # test the full video paths
     if not op.exists (op.join(params['relpath'], image_video_file)):
         raise Exception ('image video does not exist: %s' % image_video_file)
-    if not op.exists (op.join(params['relpath'], mask_video_file)):
+    if mask_video_file is not None and \
+       not op.exists (op.join(params['relpath'], mask_video_file)):
         logging.warning ('mask video does not exist: %s' % mask_video_file)
         mask_video_file = None
 
@@ -98,10 +99,12 @@ def make_dataset (video_dir, db_prefix, params = {}):
         time_file  = op.join(video_dir, 'time.txt')
 
         db_path = op.join(params['relpath'], '%s-%s.db' % (db_prefix, videotype))
+        assert op.exists(op.dirname(db_path)), db_path
+        print db_path
         conn = sqlite3.connect(db_path)
         createDb(conn)
         c = conn.cursor()
-        video2dataset (c, video_file, mask_video_file, time_file, db_name, params)
+        video2dataset (c, video_file, mask_file, time_file, db_name, params)
         conn.commit()
         conn.close()
         logging.info ('successfully made a db from %s' % video_file)

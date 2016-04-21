@@ -34,7 +34,7 @@ SCALE_FACTOR = 3   # how far a camera is from the origin
 # sampling weather and camera position
 SCALE_NOISE_SIGMA = 0.1
 PITCH_LOW         = 5 * pi / 180
-PITCH_HIGH        = 10 * pi / 180
+PITCH_HIGH        = 40 * pi / 180
 SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
