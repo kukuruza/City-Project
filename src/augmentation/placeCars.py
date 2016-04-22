@@ -126,7 +126,7 @@ for line in sun_pos_lines:
 def generate_current_frame (camera, video, cad, time, num_cars, params):
     ''' Generate traffic.json traffic file for a single frame
     '''
-    setParamUnlessThere (params, 'save_blend_file', False)
+    setParamUnlessThere (params, 'save_blender_files', False)
 
     pxl_in_meter   = camera.info['pxls_in_meter']
 
@@ -158,7 +158,7 @@ def generate_current_frame (camera, video, cad, time, num_cars, params):
                   'sun_azimuth':  sun_pose['azimuth'], \
                   'vehicles': vehicles, \
                   'weather': video.info['weather'], \
-                  'save_blender_files': params['save_blend_file'] }
+                  'save_blender_files': params['save_blender_files'] }
 
     return frame_info
 

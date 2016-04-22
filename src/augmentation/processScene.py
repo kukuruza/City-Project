@@ -182,12 +182,12 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
         mask = carsonly[:,:,3] > 0
 
 
-    correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
-    if op.exists(correction_path): os.remove(correction_path)
-    if not params['no_correction']:
-        correction_info = color_correction (video.example_background, background)
-        with open(correction_path, 'w') as f:
-            f.write(json.dumps(correction_info, indent=4))
+    # correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
+    # if op.exists(correction_path): os.remove(correction_path)
+    # if not params['no_correction']:
+    #     correction_info = color_correction (video.example_background, background)
+    #     with open(correction_path, 'w') as f:
+    #         f.write(json.dumps(correction_info, indent=4))
 
 
     if not params['no_combine']:
@@ -343,27 +343,15 @@ def process_video (job):
         back = processor.imread(in_backfile)
         in_mask = processor.maskread(in_maskfile)
 
-        if i >= diapason.frame_range[-1]:
-            # avoid useless skipping of frames after the last frame:
-            break
-        elif i not in diapason.frame_range:
-            continue
-        else:
-            logging.info ('process frame number %d' % i)
-        
         if timestamp is None:
             assert video.start_time is not None, 'no time in .db or in video_info file'
             time = video.start_time + timedelta(minutes=int(float(i) / 960 * 40))
         else:
             time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
 
-        # workhorse
-        out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back, job)
-
-        # write the frame to video (processor interface requires input filenames)
-        assert out_image is not None and out_mask is not None
-        processor.imwrite (out_image, in_backfile)
-        processor.maskwrite (out_mask, in_maskfile)
+        if i >= diapason.frame_range[-1]:
+            # avoid useless skipping of frames after the last frame:
+            break
 
         # update the filename in database
         out_imagefile = op.join(op.splitext(out_image_video_file)[0], op.basename(in_backfile))
@@ -371,6 +359,18 @@ def process_video (job):
         src = 'generated from %s' % in_back_video_file
         c_out.execute ('INSERT INTO images(imagefile,maskfile,src,width,height,time) VALUES (?,?,?,?,?,?)',
                        (out_imagefile,out_maskfile,src,width,height,time))
+
+        if i not in diapason.frame_range:
+            continue
+        logging.info ('process frame number %d' % i)
+        
+        # workhorse
+        out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back, job)
+
+        # write the frame to video (processor interface requires input filenames)
+        assert out_image is not None and out_mask is not None
+        processor.imwrite (out_image, in_backfile)
+        processor.maskwrite (out_mask, in_maskfile)
 
         if not job['no_annotations']:
             frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
