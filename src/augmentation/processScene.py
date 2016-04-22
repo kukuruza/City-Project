@@ -329,8 +329,15 @@ def process_video (job):
     diapason = Diapason (len(image_entries), job['frame_range']).intersect(
                Diapason (len(image_entries), video.info['frame_range']) )
 
+    # will only write meaningful frames
+    i_out = 0
+
     for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_entries):
         assert (width0 == width and height0 == height)
+
+        if i not in diapason.frame_range:
+            continue
+        logging.info ('process frame number %d' % i)
 
         # quit, if reached the timeout
         time_passed = datetime.now() - start_time
@@ -349,21 +356,14 @@ def process_video (job):
         else:
             time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
 
-        if i >= diapason.frame_range[-1]:
-            # avoid useless skipping of frames after the last frame:
-            break
-
         # update the filename in database
-        out_imagefile = op.join(op.splitext(out_image_video_file)[0], op.basename(in_backfile))
-        out_maskfile  = op.join(op.splitext(out_mask_video_file)[0], op.basename(in_maskfile))
+        out_imagefile = op.join(op.splitext(out_image_video_file)[0], '%06d' % i_out)
+        out_maskfile  = op.join(op.splitext(out_mask_video_file)[0], '%06d' % i_out)
+        i_out += 1
         src = 'generated from %s' % in_back_video_file
         c_out.execute ('INSERT INTO images(imagefile,maskfile,src,width,height,time) VALUES (?,?,?,?,?,?)',
                        (out_imagefile,out_maskfile,src,width,height,time))
 
-        if i not in diapason.frame_range:
-            continue
-        logging.info ('process frame number %d' % i)
-        
         # workhorse
         out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back, job)
 
