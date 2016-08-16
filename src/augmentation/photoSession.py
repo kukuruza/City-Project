@@ -39,6 +39,42 @@ SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
 
+def prepare_simplest_photo (car_sz):
+    '''Pick only random camera pose, and finally render a frame
+    '''
+    # pick random weather
+    params = {}
+    params['weather'] = 'Cloudy'
+    set_weather (params)
+    # turn off sky reflexion
+    bpy.data.lamps['Sky-sunset'].energy = 0
+
+
+    # pick random camera angle and distance
+    scale = normal (1, SCALE_NOISE_SIGMA)
+    azimuth  = uniform (low=0, high=2*pi)
+    altitude = uniform (low=PITCH_LOW, high=PITCH_HIGH)
+    print ('scale: %.2f, azimuth: %.2f, altitude: %.2f' % 
+           (scale, azimuth*180/pi, altitude))
+
+    # compute camera position
+    dist  = car_sz * SCALE_FACTOR / scale
+    x = dist * cos(azimuth) * cos(altitude)
+    y = dist * sin(azimuth) * cos(altitude)
+    z = dist * sin(altitude)
+    bpy.data.objects['-Camera'].location = (x,y,z)
+
+    # hide everything
+    bpy.data.objects['-Building'].hide_render = True
+    bpy.data.objects['-Ground'].hide_render = True
+
+    params['azimuth'] = azimuth * 180 / pi
+    params['altitude'] = altitude * 180 / pi
+
+    return params
+
+
+
 def prepare_photo (car_sz):
     '''Pick some random parameters, adjust lighting, and finally render a frame
     '''
@@ -47,6 +83,7 @@ def prepare_photo (car_sz):
     params['sun_azimuth']  = uniform(low=0, high=360)
     params['sun_altitude'] = uniform(low=SUN_ALTITUDE_MIN, high=SUN_ALTITUDE_MAX)
     params['weather'] = choice(['Rainy', 'Cloudy', 'Sunny', 'Wet'])
+    set_weather (params)
 
     # pick random camera angle and distance
     scale = normal (1, SCALE_NOISE_SIGMA)
@@ -66,27 +103,27 @@ def prepare_photo (car_sz):
     bpy.data.objects['-Sky-sunset'].location = (-x,-y,10)
     bpy.data.objects['-Sky-sunset'].rotation_euler = (60*pi/180, 0, azimuth-pi/2)
 
-    # set up road
-    # assign a random texture from the directory
-    road_texture_path = choice(glob(op.join(ROAD_TEXTURE_DIR, '*.jpg')))
-    logging.info ('road_texture_path: %s' % road_texture_path)
-    bpy.data.images['ground'].filepath = road_texture_path
-    # pick a random road width
-    road_width = normal(15, 5)
-    bpy.data.objects['-Ground'].dimensions.x = road_width
+    # # set up road
+    # # assign a random texture from the directory
+    # road_texture_path = choice(glob(op.join(ROAD_TEXTURE_DIR, '*.jpg')))
+    # logging.info ('road_texture_path: %s' % road_texture_path)
+    # bpy.data.images['ground'].filepath = road_texture_path
+    # # pick a random road width
+    # road_width = normal(15, 5)
+    # bpy.data.objects['-Ground'].dimensions.x = road_width
 
-    # set up building
-    # assign a random texture from the directory
-    buidling_texture_path = choice(glob(op.join(BLDG_TEXTURE_DIR, '*.jpg')))
-    logging.info ('buidling_texture_path: %s' % buidling_texture_path)
-    bpy.data.images['building'].filepath = buidling_texture_path
-    # put the building at the edge of the road, opposite to the camera
-    bpy.data.objects['-Building'].location.y = road_width/2 * (1 if y < 0 else -1)
-    # pick a random height dim
-    bpy.data.objects['-Building'].dimensions.z = normal(20, 5)
-    # move randomly along a X and Z axes
-    bpy.data.objects['-Building'].location.x = normal(0, 5)
-    bpy.data.objects['-Building'].location.z = uniform(-5, 0)
+    # # set up building
+    # # assign a random texture from the directory
+    # buidling_texture_path = choice(glob(op.join(BLDG_TEXTURE_DIR, '*.jpg')))
+    # logging.info ('buidling_texture_path: %s' % buidling_texture_path)
+    # bpy.data.images['building'].filepath = buidling_texture_path
+    # # put the building at the edge of the road, opposite to the camera
+    # bpy.data.objects['-Building'].location.y = road_width/2 * (1 if y < 0 else -1)
+    # # pick a random height dim
+    # bpy.data.objects['-Building'].dimensions.z = normal(20, 5)
+    # # move randomly along a X and Z axes
+    # bpy.data.objects['-Building'].location.x = normal(0, 5)
+    # bpy.data.objects['-Building'].location.z = uniform(-5, 0)
 
     params['azimuth'] = azimuth * 180 / pi
     params['altitude'] = altitude * 180 / pi
@@ -116,8 +153,6 @@ def make_snapshot (render_dir, car_names, params):
     bpy.context.scene.node_tree.nodes['render'].base_path = atcity(render_dir)
     bpy.context.scene.node_tree.nodes['depth-all'].base_path = atcity(render_dir)
     bpy.context.scene.node_tree.nodes['depth-car'].base_path = atcity(render_dir)
-
-    set_weather (params)
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
