@@ -29,8 +29,6 @@ from colorCorrection import color_correction
 
 WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
 BACKGROUND_FILENAME = 'background.png'
-NORMAL_FILENAME     = 'normal.png'
-CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
 MASK_FILENAME       = 'mask.png'
 TRAFFIC_FILENAME    = 'traffic.json'
@@ -53,25 +51,22 @@ def image2ghost (image_path, background_path, out_path):
     np.imwrite(ghost, out_path)
 
 
-def extract_bbox (render_png_path):
+def extract_bbox (depth_path):
     '''Extract a single (if any) bounding box from the image
     Args:
-      render_png_path:  has only one (or no) car in the image.
+      depth_path:  has only one (or no) car in the image.
     Returns:
       bbox:  (x1, y1, width, height)
     '''
-    if not op.exists(render_png_path):
-        logging.error ('Car render image does not exist: %s' % render_png_path)
-    vehicle_render = cv2.imread(render_png_path, -1)
-    assert vehicle_render.shape[2] == 4   # need alpha channel
-    alpha = vehicle_render[:,:,3]
+    assert op.exists(depth_path), depth_path
+    depth = cv2.imread(depth_path, 0)
     
     # keep only vehicles with resonable bboxes
-    if np.count_nonzero(alpha) == 0:   # or are there any artifacts
+    if np.count_nonzero(depth < 255) == 0:   # or are there any artifacts
         return None
 
     # get bbox
-    nnz_indices = np.argwhere(alpha)
+    nnz_indices = np.argwhere(depth < 255)
     (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
     (height, width) = y2 - y1, x2 - x1
     return (x1, y1, width, height)
@@ -95,8 +90,8 @@ def extract_annotations (c, traffic, cad, camera, imagefile, monitor=None):
     for i,vehicle in enumerate(traffic['vehicles']):
 
         # get bbox
-        render_png_path = op.join (WORK_DIR, 'vehicle-%d.png' % i)
-        bbox = extract_bbox (render_png_path)
+        depth_path = op.join (WORK_DIR, 'depth-%03d.png' % i)
+        bbox = extract_bbox (depth_path)
         if bbox is None: continue
 
         # get vehicle "name" (that is, type)
@@ -111,15 +106,86 @@ def extract_annotations (c, traffic, cad, camera, imagefile, monitor=None):
         height = camera.info['origin_blender']['z']
         pitch = atan(height / _get_norm_xy_(vehicle)) * 180 / pi
 
+        # get vehicle visibility
+        vis = vehicle['visibility']
+
         # put all info together and insert into the db
-        entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], yaw, pitch)
-        c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,yaw,pitch) 
-                     VALUES (?,?,?,?,?,?,?,?);''', entry)
+        entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], yaw, pitch, vis)
+        c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,yaw,pitch,score)
+                     VALUES (?,?,?,?,?,?,?,?,?);''', entry)
 
         if monitor is not None:
             monitor.upload_vehicle({'vehicle_type': name, 'yaw': yaw, 'pitch': pitch,
                                     'width': bbox[2], 'height': bbox[3]})
 
+
+
+def _get_visible_perc (patch_dir):
+    '''Some parts of the main car is occluded. 
+    Calculate the percentage of the occluded part.
+    Args:
+      patch_dir:     dir with files depth-all.png, depth-car.png
+    Returns:
+      visible_perc:  occluded fraction
+    '''
+    visible_car = cv2.imread(op.join(patch_dir, 'mask.png'), 0) > 0
+    mask_car    = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1) < 255*255
+    assert visible_car is not None
+    assert mask_car is not None
+
+    # visible percentage
+    nnz_car     = np.count_nonzero(mask_car)
+    nnz_visible = np.count_nonzero(visible_car)
+    visible_perc = float(nnz_visible) / nnz_car
+    logging.debug ('visible perc: %0.2f' % visible_perc)
+    return visible_perc
+
+
+
+
+def _get_masks (patch_dir, frame_info):
+  ''' patch_dir contains "depth-all.png" and a bunch of "depth-XXX.png"
+  Compare them and make a final mask of each car.
+  This function changes 'frame_info'
+  '''
+
+  # read depth-all
+  depth_all_path = op.join(patch_dir, 'depth-all.png')
+  depth_all = cv2.imread(depth_all_path, 0)
+  assert depth_all is not None, depth_all_path
+  assert depth_all.dtype == np.uint8
+
+  # mask for all cars
+  mask_all = np.zeros(depth_all.shape, dtype=np.uint8)
+
+  for i in range(len(frame_info['vehicles'])):
+    # read depth-XXX and check
+    depth_car_path = op.join(patch_dir, 'depth-%03d.png' % i)
+    depth_car = cv2.imread(depth_car_path, 0)
+    assert depth_car is not None, depth_car_path
+    assert depth_car.dtype == np.uint8
+    assert depth_car.shape == depth_all.shape
+
+    # get mask of the car
+    mask_full = depth_car < 255
+    mask_visible = np.bitwise_and (mask_full, depth_car == depth_all)
+    color = 255 * i / len(frame_info['vehicles'])
+    mask_all += mask_visible.astype(np.uint8) * color
+    #cv2.imshow('mask_full', mask_full.astype(np.uint8) * 255)
+    #cv2.imshow('mask_visible', mask_visible.astype(np.uint8) * 255)
+    #cv2.imshow('mask_all', mask_all)
+    #cv2.waitKey(-1)
+
+    # find the visibility percentage of the car
+    if np.count_nonzero(mask_full) == 0:
+        visibility = 0
+    else:
+        visibility = float(np.count_nonzero(mask_visible)) / np.count_nonzero(mask_full)
+    frame_info['vehicles'][i]['visibility'] = visibility
+
+  # disabled a mask output segmented by car. Returning a binary mask now.
+  #return mask_all
+  return mask_all > 0
 
 
 
@@ -157,10 +223,10 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
 
     if not params['no_render']:
         # remove so that they do not exist if blender fails
-        if op.exists(op.join(WORK_DIR, NORMAL_FILENAME)):
-            os.remove(op.join(WORK_DIR, NORMAL_FILENAME))
-        if op.exists(op.join(WORK_DIR, CARSONLY_FILENAME)):
-            os.remove(op.join(WORK_DIR, CARSONLY_FILENAME))
+        if op.exists(op.join(WORK_DIR, 'render.png')):
+            os.remove(op.join(WORK_DIR, 'render.png'))
+        if op.exists(op.join(WORK_DIR, 'depth-all.png')):
+            os.remove(op.join(WORK_DIR, 'depth-all.png'))
         # render
         assert video.render_blend_file is not None
         render_blend_path = atcity(video.render_blend_file)
@@ -171,16 +237,15 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
         logging.info ('rendering: blender returned code %s' % str(returncode))
 
         # check rendered
-        image = cv2.imread(op.join(WORK_DIR, NORMAL_FILENAME))
+        image = cv2.imread(op.join(WORK_DIR, 'render.png'))
         assert image is not None
         assert image.shape == (height0, width0, 3), image.shape
 
         # create mask
-        mask_path  = op.join(WORK_DIR, MASK_FILENAME)
-        carsonly = cv2.imread (op.join(WORK_DIR, CARSONLY_FILENAME), -1)
-        assert carsonly.shape == (height0, width0, 4)  # need the alpha channel
-        mask = carsonly[:,:,3] > 0
-
+        mask = _get_masks (WORK_DIR, frame_info)
+        # TODO: visibility is returned via traffic file, NOT straightforward
+        with open(traffic_path, 'w') as f:
+            f.write(json.dumps(frame_info, indent=4))
 
     # correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
     # if op.exists(correction_path): os.remove(correction_path)
@@ -213,7 +278,7 @@ def process_frame (video, camera, cad, time, num_cars, background=None, params={
         image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
         assert image.shape == (height0, width0, 3), image.shape
 
-    return (image, mask)
+    return image, mask
 
 
 
@@ -265,15 +330,15 @@ def process_video (job):
     camera = video.build_camera()
 
     # some default parameters
-    create_in_db(job)   # creates job['in_db_file'] if necessary
     setParamUnlessThere (job, 'save_blender_files', False)
-    setParamUnlessThere (job, 'out_db_file', 
-        op.join(op.dirname(job['in_db_file']), 'traffic.db'))
     setParamUnlessThere (job, 'out_video_dir', 
         op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], video.info['video_name']))
+    setParamUnlessThere (job, 'out_db_file', 
+        op.join(job['out_video_dir'], 'traffic.db'))
     setParamUnlessThere (job, 'no_annotations', False)
     setParamUnlessThere (job, 'timeout', 1000000000)
     setParamUnlessThere (job, 'frame_range', '[::]')
+    create_in_db(job)   # creates job['in_db_file'] if necessary
 
     # get input for this job from json
     in_db_path           = atcity(job['in_db_file'])
@@ -366,6 +431,8 @@ def process_video (job):
 
         # workhorse
         out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back, job)
+        #cv2.imshow('out_image', out_image)
+        #cv2.waitKey(0.01)
 
         # write the frame to video (processor interface requires input filenames)
         assert out_image is not None and out_mask is not None

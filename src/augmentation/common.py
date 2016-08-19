@@ -9,11 +9,6 @@ from numpy.random import normal, uniform
 from mathutils import Color, Euler
 from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 
-NORMAL_FILENAME   = 'normal.png'
-CARSONLY_FILENAME = 'cars-only.png'
-CAR_RENDER_TEMPL  = 'vehicle-'
-
-
 
 def dump(obj):
    '''Helper function to output all properties of an object'''
@@ -229,6 +224,8 @@ def set_weather (params):
         logging.info ('setting cloudy weather')
         set_cloudy()
     elif weather == 'Sunny': 
+        assertParamIsThere  (params, 'sun_altitude')
+        assertParamIsThere  (params, 'sun_azimuth')
         alt = params['sun_altitude']
         azi = params['sun_azimuth']
         logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))
@@ -236,29 +233,6 @@ def set_weather (params):
         set_sun_angle(azi, alt)
     else:
         raise Exception ('Invalid weather param: %s' % str(weather))
-
-
-
-def set_weather_old (params):
-    '''Set sun and weather conditions
-    '''
-    assertParamIsThere  (params, 'weather')
-
-    if 'Dry'    in params['weather']: 
-        logging.info ('setting dry weather')
-        set_dry()
-    if 'Wet'    in params['weather']: 
-        logging.info ('setting wet weather')
-        set_wet()
-    if 'Cloudy' in params['weather']: 
-        logging.info ('setting cloudy weather')
-        set_cloudy()
-    if 'Sunny'  in params['weather']: 
-        alt = params['sun_altitude']
-        azi = params['sun_azimuth']
-        logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))
-        set_sunny()
-        set_sun_angle(azi, alt)
 
 
 

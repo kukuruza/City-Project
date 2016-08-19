@@ -7,10 +7,10 @@ import numpy as np
 from augmentation.common import *
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
-'''
-Functions to parse blender output into images, masks, and annotations
-This file knows about how we store data in SQL
-'''
+
+NORMAL_FILENAME   = 'normal.png'
+CARSONLY_FILENAME = 'cars-only.png'
+CAR_RENDER_TEMPL  = 'vehicle-'
 
 WORK_RENDER_DIR   = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
@@ -54,35 +54,78 @@ def make_snapshot (render_dir, car_names, params):
         m.use_transparent_shadows = True
 
 
+
     # create render dir
     if not op.exists(render_dir):
         os.makedirs(render_dir)
 
-    # render all cars and shadows
-    bpy.data.objects['-Ground'].hide_render = False
-    render_scene(op.join(render_dir, NORMAL_FILENAME))
+    # make all cars receive shadows
+    logging.info ('materials: %s' % len(bpy.data.materials))
+    for m in bpy.data.materials:
+        m.use_transparent_shadows = True
 
-    # render all cars without ground plane or sky
-    bpy.context.scene.render.alpha_mode = 'TRANSPARENT'
+    # # render all cars and shadows
+    # bpy.context.scene.render.layers['RenderLayer'].use_pass_combined = True
+    # bpy.context.scene.render.layers['RenderLayer'].use_pass_z = False
+    # #bpy.data.objects['-Ground'].hide_render = False
+    # render_scene(op.join(render_dir, 'render'))
+
+    # # render cars depth map
+    # #bpy.context.scene.render.alpha_mode = 'TRANSPARENT'
+    # bpy.context.scene.render.layers['RenderLayer'].use_pass_combined = False
+    # bpy.context.scene.render.layers['RenderLayer'].use_pass_z = True
+    # #bpy.data.objects['-Ground'].hide_render = True
+    # render_scene(op.join(render_dir, 'depth-all'))
+
+    # # render just the car for each car (to extract bbox)
+    # if params['render_individual_cars'] and not params['render_cars_as_cubes']:
+    #     # hide all cars
+    #     for car_name in car_names:
+    #         hide_car (car_name)
+    #     # show, render, and hide each car one by one
+    #     for i,car_name in enumerate(car_names):
+    #         show_car (car_name)
+    #         render_scene( op.join(render_dir, 'depth-car-%03d.png' % i) )
+    #         hide_car (car_name)
+
+    # # clean up
+    # bpy.data.objects['-Ground'].hide_render = False
+    # if not params['render_cars_as_cubes']:
+    #     for car_name in car_names:
+    #         show_car (car_name)
+
+    def _rename (render_dir, from_name, to_name):
+        os.rename(atcity(op.join(render_dir, from_name)), 
+                  atcity(op.join(render_dir, to_name)))
+    
+    # there are two nodes -- "render" and "depth"
+    # they save images in BW16 or RBG8
+    # they render layers "Render" and "Depth" with "Combined" and "Z" passes.
+    bpy.context.scene.node_tree.nodes['depth'].base_path = atcity(render_dir)
+    bpy.context.scene.node_tree.nodes['render'].base_path = atcity(render_dir)
+
+    # render scene
+    bpy.data.objects['-Ground'].hide_render = False
+    bpy.ops.render.render (write_still=True, layer='Render')
+    _rename (render_dir, 'render0001', 'render.png')
+
+    # render without ground
     bpy.data.objects['-Ground'].hide_render = True
-    render_scene(op.join(render_dir, CARSONLY_FILENAME))
+    bpy.ops.render.render (write_still=True, layer='Render')
+    bpy.ops.render.render (write_still=True, layer='Depth')
+    _rename (render_dir, 'render0001', 'cars-only.png')
+    _rename (render_dir, 'depth0001', 'depth-all.png')
 
-    # render just the car for each car (to extract bbox)
-    if params['render_individual_cars'] and not params['render_cars_as_cubes']:
-        # hide all cars
-        for car_name in car_names:
-            hide_car (car_name)
-        # show, render, and hide each car one by one
-        for i,car_name in enumerate(car_names):
-            show_car (car_name)
-            render_scene( op.join(render_dir, '%s%d.png' % (CAR_RENDER_TEMPL, i)) )
-            hide_car (car_name)
+    for car_i0, car_name0 in enumerate(car_names):
 
-    # clean up
-    bpy.data.objects['-Ground'].hide_render = False
-    if not params['render_cars_as_cubes']:
+        # remove all cars from the only layer, and add car_name0 back to it
         for car_name in car_names:
-            show_car (car_name)
+            bpy.data.objects[car_name].hide_render = True
+        bpy.data.objects[car_name0].hide_render = False
+
+        # render scene
+        bpy.ops.render.render (write_still=True, layer='Depth')
+        _rename (render_dir, 'depth0001', 'depth-%03d.png' % car_i0)
 
     if params['save_blender_files']:
         bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'render.blend')))

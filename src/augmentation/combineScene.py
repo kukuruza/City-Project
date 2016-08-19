@@ -9,7 +9,7 @@ from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 WORK_RENDER_DIR = atcity('augmentation/blender/current-frame')
 BACKGROUND_FILENAME = 'background.png'
-NORMAL_FILENAME     = 'normal.png'
+NORMAL_FILENAME     = 'render.png'
 CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
 CORRECTION_FILENAME = 'color-correction.json'

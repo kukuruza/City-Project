@@ -60,6 +60,6 @@ if __name__ == "__main__":
     else:
         logging.info ('job file has a single job')
         job = job_json
-        create_in_db(job)
+        #create_in_db(job)
         add_args_to_job(job, args)
         process_video(job)

@@ -185,8 +185,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--out_dir', default='augmentation/patches/test')
     parser.add_argument('--logging_level',   type=int,   default=20)
-    parser.add_argument('--number',          type=int,   default=1)
-    parser.add_argument('--num_per_session', type=int,   default=1)
+    parser.add_argument('--number',          type=int,   default=4,
+                        help='total number of pathces to generate')
+    parser.add_argument('--num_per_session', type=int,   default=2)
     parser.add_argument('--num_occluding',   type=int,   default=5)
     parser.add_argument('--render', default='SEQUENTIAL')
     parser.add_argument('--save_blender', action='store_true',
