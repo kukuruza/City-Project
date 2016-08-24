@@ -1,12 +1,13 @@
 import os, sys, os.path as op
 import logging
-import glob
+from glob import glob
 import shutil
 import sqlite3
+import random
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from helperDb    import carField, imageField
-from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperSetup import setParamUnlessThere, assertParamIsThere, atcity
 from helperImg   import ReaderVideo, ProcessorImagefile
 from dbUtilities import bbox2roi, roi2bbox, bottomCenter, drawRoi
 from dbModify    import isRoiAtBorder
@@ -83,11 +84,12 @@ def _writeXmlString_ (c, imagefile, car_entries, params = {}):
 
 def exportSparseCars (c, out_dataset, params = {}):
     '''
-    Export non-empty video frames and corresponding bboxes to PASCAL format.
-    Not all the cars are assumed to be detected, so will also export the foreground mask
+    Export non-empty video frames and corresponding bboxes to VOC format.
+    Also export the foreground mask, in case some cars are better ignored.
 
-    We keep data as videos and sql database with boxes.
-    faster-rcnn/py-faster-rcnn keeps data as images and xml files with boxes.
+    City-Project uses video for image data sql db for ROIs.
+    VOC format   uses jpeg  for image data xml files for ROIs.
+    This function transforms the first to the second formats.
 
     out_dataset is the root folder of dataset. It contains:
       Annotations
@@ -140,7 +142,29 @@ def exportSparseCars (c, out_dataset, params = {}):
             f.write(xmlstr)
 
 
+def makeSets (dataset, sets = {'train': 0.5, 'test': 0.5}):
+  ''' Create image sets inside a VOC dataset '''
 
+  # create the folder
+  setsdir = atcity(op.join(dataset, 'ImageSets/Main'))
+  logging.info ('setsdir is %s' % setsdir)
+  if op.exists(setsdir):
+    shutil.rmtree(setsdir)
+  os.makedirs(setsdir)
 
+  # get the list of names
+  image_template = atcity(op.join(dataset, 'JPEGImages/*.jpg'))
+  image_paths = glob(image_template)
+  assert image_paths, 'no jpeg images at %s' % image_template
 
+  names = [op.splitext(op.basename(x))[0] for x in image_paths]
+  random.shuffle(names)
+
+  current_image = 0
+  for nameset,setfraction in sets.iteritems():
+    image_num_in_set = int(len(names) * setfraction)
+    with open(op.join(setsdir, '%s.txt' % nameset), 'w') as f:
+      for name in names[current_image : current_image + image_num_in_set]:
+        f.write('%s\n' % name)
+      current_image += image_num_in_set
 

@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 from learning.helperSetup import setupLogging, dbInit
-from learning.dbFasterRcnn import _writeXmlString_, exportSparseCars
+from learning.dbExportVOC import _writeXmlString_, exportSparseCars
 
 
 setupLogging ('log/learning/ExportFasterRcnn.log', logging.DEBUG, 'a')

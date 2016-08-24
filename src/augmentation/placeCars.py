@@ -123,11 +123,9 @@ for line in sun_pos_lines:
 
 
 
-def generate_current_frame (camera, video, cad, time, num_cars, params):
+def generate_current_frame (camera, video, cad, time, num_cars):
     ''' Generate traffic.json traffic file for a single frame
     '''
-    setParamUnlessThere (params, 'save_blender_files', False)
-
     pxl_in_meter   = camera.info['pxls_in_meter']
 
     # get the map of azimuths. 
@@ -154,13 +152,12 @@ def generate_current_frame (camera, video, cad, time, num_cars, params):
     logging.info ('received timestamp: %s' % time)
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
-    frame_info = {'sun_altitude': sun_pose['altitude'], \
-                  'sun_azimuth':  sun_pose['azimuth'], \
-                  'vehicles': vehicles, \
-                  'weather': video.info['weather'], \
-                  'save_blender_files': params['save_blender_files'] }
+    traffic = {'sun_altitude': sun_pose['altitude'], \
+               'sun_azimuth':  sun_pose['azimuth'], \
+               'vehicles': vehicles, \
+               'weather': video.info['weather']}
 
-    return frame_info
+    return traffic
 
 
 

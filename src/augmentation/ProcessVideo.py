@@ -4,9 +4,7 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import argparse
 import json
 import logging
-import multiprocessing
-import traceback
-from processScene import process_video, create_in_db
+from processScene import process_video
 from Video import Video
 from Camera import Camera
 from Cad import Cad
@@ -19,6 +17,7 @@ def add_args_to_job(job, args):
         job['frame_range'] = args.frame_range
     if args.timeout:
         job['timeout'] = args.timeout
+    job['save_blender_files'] = args.save_blender_files
     job['no_annotations'] = args.no_annotations
 
 
@@ -33,6 +32,7 @@ def process_video_wrapper (job):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--save_blender_files', action='store_true')
     parser.add_argument('--logging_level', default=20, type=int)
     parser.add_argument('--timeout', type=int, 
                         help='maximum running time, in munutes')
@@ -48,18 +48,14 @@ if __name__ == "__main__":
     # depending on the number of jobs in the file, use one or many processes
     job_json = json.load(open(atcity(args.job_file) ))
     if isinstance(job_json, list):
-        logging.info ('job file has multiple jobs. Will spin a process pool')
+        logging.info ('job file has multiple jobs')
         jobs = job_json
         for i,job in enumerate(jobs): 
             add_args_to_job(jobs[i], args)
-        pool = multiprocessing.Pool()
-        logging.info ('the pool has %d workers' % pool._processes)
-        pool.map (process_video_wrapper, jobs)
-        pool.close()
-        pool.join()
+        for job in jobs:
+            process_video_wrapper(job)
     else:
         logging.info ('job file has a single job')
         job = job_json
-        #create_in_db(job)
         add_args_to_job(job, args)
         process_video(job)

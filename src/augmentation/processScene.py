@@ -9,9 +9,10 @@ import argparse
 import logging
 import sqlite3
 import subprocess
+import multiprocessing
 import shutil
 from datetime import datetime, timedelta
-from math import pi, atan, atan2, pow, sqrt
+from math import pi, atan, atan2, pow, sqrt, ceil
 
 from learning.dbUtilities import *
 from learning.helperImg import ProcessorVideo
@@ -33,112 +34,105 @@ COMBINED_FILENAME   = 'out.png'
 MASK_FILENAME       = 'mask.png'
 TRAFFIC_FILENAME    = 'traffic.json'
 CORRECTION_FILENAME = 'color-correction.json'
+FNULL = open(op.join(os.getenv('CITY_PATH'), 'log/augmentation/blender.log'), 'w')
 
 assert os.getenv('BLENDER_ROOT') is not None, \
     'export BLENDER_ROOT with path to blender binary as environmental variable'
 
 
-def _sq_(x): return pow(x,2)
+def _sq(x): return pow(x,2)
 
-def _get_norm_xy_(a): return sqrt(_sq_(a['x']) + _sq_(a['y']))
-
-def image2ghost (image_path, background_path, out_path):
-    '''Subtract background from image and save as the ghost frame
-    '''
-    img  = cv2.imread(image_path)
-    back = cv2.imread(background_path)
-    ghost = img / 2 + 128 - back / 2
-    np.imwrite(ghost, out_path)
+def _get_norm_xy_(a): return sqrt(_sq(a['x']) + _sq(a['y']))
 
 
-def extract_bbox (depth_path):
-    '''Extract a single (if any) bounding box from the image
-    Args:
-      depth_path:  has only one (or no) car in the image.
-    Returns:
-      bbox:  (x1, y1, width, height)
-    '''
-    assert op.exists(depth_path), depth_path
-    depth = cv2.imread(depth_path, 0)
-    
-    # keep only vehicles with resonable bboxes
-    if np.count_nonzero(depth < 255) == 0:   # or are there any artifacts
-        return None
+def extract_bbox (depth):
+  '''Extract a single (if any) bounding box from the image
+  Args:
+    depth: has only one (or no) car in the image.
+  Returns:
+    bbox:  (x1, y1, width, height)
+  '''
+  # keep only vehicles with resonable bboxes
+  if np.count_nonzero(depth < 255) == 0:   # or are there any artifacts
+    return None
+
+  # get bbox
+  nnz_indices = np.argwhere(depth < 255)
+  (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
+  (height, width) = y2 - y1, x2 - x1
+  return (x1, y1, width, height)
+
+
+def extract_annotations (work_dir, c, cad, camera, imagefile, monitor=None):
+  '''Parse output of render and all metadata into our SQL format.
+  This function knows about SQL format.
+  Args:
+      work_dir:         path with depth-s
+      c:                cursor to existing db in our format
+      cad:              info on the pose of every car in the frame, 
+                        and its id within car collections
+      camera:           dict of camera height and orientation
+      imagefile:        database entry
+      monitor:          MonitorDatasetClient object for uploading vehicle info
+  Returns:
+      nothing
+  '''
+  traffic = json.load(open( op.join(work_dir, TRAFFIC_FILENAME) ))
+
+  for i,vehicle in enumerate(traffic['vehicles']):
 
     # get bbox
-    nnz_indices = np.argwhere(depth < 255)
-    (y1, x1), (y2, x2) = nnz_indices.min(0), nnz_indices.max(0) + 1 
-    (height, width) = y2 - y1, x2 - x1
-    return (x1, y1, width, height)
+    depth_path = op.join (work_dir, 'depth-%03d.png' % i)
+    assert op.exists(depth_path), depth_path
+    depth = cv2.imread(depth_path, 0)
+    bbox = extract_bbox (depth)
+    if bbox is None: continue
 
+    # get vehicle "name" (that is, type)
+    model = cad.get_model_by_id_and_collection (vehicle['model_id'], 
+                                                vehicle['collection_id'])
+    assert model is not None
+    name = model['vehicle_type']
 
-def extract_annotations (c, traffic, cad, camera, imagefile, monitor=None):
-    '''Parse output of render and all metadata into our SQL format.
-    This function knows about SQL format.
-    Args:
-        c:                cursor to existing db in our format
-        cad:              info on the pose of every car in the frame, 
-                          and its id within car collections
-        camera:           dict of camera height and orientation
-        imagefile:        database entry
-        monitor:          MonitorDatasetClient object for uploading vehicle info
-    Returns:
-        nothing
-    '''
-    WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
+    # get vehicle angles (camera roll is assumed small and ignored)
+    azimuth_view = -atan2(vehicle['y'], vehicle['x']) * 180 / pi
+    yaw = (180 - vehicle['azimuth'] + azimuth_view) % 360
+    height = camera.info['origin_blender']['z']
+    pitch = atan(height / _get_norm_xy_(vehicle)) * 180 / pi
 
-    for i,vehicle in enumerate(traffic['vehicles']):
+    # get vehicle visibility
+    vis = vehicle['visibility']
 
-        # get bbox
-        depth_path = op.join (WORK_DIR, 'depth-%03d.png' % i)
-        bbox = extract_bbox (depth_path)
-        if bbox is None: continue
+    # put all info together and insert into the db
+    entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], yaw, pitch, vis)
+    c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,yaw,pitch,score)
+                 VALUES (?,?,?,?,?,?,?,?,?);''', entry)
 
-        # get vehicle "name" (that is, type)
-        model = cad.get_model_by_id_and_collection (vehicle['model_id'], 
-                                                    vehicle['collection_id'])
-        assert model is not None
-        name = model['vehicle_type']
-
-        # get vehicle angles (camera roll is assumed small and ignored)
-        azimuth_view = -atan2(vehicle['y'], vehicle['x']) * 180 / pi
-        yaw = (180 - vehicle['azimuth'] + azimuth_view) % 360
-        height = camera.info['origin_blender']['z']
-        pitch = atan(height / _get_norm_xy_(vehicle)) * 180 / pi
-
-        # get vehicle visibility
-        vis = vehicle['visibility']
-
-        # put all info together and insert into the db
-        entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], yaw, pitch, vis)
-        c.execute('''INSERT INTO cars(imagefile,name,x1,y1,width,height,yaw,pitch,score)
-                     VALUES (?,?,?,?,?,?,?,?,?);''', entry)
-
-        if monitor is not None:
-            monitor.upload_vehicle({'vehicle_type': name, 'yaw': yaw, 'pitch': pitch,
-                                    'width': bbox[2], 'height': bbox[3]})
+    if monitor is not None:
+      monitor.upload_vehicle({'vehicle_type': name, 'yaw': yaw, 'pitch': pitch,
+                              'width': bbox[2], 'height': bbox[3]})
 
 
 
 def _get_visible_perc (patch_dir):
-    '''Some parts of the main car is occluded. 
-    Calculate the percentage of the occluded part.
-    Args:
-      patch_dir:     dir with files depth-all.png, depth-car.png
-    Returns:
-      visible_perc:  occluded fraction
-    '''
-    visible_car = cv2.imread(op.join(patch_dir, 'mask.png'), 0) > 0
-    mask_car    = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1) < 255*255
-    assert visible_car is not None
-    assert mask_car is not None
+  '''Some parts of the main car is occluded. 
+  Calculate the percentage of the occluded part.
+  Args:
+    patch_dir:     dir with files depth-all.png, depth-car.png
+  Returns:
+    visible_perc:  occluded fraction
+  '''
+  visible_car = cv2.imread(op.join(patch_dir, 'mask.png'), 0) > 0
+  mask_car    = cv2.imread(op.join(patch_dir, 'depth-car.png'), -1) < 255*255
+  assert visible_car is not None
+  assert mask_car is not None
 
-    # visible percentage
-    nnz_car     = np.count_nonzero(mask_car)
-    nnz_visible = np.count_nonzero(visible_car)
-    visible_perc = float(nnz_visible) / nnz_car
-    logging.debug ('visible perc: %0.2f' % visible_perc)
-    return visible_perc
+  # visible percentage
+  nnz_car     = np.count_nonzero(mask_car)
+  nnz_visible = np.count_nonzero(visible_car)
+  visible_perc = float(nnz_visible) / nnz_car
+  logging.debug ('visible perc: %0.2f' % visible_perc)
+  return visible_perc
 
 
 
@@ -180,7 +174,8 @@ def _get_masks (patch_dir, frame_info):
     if np.count_nonzero(mask_full) == 0:
         visibility = 0
     else:
-        visibility = float(np.count_nonzero(mask_visible)) / np.count_nonzero(mask_full)
+        visibility = float(np.count_nonzero(mask_visible)) \
+                   / float(np.count_nonzero(mask_full))
     frame_info['vehicles'][i]['visibility'] = visibility
 
   # disabled a mask output segmented by car. Returning a binary mask now.
@@ -189,285 +184,333 @@ def _get_masks (patch_dir, frame_info):
 
 
 
-def process_frame (video, camera, cad, time, num_cars, background=None, params={}):
-    ''' Full stack for one single frame (no db entries). 
-    Everything about blender input and output files is hidden inside this function.
-    All work is in current-frame dir.
-    '''
-    WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
-    setParamUnlessThere (params, 'save_blender_files', False)
-    setParamUnlessThere (params, 'no_traffic', False)
-    setParamUnlessThere (params, 'no_render',  False)
-    setParamUnlessThere (params, 'no_combine', False)
-    setParamUnlessThere (params, 'no_correction', False)
-    setParamUnlessThere (params, 'scale',      1.0)
-    setParamUnlessThere (params, 'render_individual_cars', True)
+def render_frame (video, camera, traffic):
+  ''' Write down traffci file for blender and run blender with renderScene.py 
+  All work is in current-frame dir.
+  '''
+  WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
+  setParamUnlessThere (traffic, 'save_blender_files', False)
+  setParamUnlessThere (traffic, 'render_individual_cars', True)
 
-    # load camera dimensions (compare it to everything for extra safety)
-    width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
-    logging.debug ('camera width,height: %d,%d' % (width0, height0))
+  # load camera dimensions (compare it to everything for extra safety)
+  width0  = camera.info['camera_dims']['width']
+  height0 = camera.info['camera_dims']['height']
+  logging.debug ('camera width,height: %d,%d' % (width0, height0))
 
-    image = None
-    mask = None
+  image = None
+  mask = None
 
-    if not params['no_traffic']:
-        frame_info = generate_current_frame (camera, video, cad, time, num_cars, 
-                             {'save_blender_files': params['save_blender_files']})
-        frame_info['scale'] = camera.info['scale']
-        frame_info['render_individual_cars'] = params['render_individual_cars']
-        traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
-        if not op.exists(op.dirname(traffic_path)):
-            os.makedirs(op.dirname(traffic_path))
-        with open(traffic_path, 'w') as f:
-            f.write(json.dumps(frame_info, indent=4))
+  # pass traffic info to blender
+  traffic['scale'] = camera.info['scale']
+  traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
+  if not op.exists(op.dirname(traffic_path)):
+    os.makedirs(op.dirname(traffic_path))
+  with open(traffic_path, 'w') as f:
+    f.write(json.dumps(traffic, indent=4))
 
-    if not params['no_render']:
-        # remove so that they do not exist if blender fails
-        if op.exists(op.join(WORK_DIR, 'render.png')):
-            os.remove(op.join(WORK_DIR, 'render.png'))
-        if op.exists(op.join(WORK_DIR, 'depth-all.png')):
-            os.remove(op.join(WORK_DIR, 'depth-all.png'))
-        # render
-        assert video.render_blend_file is not None
-        render_blend_path = atcity(video.render_blend_file)
-        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), render_blend_path, 
-                   '--background', '--python', 
-                   '%s/src/augmentation/renderScene.py' % os.getenv('CITY_PATH')]
-        returncode = subprocess.call (command, shell=False)
-        logging.info ('rendering: blender returned code %s' % str(returncode))
+  # remove so that they do not exist if blender fails
+  if op.exists(op.join(WORK_DIR, 'render.png')):
+      os.remove(op.join(WORK_DIR, 'render.png'))
+  if op.exists(op.join(WORK_DIR, 'depth-all.png')):
+      os.remove(op.join(WORK_DIR, 'depth-all.png'))
+  # render
+  assert video.render_blend_file is not None
+  render_blend_path = atcity(video.render_blend_file)
+  command = ['%s/blender' % os.getenv('BLENDER_ROOT'), render_blend_path, 
+             '--background', '--python',
+             '%s/src/augmentation/renderScene.py' % os.getenv('CITY_PATH')]
+  returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
+  logging.info ('rendering: blender returned code %s' % str(returncode))
 
-        # check rendered
-        image = cv2.imread(op.join(WORK_DIR, 'render.png'))
-        assert image is not None
-        assert image.shape == (height0, width0, 3), image.shape
+  # check rendered
+  image = cv2.imread(op.join(WORK_DIR, 'render.png'))
+  assert image is not None
+  assert image.shape == (height0, width0, 3), image.shape
 
-        # create mask
-        mask = _get_masks (WORK_DIR, frame_info)
-        # TODO: visibility is returned via traffic file, NOT straightforward
-        with open(traffic_path, 'w') as f:
-            f.write(json.dumps(frame_info, indent=4))
+  # create mask
+  mask = _get_masks (WORK_DIR, traffic)
+  # TODO: visibility is returned via traffic file, NOT straightforward
+  with open(traffic_path, 'w') as f:
+      f.write(json.dumps(traffic, indent=4))
 
-    # correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
-    # if op.exists(correction_path): os.remove(correction_path)
-    # if not params['no_correction']:
-    #     correction_info = color_correction (video.example_background, background)
-    #     with open(correction_path, 'w') as f:
-    #         f.write(json.dumps(correction_info, indent=4))
+  # correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
+  # if op.exists(correction_path): os.remove(correction_path)
+  # if not params['no_correction']:
+  #     correction_info = color_correction (video.example_background, background)
+  #     with open(correction_path, 'w') as f:
+  #         f.write(json.dumps(correction_info, indent=4))
+
+  return image, mask
 
 
-    if not params['no_combine']:
-        
-        # get background file
-        assert background is not None, 'either pass no_combine or background'
-        assert background.shape == (height0, width0, 3), background.shape
-        cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), background)
+def combine_frame (image, background, video, camera):
+  ''' Overlay image onto background '''
 
-        # remove previous result so that there is an error if blender fails
-        if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
-            os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
+  WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
 
-        # postprocess and overlay
-        assert video.combine_blend_file is not None
-        combine_scene_path = atcity(video.combine_blend_file)
-        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), combine_scene_path,
-                   '--background', '--python', 
-                   '%s/src/augmentation/combineScene.py' % os.getenv('CITY_PATH')]
-        returncode = subprocess.call (command, shell=False)
-        logging.info ('combine: blender returned code %s' % str(returncode))
-        assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
-        image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
-        assert image.shape == (height0, width0, 3), image.shape
+  # load camera dimensions (compare it to everything for extra safety)
+  width0  = camera.info['camera_dims']['width']
+  height0 = camera.info['camera_dims']['height']
 
-    return image, mask
+  # get background file
+  assert background is not None
+  assert background.shape == (height0, width0, 3), background.shape
+  cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), background)
 
+  # remove previous result so that there is an error if blender fails
+  if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
+      os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
+
+  # postprocess and overlay
+  assert video.combine_blend_file is not None
+  combine_scene_path = atcity(video.combine_blend_file)
+  command = ['%s/blender' % os.getenv('BLENDER_ROOT'), combine_scene_path,
+             '--background', '--python',
+             '%s/src/augmentation/combineScene.py' % os.getenv('CITY_PATH')]
+  returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
+  logging.info ('combine: blender returned code %s' % str(returncode))
+  assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
+  image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
+  assert image.shape == (height0, width0, 3), image.shape
+
+  return image
 
 
 class Diapason:
 
-    def _parse_range_str_ (self, range_str, length):
-        '''Parses python range STRING into python range
-        '''
-        assert isinstance(range_str, basestring)
-        # remove [ ] around the range
-        if len(range_str) >= 2 and range_str[0] == '[' and range_str[-1] == ']':
-            range_str = range_str[1:-1]
-        # split into three elements start,end,step. Assign step=1 if missing
-        arr = range_str.split(':')
-        assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 columns ":" in range string'
-        if len(arr) == 2: arr.append('1')
-        if arr[0] == '': arr[0] = '0'
-        if arr[1] == '': arr[1] = str(length)
-        if arr[2] == '': arr[2] = '1'
-        start = int(arr[0])
-        end   = int(arr[1])
-        step  = int(arr[2])
-        range_py = range(start, end, step)
-        logging.debug ('Diapason parsed range_str %s into range of length %d' % (range_str, len(range_py)))
-        return range_py
+  def _parse_range_str_ (self, range_str, length):
+    '''Parses python range STRING into python range
+    '''
+    assert isinstance(range_str, basestring)
+    # remove [ ] around the range
+    if len(range_str) >= 2 and range_str[0] == '[' and range_str[-1] == ']':
+        range_str = range_str[1:-1]
+    # split into three elements start,end,step. Assign step=1 if missing
+    arr = range_str.split(':')
+    assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 columns ":" in range str'
+    if len(arr) == 2: arr.append('1')
+    if arr[0] == '': arr[0] = '0'
+    if arr[1] == '': arr[1] = str(length)
+    if arr[2] == '': arr[2] = '1'
+    start = int(arr[0])
+    end   = int(arr[1])
+    step  = int(arr[2])
+    range_py = range(start, end, step)
+    logging.debug ('Diapason parsed range_str %s into range of length %d' % 
+                    (range_str, len(range_py)))
+    return range_py
 
-    def __init__ (self, length, frame_range_str):
-        self.frame_range = self._parse_range_str_ (frame_range_str, length)
+  def __init__ (self, length, frame_range_str):
+    self.frame_range = self._parse_range_str_ (frame_range_str, length)
 
-    def intersect (self, diapason):
-        interset = set(self.frame_range).intersection(diapason.frame_range)
-        self.frame_range = sorted(interset)
-        logging.info ('Diapason intersection has %d frames' % len(self.frame_range))
-        logging.debug ('Diapason intersection is range %s' % self.frame_range)
-        return self
+  def intersect (self, diapason):
+    interset = set(self.frame_range).intersection(diapason.frame_range)
+    self.frame_range = sorted(interset)
+    logging.info ('Diapason intersection has %d frames' % len(self.frame_range))
+    logging.debug ('Diapason intersection is range %s' % self.frame_range)
+    return self
+
+  def frame_range_as_chunks (self, chunk_size):
+    ''' Cutting frame_range into chunks for parallel execution '''
+    chunks = []
+    chunk_num = int(ceil( len(self.frame_range) / float(chunk_size) ))
+    for i in range(chunk_num):
+      r = self.frame_range[i*chunk_size : min((i+1)*chunk_size, len(self.frame_range))]
+      chunks.append(r)
+    return chunks
+
+
+
+def mywrapper((video, camera, traffic, back, job)):
+  ''' wrapper for parallel processing. Argument is an element of frame_jobs 
+  '''
+  WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
+  if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
+
+  rendered, out_mask = render_frame(video, camera, traffic)
+  out_image = combine_frame (rendered, back, video, camera)
+
+  return out_image, out_mask, WORK_DIR
 
 
 
 def process_video (job):
 
-    WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
-    if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
+  # for checking timeout
+  start_time = datetime.now()
 
-    # for checking timeout
-    start_time = datetime.now()
+  assertParamIsThere  (job, 'video_dir')
+  video = Video(video_dir=job['video_dir'])
+  camera = video.build_camera()
 
-    assertParamIsThere  (job, 'video_dir')
-    video = Video(video_dir=job['video_dir'])
-    camera = video.build_camera()
+  # some default parameters
+  setParamUnlessThere (job, 'save_blender_files', False)
+  setParamUnlessThere (job, 'out_video_dir', 
+      op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], 
+              video.info['video_name']))
+  setParamUnlessThere (job, 'out_db_file', 
+      op.join(job['out_video_dir'], 'traffic.db'))
+  setParamUnlessThere (job, 'no_annotations', False)
+  setParamUnlessThere (job, 'timeout', 1000000000)
+  setParamUnlessThere (job, 'frame_range', '[::]')
+  create_in_db(job)   # creates job['in_db_file'] if necessary
 
-    # some default parameters
-    setParamUnlessThere (job, 'save_blender_files', False)
-    setParamUnlessThere (job, 'out_video_dir', 
-        op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], video.info['video_name']))
-    setParamUnlessThere (job, 'out_db_file', 
-        op.join(job['out_video_dir'], 'traffic.db'))
-    setParamUnlessThere (job, 'no_annotations', False)
-    setParamUnlessThere (job, 'timeout', 1000000000)
-    setParamUnlessThere (job, 'frame_range', '[::]')
-    create_in_db(job)   # creates job['in_db_file'] if necessary
+  # get input for this job from json
+  in_db_path           = atcity(job['in_db_file'])
+  out_db_path          = atcity(job['out_db_file'])
+  out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
+  out_mask_video_file  = op.join(job['out_video_dir'], 'mask.avi')
+  if job['no_annotations']: job['render_individual_cars'] = False
 
-    # get input for this job from json
-    in_db_path           = atcity(job['in_db_file'])
-    out_db_path          = atcity(job['out_db_file'])
-    out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
-    out_mask_video_file  = op.join(job['out_video_dir'], 'mask.avi')
-    if job['no_annotations']: job['render_individual_cars'] = False
+  # load camera dimensions (compare it to everything for extra safety)
+  width0  = camera.info['camera_dims']['width']
+  height0 = camera.info['camera_dims']['height']
 
-    # load camera dimensions (compare it to everything for extra safety)
-    width0, height0 = camera.info['camera_dims']['width'], camera.info['camera_dims']['height']
+  cad = Cad()
+  cad.load(job['collection_names'])
 
-    cad = Cad()
-    cad.load(job['collection_names'])
+  # upload info on parsed vehicles to the monitor server
+  monitor = MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
-    # upload info on parsed vehicles to the monitor server
-    monitor = MonitorDatasetClient (cam_id=camera.info['cam_id'])
+  # open in_db and create and open a new out_db
+  if op.exists(out_db_path): os.remove(out_db_path)
+  conn_in  = sqlite3.connect (in_db_path)
+  conn_out = sqlite3.connect (out_db_path)
+  createDb(conn_out)
+  c_in  = conn_in.cursor()
+  c_out = conn_out.cursor()
 
-    # open in_db and create and open a new out_db
-    if op.exists(out_db_path): os.remove(out_db_path)
-    conn_in  = sqlite3.connect (in_db_path)
-    conn_out = sqlite3.connect (out_db_path)
-    createDb(conn_out)
-    c_in  = conn_in.cursor()
-    c_out = conn_out.cursor()
+  # remove video if exist
+  if not op.exists(atcity(job['out_video_dir'])): os.makedirs(atcity(job['out_video_dir']))
+  if op.exists(atcity(out_image_video_file)): os.remove(atcity(out_image_video_file))
+  if op.exists(atcity(out_mask_video_file)):  os.remove(atcity(out_mask_video_file))
 
-    # remove video if exist
-    if not op.exists(atcity(job['out_video_dir'])): os.makedirs(atcity(job['out_video_dir']))
-    if op.exists(atcity(out_image_video_file)): os.remove(atcity(out_image_video_file))
-    if op.exists(atcity(out_mask_video_file)):  os.remove(atcity(out_mask_video_file))
+  # value for 'src' field in db
+  name = op.basename(op.splitext(out_db_path)[0])
+  logging.info ('new src name: %s' %  name)
 
-    # value for 'src' field in db
-    name = op.basename(op.splitext(out_db_path)[0])
-    logging.info ('new src name: %s' %  name)
+  # names of in and out videos
+  c_in.execute('SELECT imagefile,maskfile FROM images')
+  some_image_entry = c_in.fetchone()
+  assert some_image_entry is not None
+  in_back_video_file  = op.dirname(some_image_entry[0]) + '.avi'
+  in_mask_video_file  = op.dirname(some_image_entry[1]) + '.avi'
+  logging.info ('in back_video_file:   %s' % in_back_video_file)
+  logging.info ('in mask_video_file:   %s' % in_mask_video_file)
+  logging.info ('out image_video_file: %s' % out_image_video_file)
+  logging.info ('out mask_video_file:  %s' % out_mask_video_file)
 
-    # names of in and out videos
-    c_in.execute('SELECT imagefile,maskfile FROM images')
-    some_image_entry = c_in.fetchone()
-    assert some_image_entry is not None
-    in_back_video_file  = op.dirname(some_image_entry[0]) + '.avi'
-    in_mask_video_file  = op.dirname(some_image_entry[1]) + '.avi'
-    logging.info ('in back_video_file:   %s' % in_back_video_file)
-    logging.info ('in mask_video_file:   %s' % in_mask_video_file)
-    logging.info ('out image_video_file: %s' % out_image_video_file)
-    logging.info ('out mask_video_file:  %s' % out_mask_video_file)
+  processor = ProcessorVideo \
+         ({'out_dataset': {in_back_video_file: out_image_video_file, 
+                           in_mask_video_file: out_mask_video_file} })
 
-    processor = ProcessorVideo \
-           ({'out_dataset': {in_back_video_file: out_image_video_file, 
-                             in_mask_video_file: out_mask_video_file} })
+  c_in.execute('SELECT imagefile,maskfile,time,width,height FROM images')
+  image_entries = c_in.fetchall()
 
-    c_in.execute('SELECT imagefile,maskfile,time,width,height FROM images')
-    image_entries = c_in.fetchall()
+  diapason = Diapason (len(image_entries), job['frame_range']).intersect(
+             Diapason (len(image_entries), video.info['frame_range']) )
+  
+  pool = multiprocessing.Pool()
 
-    diapason = Diapason (len(image_entries), job['frame_range']).intersect(
-               Diapason (len(image_entries), video.info['frame_range']) )
+  def _get_time (video, timestamp, frame_id):
+    if timestamp is None:
+      assert video.start_time is not None, 'no time in .db or in video_info file'
+      time = video.start_time + timedelta(minutes=int(float(frame_id) / 960 * 40))
+    else:
+      time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+    return time
 
-    # will only write meaningful frames
-    i_out = 0
+  # will only write meaningful frames
+  i_out = 0
 
-    for i, (in_backfile, in_maskfile, timestamp, width, height) in enumerate(image_entries):
-        assert (width0 == width and height0 == height)
+  # each frame_range chunk is processed in parallel
+  for frame_range in diapason.frame_range_as_chunks(pool._processes):
+    logging.info ('chunk of frames %d to %d' % (frame_range[0], frame_range[-1]))
 
-        if i not in diapason.frame_range:
-            continue
-        logging.info ('process frame number %d' % i)
+    # quit, if reached the timeout
+    time_passed = datetime.now() - start_time
+    logging.info ('passed: %s' % time_passed)
+    if (time_passed.total_seconds() > job['timeout'] * 60):
+      logging.warning('reached timeout %d. Passed %s' % (job['timeout'], time_passed))
+      break
 
-        # quit, if reached the timeout
-        time_passed = datetime.now() - start_time
-        logging.debug ('frame: %d, passed: %s' % (i, time_passed))
-        if (time_passed.total_seconds() > job['timeout'] * 60):
-            logging.warning('reached timeout %d. Passed %s' % (job['timeout'], time_passed))
-            break
+    # collect frame jobs
+    frame_jobs = []
+    for frame_id in frame_range:
 
-        # background image from the video
-        back = processor.imread(in_backfile)
-        in_mask = processor.maskread(in_maskfile)
+      (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
+      assert (width0 == width and height0 == height), (width0, width, height0, height)
+      logging.info ('process frame number %d' % frame_id)
 
-        if timestamp is None:
-            assert video.start_time is not None, 'no time in .db or in video_info file'
-            time = video.start_time + timedelta(minutes=int(float(i) / 960 * 40))
-        else:
-            time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+      back = processor.imread(in_backfile)
+      _ = processor.maskread(in_maskfile)
+      time = _get_time (video, timestamp, frame_id)
 
-        # update the filename in database
-        out_imagefile = op.join(op.splitext(out_image_video_file)[0], '%06d' % i_out)
-        out_maskfile  = op.join(op.splitext(out_mask_video_file)[0], '%06d' % i_out)
-        i_out += 1
-        src = 'generated from %s' % in_back_video_file
-        c_out.execute ('INSERT INTO images(imagefile,maskfile,src,width,height,time) VALUES (?,?,?,?,?,?)',
-                       (out_imagefile,out_maskfile,src,width,height,time))
+      traffic = generate_current_frame (camera, video, cad, time, job['num_cars'])
+      traffic['save_blender_files'] = job['save_blender_files']
 
-        # workhorse
-        out_image, out_mask = process_frame(video, camera, cad, time, job['num_cars'], back, job)
-        #cv2.imshow('out_image', out_image)
-        #cv2.waitKey(0.01)
+      # sum all up into one job
+      frame_jobs.append((video, camera, traffic, back, job))
 
-        # write the frame to video (processor interface requires input filenames)
-        assert out_image is not None and out_mask is not None
-        processor.imwrite (out_image, in_backfile)
-        processor.maskwrite (out_mask, in_maskfile)
+    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(mywrapper, frame_jobs)):
+      frame_id = frame_range[i]
+      print 'my frame_id: %d' % frame_id
 
-        if not job['no_annotations']:
-            frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
-            extract_annotations (c_out, frame_info, cad, camera, out_imagefile, monitor)
+      # get the same info again
+      (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
+      time = _get_time (video, timestamp, frame_id)
 
-    conn_out.commit()
-    conn_in.close()
-    conn_out.close()
+      #cv2.imshow('out_image', out_image)
+      #cv2.waitKey(0.01)
 
-    shutil.rmtree(WORK_DIR)
+      # write the frame to video (processor interface requires input filenames)
+      assert out_image is not None and out_mask is not None
+      processor.imwrite (out_image, in_backfile)
+      processor.maskwrite (out_mask, in_maskfile)
 
+      # update out database
+      out_imagefile = op.join(op.splitext(out_image_video_file)[0], '%06d' % i_out)
+      out_maskfile  = op.join(op.splitext(out_mask_video_file)[0], '%06d' % i_out)
+      src = 'generated from %s' % in_back_video_file
+      c_out.execute ('INSERT INTO images(imagefile,maskfile,src,width,height,time) '
+                     'VALUES (?,?,?,?,?,?)',
+                     (out_imagefile,out_maskfile,src,width,height,time))
+
+      if not job['no_annotations']:
+        extract_annotations (work_dir, c_out, cad, camera, out_imagefile, monitor)
+        conn_out.commit()
+
+      print 'wrote frame %d' % i_out
+      i_out += 1
+
+      if not job['save_blender_files']: 
+        shutil.rmtree(work_dir)
+
+  conn_out.commit()
+  conn_in.close()
+  conn_out.close()
+
+  pool.close()
+  pool.join()
 
 
 def create_in_db (job):
-    '''Create in_db_file from video, unless it already exists.
-    May change as I switch from image_video to ghost_video
-    '''
-    # figure out where is the actual video
-    assert 'video_dir' in job
-    video_dir = job['video_dir']
-    camera_name = op.basename(op.dirname(video_dir))
-    video_name  = op.basename(video_dir)
-    camdata_video_dir = op.join('camdata', camera_name, video_name)
-    # figure out where will be the init db
-    db_prefix = op.join(op.dirname(job['out_db_file']), 'init')
-    # update the job
-    job['in_db_file'] = '%s-back.db' % db_prefix
+  '''Create in_db_file from video, unless it already exists.
+  May change as I switch from image_video to ghost_video
+  '''
+  # figure out where is the actual video
+  assert 'video_dir' in job
+  video_dir = job['video_dir']
+  camera_name = op.basename(op.dirname(video_dir))
+  video_name  = op.basename(video_dir)
+  camdata_video_dir = op.join('camdata', camera_name, video_name)
+  # figure out where will be the init db
+  db_prefix = op.join(op.dirname(job['out_db_file']), 'init')
+  # update the job
+  job['in_db_file'] = '%s-back.db' % db_prefix
 
-    if not op.exists(atcity(job['in_db_file'])):
-        logging.info ('will create in_db_file from video: %s' % job['in_db_file'])
-        make_dataset (camdata_video_dir, db_prefix, params={'videotypes': ['back']})
-    else:
-        logging.warning ('in_db_file exists. Will not rewrite it: %s', job['in_db_file'])
+  if not op.exists(atcity(job['in_db_file'])):
+    logging.info ('will create in_db_file from video: %s' % job['in_db_file'])
+    make_dataset (camdata_video_dir, db_prefix, params={'videotypes': ['back']})
+  else:
+    logging.warning ('in_db_file exists. Will not rewrite it: %s', job['in_db_file'])

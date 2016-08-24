@@ -60,7 +60,7 @@ def _filterBorderCar_ (c, car_entry, params):
     c.execute('SELECT width,height FROM images WHERE imagefile=?', (imagefile,))
     (width,height) = c.fetchone()
 
-    border_prob = 1
+    is_good = 1
     if doesTableExist(c, 'polygons'):
         # get polygon
         c.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
@@ -75,12 +75,12 @@ def _filterBorderCar_ (c, car_entry, params):
             # filter border
             if isPolygonAtBorder(xs, ys, width, height, params): 
                 logging.info ('border polygon %s, %s' % (str(xs), str(ys)))
-                border_prob = 0
+                is_good = 0
 
     # filter border
     if isRoiAtBorder(roi, width, height, params): 
         logging.info ('border roi %s' % str(roi))
-        border_prob = 0
+        is_good = 0
 
     # get current score
     c.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
@@ -88,7 +88,7 @@ def _filterBorderCar_ (c, car_entry, params):
     if score is None: score = 1.0 
 
     # update score in db
-    score *= border_prob
+    score *= is_good
     c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
 
     if params['debug']:
@@ -250,7 +250,7 @@ def _clusterBboxes_ (c, imagefile, params):
 
 def filterByBorder (c, params = {}):
     '''
-    Zero 'score' of bboxes that is closer than 'min_width' from the border
+    Zero 'score' of bboxes that is closer than 'border_thresh_perc' from border
     '''
     logging.info ('==== filterByBorder ====')
     setParamUnlessThere (params, 'border_thresh_perc', 0.03)
