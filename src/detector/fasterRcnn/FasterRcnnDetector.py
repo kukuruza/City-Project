@@ -44,17 +44,21 @@ def _init_network_ (net_name, prototxt_partial_path, cpu_mode, gpu_id):
 
 
 
+PASCAL20_CLASSES = ('__background__',
+                'aeroplane', 'bicycle', 'bird', 'boat',
+                'bottle', 'bus', 'car', 'cat', 'chair',
+                'cow', 'diningtable', 'dog', 'horse',
+                'motorbike', 'person', 'pottedplant',
+                'sheep', 'sofa', 'train', 'tvmonitor')
+
 class FasterRcnnDetector (CarDetectorInterface):
 
-    def __init__ (self, net_name = 'vgg16', cpu_mode = True, gpu_id = 0):
-        self.net = _init_network_(net_name, 'faster_rcnn_alt_opt/faster_rcnn_test.pt', cpu_mode, gpu_id)
+    def __init__ (self, net_name = 'vgg16', cpu_mode = True, gpu_id = 0, 
+                  classes=PASCAL20_CLASSES):
 
-        self.CLASSES = ('__background__',
-                        'aeroplane', 'bicycle', 'bird', 'boat',
-                        'bottle', 'bus', 'car', 'cat', 'chair',
-                        'cow', 'diningtable', 'dog', 'horse',
-                        'motorbike', 'person', 'pottedplant',
-                        'sheep', 'sofa', 'train', 'tvmonitor')
+        self.classes = classes
+
+        self.net = _init_network_(net_name, 'faster_rcnn_alt_opt/faster_rcnn_test.pt', cpu_mode, gpu_id)
 
         self.CONF_THRESH = 0.7
         self.NMS_THRESH = 0.3

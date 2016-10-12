@@ -4,6 +4,7 @@ from glob import glob
 import shutil
 import sqlite3
 import random
+import cv2
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from helperDb    import carField, imageField
@@ -167,4 +168,30 @@ def makeSets (dataset, sets = {'train': 0.5, 'test': 0.5}):
       for name in names[current_image : current_image + image_num_in_set]:
         f.write('%s\n' % name)
       current_image += image_num_in_set
+
+
+def readImage (dataset, image_id):
+  ''' Displays image and annotations '''
+
+  image_path = atcity(op.join(dataset, 'JPEGImages/%06d.jpg' % image_id))
+  annot_path = atcity(op.join(dataset, 'Annotations/%06d.xml' % image_id))
+
+  assert op.exists(image_path), image_path
+  image = cv2.imread(image_path)
+
+  assert op.exists(annot_path), annot_path
+  xml_tree = ET.parse(annot_path)
+  for obj in xml_tree.findall('object'):
+    label  = obj.find('name').text.lower().strip()
+    bndbox = obj.find('bndbox')
+    x1 = int(bndbox.find('xmin').text)
+    x2 = int(bndbox.find('xmax').text)
+    y1 = int(bndbox.find('ymin').text)
+    y2 = int(bndbox.find('ymax').text)
+
+    drawRoi(image, [y1, x1, y2, x2], label=label)
+
+  return image
+
+
 

@@ -1,20 +1,17 @@
 import os, sys, os.path as op
-import math
+from math import ceil
 import numpy as np
 import cv2
-from datetime import datetime
-import collections
 import logging
-import glob
-import shutil
 import sqlite3
 import json
+import random
 import dbUtilities
-from helperDb          import deleteCar, carField, imageField
+from helperDb          import createDb, deleteCar, carField, imageField
 from helperDb          import doesTableExist, createTablePolygons
 from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
 from annotations.terms import TermTree
-from helperSetup       import setParamUnlessThere, assertParamIsThere
+from helperSetup       import setParamUnlessThere, assertParamIsThere, atcity
 from helperKeys        import KeyReaderUser
 from helperImg         import ReaderVideo, ProcessorVideo
 
@@ -588,6 +585,49 @@ def merge (c, c_add, params = {}):
                 c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (new_carid,x,y))
 
 
+
+def splitToRandomSets (c, out_dir, db_out_names = {'train': 0.5, 'test': 0.5}):
+  ''' Split a db into several sets randomly.
+  This function violates the principle of receiving cursors, for simplicity.
+  Args: out_dir      - relative to CITY_DATA_PATH
+        db_out_names - names of output db-s and their percentage;
+                       if percentage sums to >1, last db-s will be underfilled.
+  '''
+  c.execute('SELECT imagefile FROM images')
+  imagefiles = c.fetchall()
+  random.shuffle(imagefiles)
+
+  current = 0
+  for db_out_name,setfraction in db_out_names.iteritems():
+    num_images_in_set = int(ceil(len(imagefiles) * setfraction))
+    next = min(current + num_images_in_set, len(imagefiles))
+
+    conn = sqlite3.connect (atcity(op.join(out_dir, '%s.db' % db_out_name)))
+    createDb(conn)
+    c_out = conn.cursor()
+
+    for imagefile, in imagefiles[current : next]:
+
+      # copy an entry from image table
+      s = 'imagefile,width,height,src,maskfile,time'
+      c.execute('SELECT %s FROM images WHERE imagefile=?' % s, (imagefile,))
+      c_out.execute('INSERT INTO images(%s) VALUES (?,?,?,?,?,?)' % s, c.fetchone())
+
+      # copy cars for that imagefile (ids are not copied)
+      s = 'imagefile,name,x1,y1,width,height,score,yaw,pitch,color'
+      c.execute('SELECT %s FROM cars WHERE imagefile=?' % s, (imagefile,))
+      for car in c.fetchall():
+        c_out.execute('INSERT INTO cars(%s) VALUES (?,?,?,?,?,?,?,?,?,?)' % s, car)
+
+    current = next
+
+    conn.commit()
+    conn.close()
+
+  # copying matches is not implemented (how to copy them anyway?)
+  c.execute('SELECT COUNT(*) FROM matches')
+  if c.fetchone()[0] > 0:
+    logging.warning('matches table is not empty, they will not be copied.')
 
 
 

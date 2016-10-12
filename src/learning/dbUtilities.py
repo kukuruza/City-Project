@@ -37,6 +37,7 @@ def bottomCenter (roi):
 
 
 def drawRoi (img, roi, label = None, color = None):
+    ''' roi = [y1 x1 y2 x2] '''
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
     if color is None:
