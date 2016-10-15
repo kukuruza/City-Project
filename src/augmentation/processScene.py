@@ -343,6 +343,53 @@ class Diapason:
     return chunks
 
 
+def _get_time (video, timestamp, frame_id):
+  if timestamp is None:
+    assert video.start_time is not None, 'no time in .db or in video_info file'
+    time = video.start_time + timedelta(minutes=int(float(frame_id) / 960 * 40))
+  else:
+    time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+  return time
+
+
+def generate_video_traffic (job):
+  ''' Generate traffic file for the whole video for possible further use 
+  Args:
+    job - the same as for process_video
+  '''
+
+  assertParamIsThere  (job, 'out_video_dir')
+  setParamUnlessThere (job, 'frame_range', '[::]')
+  assertParamIsThere  (job, 'video_dir')
+
+  video = Video(video_dir=job['video_dir'])
+  camera = video.build_camera()
+
+  in_db_file = create_in_db(job)   # creates in_db_file if necessary
+  c_in = sqlite3.connect(atcity(in_db_file)).cursor()
+  c_in.execute('SELECT time FROM images')
+  timestamps = c_in.fetchall()
+
+  cad = Cad()
+  cad.load(job['collection_names'])
+
+  diapason = Diapason (len(timestamps), job['frame_range']).intersect(
+             Diapason (len(timestamps), video.info['frame_range']) )
+  
+  traffic_seq = []
+
+  for frame_id in diapason.frame_range:
+    logging.info ('generating traffic for frame %d' % frame_id)
+    timestamp = timestamps[frame_id][0]
+    time = _get_time (video, timestamp, frame_id)
+    traffic = generate_current_frame(camera, video, cad, time, job['num_cars'])
+    traffic['frame_id'] = frame_id  # for validating
+    traffic_seq.append(traffic)
+
+  return traffic_seq
+
+
+
 
 def mywrapper((video, camera, traffic, back, job)):
   ''' wrapper for parallel processing. Argument is an element of frame_jobs 
@@ -366,21 +413,17 @@ def process_video (job):
   video = Video(video_dir=job['video_dir'])
   camera = video.build_camera()
 
-  # some default parameters
+  # some parameters
+  assertParamIsThere  (job, 'traffic_file')
   setParamUnlessThere (job, 'save_blender_files', False)
   setParamUnlessThere (job, 'out_video_dir', 
-      op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], 
-              video.info['video_name']))
-  setParamUnlessThere (job, 'out_db_file', 
-      op.join(job['out_video_dir'], 'traffic.db'))
+      op.join('augmentation/video', 'cam%s' % camera.info['cam_id'], video.info['video_name']))
   setParamUnlessThere (job, 'no_annotations', False)
   setParamUnlessThere (job, 'timeout', 1000000000)
   setParamUnlessThere (job, 'frame_range', '[::]')
-  create_in_db(job)   # creates job['in_db_file'] if necessary
+  in_db_file = create_in_db(job)   # creates in_db_file if necessary
 
   # get input for this job from json
-  in_db_path           = atcity(job['in_db_file'])
-  out_db_path          = atcity(job['out_db_file'])
   out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
   out_mask_video_file  = op.join(job['out_video_dir'], 'mask.avi')
   if job['no_annotations']: job['render_individual_cars'] = False
@@ -396,9 +439,11 @@ def process_video (job):
   monitor = MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
   # open in_db and create and open a new out_db
+  out_db_path = atcity(op.join(job['out_video_dir'], 'traffic.db'))
   if op.exists(out_db_path): os.remove(out_db_path)
-  conn_in  = sqlite3.connect (in_db_path)
-  conn_out = sqlite3.connect (out_db_path)
+  conn_in  = sqlite3.connect(atcity(in_db_file))
+  conn_out = sqlite3.connect(out_db_path)
+  # TODO: make createDb take cursor
   createDb(conn_out)
   c_in  = conn_in.cursor()
   c_out = conn_out.cursor()
@@ -432,16 +477,11 @@ def process_video (job):
 
   diapason = Diapason (len(image_entries), job['frame_range']).intersect(
              Diapason (len(image_entries), video.info['frame_range']) )
+
+  # traffic is pregenerated now
+  traffic_seq = json.load(open(atcity(job['traffic_file'])))
   
   pool = multiprocessing.Pool()
-
-  def _get_time (video, timestamp, frame_id):
-    if timestamp is None:
-      assert video.start_time is not None, 'no time in .db or in video_info file'
-      time = video.start_time + timedelta(minutes=int(float(frame_id) / 960 * 40))
-    else:
-      time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-    return time
 
   # will only write meaningful frames
   i_out = 0
@@ -459,7 +499,7 @@ def process_video (job):
 
     # collect frame jobs
     frame_jobs = []
-    for frame_id in frame_range:
+    for i, frame_id in enumerate(frame_range):
 
       (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
       assert (width0 == width and height0 == height), (width0, width, height0, height)
@@ -469,7 +509,9 @@ def process_video (job):
       _ = processor.maskread(in_maskfile)
       time = _get_time (video, timestamp, frame_id)
 
-      traffic = generate_current_frame (camera, video, cad, time, job['num_cars'])
+      traffic = traffic_seq.pop(0)
+      assert traffic['frame_id'] == frame_id, \
+          '%d vs %d' % (traffic['frame_id'], frame_id)
       traffic['save_blender_files'] = job['save_blender_files']
 
       # sum all up into one job
@@ -515,22 +557,23 @@ def process_video (job):
 
 
 def create_in_db (job):
-  '''Create in_db_file from video, unless it already exists.
-  May change as I switch from image_video to ghost_video
-  '''
+  ''' Create in_db_file from video, unless it already exists '''
   # figure out where is the actual video
-  assert 'video_dir' in job
+  assertParamIsThere  (job, 'video_dir')
+  assertParamIsThere  (job, 'out_video_dir')
   video_dir = job['video_dir']
   camera_name = op.basename(op.dirname(video_dir))
   video_name  = op.basename(video_dir)
   camdata_video_dir = op.join('camdata', camera_name, video_name)
   # figure out where will be the init db
-  db_prefix = op.join(op.dirname(job['out_db_file']), 'init')
+  db_prefix = op.join(job['out_video_dir'], 'init')
   # update the job
-  job['in_db_file'] = '%s-back.db' % db_prefix
+  in_db_file = '%s-back.db' % db_prefix
 
-  if not op.exists(atcity(job['in_db_file'])):
-    logging.info ('will create in_db_file from video: %s' % job['in_db_file'])
+  if not op.exists(atcity(in_db_file)):
+    logging.info ('will create in_db_file from video: %s' % in_db_file)
     make_dataset (camdata_video_dir, db_prefix, params={'videotypes': ['back']})
   else:
-    logging.warning ('in_db_file exists. Will not rewrite it: %s', job['in_db_file'])
+    logging.warning ('in_db_file exists. Will not rewrite it: %s' % in_db_file)
+
+  return in_db_file
