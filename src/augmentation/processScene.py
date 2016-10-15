@@ -25,10 +25,12 @@ from monitor.MonitorDatasetClient import MonitorDatasetClient
 from Cad import Cad
 from Camera import Camera
 from Video import Video
-from colorCorrection import color_correction
+from colorCorrection import color_correction, unsharp_mask
 
 
 WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
+RENDERED_FILENAME   = 'render.png'
+CARSONLY_FILENAME   = 'cars-only.png'
 BACKGROUND_FILENAME = 'background.png'
 COMBINED_FILENAME   = 'out.png'
 MASK_FILENAME       = 'mask.png'
@@ -191,6 +193,7 @@ def render_frame (video, camera, traffic):
   WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
   setParamUnlessThere (traffic, 'save_blender_files', False)
   setParamUnlessThere (traffic, 'render_individual_cars', True)
+  unsharp_mask_params = {'radius': 4.7, 'threshold': 23, 'amount': 1}
 
   # load camera dimensions (compare it to everything for extra safety)
   width0  = camera.info['camera_dims']['width']
@@ -209,8 +212,8 @@ def render_frame (video, camera, traffic):
     f.write(json.dumps(traffic, indent=4))
 
   # remove so that they do not exist if blender fails
-  if op.exists(op.join(WORK_DIR, 'render.png')):
-      os.remove(op.join(WORK_DIR, 'render.png'))
+  if op.exists(op.join(WORK_DIR, RENDERED_FILENAME)):
+      os.remove(op.join(WORK_DIR, RENDERED_FILENAME))
   if op.exists(op.join(WORK_DIR, 'depth-all.png')):
       os.remove(op.join(WORK_DIR, 'depth-all.png'))
   # render
@@ -222,10 +225,22 @@ def render_frame (video, camera, traffic):
   returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
   logging.info ('rendering: blender returned code %s' % str(returncode))
 
-  # check rendered
-  image = cv2.imread(op.join(WORK_DIR, 'render.png'))
+  # check and sharpen rendered
+  rendered_filepath = op.join(WORK_DIR, RENDERED_FILENAME)
+  image = cv2.imread(rendered_filepath, -1)
   assert image is not None
-  assert image.shape == (height0, width0, 3), image.shape
+  assert image.shape == (height0, width0, 4), image.shape
+  image = unsharp_mask (image, unsharp_mask_params)
+  cv2.imwrite (rendered_filepath, image)
+
+  # check and sharpen cars-only
+  carsonly_filepath = op.join(WORK_DIR, CARSONLY_FILENAME)
+  image = cv2.imread(carsonly_filepath, -1)
+  assert image is not None
+  assert image.shape == (height0, width0, 4), image.shape
+  image = unsharp_mask (image, unsharp_mask_params)
+  shutil.move (carsonly_filepath, op.join(WORK_DIR, 'unsharpened.png'))
+  cv2.imwrite (carsonly_filepath, image)
 
   # create mask
   mask = _get_masks (WORK_DIR, traffic)
@@ -243,8 +258,9 @@ def render_frame (video, camera, traffic):
   return image, mask
 
 
-def combine_frame (image, background, video, camera):
+def combine_frame (background, video, camera):
   ''' Overlay image onto background '''
+  jpg_qual = 40
 
   WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
 
@@ -261,7 +277,7 @@ def combine_frame (image, background, video, camera):
   if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
       os.remove(op.join(WORK_DIR, COMBINED_FILENAME))
 
-  # postprocess and overlay
+  # overlay
   assert video.combine_blend_file is not None
   combine_scene_path = atcity(video.combine_blend_file)
   command = ['%s/blender' % os.getenv('BLENDER_ROOT'), combine_scene_path,
@@ -269,9 +285,16 @@ def combine_frame (image, background, video, camera):
              '%s/src/augmentation/combineScene.py' % os.getenv('CITY_PATH')]
   returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
   logging.info ('combine: blender returned code %s' % str(returncode))
-  assert op.exists(op.join(WORK_DIR, COMBINED_FILENAME))
-  image = cv2.imread(op.join(WORK_DIR, COMBINED_FILENAME))
+  combined_filepath = op.join(WORK_DIR, COMBINED_FILENAME)
+  assert op.exists(combined_filepath), combined_filepath
+  image = cv2.imread(combined_filepath)
   assert image.shape == (height0, width0, 3), image.shape
+
+  # reencode to match jpeg quality
+  shutil.move (combined_filepath, op.join(WORK_DIR, 'uncompressed.png'))
+  _, ajpg = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, jpg_qual])
+  image = cv2.imdecode(ajpg, cv2.CV_LOAD_IMAGE_COLOR)
+  cv2.imwrite (combined_filepath, image)
 
   return image
 
@@ -279,7 +302,7 @@ def combine_frame (image, background, video, camera):
 class Diapason:
 
   def _parse_range_str_ (self, range_str, length):
-    '''Parses python range STRING into python range
+    '''Parses string into python range
     '''
     assert isinstance(range_str, basestring)
     # remove [ ] around the range
@@ -327,8 +350,8 @@ def mywrapper((video, camera, traffic, back, job)):
   WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
   if not op.exists(WORK_DIR): os.makedirs(WORK_DIR)
 
-  rendered, out_mask = render_frame(video, camera, traffic)
-  out_image = combine_frame (rendered, back, video, camera)
+  _, out_mask = render_frame(video, camera, traffic)
+  out_image = combine_frame (back, video, camera)
 
   return out_image, out_mask, WORK_DIR
 
@@ -459,9 +482,6 @@ def process_video (job):
       # get the same info again
       (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
       time = _get_time (video, timestamp, frame_id)
-
-      #cv2.imshow('out_image', out_image)
-      #cv2.waitKey(0.01)
 
       # write the frame to video (processor interface requires input filenames)
       assert out_image is not None and out_mask is not None

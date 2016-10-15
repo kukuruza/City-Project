@@ -1,4 +1,5 @@
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 from glob import glob
 from time import sleep, time
 import json
@@ -7,7 +8,36 @@ import numpy as np
 import cv2
 import argparse
 from skimage import color
+from learning.helperSetup import setParamUnlessThere
 
+
+
+def unsharp_mask (img, params={}):
+
+  setParamUnlessThere (params, 'radius', 4.7)
+  setParamUnlessThere (params, 'threshold', 23)
+  setParamUnlessThere (params, 'amount', 5)
+  radius    = params['radius']
+  threshold = params['threshold']
+  amount    = params['amount']
+
+  with_alpha = False
+  if img.shape[2] == 4:
+    alpha = img[:,:,3]
+    img = img[:,:,0:3]
+    with_alpha = True
+
+  blur_rad = int(radius) * 2 + 1
+  blurred = cv2.GaussianBlur (img, (blur_rad, blur_rad), radius)
+  lowContrastMask = np.abs(img - blurred) < threshold;
+  sharpened = img.astype(float) * (1+amount) + blurred.astype(float) * (-amount);
+  sharpened = np.clip(sharpened, 0, 255).astype(np.uint8)
+  sharpened[lowContrastMask] = img[lowContrastMask]
+
+  if with_alpha:
+    sharpened = np.dstack((sharpened, alpha))
+
+  return sharpened
 
 
 

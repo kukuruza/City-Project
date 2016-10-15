@@ -47,11 +47,11 @@ if __name__ == "__main__":
   time = video.start_time
   traffic = generate_current_frame (camera, video, cad, time, args.num_cars)
   traffic['save_blender_files'] = args.save_blender_files
-  rendered, out_mask = render_frame (video, camera, traffic)
+  _, _ = render_frame (video, camera, traffic)
   if not args.no_combine:
     if args.background_file is not None:
       background = cv2.imread(atcity(args.background_file))
     else:
       background = video.example_background
-    out_image = combine_frame (rendered, background, video, camera)
+    out_image = combine_frame (background, video, camera)
 

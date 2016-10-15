@@ -8,10 +8,6 @@ from augmentation.common import *
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 
-NORMAL_FILENAME   = 'normal.png'
-CARSONLY_FILENAME = 'cars-only.png'
-CAR_RENDER_TEMPL  = 'vehicle-'
-
 WORK_RENDER_DIR   = atcity('augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 
@@ -20,8 +16,7 @@ WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
 
 
 def make_snapshot (render_dir, car_names, params):
-    '''Set up the weather, and render vehicles into files:
-      NORMAL, CARSONLY, and CAR_RENDER_TEMPL
+    '''Set up the weather, and render vehicles into files
     Args:
       render_dir:  path to directory where to put all rendered images
       car_names:   names of car objects in the scene
