@@ -21,9 +21,13 @@ def show (c, params = {}):
     setParamUnlessThere (params, 'display_scale',     1.0)
     setParamUnlessThere (params, 'image_processor',   ReaderVideo())
     setParamUnlessThere (params, 'key_reader',        KeyReaderUser())
+    setParamUnlessThere (params, 'shuffle',           False)
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
+
+    if params['shuffle']:
+      np.random.shuffle(imagefiles)
 
     for (imagefile,) in imagefiles:
         c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
