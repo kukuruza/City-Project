@@ -20,7 +20,7 @@ def _open_video_capture (in_video_file):
   return handle
 
 
-def video2images (in_video_file, out_images_dir, ext='jpg'):
+def video2images (in_video_file, out_images_dir, every_nth=1, ext='jpg'):
   '''
   Args:
     video_file:      path relative to $CITY_DATA_PATH
@@ -39,14 +39,22 @@ def video2images (in_video_file, out_images_dir, ext='jpg'):
   video = _open_video_capture (in_video_file)
 
   i = 0
+  n_wrote = 0
   while video.isOpened():
     ret, frame = video.read()
     if not ret: break
 
-    path = _atcity(op.join(out_images_dir, '%06d.%s' % (i, ext)))
-    cv2.imwrite(path, frame)
+    if i % every_nth == 0:
+      path = _atcity(op.join(out_images_dir, '%06d.%s' % (i, ext)))
+      cv2.imwrite(path, frame)
+      print '%06d wrote' % i
+      n_wrote += 1
+    else:
+      print '%06d did not write' % i
 
     i += 1
 
-  logging.info ('successfully wrote %d images to %s' % (i, out_images_dir))
+  print 'wrote %d frames out of %d' % (n_wrote, i)
+
+  logging.info ('successfully wrote %d images to %s' % (n_wrote, out_images_dir))
   video.release()

@@ -586,23 +586,27 @@ def merge (c, c_add, params = {}):
 
 
 
-def splitToRandomSets (c, out_dir, db_out_names = {'train': 0.5, 'test': 0.5}):
-  ''' Split a db into several sets randomly.
+def split (c, db_out_names={'train': 0.5, 'test': 0.5}, randomly=True):
+  ''' Split a db into several sets (randomly or sequentially).
   This function violates the principle of receiving cursors, for simplicity.
   Args: out_dir      - relative to CITY_DATA_PATH
         db_out_names - names of output db-s and their percentage;
                        if percentage sums to >1, last db-s will be underfilled.
   '''
+  out_dir = os.path.dirname(in_db_file)
+
   c.execute('SELECT imagefile FROM images')
-  imagefiles = c.fetchall()
-  random.shuffle(imagefiles)
+  imagefiles = sorted(c.fetchall())
+  if randomly: random.shuffle(imagefiles)
 
   current = 0
   for db_out_name,setfraction in db_out_names.iteritems():
     num_images_in_set = int(ceil(len(imagefiles) * setfraction))
     next = min(current + num_images_in_set, len(imagefiles))
 
-    conn = sqlite3.connect (atcity(op.join(out_dir, '%s.db' % db_out_name)))
+    db_out_path = atcity(op.join(out_dir, '%s.db' % db_out_name))
+    if op.exists(db_out_path): os.remove(db_out_path)
+    conn = sqlite3.connect(db_out_path)
     createDb(conn)
     c_out = conn.cursor()
 
