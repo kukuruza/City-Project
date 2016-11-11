@@ -1,7 +1,7 @@
 To try db dataset reader:
 ```
 python src/segmentation/readData.py \
-  --db_file augmentation/video/cam572/Feb23-09h-Oct15/test20.db 
+  --db_file augmentation/video/cam572/Feb23-09h-Oct15/test20.db \
   --use_fraction 0.5
 ```
 

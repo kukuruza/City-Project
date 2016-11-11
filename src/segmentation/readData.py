@@ -11,7 +11,7 @@ import configs
 
 
 class DbReader:
-  def __init__(self, db_file, use_fraction=1.):
+  def __init__(self, db_file, use_fraction, dilate_mask):
 
     (conn, c) = dbInit(db_file)
     c.execute('SELECT * FROM images')
@@ -22,6 +22,7 @@ class DbReader:
     self.num_batches = int(len(self.image_entries) * use_fraction / configs.BATCH_SIZE)
     logging.info ('data provider has %d batches' % self.num_batches)
 
+    self.kernel = np.ones((dilate_mask,dilate_mask), np.uint8)
 
   def get_next_batch(self):
 
@@ -37,6 +38,7 @@ class DbReader:
       image_entry = self.image_entries[iframe]
       img  = self.image_reader.imread   (imageField(image_entry, 'imagefile'))
       mask = self.image_reader.maskread (imageField(image_entry, 'maskfile'))
+      mask = cv2.dilate(mask.astype(np.uint8)*255, self.kernel, 1)
       images[i,:,:,:] = cv2.resize(img,  configs.IMG_SIZE)
       masks [i,:,:,0] = cv2.resize(mask.astype(float), configs.IMG_SIZE)
 
@@ -54,11 +56,12 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument('--db_file', required=True)
   parser.add_argument('--use_fraction', type=float, default=1.)
+  parser.add_argument('--dilate_mask', type=int, default=1)
   args = parser.parse_args()
 
   setupLogging ('log/segmentation/readData.log', logging.DEBUG, 'w')
 
-  data_reader = DbReader(args.db_file, use_fraction=args.use_fraction)
+  data_reader = DbReader(args.db_file, args.use_fraction, args.dilate_mask)
   images, masks = data_reader.get_next_batch()
   images = images * 255 + configs.COLOR_MEAN_BGR
 
