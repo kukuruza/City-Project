@@ -1,5 +1,5 @@
 import sys, os, os.path as op
-sys.path.insert(0, '/Users/evg/src/tensorflow-fcn')
+sys.path.insert(0, op.join(os.getenv('HOME'), 'src/tensorflow-fcn'))
 import tensorflow as tf
 import argparse
 
