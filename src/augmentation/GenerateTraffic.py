@@ -100,6 +100,9 @@ if __name__ == "__main__":
 
     setupLogging('log/augmentation/GenerateTraffic.log', args.logging_level, 'w')
 
+    if not op.exists(atcity(op.dirname(args.traffic_file))):
+      os.makedirs(atcity(op.dirname(args.traffic_file)))
+              
     job = json.load(open(atcity(args.job_file) ))
     add_args_to_job(job, args)
     
