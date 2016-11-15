@@ -130,7 +130,6 @@ def make_snapshot (render_dir, car_names, params):
     
 
 
-
 setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
 
 frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))

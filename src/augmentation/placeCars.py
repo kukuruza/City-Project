@@ -51,7 +51,7 @@ def put_random_vehicles (azimuth_map, pxl_in_meter, cad, num, intercar_dist_mult
     for P in Ps[ind]:
         x = P[1]
         y = P[0]
-        azimuth = azimuth_map[P[0]][P[1]] * 2
+        azimuth = azimuth_map[y][x] * 2
         logging.debug ('put_random_vehicles x: %f, y: %f, azimuth: %f' % (x, y, azimuth))
 
         # car does not need to be in the lane center
@@ -109,16 +109,18 @@ def axes_png2blender (points, origin, pxls_in_meter):
 
 
 
-sun_pose_file  = 'augmentation/resources/SunPosition-Jan13-09h.txt'
+class Sun:
+  def __init__(self):
+    sun_pose_file  = 'augmentation/resources/SunPosition-Jan13-09h.txt'
 
-# get sun angles. This is a hack for this particular video
-with open(atcity(sun_pose_file)) as f:
-    sun_pos_lines = f.readlines()
-sun_pos_lines = sun_pos_lines[9:]
-sun_poses = []
-for line in sun_pos_lines:
-    words = line.split()
-    sun_poses.append({'altitude': float(words[2]), 'azimuth': float(words[3])})
+    # get sun angles. This is a hack for this particular video
+    with open(atcity(sun_pose_file)) as f:
+        sun_pos_lines = f.readlines()
+    sun_pos_lines = sun_pos_lines[9:]
+    self.sun_poses = []
+    for line in sun_pos_lines:
+        words = line.split()
+        self.sun_poses.append({'altitude': float(words[2]), 'azimuth': float(words[3])})
 
 
 
@@ -148,7 +150,8 @@ def generate_current_frame (camera, video, cad, time, num_cars):
     axes_png2blender (vehicles, camera.info['origin_image'], camera.info['pxls_in_meter'])
 
     # figure out sun position based on the timestamp
-    sun_pose = sun_poses [int(time.hour*60) + time.minute]
+    sun = Sun()
+    sun_pose = sun.sun_poses [int(time.hour*60) + time.minute]
     logging.info ('received timestamp: %s' % time)
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
