@@ -60,31 +60,6 @@ class DbReader:
 
 
 
-class SameImageReader:
-  def __init__(self, image_path):
-    assert op.exists(image_path)
-    self.image = cv2.imread(image_path)
-
-    self.num_batches = 1
-
-
-  def get_next_batch(self):
-
-      im_shape = (configs.BATCH_SIZE, configs.IMG_SIZE[1], configs.IMG_SIZE[0], 3)
-      ma_shape = (configs.BATCH_SIZE, configs.IMG_SIZE[1], configs.IMG_SIZE[0], 2)
-      images = np.zeros (im_shape, dtype=float)
-      masks  = np.zeros (ma_shape, dtype=float)
-
-      for i in range(configs.BATCH_SIZE):
-        images[i,:,:,:] = cv2.resize(self.image, configs.IMG_SIZE)
-
-      images = (images - configs.COLOR_MEAN_BGR) / 255.0
-
-      masks = np.stack((1 - masks, masks), axis=-1)
-      
-      yield (images, masks)
-
-
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()

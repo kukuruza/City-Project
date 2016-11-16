@@ -16,7 +16,7 @@ import cv2
 import tensorflow as tf
 
 import configs
-from readData import DbReader, SameImageReader
+from readData import DbReader
 
 import fcn32_vgg
 import loss
@@ -40,17 +40,11 @@ class VideoWriter:
       fourcc, fps, frame_size, False)
 
 
-  def write_next_batch (self, masks):
-    # # the last dimension is not used in mask
-    # assert masks.shape[2] == 1
-    # masks = masks[:,:,:,0]
-
-    # write each mask in a batch to video
-    for mask in masks:
-      mask = (mask > 0).astype(np.uint8) * 255
+  def write_next_batch (self, images):
+    for image in images:
       if self.video is None: 
-        self._open_video(mask)
-      self.video.write(mask)
+        self._open_video(image)
+      self.video.write(image)
 
 
 
@@ -80,15 +74,8 @@ def test (test_data, init_npy_path, checkpoint_path,
     logging.info('model restored from %s' % checkpoint_path)
 
     for b, (xs, ys) in enumerate(test_data.get_next_batch()):
-      #cv2.imshow('test', xs[0])
-      #cv2.waitKey(10)
-      down, up = sess.run([vgg_fcn.pred, vgg_fcn.pred_up], feed_dict={ph_x: xs})
-      print down.shape, up.shape, up.dtype
-      print np.count_nonzero(up)
-      #cv2.imshow('test', up[0])
-      #cv2.waitKey(10)
-
-      video_writer.write_next_batch (up)
+      heatmap = sess.run(vgg_fcn.heatmap, feed_dict={ph_x: xs})
+      video_writer.write_next_batch ((heatmap[:,:,:,1]*255).astype(np.uint8))
 
 
 
@@ -107,10 +94,8 @@ if __name__ == '__main__':
 
   setupLogging('log/segmentation/test.log', 20, 'a')
 
-  #test_data = DbReader(args.test_db_file, args.test_fraction, 
-  #                     args.dilate_mask, is_sequential=True)
-  test_data = SameImageReader(
-    '/Users/evg/projects/City-Project/data/augmentation/scenes/cam572/Nov28-10h/combine.png')
+  test_data = DbReader(args.test_db_file, args.test_fraction, 
+                       args.dilate_mask, is_sequential=True)
 
   test (test_data, args.init_npy_path, args.checkpoint_path,
         args.out_video_path, pos_weight=args.pos_weight)
