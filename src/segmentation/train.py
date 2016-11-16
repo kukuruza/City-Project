@@ -37,7 +37,7 @@ def train(train_data, test_data, init_npy_path,
   with tf.name_scope("content_vgg"):
     vgg_fcn.build(ph_x, train=True, num_classes=2, 
                   random_init_fc8=True, debug=True)
-  logging.info('Finished building Network.')
+  logging.info('finished building Network.')
 
   # average ground truth
   avgpred = tf.reduce_mean(tf.to_float(vgg_fcn.pred))
@@ -56,8 +56,8 @@ def train(train_data, test_data, init_npy_path,
     if checkpoint_path is not None:
       if not op.exists(checkpoint_path):
         raise Exception('checkpoint_path does not exist: %s' % checkpoint_path)
-      logging.info('model restored from %s' % checkpoint_path)
       saver.restore(sess, checkpoint_path)
+      logging.info('model restored from %s' % checkpoint_path)
 
     for epoch in range(num_epochs):
       logging.info ('epoch: %s' % str(epoch+1))
@@ -65,8 +65,7 @@ def train(train_data, test_data, init_npy_path,
       # train
       lss_val     = np.zeros(train_data.num_batches)
       avgpred_val = np.zeros(train_data.num_batches)
-      for b in range(train_data.num_batches):
-        xs, ys = train_data.get_next_batch()
+      for b, (xs, ys) in enumerate(train_data.get_next_batch()):
         lss_val[b], avgpred_val[b], _ = \
             sess.run([lss, avgpred, train_step], feed_dict={ph_x: xs, ph_y: ys})
       logging.info ('train loss: %0.4f, avgpred: %0.4f' % 
@@ -75,8 +74,7 @@ def train(train_data, test_data, init_npy_path,
       # test
       lss_val     = np.zeros(test_data.num_batches)
       avgpred_val = np.zeros(test_data.num_batches)
-      for b in range(test_data.num_batches):
-        xs, ys = test_data.get_next_batch()
+      for b, (xs, ys) in enumerate(test_data.get_next_batch()):
         lss_val[b], avgpred_val[b] = \
             sess.run([lss, avgpred], feed_dict={ph_x: xs, ph_y: ys})
       logging.info ('test loss: %0.4f, avgpred: %0.4f' % 
