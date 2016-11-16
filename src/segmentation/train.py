@@ -35,8 +35,7 @@ def train(train_data, test_data, init_npy_path,
 
   vgg_fcn = fcn32_vgg.FCN32VGG(init_npy_path)
   with tf.name_scope("content_vgg"):
-    vgg_fcn.build(ph_x, train=True, num_classes=2, 
-                  random_init_fc8=True, debug=True)
+    vgg_fcn.build(ph_x, num_classes=2, random_init_fc8=True, debug=True)
   logging.info('finished building Network.')
 
   # average ground truth
@@ -67,7 +66,8 @@ def train(train_data, test_data, init_npy_path,
       avgpred_val = np.zeros(train_data.num_batches)
       for b, (xs, ys) in enumerate(train_data.get_next_batch()):
         lss_val[b], avgpred_val[b], _ = \
-            sess.run([lss, avgpred, train_step], feed_dict={ph_x: xs, ph_y: ys})
+            sess.run([lss, avgpred, train_step],
+                     feed_dict={ph_x: xs, ph_y: ys, vgg_fcn.is_train_phase: True})
       logging.info ('train loss: %0.4f, avgpred: %0.4f' % 
                     (lss_val.mean(), avgpred_val.mean()))
 
@@ -76,7 +76,8 @@ def train(train_data, test_data, init_npy_path,
       avgpred_val = np.zeros(test_data.num_batches)
       for b, (xs, ys) in enumerate(test_data.get_next_batch()):
         lss_val[b], avgpred_val[b] = \
-            sess.run([lss, avgpred], feed_dict={ph_x: xs, ph_y: ys})
+            sess.run([lss, avgpred],
+                     feed_dict={ph_x: xs, ph_y: ys, vgg_fcn.is_train_phase: False})
       logging.info ('test loss: %0.4f, avgpred: %0.4f' % 
                     (lss_val.mean(), avgpred_val.mean()))
 
@@ -112,6 +113,7 @@ if __name__ == '__main__':
   args = parser.parse_args()
 
   setupLogging('log/segmentation/train.log', 20, 'a')
+  logging.info ('will save every %d iterations' % args.save_every_nth)
 
   train_data = DbReader(args.train_db_file, args.train_fraction, args.dilate_mask)
   test_data  = DbReader(args.test_db_file,  args.test_fraction,  args.dilate_mask)
