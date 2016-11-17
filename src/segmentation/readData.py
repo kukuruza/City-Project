@@ -8,6 +8,7 @@ import argparse
 import cv2
 import numpy as np
 import configs
+import time
 
 
 class DbReader:
@@ -29,10 +30,13 @@ class DbReader:
 
   def get_next_batch(self):
 
+    accum_time = 0
+
     if not self.is_sequential:
       np.random.shuffle(self.image_entries)
 
     for b in range(self.num_batches):
+      start = time.time()
 
       im_shape = (configs.BATCH_SIZE, configs.IMG_SIZE[1], configs.IMG_SIZE[0], 3)
       ma_shape = (configs.BATCH_SIZE, configs.IMG_SIZE[1], configs.IMG_SIZE[0], 2)
@@ -56,8 +60,11 @@ class DbReader:
 
       masks = np.stack((1 - masks, masks), axis=-1)
       
+      end = time.time()
+      accum_time += (end - start)
       yield (images, masks)
 
+    logging.debug ('DbReader: reading data for the epoch took %s' % str(accum_time))
 
 
 if __name__ == "__main__":

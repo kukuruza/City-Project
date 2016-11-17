@@ -6,5 +6,5 @@ COLOR_MEAN_BGR = np.array([113.9, 123.0, 125.3])
 # images are resized to (width, height)
 IMG_SIZE = (240, 160)
 
-BATCH_SIZE = 2
+BATCH_SIZE = 20
 

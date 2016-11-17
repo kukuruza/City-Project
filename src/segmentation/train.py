@@ -3,6 +3,7 @@ sys.path.insert(0, op.join(os.getenv('HOME'), 'src/tensorflow-fcn'))
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import argparse
 import logging
+import time
 
 import skimage
 import skimage.io
@@ -59,17 +60,19 @@ def train(train_data, test_data, init_npy_path,
       logging.info('model restored from %s' % checkpoint_path)
 
     for epoch in range(num_epochs):
-      logging.info ('epoch: %s' % str(epoch+1))
 
       # train
       lss_val     = np.zeros(train_data.num_batches)
       avgpred_val = np.zeros(train_data.num_batches)
+      start_train = time.time()
       for b, (xs, ys) in enumerate(train_data.get_next_batch()):
         lss_val[b], avgpred_val[b], _ = \
             sess.run([lss, avgpred, train_step],
                      feed_dict={ph_x: xs, ph_y: ys, vgg_fcn.is_train_phase: True})
-      logging.info ('train loss: %0.4f, avgpred: %0.4f' % 
-                    (lss_val.mean(), avgpred_val.mean()))
+      end_train = time.time()
+      logging.debug ('training the epoch took %s' % str(end_train - start_train))
+      logging.info ('epoch %s, train loss: %0.4f, avgpred: %0.4f' % 
+                    (str(epoch+1), lss_val.mean(), avgpred_val.mean()))
 
       # test
       lss_val     = np.zeros(test_data.num_batches)
@@ -78,8 +81,8 @@ def train(train_data, test_data, init_npy_path,
         lss_val[b], avgpred_val[b] = \
             sess.run([lss, avgpred],
                      feed_dict={ph_x: xs, ph_y: ys, vgg_fcn.is_train_phase: False})
-      logging.info ('test loss: %0.4f, avgpred: %0.4f' % 
-                    (lss_val.mean(), avgpred_val.mean()))
+      logging.info ('epoch %s, test loss: %0.4f, avgpred: %0.4f' % 
+                    (str(epoch+1), lss_val.mean(), avgpred_val.mean()))
 
       # save
       if (epoch+1) % save_every_nth == 0 and output_dir is not None:
