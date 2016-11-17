@@ -26,32 +26,47 @@ from learning.helperSetup import setupLogging
 
 
 
-class VideoWriter:
+class VideoPairWriter:
+  ''' Writes a video. 
+  Each frame is a pair -- scr frame and generated foreground heatmap
+  '''
   def __init__(self, out_video_path):
     self.out_video_path = out_video_path
     self.video = None
 
-
   def _open_video (self, frame):
     fourcc = 1196444237
     fps = 2
-    frame_size = (frame.shape[1], frame.shape[0])
+    frame_size = (frame.shape[1]*2, frame.shape[0])
     self.video = cv2.VideoWriter (self.out_video_path, 
-      fourcc, fps, frame_size, False)
+      fourcc, fps, frame_size, True)
 
-
-  def write_next_batch (self, images):
-    for image in images:
+  def write_next_batch (self, images, masks):
+    # image from [0 1] to [0 255]
+    images = (images * 255.0 + configs.COLOR_MEAN_BGR).astype(np.uint8)
+    
+    for i in range(images.shape[0]):
+      image = images[i]
+      mask = masks[i]
+      # init a video if not yet
       if self.video is None: 
         self._open_video(image)
-      self.video.write(image)
+      # bring masks to the same shape as video
+      mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
+      print mask.shape
+      # concatenate image and mask
+      colormask = np.repeat(mask[:,:,np.newaxis], repeats=3, axis=2)
+      print 'colormask shape', colormask.shape
+      impair = np.hstack((image, colormask))
+      # write to video
+      self.video.write(impair)
 
 
 
 def test (test_data, init_npy_path, checkpoint_path,
           out_video_path, pos_weight):
 
-  video_writer = VideoWriter(out_video_path)
+  video_writer = VideoPairWriter(out_video_path)
 
   input_shape = [configs.BATCH_SIZE, configs.IMG_SIZE[1], configs.IMG_SIZE[0]]
   ph_x = tf.placeholder(tf.float32, input_shape + [3])
@@ -73,9 +88,9 @@ def test (test_data, init_npy_path, checkpoint_path,
     saver.restore(sess, checkpoint_path)
     logging.info('model restored from %s' % checkpoint_path)
 
-    for b, (xs, ys) in enumerate(test_data.get_next_batch()):
+    for b, (xs, _) in enumerate(test_data.get_next_batch()):
       heatmap = sess.run(vgg_fcn.heatmap, feed_dict={ph_x: xs})
-      video_writer.write_next_batch ((heatmap[:,:,:,1]*255).astype(np.uint8))
+      video_writer.write_next_batch (xs, (heatmap[:,:,:,1]*255).astype(np.uint8))
 
 
 
