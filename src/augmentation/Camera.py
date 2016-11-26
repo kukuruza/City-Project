@@ -1,7 +1,7 @@
 import sys, os, os.path as op
 #from glob import glob
 import logging
-import json
+import json, simplejson
 #import cv2
 #import argparse
 from learning.helperSetup import setupLogging, atcity
@@ -17,7 +17,7 @@ class Camera:
             camera_path = atcity(op.join(camera_dir, '%s.json' % self.camera_name))
             assert op.exists(camera_path), camera_path
             logging.info ('Camera: loading info from: %s' % camera_path)
-            self.info = json.load(open(camera_path))
+            self.info = simplejson.load(open(camera_path))
             self.info['camera_dir'] = camera_dir
         elif info:
             assert 'camera_dir' in info
@@ -53,6 +53,13 @@ class Camera:
         del self.info['google_maps']
 
         logging.debug (json.dumps(self.info, indent = 4))
+
+
+    def __getitem__(self, key):
+        return self.info[key]
+
+    def __contains__(self, key):
+        return True if key in self.info else False
         
 
 

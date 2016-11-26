@@ -24,6 +24,7 @@ in_lane_template = [CITY_DATA_PATH in_lane_template];
 
 % output
 out_angles_path = fullfile (fileparts(in_lane_template), 'azimuth.png');
+out_lanes_path  = fullfile (fileparts(in_lane_template), 'lanes.json');
 
 % verbose == 0:  basic printout
 %         == 1:  show plot for each segment in each file
@@ -37,6 +38,9 @@ show = true;
 
 
 %% compute
+
+% init empty array of lanes
+lanes0 = repmat(struct('length',0,'N',0,'x',[],'y',[],'azimuth',[]), 0);
 
 % for each file that matches the pattern
 clear azimuths0 mask0
@@ -58,10 +62,11 @@ for i = 1 : length(lane_names)
     if ~exist('mask0','var'),     mask0 = false(size(im)); end
     
     % workhorse
-    [azimuths, mask] = lanes2azimuth(im, 'verbose', verbose, ...
-                                         'MinPoints4Fitting', 40.0);
+    [azimuths, mask, lanes] = lanes2azimuth(im, 'verbose', verbose, ...
+                                            'MinPoints4Fitting', 20.0);
     azimuths0 = azimuths0 + double(~mask0) .* azimuths;
     mask0 = mask0 | mask;
+    lanes0 = [lanes0 lanes];
 end
 
 assert (all(all(azimuths0 >= 0 & azimuths0 <= 360)));
@@ -75,5 +80,7 @@ if write
     assert (all(all(azimuths0 >= 0 & azimuths0 <= 255)));
     out = uint8 (azimuths0(:,:,[1,1,1]));
     imwrite (out, out_angles_path, 'Alpha', double(mask0));
+    savejson('', lanes0, struct('FileName',out_lanes_path));
 end
 
+end

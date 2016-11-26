@@ -1,4 +1,4 @@
-function [azimuths0, mask0] = lanes2azimuth (im0, varargin)
+function [azimuths0, mask0, lanes0] = lanes2azimuth (im0, varargin)
 % compute azimuth map, based on tangents to lines.
 % Args:
 %   im0:        map of lanes
@@ -8,6 +8,7 @@ function [azimuths0, mask0] = lanes2azimuth (im0, varargin)
 %   azimuths0:  map of azimuths, in degrees
 %               0 azimuth is North (to min Y), 90 deg. is East (to max X)
 %   mask0:      binary mask, which equals True where aziuths are defined
+%   lanes0:     structs with fields x,y,azimuth (arrays) and N,length (scalars)
 %
 
 % parsing input
@@ -41,6 +42,7 @@ end
 % array of output angles
 azimuths0 = zeros(size(im0));
 mask0     = false(size(im0));
+lanes0    = repmat(struct('length',0,'N',0,'x',[],'y',[],'azimuth',[]), 0);
 
 % If there are several lanes in the image, process each one separately,
 %   because if lanes are too close, angle filter2 must have just one. 
@@ -49,13 +51,14 @@ for i_segm = 1 : max(segments_map(:))
     fprintf ('i_segm: %d.\n', i_segm);
     
     % get only one connected component (one lane)
-    im = im0 .* double(segments_map == i_segm);
+    im_segm = im0 .* double(segments_map == i_segm);
     
     % this is just noise
-    if nnz(im) < 10, continue; end
+    if nnz(im_segm) < 20, fprintf('this segment is noise.\n'); continue; end
+    fprintf ('non zero pixels in the segment: %d\n', nnz(im_segm));
     
     % manage borders by adding transparent pixels
-    im = padarray (im, [RadD, RadD], 0);
+    im = padarray (im_segm, [RadD, RadD], 0);
 
     % array of angles
     azimuths  = zeros(size(im));
@@ -108,7 +111,7 @@ for i_segm = 1 : max(segments_map(:))
             azimuths(y, x) = mod(angle, 360);
             mask(y, x) = true;
             counter = counter + 1;
-
+            
         end
     end
     if verbose > 1, fprintf('\n'); end
@@ -119,6 +122,16 @@ for i_segm = 1 : max(segments_map(:))
     
     if verbose > 0, imagesc(azimuths, [0, 360]); waitforbuttonpress; end
 
+    % --- create the model from this lane ---
+    [Y,X,T] = find(im_segm);
+    [~,I] = sort(T);
+    X = X(I);
+    Y = Y(I);
+    azimuths_lin = azimuths(sub2ind(size(azimuths),Y,X));
+    stats = regionprops('struct',mask,'MajorAxisLength');
+    lanes0(end+1) = struct ('x',X','y',Y','azimuth',azimuths_lin', ...
+                            'N',length(I),'length',stats.MajorAxisLength);
+    
     % only overwrite empty pixels
     azimuths0 = azimuths0 + double(~mask0) .* azimuths;
     mask0 = mask0 | mask;
