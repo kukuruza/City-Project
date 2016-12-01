@@ -130,9 +130,11 @@ def make_snapshot (render_dir, car_names, params):
     
 
 
-setupLogging('log/augmentation/processScene.log', logging.INFO, 'a')
+setupLogging('log/augmentation/renderScene.log', logging.INFO, 'a')
 
-frame_info = json.load(open( op.join(WORK_DIR, TRAFFIC_FILENAME) ))
+traffic_path = op.join(WORK_DIR, TRAFFIC_FILENAME)
+logging.info ('traffic_path: %s' % traffic_path)
+frame_info = json.load(open(traffic_path))
 setParamUnlessThere (frame_info, 'render_cars_as_cubes', False)
 
 # place all cars

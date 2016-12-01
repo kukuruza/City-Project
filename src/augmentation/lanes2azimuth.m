@@ -26,6 +26,10 @@ RadA              = round( parser.Results.RadAnglePerc * avg_sz );
 RadD              = round( parser.Results.RadDirectionPerc * avg_sz );
 assert (RadA <= RadD);  % RadAngle should be smaller than RadDirection
 
+% remove the first few values (interpolation artifacts probably
+% TODO: better figure out if they are in the middle of other values
+im0 (im0 < 5) = 0;
+
 % prepare filters for figuring out direction. 
 % filter 'up to down' looks like this:
 %   0 0
@@ -63,9 +67,7 @@ for i_segm = 1 : max(segments_map(:))
     % array of angles
     azimuths  = zeros(size(im));
     mask      = false(size(im));
-    responses = zeros(size(im));
 
-    counter = 1;
     for y = RadD+1 : size(im,1)-RadD
 
         if verbose > 1, fprintf('.'); end
@@ -76,41 +78,28 @@ for i_segm = 1 : max(segments_map(:))
             % skip all black pixels first
             if im(y,x) == 0, continue; end
             
-            % --- find the angle ---
+            % crop the neighborhood
             neighborhood = im(y-RadA : y+RadA, x-RadA : x+RadA);
-            [ys, xs] = find (neighborhood > 0);
+            [ys, xs] = find(neighborhood > 0);
+            assert (all(sqrt((ys-RadA-1).^2+(xs-RadA-1).^2) <= RadA*2));
             if length(xs) < MinPoints4Fitting, continue; end
-            % curve of degree one
-            curve = polyfit(xs, ys, 1);
-            % finding the tangent at that point
-            tangent = curve(1);
-            angle = -atand(tangent);
 
-            % --- pick one of the two directions ---
-            neighborhood = im(y-RadD : y+RadD, x-RadD : x+RadD);
-            % pick the filter with the closest angle from the list
-            [~, ind] = min(abs(angle - [-90, -45, 0, 45, 90]));
-            filter = filters(:,:,ind);
-            % first half of the filter is all ones, the second half is zeros
-            response1 = conv2 (neighborhood, filter, 'valid');
-            norm1     = conv2 (double(neighborhood > 0), filter, 'valid');
-            % second half of the filter is all minus ones, the first -- zeros
-            filter = filter - 1;
-            response2 = conv2 (neighborhood, filter, 'valid');
-            norm2     = conv2 (double(neighborhood > 0), filter, 'valid');
-            % difference between normalized outputs from two halves
-            response = response2 / norm2 - response1 / norm1;
-            if response < 0, angle = angle + 180; end
-            responses(y,x) = response;
-
-            % now it's counter-clockwise, zero is oriented along X
-            % fix to clockwise, zero is origented along Y
-            angle = 90 - angle;
+            vs = neighborhood(sub2ind(size(neighborhood),ys,xs));
+            v = im(y,x);
+            
+            % gradient of pixel value
+            grady = mean((ys - RadA - 1) .* (vs - v));
+            gradx = mean((xs - RadA - 1) .* (vs - v));
+            % clockwise, zero is oriented along X, Y is pointing down
+            angle = atan2d(grady, gradx);
+            
+            % in Blender I use: clockwise, zero along Y, Y pointing up
+            % change to clockwise, zero is oriented along Y
+            angle = angle + 90;
 
             % we want the range [0, 360)
             azimuths(y, x) = mod(angle, 360);
             mask(y, x) = true;
-            counter = counter + 1;
             
         end
     end
@@ -123,14 +112,25 @@ for i_segm = 1 : max(segments_map(:))
     if verbose > 0, imagesc(azimuths, [0, 360]); waitforbuttonpress; end
 
     % --- create the model from this lane ---
-    [Y,X,T] = find(im_segm);
-    [~,I] = sort(T);
+    
+    % sort by value of the original lane image
+    [Y,X] = find(im_segm);
+    V = im_segm(sub2ind(size(im_segm),Y,X));
+    [~,I] = sort(V);
+
+    % crop front and back (usually noise)
+    assert (length(I) > 20);
+    I = I(11 : end-10);
+    
     X = X(I);
     Y = Y(I);
+       
+    % get correspondng azimuths by linear index of sorted Y,X
     azimuths_lin = azimuths(sub2ind(size(azimuths),Y,X));
+    % find total length (very aproximate for now)
     stats = regionprops('struct',mask,'MajorAxisLength');
     lanes0(end+1) = struct ('x',X','y',Y','azimuth',azimuths_lin', ...
-                            'N',length(I),'length',stats.MajorAxisLength);
+                            'N',length(X),'length',stats.MajorAxisLength);
     
     % only overwrite empty pixels
     azimuths0 = azimuths0 + double(~mask0) .* azimuths;

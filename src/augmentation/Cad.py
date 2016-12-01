@@ -71,6 +71,8 @@ class Cad:
         for collection_name in collection_names:
             collection_path = atcity( op.join('augmentation/CAD', collection_name, README_NAME) )
             collection = json.load(open(collection_path))
+            for v in collection['vehicles']: 
+              v['collection_id'] = collection['collection_id']
             self._collections.append(collection)
 
 

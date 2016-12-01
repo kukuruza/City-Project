@@ -12,7 +12,11 @@ python src/augmentation/ProcessFrame.py --video_dir augmentation/scenes/cam572/N
 ```
 
 ```
-python src/augmentation/ProcessVideo.py --timeout 10 --job_file augmentation/jobs/572-Feb23-09h.json
+python src/augmentation/GenerateTraffic.py  --job_file augmentation/jobs/572-Feb23-09h-test.json --traffic_file augmentation/video/test/traffic.json
+```
+
+```
+python src/augmentation/ProcessVideo.py --timeout 10 --job_file augmentation/jobs/572-Feb23-09h-test.json --traffic_file augmentation/video/test/traffic.json
 ```
 
 

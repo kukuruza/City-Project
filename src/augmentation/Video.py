@@ -130,6 +130,13 @@ class Video:
             logging.info ('- take default pose_id = 0')
 
 
+    def __getitem__(self, key):
+        return self.info[key]
+
+    def __contains__(self, key):
+        return True if key in self.info else False
+
+
     def build_camera (self):
         return Camera (camera_dir=self.camera_dir, pose_id=self.pose_id)
 
