@@ -386,6 +386,7 @@ def process_video (job):
   setParamUnlessThere (job, 'no_annotations', False)
   setParamUnlessThere (job, 'timeout', 1000000000)
   setParamUnlessThere (job, 'frame_range', '[::]')
+  setParamUnlessThere (job, 'save_blender_files', False)
 
   # get input for this job from json
   out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
@@ -471,13 +472,13 @@ def process_video (job):
 
       (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
       assert (width0 == width and height0 == height), (width0, width, height0, height)
-      logging.info ('process frame number %d' % frame_id)
+      logging.info ('collect job for frame number %d' % frame_id)
 
       back = processor.imread(in_backfile)
       _ = processor.maskread(in_maskfile)
       time = get_time (video, timestamp, frame_id)
 
-      if len(traffic_video['frames']) == 0: break # traffic file is too small
+      #if len(traffic_video['frames']) == 0: break # traffic file is too small
       traffic = traffic_video['frames'].pop(0)
       assert traffic['frame_id'] == frame_id, \
           '%d vs %d' % (traffic['frame_id'], frame_id)
@@ -489,7 +490,7 @@ def process_video (job):
     #for i, (out_image, out_mask, work_dir) in enumerate(sequentialwrapper(frame_jobs)):
     for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(mywrapper, frame_jobs)):
       frame_id = frame_range[i]
-      print 'my frame_id: %d' % frame_id
+      logging.info ('processed frame number %d' % frame_id)
 
       # get the same info again
       (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]

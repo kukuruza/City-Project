@@ -54,9 +54,11 @@ def generate_video_traffic (job):
 
   in_db_file = create_in_db(job)   # creates in_db_file if necessary
   assert op.exists(atcity(in_db_file)), 'in db %s does not exist' % atcity(in_db_file)
-  c_in = sqlite3.connect(atcity(in_db_file)).cursor()
+  conn_in = sqlite3.connect(atcity(in_db_file))
+  c_in = conn_in.cursor()
   c_in.execute('SELECT time FROM images')
   timestamps = c_in.fetchall()
+  conn_in.close()
 
   cad = Cad()
   cad.load(job['collection_names'])
