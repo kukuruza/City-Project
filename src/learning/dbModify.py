@@ -666,10 +666,12 @@ def maskScores (c, params = {}):
 
 
 # need a unit test
-def polygonsToMasks (c, params = {}):
+def polygonsToMasks (c, c_labelled=None, c_all=None, params = {}):
     '''
     Create masks and maskfile db entries from polygons table.
     Currently only supports ProcessorVideo (writes masks to video)
+    Args:
+      c -- output cursor. 
     '''
     logging.info ('==== polygonsToMasks ====')
     setParamUnlessThere (params, 'relpath',    os.getenv('CITY_DATA_PATH'))
@@ -677,8 +679,8 @@ def polygonsToMasks (c, params = {}):
 
     # Assume mask field is null. Deduce the out mask name from imagefile.
     #   Also send the image video to processor, so that it deduces video params.
-    c.execute('SELECT imagefile,width,height FROM images')
-    image_entries = c.fetchall()
+    c_all.execute('SELECT imagefile,width,height FROM images')
+    image_entries = c_all.fetchall()
     in_image_video_file = '%s.avi' % op.dirname(image_entries[0][0])
     out_mask_video_file = '%s/%s' % (op.dirname(in_image_video_file), params['mask_name'])
     logging.info ('polygonsToMasks: in_image_video_file: %s' % in_image_video_file)
@@ -687,19 +689,32 @@ def polygonsToMasks (c, params = {}):
          ({'out_dataset': {in_image_video_file: out_mask_video_file} })
 
     # copy images and possibly masks
-    for (imagefile,width,height) in image_entries:
-        processor.maskread (imagefile)  # processor needs to read first
+    for i,(imagefile,width,height) in enumerate(image_entries):
+      processor.maskread (imagefile)  # processor needs to read first
+      
+      c_labelled.execute('SELECT COUNT(*) FROM images WHERE imagefile=?', (imagefile,))
+      is_unlabelled = (c_labelled.fetchone()[0] == 0)
 
+      if is_unlabelled:
+        logging.info ('imagefile NOT labelled: %s: ' % imagefile)
+        mask = np.zeros((height, width), dtype=bool)
+        maskfile = processor.maskwrite (mask, imagefile)
+        c.execute('UPDATE images SET maskfile=NULL WHERE imagefile=?', (imagefile,))
+
+      else:
+        logging.info ('imagefile labelled:     %s: ' % imagefile)
         mask = np.zeros((height, width), dtype=np.uint8)
-        c.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
-        for (carid,) in c.fetchall():
-            c.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
-            polygon_entries = c.fetchall()
-            pts = [[pt[0], pt[1]] for pt in polygon_entries]
-            cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+        c_labelled.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        for car_entry in c_labelled.fetchall():
+          carid = carField(car_entry, 'id')
+          c_labelled.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+          polygon_entries = c_labelled.fetchall()
+          pts = [[pt[0], pt[1]] for pt in polygon_entries]
+          cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+          # maybe copy car entry
+          if c != c_labelled:  # c == c_all
+            c.execute('INSERT INTO cars VALUES (?,?,?,?,?,?,?,?,?,?,?)', car_entry)
         mask = mask > 0
 
         maskfile = processor.maskwrite (mask, imagefile)
         c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
-        logging.info ('saved mask to file: %s' % maskfile)
-

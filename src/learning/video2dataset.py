@@ -75,39 +75,35 @@ def video2dataset (c, image_video_file, mask_video_file, time_file, name, params
 
 
 
-def make_dataset (video_dir, db_prefix, params = {}):
+def make_dataset (video_dir, db_file, params = {}):
     ''' 
     Build a dataset based on videos 'frame' (source), 'ghost' and 'mask', as well as timestamp .txt
     The format may change over time.
     '''
     logging.info ('==== make_dataset ====')
-    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    setParamUnlessThere (params, 'videotypes', ['src', 'ghost'])
 
     # take care of dir and name of the db
-    db_dir = op.dirname(op.join(params['relpath'], db_prefix))
+    db_dir = op.dirname(atcity(db_file))
     logging.info ('db_dir: %s' % db_dir)
     if not op.exists(db_dir): 
         os.makedirs (db_dir)
-    db_name = op.basename(op.dirname(db_prefix))
+    db_name = op.basename(db_file)
 
-    for videotype in params['videotypes']:
+    # form video and time paths
+    video_file = op.join(video_dir, 'src.avi')
+    mask_file  = op.join(video_dir, 'mask.avi')
+    time_file  = op.join(video_dir, 'time.txt')
 
-        # form video and time paths
-        video_file = op.join(video_dir, '%s.avi' % videotype)
-        mask_file  = op.join(video_dir, 'mask.avi')
-        time_file  = op.join(video_dir, 'time.txt')
-
-        db_path = op.join(params['relpath'], '%s-%s.db' % (db_prefix, videotype))
-        assert op.exists(op.dirname(db_path)), db_path
-        print db_path
-        conn = sqlite3.connect(db_path)
-        createDb(conn)
-        c = conn.cursor()
-        video2dataset (c, video_file, mask_file, time_file, db_name, params)
-        conn.commit()
-        conn.close()
-        logging.info ('successfully made a db from %s' % video_file)
+    db_path = atcity(db_file)
+    assert op.exists(op.dirname(db_path)), db_path
+    print db_path
+    conn = sqlite3.connect(db_path)
+    createDb(conn)
+    c = conn.cursor()
+    video2dataset (c, video_file, mask_file, time_file, db_name, params)
+    conn.commit()
+    conn.close()
+    logging.info ('successfully made a db from %s' % video_file)
 
 
     
