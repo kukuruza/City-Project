@@ -21,6 +21,8 @@ addParameter(parser, 'BackLearnRate',       0.2, @isscalar);
 addParameter(parser, 'FilterSigmaCoef',     0.05, @isscalar);
 addParameter(parser, 'in_ref_backfile',     '', @ischar);
 addParameter(parser, 'in_src_name',         'src.avi', @ischar);
+addParameter(parser, 'in_mask_name',        'mask.avi', @ischar);
+addParameter(parser, 'out_back_name',       'back.avi', @ischar);
 addParameter(parser, 'verbose',             0, @isscalar);
 parse (parser, in_video_dir, varargin{:});
 parsed = parser.Results;
@@ -36,7 +38,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
 % input
 in_image_videopath  = fullfile(CITY_DATA_PATH, in_video_dir, parsed.in_src_name);
-in_mask_videopath   = fullfile(CITY_DATA_PATH, in_video_dir, 'mask.avi');
+in_mask_videopath   = fullfile(CITY_DATA_PATH, in_video_dir, parsed.in_mask_name);
 in_ref_backfile     = parsed.in_ref_backfile;
 
 % parameters
@@ -45,8 +47,8 @@ BackLearnRate = parsed.BackLearnRate;
 FilterSigmaCoef = parsed.FilterSigmaCoef;
 
 % output
-out_background_file = fullfile(in_video_dir, 'back.avi');
-out_ghost_file      = fullfile(in_video_dir, 'ghost.avi');
+out_background_file = fullfile(in_video_dir, parsed.out_src_name);
+%out_ghost_file      = fullfile(in_video_dir, 'ghost.avi');
 
 % what to do
 write = true;
@@ -63,7 +65,7 @@ frameReader  = vision.VideoFileReader(in_image_videopath, 'VideoOutputDataType',
 maskReader   = vision.VideoFileReader(in_mask_videopath, 'VideoOutputDataType','uint8');
 if write
     backWriter  = FrameWriterVideo (out_background_file, 2);
-    ghostWriter = FrameWriterVideo (out_ghost_file, 2);
+    %ghostWriter = FrameWriterVideo (out_ghost_file, 2);
 end
 
 % load reference clean background if exists
@@ -99,15 +101,15 @@ for t = 1 : 1000000
                                              'verbose', verbose);
     end
 
-    ghost = patch2ghost(frame, backImage);
+    %ghost = patch2ghost(frame, backImage);
 
     if write
         backWriter.step (backImage); 
-        ghostWriter.step (ghost);
+        %ghostWriter.step (ghost);
     end
 
     if show
-        imshow([frame, backImage ghost]);
+        imshow([frame, backImage]); % ghost]);
         pause (0.5);
     end
     
@@ -116,4 +118,4 @@ for t = 1 : 1000000
 end
 
 % clearing will save videos to disk
-clear frameReader maskReader backWriter ghostWriter
+clear frameReader maskReader backWriter % ghostWriter

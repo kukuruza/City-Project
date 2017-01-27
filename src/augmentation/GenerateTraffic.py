@@ -45,6 +45,7 @@ def generate_video_traffic (job):
   Args:
     job - the same as for process_video
   '''
+  assertParamIsThere  (job, 'in_db_file')
   assertParamIsThere  (job, 'out_video_dir')
   setParamUnlessThere (job, 'frame_range', '[::]')
   assertParamIsThere  (job, 'video_dir')
@@ -52,9 +53,10 @@ def generate_video_traffic (job):
   video = Video(video_dir=job['video_dir'])
   camera = video.build_camera()
 
-  in_db_file = create_in_db(job)   # creates in_db_file if necessary
-  assert op.exists(atcity(in_db_file)), 'in db %s does not exist' % atcity(in_db_file)
-  conn_in = sqlite3.connect(atcity(in_db_file))
+  #in_db_file = create_in_db(job)   # creates in_db_file if necessary
+  assert op.exists(atcity(job['in_db_file'])), \
+      'in db %s does not exist' % atcity(job['in_db_file'])
+  conn_in = sqlite3.connect(atcity(job['in_db_file']))
   c_in = conn_in.cursor()
   c_in.execute('SELECT time FROM images')
   timestamps = c_in.fetchall()
@@ -65,10 +67,9 @@ def generate_video_traffic (job):
 
   traffic_model = TrafficModel (camera, video, cad=cad, speed_kph=job['speed_kph'])
 
-  diapason = Diapason (len(timestamps), job['frame_range']).intersect(
-             Diapason (len(timestamps), video.info['frame_range']) )
+  diapason = Diapason (len(timestamps), job['frame_range'])
   
-  traffic = {'in_db_file': in_db_file}
+  traffic = {'in_db_file': job['in_db_file']}
   traffic['frames'] = []
 
   for frame_id in diapason.frame_range:
@@ -82,12 +83,6 @@ def generate_video_traffic (job):
   return traffic
 
 
-
-def add_args_to_job(job, args):
-    if 'frame_range' not in job:
-        job['frame_range'] = args.frame_range
-
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -95,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument('--frame_range', default='[::]', 
                         help='python style ranges, e.g. "[5::2]"')
     parser.add_argument('--job_file', required=True)
+    parser.add_argument('--in_db_file', required=True)
     parser.add_argument('--traffic_file', required=True,
                         help='output .json file where to write traffic info. '
                              'Can be "traffic.json" in video output dir.')
@@ -106,7 +102,8 @@ if __name__ == "__main__":
       os.makedirs(atcity(op.dirname(args.traffic_file)))
               
     job = json.load(open(atcity(args.job_file) ))
-    add_args_to_job(job, args)
+    setParamUnlessThere (job, 'frame_range', args.frame_range)
+    setParamUnlessThere (job, 'in_db_file', args.in_db_file)
     
     traffic = generate_video_traffic (job)
 

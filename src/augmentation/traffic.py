@@ -398,7 +398,7 @@ class TrafficModel:
 
 if __name__ == "__main__":
 
-  setupLogging ('log/augmentation/placeCars.log', logging.DEBUG, 'w')
+  setupLogging ('log/augmentation/traffic.log', logging.DEBUG, 'w')
 
   video_dir = 'augmentation/scenes/cam572/Jan13-10h'
   collection_names = ['7c7c2b02ad5108fe5f9082491d52810', 

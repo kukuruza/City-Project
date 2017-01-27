@@ -34,7 +34,6 @@ def dataset2video (c, out_image_video_file=None, out_mask_video_file=None):
                            in_mask_video_file:  out_mask_video_file} }))
 
   for i, (imagefile, maskfile, _, _) in enumerate(image_entries):
-    if i < 100 or i >= 4000: continue
     image = processor.imread   (imagefile)
     mask  = processor.maskread (maskfile)
     if out_image_video_file is not None: processor.imwrite   (image, imagefile)

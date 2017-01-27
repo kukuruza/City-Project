@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 from math import pi, atan, atan2, pow, sqrt, ceil
 
 from learning.dbUtilities import *
-from learning.helperImg import ProcessorVideo
-from learning.helperSetup import _setupCopyDb_, setupLogging, atcity
+from learning.helperImg import SimpleWriter, ReaderVideo
+from learning.helperSetup import _setupCopyDb_, setupLogging, atcity, dbInit
 from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 from learning.helperDb import createDb
 from monitor.MonitorDatasetClient import MonitorDatasetClient
@@ -351,7 +351,8 @@ def get_time (video, timestamp, frame_id):
   return time
 
 
-def mywrapper((video, camera, traffic, back, job)):
+
+def parallel_wrapper((video, camera, traffic, back, job)):
   ''' wrapper for parallel processing. Argument is an element of frame_jobs 
   '''
   WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
@@ -363,16 +364,15 @@ def mywrapper((video, camera, traffic, back, job)):
   return out_image, out_mask, WORK_DIR
 
 
+
 def sequentialwrapper(frame_jobs):
   ''' Wrap mywrapper for sequential run (in debugging) '''
   for frame_job in frame_jobs:
     yield mywrapper(frame_job)
 
 
-def process_video (job):
 
-  # for checking timeout
-  start_time = datetime.now()
+def process_video (job):
 
   assertParamIsThere  (job, 'video_dir')
   video = Video(video_dir=job['video_dir'])
@@ -387,15 +387,14 @@ def process_video (job):
   setParamUnlessThere (job, 'timeout', 1000000000)
   setParamUnlessThere (job, 'frame_range', '[::]')
   setParamUnlessThere (job, 'save_blender_files', False)
-
-  # get input for this job from json
-  out_image_video_file = op.join(job['out_video_dir'], 'image.avi')
-  out_mask_video_file  = op.join(job['out_video_dir'], 'mask.avi')
-  if job['no_annotations']: job['render_individual_cars'] = False
+  job['render_individual_cars'] = not job['no_annotations']
 
   # load camera dimensions (compare it to everything for extra safety)
   width0  = camera.info['camera_dims']['width']
   height0 = camera.info['camera_dims']['height']
+
+  # for checking timeout
+  start_time = datetime.now()
 
   cad = Cad()
   cad.load(job['collection_names'])
@@ -406,54 +405,20 @@ def process_video (job):
   # load traffic info
   traffic_video = json.load(open(atcity(job['traffic_file'])))
   
-  # open in_db and create and open a new out_db
-  out_db_path = atcity(op.join(job['out_video_dir'], 'traffic.db'))
-  if op.exists(out_db_path): os.remove(out_db_path)
-  conn_out = sqlite3.connect(out_db_path)
-  # TODO: make createDb take cursor
-  createDb(conn_out)
-  c_out = conn_out.cursor()
+  # reader and writer
+  video_reader = ReaderVideo()
+  image_vfile = op.join(job['out_video_dir'], 'image.avi')
+  mask_vfile  = op.join(job['out_video_dir'], 'mask.avi')
+  video_writer = SimpleWriter(image_vfile, mask_vfile, {'unsafe': True})
 
-  assert 'in_db_file' in traffic_video, 'format changed, need in_db_file in traffic'
-  in_db_file = traffic_video['in_db_file']
-  assert op.exists(atcity(in_db_file)), 'in db %s does not exist' % atcity(in_db_file)
-  conn_in  = sqlite3.connect(atcity(in_db_file))
-  c_in  = conn_in.cursor()
+  (conn, c) = dbInit (traffic_video['in_db_file'], op.join(job['out_video_dir'], 'traffic.db'))
+  c.execute('SELECT imagefile,maskfile,width,height,time FROM images')
+  image_entries = c.fetchall()
+  c.execute('DELETE FROM images')
 
-  # remove video if exist
-  if not op.exists(atcity(job['out_video_dir'])): os.makedirs(atcity(job['out_video_dir']))
-  if op.exists(atcity(out_image_video_file)): os.remove(atcity(out_image_video_file))
-  if op.exists(atcity(out_mask_video_file)):  os.remove(atcity(out_mask_video_file))
-
-  # value for 'src' field in db
-  name = op.basename(op.splitext(out_db_path)[0])
-  logging.info ('new src name: %s' %  name)
-
-  # names of in and out videos
-  c_in.execute('SELECT imagefile,maskfile FROM images')
-  some_image_entry = c_in.fetchone()
-  assert some_image_entry is not None
-  in_back_video_file  = op.dirname(some_image_entry[0]) + '.avi'
-  in_mask_video_file  = op.dirname(some_image_entry[1]) + '.avi'
-  logging.info ('in back_video_file:   %s' % in_back_video_file)
-  logging.info ('in mask_video_file:   %s' % in_mask_video_file)
-  logging.info ('out image_video_file: %s' % out_image_video_file)
-  logging.info ('out mask_video_file:  %s' % out_mask_video_file)
-
-  processor = ProcessorVideo \
-         ({'out_dataset': {in_back_video_file: out_image_video_file, 
-                           in_mask_video_file: out_mask_video_file} })
-
-  c_in.execute('SELECT imagefile,maskfile,time,width,height FROM images')
-  image_entries = c_in.fetchall()
-
-  diapason = Diapason (len(image_entries), job['frame_range']).intersect(
-             Diapason (len(image_entries), video.info['frame_range']) )
-
+  diapason = Diapason(len(image_entries), job['frame_range'])
+  
   pool = multiprocessing.Pool()
-
-  # will only write meaningful frames
-  i_out = 0
 
   # each frame_range chunk is processed in parallel
   for frame_range in diapason.frame_range_as_chunks(pool._processes):
@@ -468,60 +433,46 @@ def process_video (job):
 
     # collect frame jobs
     frame_jobs = []
-    for i, frame_id in enumerate(frame_range):
+    for frame_id in frame_range:
 
-      (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
+      (in_backfile, in_maskfile, width, height, _) = image_entries[frame_id]
       assert (width0 == width and height0 == height), (width0, width, height0, height)
       logging.info ('collect job for frame number %d' % frame_id)
 
-      back = processor.imread(in_backfile)
-      _ = processor.maskread(in_maskfile)
-      time = get_time (video, timestamp, frame_id)
+      back = video_reader.imread(in_backfile)
 
       #if len(traffic_video['frames']) == 0: break # traffic file is too small
       traffic = traffic_video['frames'].pop(0)
-      assert traffic['frame_id'] == frame_id, \
-          '%d vs %d' % (traffic['frame_id'], frame_id)
+      assert traffic['frame_id'] == frame_id, '%d vs %d' % (traffic['frame_id'], frame_id)
       traffic['save_blender_files'] = job['save_blender_files']
 
       # sum all up into one job
       frame_jobs.append((video, camera, traffic, back, job))
 
-    #for i, (out_image, out_mask, work_dir) in enumerate(sequentialwrapper(frame_jobs)):
-    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(mywrapper, frame_jobs)):
+    #for i, (out_image, out_mask, work_dir) in enumerate(sequential_wrapper(frame_jobs)):
+    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(parallel_wrapper, frame_jobs)):
       frame_id = frame_range[i]
       logging.info ('processed frame number %d' % frame_id)
 
-      # get the same info again
-      (in_backfile, in_maskfile, timestamp, width, height) = image_entries[frame_id]
-      time = get_time (video, timestamp, frame_id)
-
-      # write the frame to video (processor interface requires input filenames)
       assert out_image is not None and out_mask is not None
-      processor.imwrite (out_image, in_backfile)
-      processor.maskwrite (out_mask, in_maskfile)
+      out_imagefile = video_writer.imwrite (out_image)
+      out_maskfile  = video_writer.maskwrite (out_mask)
+      logging.info('out_imagefile: %s, out_maskfile: %s' % (out_imagefile, out_maskfile))
 
       # update out database
-      out_imagefile = op.join(op.splitext(out_image_video_file)[0], '%06d' % i_out)
-      out_maskfile  = op.join(op.splitext(out_mask_video_file)[0], '%06d' % i_out)
-      src = 'generated from %s' % in_back_video_file
-      c_out.execute ('INSERT INTO images(imagefile,maskfile,src,width,height,time) '
-                     'VALUES (?,?,?,?,?,?)',
-                     (out_imagefile,out_maskfile,src,width,height,time))
+      (_, _, width, height, time) = image_entries[frame_id]
+      c.execute ('INSERT INTO images(imagefile,maskfile,width,height,time) VALUES (?,?,?,?,?)',
+                 (out_imagefile, out_maskfile, width, height, time))
+      logging.info('wrote frame %d' % c.lastrowid)
 
       if not job['no_annotations']:
-        extract_annotations (work_dir, c_out, cad, camera, out_imagefile, monitor)
-        conn_out.commit()
-
-      print 'wrote frame %d' % i_out
-      i_out += 1
+        extract_annotations (work_dir, c, cad, camera, out_imagefile, monitor)
 
       if not job['save_blender_files']: 
         shutil.rmtree(work_dir)
 
-  conn_out.commit()
-  conn_in.close()
-  conn_out.close()
+  conn.commit()
+  conn.close()
 
   pool.close()
   pool.join()

@@ -13,7 +13,7 @@ from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
 from annotations.terms import TermTree
 from helperSetup       import setParamUnlessThere, assertParamIsThere, atcity
 from helperKeys        import KeyReaderUser
-from helperImg         import ReaderVideo, ProcessorVideo
+from helperImg         import ReaderVideo, ProcessorVideo, SimpleWriter
 
 
 def isPolygonAtBorder (xs, ys, width, height, params):
@@ -665,13 +665,11 @@ def maskScores (c, params = {}):
 
 
 
-# need a unit test
+# TODO: need a unit test
 def polygonsToMasks (c, c_labelled=None, c_all=None, params = {}):
     '''
     Create masks and maskfile db entries from polygons table.
     Currently only supports ProcessorVideo (writes masks to video)
-    Args:
-      c -- output cursor. 
     '''
     logging.info ('==== polygonsToMasks ====')
     setParamUnlessThere (params, 'relpath',    os.getenv('CITY_DATA_PATH'))
@@ -717,4 +715,57 @@ def polygonsToMasks (c, c_labelled=None, c_all=None, params = {}):
         mask = mask > 0
 
         maskfile = processor.maskwrite (mask, imagefile)
-        c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+        c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', 
+          (maskfile, imagefile))
+
+
+# TODO: need a unit test
+def generateBackground (c, out_videofile, params={}):
+  ''' Generate background video using mask and update imagefiles in db. '''
+
+  logging.info ('==== polygonsToMasks ====')
+  setParamUnlessThere (params, 'relpath',       os.getenv('CITY_DATA_PATH'))
+  setParamUnlessThere (params, 'show_debug',    False)
+  setParamUnlessThere (params, 'key_reader',    KeyReaderUser())
+  setParamUnlessThere (params, 'image_reader',  ReaderVideo())
+  setParamUnlessThere (params, 'dilate_radius', 2);
+  setParamUnlessThere (params, 'lr',            0.2);
+
+  video_writer = SimpleWriter(vimagefile=out_videofile)
+
+  # structure element for dilation
+  rad = params['dilate_radius']
+  kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (rad, rad))
+
+  c.execute('SELECT imagefile,maskfile FROM images')
+  image_entries = c.fetchall()
+  logging.info ('will process %d image entries' % len(image_entries))
+
+  back = None
+
+  for imagefile,maskfile in image_entries:
+    img = params['image_reader'].imread(imagefile)
+    mask = params['image_reader'].maskread(maskfile)
+
+    if back is None:
+      back = img
+
+    mask = cv2.dilate(mask.astype(np.uint8)*255, kernel) > 128
+    mask = np.dstack((mask, mask, mask))
+    unmasked = np.invert(mask)
+    lr = params['lr']
+    back[unmasked] = img[unmasked] * lr + back[unmasked] * (1-lr)
+
+    if params['show_debug']:
+      cv2.imshow('debug', np.hstack((back, mask.astype(np.uint8)*255)))
+      cv2.waitKey(10)
+      if params['key_reader'].readKey() == 27:
+        cv2.destroyWindow('debug')
+        params['show_debug'] = False
+
+    backfile = video_writer.imwrite(back)
+    c.execute('UPDATE images SET imagefile=? WHERE maskfile=?', (backfile, maskfile))
+    logging.info ('wrote backfile %s' % backfile)
+
+  video_writer.close()
+

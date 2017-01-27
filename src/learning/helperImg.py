@@ -210,6 +210,99 @@ class ProcessorVideo (ReaderVideo):
             video.release()
 
 
+# TODO: need unit tests
+class SimpleWriter:
+
+  def __init__(self, vimagefile=None, vmaskfile=None, params={}):
+    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'unsafe', False)  # if False, will raise if video exists
+    self.relpath = params['relpath']
+    self.unsafe  = params['unsafe']
+    self.vimagefile = vimagefile
+    self.vmaskfile = vmaskfile
+    self.image_writer = None
+    self.mask_writer = None
+    self.image_current_frame = -1
+    self.mask_current_frame = -1
+    self.frame_size = None        # used for checks
+
+
+  def _openVideoWriter_ (self, ref_frame, ismask):
+    ''' open a video for writing with parameters from the reference video (from reader) '''
+    fps = 2
+    fourcc = 1196444237
+    width  = ref_frame.shape[1]
+    height = ref_frame.shape[0]
+    if self.frame_size is None:
+      self.frame_size = (width, height)
+    else:
+      assert self.frame_size == (width, height), \
+         'frame_size different for image and mask: %s vs %s' % \
+         (self.frame_size, (width, height))
+
+    vfile = self.vmaskfile if ismask else self.vimagefile
+    logging.info ('SimpleWriter: opening video: %s' % vfile)
+    
+    # check if video exists
+    vpath = op.join (self.relpath, vfile)
+    if op.exists (vpath):
+      if self.unsafe:
+        os.remove(vpath)
+      else:
+        raise Exception('Video already exists: %s. A mistake?' % vpath)
+        
+    # check if dir exists
+    if not op.exists(op.dirname(vpath)):
+      if self.unsafe:
+        os.makedirs(op.dirname(vpath))
+      else:
+        raise Exception('Video dir does not exist: %s. A mistake?' % op.dirname(vpath))
+
+    handler = cv2.VideoWriter (vpath, fourcc, fps, self.frame_size, not ismask)
+    if not handler.isOpened():
+        raise Exception('video failed to open: %s' % videopath)
+    if ismask:
+        self.mask_writer  = handler
+    else:
+        self.image_writer = handler
+
+
+  def imwrite (self, image):
+    assert self.vimagefile is not None
+    if self.image_writer is None:
+      logging.info('need to open')
+      self._openVideoWriter_ (image, ismask=False)
+    assert len(image.shape) == 3 and image.shape[2] == 3
+    # write
+    assert (image.shape[1], image.shape[0]) == self.frame_size
+    self.image_writer.write(image)
+    # return recorded imagefile
+    self.image_current_frame += 1
+    return '%s/%06d' % (op.splitext(self.vimagefile)[0], self.image_current_frame)
+
+
+  def maskwrite (self, mask):
+    assert self.vimagefile is not None
+    assert len(mask.shape) == 2
+    assert mask.dtype == bool
+    if self.mask_writer is None:
+      self._openVideoWriter_ (mask, ismask=True)
+    mask = mask.copy().astype(np.uint8) * 255
+    # write
+    assert (mask.shape[1], mask.shape[0]) == self.frame_size
+    self.mask_writer.write(mask)
+    # return recorded imagefile
+    self.mask_current_frame += 1
+    return '%s/%06d' % (op.splitext(self.vmaskfile)[0], self.mask_current_frame)
+
+
+  def close (self):
+    if self.image_writer is not None: 
+      self.image_writer.release()
+    if self.mask_writer is not None: 
+      self.mask_writer.release()
+
+
 
 class ProcessorImagefile (ProcessorBase):
     ''' 

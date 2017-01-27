@@ -81,8 +81,8 @@ def dbInit (db_in_path, db_out_path=None, backup=True):
     if not os.getenv('CITY_DATA_PATH') or not os.getenv('CITY_PATH'):
         raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
 
-    logging.info ('db_in_path:  %s' % db_in_path)
-    logging.info ('db_out_path: %s' % db_out_path)
+    logging.info ('db_in_file:  %s' % db_in_path)
+    logging.info ('db_out_file: %s' % db_out_path)
 
     CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
     db_in_path  = op.join (CITY_DATA_PATH, db_in_path)
