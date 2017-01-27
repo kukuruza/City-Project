@@ -7,8 +7,8 @@ from learning.dbModify import generateBackground
 
 setupLogging ('log/learning/Manually.log', logging.INFO, 'a')
 
-in_db_file  = 'databases/idatafa/572-Feb23-09h/forback.db'
-out_db_file = 'databases/idatafa/572-Feb23-09h/back-part.db'
+in_db_file  = 'databases/idatafa/572-Feb23-09h/train-Jan26/forback-part.db'
+out_db_file = 'databases/idatafa/572-Feb23-09h/train-Jan26/back-part.db'
 out_videofile = 'camdata/cam572/Feb23-09h/back-part.avi'
 
 

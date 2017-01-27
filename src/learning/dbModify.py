@@ -764,7 +764,7 @@ def generateBackground (c, out_videofile, params={}):
         params['show_debug'] = False
 
     backfile = video_writer.imwrite(back)
-    c.execute('UPDATE images SET imagefile=? WHERE maskfile=?', (backfile, maskfile))
+    c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (backfile, imagefile))
     logging.info ('wrote backfile %s' % backfile)
 
   video_writer.close()
