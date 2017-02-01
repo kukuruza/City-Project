@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 from processScene import process_video
-from learning.helperSetup import setupLogging, atcity
+from learning.helperSetup import setupLogging, atcity, setParamUnlessThere
 
 
 
@@ -17,6 +17,8 @@ def add_args_to_job(job, args):
     job['save_blender_files'] = args.save_blender_files
     job['no_annotations'] = args.no_annotations
     job['traffic_file'] = args.traffic_file
+    setParamUnlessThere (job, 'video_dir', op.dirname(args.job_file))
+    setParamUnlessThere (job, 'out_video_dir', op.dirname(args.traffic_file))
 
 
 if __name__ == "__main__":

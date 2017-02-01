@@ -221,6 +221,8 @@ def render_frame (video, camera, traffic):
   command = ['%s/blender' % os.getenv('BLENDER_ROOT'), render_blend_path, 
              '--background', '--python',
              '%s/src/augmentation/renderScene.py' % os.getenv('CITY_PATH')]
+  logging.debug ('WORK_DIR: %s' % WORK_DIR)
+  logging.debug (' '.join(command))
   returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
   logging.info ('rendering: blender returned code %s' % str(returncode))
 
@@ -352,7 +354,7 @@ def get_time (video, timestamp, frame_id):
 
 
 
-def parallel_wrapper((video, camera, traffic, back, job)):
+def mywrapper((video, camera, traffic, back, job)):
   ''' wrapper for parallel processing. Argument is an element of frame_jobs 
   '''
   WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
@@ -416,9 +418,14 @@ def process_video (job):
   image_entries = c.fetchall()
   c.execute('DELETE FROM images')
 
+  # check that traff
+  assert len(traffic_video['frames']) >= len(image_entries), \
+    'traffic json is too small %d < %d' % (len(traffic_video['frames']), len(image_entries))
+
   diapason = Diapason(len(image_entries), job['frame_range'])
   
-  pool = multiprocessing.Pool()
+  num_processes = multiprocessing.cpu_count() - 1  # leave one core free for other stuff
+  pool = multiprocessing.Pool (processes=num_processes)
 
   # each frame_range chunk is processed in parallel
   for frame_range in diapason.frame_range_as_chunks(pool._processes):
@@ -441,16 +448,14 @@ def process_video (job):
 
       back = video_reader.imread(in_backfile)
 
-      #if len(traffic_video['frames']) == 0: break # traffic file is too small
       traffic = traffic_video['frames'].pop(0)
       assert traffic['frame_id'] == frame_id, '%d vs %d' % (traffic['frame_id'], frame_id)
       traffic['save_blender_files'] = job['save_blender_files']
 
-      # sum all up into one job
       frame_jobs.append((video, camera, traffic, back, job))
 
-    #for i, (out_image, out_mask, work_dir) in enumerate(sequential_wrapper(frame_jobs)):
-    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(parallel_wrapper, frame_jobs)):
+    #for i, (out_image, out_mask, work_dir) in enumerate(sequentialwrapper(frame_jobs)):
+    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(mywrapper, frame_jobs)):
       frame_id = frame_range[i]
       logging.info ('processed frame number %d' % frame_id)
 
@@ -466,7 +471,7 @@ def process_video (job):
       logging.info('wrote frame %d' % c.lastrowid)
 
       if not job['no_annotations']:
-        extract_annotations (work_dir, c, cad, camera, out_imagefile, monitor)
+        extract_annotations (work_dir, c, cad, camera, out_imagefile, monitor=None)
 
       if not job['save_blender_files']: 
         shutil.rmtree(work_dir)

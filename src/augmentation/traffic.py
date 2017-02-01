@@ -198,6 +198,8 @@ class TrafficModel:
 
   def __init__(self, camera, video, cad, speed_kph, burn_in=True):
 
+    self.sun = Sun()
+
     self.camera = camera
     self.video = video
 
@@ -239,8 +241,8 @@ class TrafficModel:
   def generate_map (self):
     ''' generate lanes map with cars as icons for visualization '''
 
-    width  = camera['map_dims']['width']
-    height = camera['map_dims']['height']
+    width  = self.camera['map_dims']['width']
+    height = self.camera['map_dims']['height']
 
     # generate maps
     img = np.zeros((height, width, 3), dtype=np.uint8)
@@ -255,15 +257,13 @@ class TrafficModel:
 
     # put cars on top
     for v in self._collect_vehicles():
-        cv2.circle(img, (v['x'],v['y']), 5, (128,128,128), -1)
+      cv2.circle(img, (v['x'],v['y']), 5, (128,128,128), -1)
 
     return img
 
 
   def get_next_frame(self, time):
-    logging.info ('get_next_frame runs')
 
-    # update cars on each lane
     for lane in self.lanes:
       lane.update()
 
@@ -275,9 +275,8 @@ class TrafficModel:
                       self.camera['origin_image'], self.camera['pxls_in_meter'])
 
     # figure out sun position based on the timestamp
-    sun = Sun()
     logging.debug ('get_next_frame: will use time %s' % str(time))
-    sun_pose = sun.sun_poses [int(time.hour*60) + time.minute]
+    sun_pose = self.sun.sun_poses [int(time.hour*60) + time.minute]
     logging.info ('received timestamp: %s' % time)
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
@@ -291,108 +290,147 @@ class TrafficModel:
     
 
 
-# def sq(x): return pow(x,2)
 
-# def get_norm(x): return sqrt (sq(x['x']) + sq(x['y']) + sq(x['z']))
+def sq(x): return pow(x,2)
 
-# def put_random_vehicles (azimuth_map, pxl_in_meter, cad, num, intercar_dist_mult):
-#     '''Places a number of random models to random points in the lane map.
-#     Args:
-#       azimuth_map:         a color array (all values are gray) with alpha mask, [YxXx4]
-#       pxl_in_meter:        for this particular map
-#       num:                 a number of vehicles to pick
-#       intercar_dist_mult:  cars won't be sampled closer than sum of their dims, 
-#                              multiplied by this factor
-#     Returns:
-#       vehicles:            a list of dictionaries, each has x,y,azimuth attributes
-#     '''
-#     # make azimuth_map a 2D array
-#     alpha, azimuth_map = azimuth_map[:,:,-1], azimuth_map[:,:,0]
+def get_norm(x): return sqrt (sq(x['x']) + sq(x['y']) + sq(x['z']))
 
-#     # get indices of all points which are non-zero
-#     Ps = np.transpose(np.nonzero(alpha))
-#     assert Ps.shape[0] > 0, 'azimuth_map is all zeros'
 
-#     # pick random points
-#     assert num > 0
-#     ind = np.random.choice (Ps.shape[0], size=num, replace=True)
+class TrafficModelRandom:
 
-#     # get angles (each azimuth is multiplied by 2 by convention)
-#     dims_dict = {}
-#     vehicles = []
-#     for P in Ps[ind]:
-#         x = P[1]
-#         y = P[0]
-#         azimuth = azimuth_map[y][x] * 2
-#         logging.debug ('put_random_vehicles x: %f, y: %f, azimuth: %f' % (x, y, azimuth))
+  def __init__ (self, camera, video, cad, num_cars):
 
-#         # car does not need to be in the lane center
-#         pos_std = 0.2   # meters away from the middle of the lane
-#         x += np.random.normal(0, pxl_in_meter * pos_std)
-#         y += np.random.normal(0, pxl_in_meter * pos_std)
+    self.sun = Sun()
 
-#         # keep choosing a car until find a valid one
-#         vehicle = pick_random_vehicle (cad)
-#         dims_dict[vehicle['model_id']] = vehicle['dims']
+    self.camera = camera
+    self.video = video
 
-#         # cars can't be too close. TODO: they can be close on different lanes
-#         too_close = False
-#         for vehicle2 in vehicles:
+    # get the map of azimuths. 
+    # it has gray values (r==g==b=) and alpha, saved as 4-channels
+    azimuth_path = atcity(op.join(camera['camera_dir'], camera['azimuth_name']))
+    azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
+    assert azimuth_map is not None and azimuth_map.shape[2] == 4
 
-#             # get the minimum idstance between cars in pixels
-#             car1_sz = get_norm(dims_dict[vehicle['model_id']])
-#             car2_sz = get_norm(dims_dict[vehicle2['model_id']])
-#             min_intercar_dist_pxl = intercar_dist_mult * pxl_in_meter * (car1_sz + car2_sz) / 2
+    # black out the invisible azimuth_map regions
+    if 'mask' in camera and camera['mask']:
+      mask_path = atcity(op.join(camera['camera_dir'], camera['mask']))
+      mask = cv2.imread (mask_path, cv2.IMREAD_GRAYSCALE)
+      assert mask is not None, mask_path
+      azimuth_map[mask] = 0
 
-#             if sqrt(sq(vehicle2['y']-y) + sq(vehicle2['x']-x)) < min_intercar_dist_pxl:
-#                 too_close = True
-#         if too_close: 
-#             continue
+    self.num_cars = num_cars
+    self.azimuth_map = azimuth_map
+    self.cad = cad
+    self.pxls_in_meter = camera['pxls_in_meter']
+
+
+  def _put_random_vehicles (self):
+    '''Places a number of random models to random points in the lane map.
+    Args:
+      azimuth_map:         a color array (all values are gray) with alpha mask, [YxXx4]
+      pxl_in_meter:        for this particular map
+      num_cars:            a number of vehicles to pick
+      intercar_dist_mult:  cars won't be sampled closer than sum of their dims, 
+                             multiplied by this factor
+    Returns:
+      vehicles:            a list of dictionaries, each has x,y,azimuth attributes
+    '''
+    INTERCAR_DIST_MULT = 1.5
+
+    # make azimuth_map a 2D array
+    azimuth_map = self.azimuth_map.copy()
+    alpha, azimuth_map = azimuth_map[:,:,-1], azimuth_map[:,:,0]
+
+    # get indices of all points which are non-zero
+    Ps = np.transpose(np.nonzero(alpha))
+    assert Ps.shape[0] > 0, 'azimuth_map is all zeros'
+
+    # pick random points
+    assert self.num_cars > 0
+    ind = np.random.choice (Ps.shape[0], size=self.num_cars, replace=True)
+
+    # get angles (each azimuth is multiplied by 2 by convention)
+    dims_dict = {}
+    vehicles = []
+    for P in Ps[ind]:
+        x = P[1]
+        y = P[0]
+        azimuth = azimuth_map[y][x] * 2
+        logging.debug ('put_random_vehicles x: %f, y: %f, azimuth: %f' % (x, y, azimuth))
+
+        # car does not need to be in the lane center
+        pos_std = 0.2   # meters away from the middle of the lane
+        x += np.random.normal(0, self.pxls_in_meter * pos_std)
+        y += np.random.normal(0, self.pxls_in_meter * pos_std)
+
+        x = int(x)
+        y = int(y)
+
+        # keep choosing a car until find a valid one
+        vehicle = pick_random_vehicle (self.cad)
+        dims_dict[vehicle['model_id']] = vehicle['dims']
+
+        # cars can't be too close. TODO: they can be close on different lanes
+        too_close = False
+        for vehicle2 in vehicles:
+
+            # get the minimum idstance between cars in pixels
+            car1_sz = get_norm(dims_dict[vehicle['model_id']])
+            car2_sz = get_norm(dims_dict[vehicle2['model_id']])
+            min_intercar_dist_pxl = INTERCAR_DIST_MULT * self.pxls_in_meter * (car1_sz + car2_sz) / 2
+
+            if sqrt(sq(vehicle2['y']-y) + sq(vehicle2['x']-x)) < min_intercar_dist_pxl:
+                too_close = True
+        if too_close: 
+            continue
         
-#         vehicles.append({'x': x, 'y': y, 'azimuth': azimuth,
-#                          'collection_id': collection['collection_id'],
-#                          'model_id': vehicle['model_id']})
+        vehicles.append({'x': x, 'y': y, 'azimuth': azimuth,
+                         'model_id': vehicle['model_id'], 
+                         'collection_id': vehicle['collection_id']})
 
-#     print 'wrote %d vehicles' % len(vehicles)
-#     return vehicles
+    print 'wrote %d vehicles' % len(vehicles)
+    return vehicles
 
 
-# def generate_current_frame (camera, video, cad, time, num_cars):
-#     ''' Generate traffic.json traffic file for a single frame
-#     '''
-#     pxl_in_meter   = camera['pxls_in_meter']
+  def get_next_frame (self, time):
 
-#     # get the map of azimuths. 
-#     # it has gray values (r==g==b=) and alpha, saved as 4-channels
-#     azimuth_path = atcity(op.join(camera['camera_dir'], camera['azimuth_name']))
-#     azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
-#     assert azimuth_map is not None and azimuth_map.shape[2] == 4
+    self.vehicles = self._put_random_vehicles()
+    vehicles_blender = [{'x': v['x'], 'y': v['y'], 'azimuth': v['azimuth'],
+                         'collection_id': v['collection_id'], 'model_id': v['model_id']}
+                         for v in self.vehicles]
 
-#     # black out the invisible azimuth_map regions
-#     if 'mask' in camera and camera['mask']:
-#         mask_path = atcity(op.join(camera['camera_dir'], camera['mask']))
-#         mask = cv2.imread (mask_path, cv2.IMREAD_GRAYSCALE)
-#         assert mask is not None, mask_path
-#         azimuth_map[mask] = 0
+    axes_png2blender (vehicles_blender, 
+                      self.camera['origin_image'], self.camera['pxls_in_meter'])
 
-#     # choose vehicle positions
-#     vehicles = put_random_vehicles (azimuth_map, pxl_in_meter, cad, num_cars, 
-#                                     intercar_dist_mult=1.5)
+    # figure out sun position based on the timestamp
+    logging.debug ('get_next_frame: will use time %s' % str(time))
+    sun_pose = self.sun.sun_poses [int(time.hour*60) + time.minute]
+    logging.info ('received timestamp: %s' % time)
+    logging.info ('calculated sunpose: %s' % str(sun_pose))
 
-#     axes_png2blender (vehicles, camera['origin_image'], camera['pxls_in_meter'])
+    traffic = {'sun_altitude': sun_pose['altitude'],
+               'sun_azimuth':  sun_pose['azimuth'],
+               'weather':      self.video['weather'],
+               'vehicles':     vehicles_blender
+               }
 
-#     # figure out sun position based on the timestamp
-#     sun = Sun()
-#     sun_pose = sun.sun_poses [int(time.hour*60) + time.minute]
-#     logging.info ('received timestamp: %s' % time)
-#     logging.info ('calculated sunpose: %s' % str(sun_pose))
+    return traffic
 
-#     traffic = {'sun_altitude': sun_pose['altitude'], \
-#                'sun_azimuth':  sun_pose['azimuth'], \
-#                'vehicles': vehicles, \
-#                'weather': video.info['weather']}
 
-#     return traffic
+  def generate_map (self):
+    ''' generate lanes map with cars as icons for visualization '''
+
+    # make azimuth_map a 2D array
+    img = self.azimuth_map.copy()
+    #alpha, azimuth_map = azimuth_map[:,:,-1], azimuth_map[:,:,0]
+
+    # put cars on top
+    for v in self.vehicles:
+      cv2.circle(img, (v['x'],v['y']), 5, (128,128,128), -1)
+
+    return img
+
+
 
 
 
@@ -410,8 +448,8 @@ if __name__ == "__main__":
   cad = Cad()
   cad.load(collection_names)
 
-  #traffic = generate_current_frame (video, collection_names, timestamp, num_cars)
-  model = TrafficModel(camera, video, cad=cad, speed_kph=10, burn_in=True)
+  #model = TrafficModel (camera, video, cad=cad, speed_kph=10, burn_in=True)
+  model = TrafficModelRandom (camera, video, cad, num_cars=10)
 
   # cv2.imshow('lanesmap', model.generate_map())
   # cv2.waitKey(-1)

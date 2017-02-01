@@ -768,4 +768,5 @@ def generateBackground (c, out_videofile, params={}):
     logging.info ('wrote backfile %s' % backfile)
 
   video_writer.close()
+  c.execute('DELETE FROM cars')
 

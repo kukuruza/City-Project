@@ -14,7 +14,6 @@ TRAFFIC_FILENAME  = 'traffic.json'
 WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
 
 
-
 def make_snapshot (render_dir, car_names, params):
     '''Set up the weather, and render vehicles into files
     Args:
