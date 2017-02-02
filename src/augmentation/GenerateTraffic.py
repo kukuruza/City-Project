@@ -39,8 +39,7 @@ def generate_video_traffic (job):
   timestamps = c_in.fetchall()
   conn_in.close()
 
-  cad = Cad()
-  cad.load(job['collection_names'])
+  cad = Cad(job['collection_names'])
 
   traffic_model = TrafficModel (camera, video, cad=cad, speed_kph=job['speed_kph'])
   #traffic_model = TrafficModelRandom (camera, video, cad=cad, num_cars=job['num_cars'])
@@ -89,5 +88,5 @@ if __name__ == "__main__":
     pprint (job)
     traffic = generate_video_traffic (job)
     with open(atcity(args.traffic_file), 'w') as f:
-      f.write(json.dumps(traffic, indent=4))
+      f.write(json.dumps(traffic, indent=2))
 

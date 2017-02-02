@@ -103,7 +103,7 @@ class Vehicle:
   def __init__(self, cad):
 
     # model
-    self.info = dict(pick_random_vehicle (cad))
+    self.info = cad.get_random_ready_models(number=1) [0]
     
     # id
     hash_generator.update(str(time.time()))
@@ -267,9 +267,9 @@ class TrafficModel:
     for lane in self.lanes:
       lane.update()
 
-    vehicles_blender = [{'x': v['x'], 'y': v['y'], 'azimuth': v['azimuth'],
-                         'collection_id': v['collection_id'], 'model_id': v['model_id']}
-                         for v in self._collect_vehicles()]
+    vehicles_blender = [{x: v[x] for x in 
+          ['x', 'y', 'azimuth', 'model_id', 'collection_id', 'vehicle_type']}
+          for v in self._collect_vehicles()]
 
     axes_png2blender (vehicles_blender, 
                       self.camera['origin_image'], self.camera['pxls_in_meter'])
@@ -395,9 +395,10 @@ class TrafficModelRandom:
   def get_next_frame (self, time):
 
     self.vehicles = self._put_random_vehicles()
-    vehicles_blender = [{'x': v['x'], 'y': v['y'], 'azimuth': v['azimuth'],
-                         'collection_id': v['collection_id'], 'model_id': v['model_id']}
-                         for v in self.vehicles]
+    vehicles_blender = [{x: v[x] for x in 
+          ['x', 'y', 'azimuth', 'model_id', 'collection_id', 'vehicle_type']}
+          for v in self.vehicles]
+
 
     axes_png2blender (vehicles_blender, 
                       self.camera['origin_image'], self.camera['pxls_in_meter'])

@@ -398,11 +398,10 @@ def process_video (job):
   # for checking timeout
   start_time = datetime.now()
 
-  cad = Cad()
-  cad.load(job['collection_names'])
+  cad = Cad(job['collection_names'])
 
   # upload info on parsed vehicles to the monitor server
-  monitor = MonitorDatasetClient (cam_id=camera.info['cam_id'])
+  monitor = None # MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
   # load traffic info
   traffic_video = json.load(open(atcity(job['traffic_file'])))
@@ -424,7 +423,7 @@ def process_video (job):
 
   diapason = Diapason(len(image_entries), job['frame_range'])
   
-  num_processes = multiprocessing.cpu_count() - 1  # leave one core free for other stuff
+  num_processes = int(multiprocessing.cpu_count() / 3 + 1)
   pool = multiprocessing.Pool (processes=num_processes)
 
   # each frame_range chunk is processed in parallel
@@ -471,7 +470,7 @@ def process_video (job):
       logging.info('wrote frame %d' % c.lastrowid)
 
       if not job['no_annotations']:
-        extract_annotations (work_dir, c, cad, camera, out_imagefile, monitor=None)
+        extract_annotations (work_dir, c, cad, camera, out_imagefile, monitor)
 
       if not job['save_blender_files']: 
         shutil.rmtree(work_dir)

@@ -2,6 +2,7 @@ import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 import json
+import pprint
 import ConfigParser
 import traceback
 from datetime import datetime
@@ -44,6 +45,7 @@ class Cad:
 
 
     def __init__ (self, 
+                  collection_names,
                   config_file='etc/monitor.ini', 
                   cam_timezone='-05:00'):
 
@@ -62,18 +64,7 @@ class Cad:
             retry_on_timeout=True
         )
 
-        self._collections = []
-
-
-    def load (self, collection_names):
-        '''Read necessary collections'''
-        self._collections = []
-        for collection_name in collection_names:
-            collection_path = atcity( op.join('augmentation/CAD', collection_name, README_NAME) )
-            collection = json.load(open(collection_path))
-            for v in collection['vehicles']: 
-              v['collection_id'] = collection['collection_id']
-            self._collections.append(collection)
+        self._collections = collection_names
 
 
     def _get_hits_by_id_ (self, model_id):
@@ -213,39 +204,46 @@ class Cad:
 
 
     def get_random_ready_models (self, number=1):
+        '''only in self._collections'''
+        body = {
+          'size': number,
+          'query': {
+            'function_score': {
+              'functions': [
+                {
+                  'random_score' : {}
+                }
+              ],
+              'score_mode': 'sum',
+              'query': {
+                'bool': {
+                  'must': [
+                    {
+                      'term': {
+                        'ready': True
+                      }
+                    },
+                    {
+                      'term': {
+                        'valid': True
+                      }
+                    },
+                    {
+                      "terms": {
+                        "collection_id": self._collections
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        #pprint.pprint(body, indent=2)
         result = self.es.search(
             index=self.index_name,
             doc_type=self.type_name,
-            body = {
-                      'size': number,
-                      'query': {
-                        'function_score': {
-                          'functions': [
-                            {
-                              'random_score' : {}
-                            }
-                          ],
-                          'score_mode': 'sum',
-                          'query': {
-                            'bool': {
-                              'must': [
-                                {
-                                  'term': {
-                                    'ready': True
-                                  }
-                                },
-                                {
-                                  'term': {
-                                    'valid': True
-                                  }
-                                }
-                              ]
-                            }
-                          }
-                        }
-                      }
-                   }
-        )
+            body=body)
         hits = result['hits']['hits']
         return [hit['_source'] for hit in hits]
 
