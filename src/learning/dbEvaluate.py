@@ -115,3 +115,42 @@ def evalClass (c_gt, c_det, classname=None, ovthresh=0.5):
 
   return rec, prec, ap
 
+
+def evalCounting (c_gt, c_det, classname=None):
+  """ Counting on every time step.
+  TODO: right now just all scores, FN < FT anyway
+  Args:
+    c_gt:      cursor to the sqlite3 db with ground truth
+    c_out:     cursor to the sqlite3 db with detections
+    classname: category name (duh). If None, then any category
+  """
+
+  c_det.execute('SELECT imagefile FROM images')
+  imagefiles = c_det.fetchall()
+  numimages = len(imagefiles)
+  logging.info ('have %d imagefiles' % numimages)
+
+  det_counts = np.zeros(shape=(numimages,), dtype=int)
+  gt_counts  = np.zeros(shape=(numimages,), dtype=int)
+
+  for i,(imagefile,) in enumerate(imagefiles): # no GROUP BY because of empty images
+
+    if classname is None:
+      c_det.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?', (imagefile,))
+    else:
+      c_det.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?'
+                    ' AND name=?', (imagefile, classname))
+    det_counts[i] = int(c_det.fetchone()[0])
+
+    if classname is None:
+      c_gt.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?', (imagefile,))
+    else:
+      c_gt.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?'
+                    ' AND name=?', (imagefile, classname))
+    gt_counts[i] = int(c_gt.fetchone()[0])
+
+  det_counts = np.cumsum(det_counts)
+  gt_counts = np.cumsum(gt_counts)
+
+  return det_counts, gt_counts
+

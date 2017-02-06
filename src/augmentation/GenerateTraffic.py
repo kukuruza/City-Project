@@ -27,7 +27,6 @@ def generate_video_traffic (job):
   assertParamIsThere  (job, 'out_video_dir')
   setParamUnlessThere (job, 'frame_range', '[::]')
   assertParamIsThere  (job, 'video_dir')
-  assertParamIsThere  (job, 'speed_kph')  # TODO random or this
 
   video = Video(video_dir=job['video_dir'])
   camera = video.build_camera()
@@ -42,8 +41,11 @@ def generate_video_traffic (job):
 
   cad = Cad(job['collection_names'])
 
-  traffic_model = TrafficModel (camera, video, cad=cad, speed_kph=job['speed_kph'])
-  #traffic_model = TrafficModelRandom (camera, video, cad=cad, num_cars=job['num_cars'])
+  if 'speed_kph' in job:
+    model = TrafficModel (camera, video, cad=cad, speed_kph=job['speed_kph'])
+  elif 'num_cars' in job:
+    model = TrafficModelRandom (camera, video, cad=cad, num_cars=job['num_cars'])
+  else: assert False
 
   diapason = Diapason (len(timestamps), job['frame_range'])
   
@@ -54,7 +56,7 @@ def generate_video_traffic (job):
     logging.info ('generating traffic for frame %d' % frame_id)
     timestamp = timestamps[frame_id][0]
     time = get_time (video, timestamp, frame_id)
-    traffic_frame = traffic_model.get_next_frame(time)
+    traffic_frame = model.get_next_frame(time)
     traffic_frame['frame_id'] = frame_id  # for validating
     traffic['frames'].append(traffic_frame)
 
@@ -65,7 +67,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--logging_level', default=20, type=int)
-    parser.add_argument('--speed_kph', type=int, required=True)
     parser.add_argument('--frame_range', default='[::]', 
                         help='python style ranges, e.g. "[5::2]"')
     parser.add_argument('--job_file', required=True)
@@ -73,6 +74,9 @@ if __name__ == "__main__":
     parser.add_argument('--traffic_file', required=True,
                         help='output .json file where to write traffic info. '
                              'Can be "traffic.json" in video output dir.')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--speed_kph', type=int)
+    group.add_argument('--num_cars', type=int)
     args = parser.parse_args()
 
     setupLogging('log/augmentation/GenerateTraffic.log', args.logging_level, 'w')
@@ -82,11 +86,15 @@ if __name__ == "__main__":
               
     assert op.exists(atcity(args.job_file)), atcity(args.job_file)
     job = simplejson.load(open(atcity(args.job_file) ))
-    setParamUnlessThere (job, 'speed_kph', args.speed_kph)
     setParamUnlessThere (job, 'frame_range', args.frame_range)
     setParamUnlessThere (job, 'in_db_file', args.in_db_file)
     setParamUnlessThere (job, 'video_dir', op.dirname(args.job_file))
     setParamUnlessThere (job, 'out_video_dir', op.dirname(args.in_db_file))
+    if args.speed_kph is not None:
+      setParamUnlessThere (job, 'speed_kph', args.speed_kph)
+    elif args.num_cars is not None:
+      setParamUnlessThere (job, 'num_cars', args.num_cars)
+    else: assert False
     
     pprint (job)
     traffic = generate_video_traffic (job)

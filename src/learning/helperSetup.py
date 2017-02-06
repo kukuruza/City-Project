@@ -91,6 +91,7 @@ def dbInit (db_in_path, db_out_path=None, backup=True):
     if backup or db_in_path != db_out_path:
         _setupCopyDb_ (db_in_path, db_out_path)
 
+    assert op.exists(db_out_path), db_out_path
     conn = sqlite3.connect (db_out_path)
     cursor = conn.cursor()
     return (conn, cursor)

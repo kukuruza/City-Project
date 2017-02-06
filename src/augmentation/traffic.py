@@ -3,6 +3,7 @@ sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import json
 from math import cos, sin, pi, sqrt, pow
 import numpy as np
+from scipy.misc import imresize
 import cv2
 import string
 import logging
@@ -26,16 +27,6 @@ Distribute cars across the map according to the lanes map and model collections
 
 
 hash_generator = hashlib.sha1()
-
-
-def pick_random_vehicle (cad):
-  '''returns a vehicle dictionary'''
-  valid = False
-  while not valid:
-    collection = choice(cad._collections)
-    vehicle = dict(choice(collection['vehicles']))
-    valid = vehicle['valid'] if 'valid' in vehicle else True
-  return vehicle
 
 
 def axes_png2blender (points, origin, pxls_in_meter):
@@ -81,6 +72,11 @@ def kph2ipf (speed_kph, N, L_m, avg_fps):
   speed_ipf = speed_mpf * IPM
   return speed_ipf
 
+
+def fit_image_to_screen(image, screen=(900,1440), fraction=0.5):
+  h, w = image.shape[:2]
+  fraction = min(screen[0] / float(h) * fraction, screen[1] / float(w) * fraction)
+  return imresize(image, fraction)
 
 
 class Sun:
@@ -369,7 +365,7 @@ class TrafficModelRandom:
         y = int(y)
 
         # keep choosing a car until find a valid one
-        vehicle = pick_random_vehicle (self.cad)
+        vehicle = self.cad.get_random_ready_models(number=1) [0]
         dims_dict[vehicle['model_id']] = vehicle['dims']
 
         # cars can't be too close. TODO: they can be close on different lanes
@@ -386,9 +382,10 @@ class TrafficModelRandom:
         if too_close: 
             continue
         
-        vehicles.append({'x': x, 'y': y, 'azimuth': azimuth,
-                         'model_id': vehicle['model_id'], 
-                         'collection_id': vehicle['collection_id']})
+        vehicle['x'] = x
+        vehicle['y'] = y
+        vehicle['azimuth'] = azimuth
+        vehicles.append(vehicle)
 
     print 'wrote %d vehicles' % len(vehicles)
     return vehicles
@@ -440,15 +437,14 @@ if __name__ == "__main__":
 
   setupLogging ('log/augmentation/traffic.log', logging.DEBUG, 'w')
 
-  video_dir = 'augmentation/scenes/cam572/Jan13-10h'
+  video_dir = 'augmentation/scenes/cam166/Feb23-09h'
   collection_names = ['7c7c2b02ad5108fe5f9082491d52810', 
                       'uecadcbca-a400-428d-9240-a331ac5014f6']
   timestamp = datetime.now()
   video = Video(video_dir)
   camera = video.build_camera()
 
-  cad = Cad()
-  cad.load(collection_names)
+  cad = Cad(collection_names)
 
   #model = TrafficModel (camera, video, cad=cad, speed_kph=10, burn_in=True)
   model = TrafficModelRandom (camera, video, cad, num_cars=10)
@@ -457,7 +453,8 @@ if __name__ == "__main__":
   # cv2.waitKey(-1)
   while True:
     model.get_next_frame(timestamp)
-    cv2.imshow('lanesmap', model.generate_map())
+    display = fit_image_to_screen(model.generate_map())
+    cv2.imshow('lanesmap', display)
     key = cv2.waitKey(-1)
     if key == 27: break
 

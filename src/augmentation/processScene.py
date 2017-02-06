@@ -289,7 +289,7 @@ def combine_frame (background, video, camera):
   combined_filepath = op.join(WORK_DIR, COMBINED_FILENAME)
   assert op.exists(combined_filepath), combined_filepath
   image = cv2.imread(combined_filepath)
-  assert image.shape == (height0, width0, 3), image.shape
+  assert image.shape == (height0,width0,3), '%s vs %s' % (image.shape, (height0,width0))
 
   # reencode to match jpeg quality
   shutil.move (combined_filepath, op.join(WORK_DIR, 'uncompressed.png'))
@@ -417,9 +417,8 @@ def process_video (job):
   image_entries = c.fetchall()
   c.execute('DELETE FROM images')
 
-  # check that traff
-  assert len(traffic_video['frames']) >= len(image_entries), \
-    'traffic json is too small %d < %d' % (len(traffic_video['frames']), len(image_entries))
+  #assert len(traffic_video['frames']) >= len(image_entries), \
+  #  'traffic json is too small %d < %d' % (len(traffic_video['frames']), len(image_entries))
 
   diapason = Diapason(len(image_entries), job['frame_range'])
   
@@ -447,7 +446,7 @@ def process_video (job):
 
       back = video_reader.imread(in_backfile)
 
-      traffic = traffic_video['frames'].pop(0)
+      traffic = traffic_video['frames'][frame_id]
       assert traffic['frame_id'] == frame_id, '%d vs %d' % (traffic['frame_id'], frame_id)
       traffic['save_blender_files'] = job['save_blender_files']
 
