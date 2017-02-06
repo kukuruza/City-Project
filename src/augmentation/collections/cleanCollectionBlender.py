@@ -272,6 +272,7 @@ def process_car_blend (scene_path, vehicle, dims_true):
     # start with an empty file
     bpy.ops.wm.open_mainfile(filepath=scene_path)
 
+
     try:
         import_blend_car (atcity(model['src_blend_file']), model_id)
     except:
@@ -312,13 +313,12 @@ def process_car_blend (scene_path, vehicle, dims_true):
     bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
     obj.location = (0, 0, 0)
 
-    # scale the model, according to the width
-    scale = dims_true['y'] / dims['y']
-    logging.info ('true width: %.2f, scale: %f' % (dims_true['y'], scale))
-    bpy.ops.transform.resize (value=(scale, scale, scale))
-    # scale dims and round to cm for json output
-    dims.update((x, round(y * scale, 2)) for x, y in dims.items())
-    vehicle['dims'] = dims
+    # # scale the model, according to the width
+    # scale = dims_true['y'] / dims['y']
+    # logging.info ('true width: %.2f, scale: %f' % (dims_true['y'], scale))
+    # bpy.ops.transform.resize (value=(scale, scale, scale))
+    # # scale dims and round to cm for json output
+    # dims.update((x, round(y * scale, 2)) for x, y in dims.items())
 
     # print dims
     origin, dims = get_origin_and_dims_single (model_id, mirrors=True)
@@ -328,6 +328,7 @@ def process_car_blend (scene_path, vehicle, dims_true):
     for m in obj.material_slots:
         m.material.ambient = 1.0
 
+    vehicle['dims'] = dims
     vehicle['valid'] = True
     vehicle['ready'] = True
 
@@ -343,27 +344,21 @@ def process_model (scene_path, model):
         logging.info ('skip invalid model %s' % model['model_id'])
         return
 
-    if 'dims_true' in model:
-        dims_true = model['dims_true']
-    else:
-        # defaults for each model type
-        assert model['vehicle_type'] in width_true, \
-            'no default size for model type %s' % model['vehicle_type']
-        dims_true = {'y': width_true[model['vehicle_type']]}
-    logging.info ('will use true dims: %s' % str(dims_true))
+    # if 'dims_true' in model:
+    #     dims_true = model['dims_true']
+    # else:
+    #     # defaults for each model type
+    #     assert model['vehicle_type'] in width_true, \
+    #         'no default size for model type %s' % model['vehicle_type']
+    #     dims_true = {'y': width_true[model['vehicle_type']]}
+    # logging.info ('will use true dims: %s' % str(dims_true))
 
     if 'src_blend_file' in model:
-        process_car_blend (scene_path, model, dims_true)
+        process_car_blend (scene_path, model, dims_true=None)
     elif 'src_obj_file' in model:
-        process_car_obj   (scene_path, model, dims_true)
+        process_car_obj   (scene_path, model, dims_true=None)
     else:
         raise Exception('not supported')
-
-    # scale the DimsPlane to illustrate dimensions
-    plane = bpy.data.objects['DimsPlane']
-    plane.location = [0, 0, 0]
-    plane.scale.x = model['dims']['x'] * 0.5
-    plane.scale.y = model['dims']['y'] * 0.5
 
     # save clean blend
     dst_blend_file = model['dst_blend_file']
@@ -371,6 +366,12 @@ def process_model (scene_path, model):
         os.makedirs(atcity(op.dirname(dst_blend_file)))
     logging.info ('writing model to %s' % dst_blend_file)
     bpy.ops.wm.save_as_mainfile(filepath=atcity(dst_blend_file))
+
+    # scale the DimsPlane to illustrate dimensions
+    plane = bpy.data.objects['DimsPlane']
+    plane.location = [0, 0, 0]
+    plane.scale.x = model['dims']['x'] * 0.5
+    plane.scale.y = model['dims']['y'] * 0.5
 
     # save a rendered example
     example_file = model['example_file']

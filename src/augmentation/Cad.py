@@ -45,7 +45,7 @@ class Cad:
 
 
     def __init__ (self, 
-                  collection_names,
+                  collection_names=[],
                   config_file='etc/monitor.ini', 
                   cam_timezone='-05:00'):
 

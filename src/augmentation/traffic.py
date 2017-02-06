@@ -6,9 +6,10 @@ import numpy as np
 import cv2
 import string
 import logging
-import datetime
+from datetime import datetime
 import time, hashlib
 import copy
+import cPickle
 from numpy.random import normal, uniform, choice
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 from Cad import Cad
@@ -84,16 +85,18 @@ def kph2ipf (speed_kph, N, L_m, avg_fps):
 
 class Sun:
   def __init__(self):
-    sun_pose_file  = 'augmentation/resources/SunPosition-Jan13-09h.txt'
+    sun_pose_file  = 'augmentation/resources/sun_position.pkl'
 
-    # get sun angles. This is a hack for this particular video
-    with open(atcity(sun_pose_file)) as f:
-        sun_pos_lines = f.readlines()
-    sun_pos_lines = sun_pos_lines[9:]
-    self.sun_poses = []
-    for line in sun_pos_lines:
-        words = line.split()
-        self.sun_poses.append({'altitude': float(words[2]), 'azimuth': float(words[3])})
+    with open(atcity(sun_pose_file), 'rb') as f:
+      self.data = cPickle.load(f)
+
+  def __getitem__(self, time):
+    time = datetime (year=2015, month=time.month, day=time.day,
+                     hour=time.hour, minute=time.minute)
+
+    sun_pose = self.data[time]
+    return {'altitude': sun_pose[0], 'azimuth': sun_pose[1]}
+
 
 
 
@@ -198,7 +201,7 @@ class TrafficModel:
 
   def __init__(self, camera, video, cad, speed_kph, burn_in=True):
 
-    self.sun = Sun()
+    self.sun = Sun()  # TODO: only load when it's sunny
 
     self.camera = camera
     self.video = video
@@ -220,7 +223,7 @@ class TrafficModel:
     logging.info ('TrafficModel: loaded %d lanes' % len(self.lanes))
 
     if burn_in:
-      for i in range(100): self.get_next_frame(time=datetime.datetime.now())
+      for i in range(100): self.get_next_frame(time=datetime.now())
 
 
   def _collect_vehicles (self):
@@ -275,9 +278,8 @@ class TrafficModel:
                       self.camera['origin_image'], self.camera['pxls_in_meter'])
 
     # figure out sun position based on the timestamp
-    logging.debug ('get_next_frame: will use time %s' % str(time))
-    sun_pose = self.sun.sun_poses [int(time.hour*60) + time.minute]
     logging.info ('received timestamp: %s' % time)
+    sun_pose = self.sun[time]
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
     traffic = {'sun_altitude': sun_pose['altitude'],
@@ -404,9 +406,8 @@ class TrafficModelRandom:
                       self.camera['origin_image'], self.camera['pxls_in_meter'])
 
     # figure out sun position based on the timestamp
-    logging.debug ('get_next_frame: will use time %s' % str(time))
-    sun_pose = self.sun.sun_poses [int(time.hour*60) + time.minute]
     logging.info ('received timestamp: %s' % time)
+    sun_pose = self.sun[time]
     logging.info ('calculated sunpose: %s' % str(sun_pose))
 
     traffic = {'sun_altitude': sun_pose['altitude'],
@@ -442,7 +443,7 @@ if __name__ == "__main__":
   video_dir = 'augmentation/scenes/cam572/Jan13-10h'
   collection_names = ['7c7c2b02ad5108fe5f9082491d52810', 
                       'uecadcbca-a400-428d-9240-a331ac5014f6']
-  timestamp = datetime.datetime.now()
+  timestamp = datetime.now()
   video = Video(video_dir)
   camera = video.build_camera()
 

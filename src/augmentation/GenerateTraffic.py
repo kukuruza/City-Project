@@ -27,6 +27,7 @@ def generate_video_traffic (job):
   assertParamIsThere  (job, 'out_video_dir')
   setParamUnlessThere (job, 'frame_range', '[::]')
   assertParamIsThere  (job, 'video_dir')
+  assertParamIsThere  (job, 'speed_kph')  # TODO random or this
 
   video = Video(video_dir=job['video_dir'])
   camera = video.build_camera()
@@ -64,6 +65,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--logging_level', default=20, type=int)
+    parser.add_argument('--speed_kph', type=int, required=True)
     parser.add_argument('--frame_range', default='[::]', 
                         help='python style ranges, e.g. "[5::2]"')
     parser.add_argument('--job_file', required=True)
@@ -80,6 +82,7 @@ if __name__ == "__main__":
               
     assert op.exists(atcity(args.job_file)), atcity(args.job_file)
     job = simplejson.load(open(atcity(args.job_file) ))
+    setParamUnlessThere (job, 'speed_kph', args.speed_kph)
     setParamUnlessThere (job, 'frame_range', args.frame_range)
     setParamUnlessThere (job, 'in_db_file', args.in_db_file)
     setParamUnlessThere (job, 'video_dir', op.dirname(args.job_file))

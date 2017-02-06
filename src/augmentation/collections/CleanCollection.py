@@ -58,11 +58,11 @@ def clean_model (model, params={}):
     src_obj_file   = op.join(collection_dir, 'obj/%s.obj' % model_id)
     if op.exists(atcity(src_blend_file)): 
         model['src_blend_file'] = src_blend_file
+        logging.debug ('src_blend_file: %s' % src_blend_file)
     elif op.exists(atcity(src_obj_file)): 
         model['src_obj_file'] = src_obj_file
-    else:
-        logging.debug ('src_blend_file: %s' % src_blend_file)
         logging.debug ('src_obj_file:   %s' % src_obj_file)
+    else:
         logging.warning ('model %s was not converted from .skp' % model_id)
         model['error'] = "model was not converted from .skp, probably bad model"
         model['valid'] = False
@@ -107,77 +107,6 @@ def clean_model (model, params={}):
           cv2.waitKey(-1)
 
     return model
-
-
-
-# def classify (collection, model_range=None):
-#     '''
-#     Assign a name to each car (currently most names reflect car type)
-#     '''
-#     keys = getCalibration()
-
-#     keys[ord(' ')] = 'vehicle'    # but can't see the type, or not in the list
-#     keys[ord('s')] = 'sedan'      # generic small car
-#     keys[ord('d')] = 'double'     # several cars stacked into one bbox
-#     keys[ord('c')] = 'taxi'       # (cab)
-#     keys[ord('t')] = 'truck'
-#     keys[ord('v')] = 'van'        # (== a small truck)
-#     keys[ord('m')] = 'minivan'
-#     keys[ord('b')] = 'bus'
-#     keys[ord('p')] = 'pickup'
-#     keys[ord('l')] = 'limo'
-#     keys[ord('s')] = 'suv'
-#     keys[ord('o')] = 'object'     # not a car, pedestrian, or bike
-#     keys[ord('h')] = 'hatchback'
-#     keys[ord('k')] = 'bike'       # (bike or motobike)
-
-#     collection_id = collection['collection_id']
-#     models = model['vehicles']
-#     collection_dir = 'augmentation/CAD/%s' % collection_id
-
-#     car_statuses = {}
-#     button = 0
-#     index = 0
-#     while button != 27 and index >= 0 and index < len(models):
-#         model = models[index]
-#         example_file = op.join(collection_dir, 'examples/%s.png' % model_id)
-#         example = cv2.imread(atcity(example_file))
-
-#         # assign label for display
-#         label = car_statuses[index] if index in car_statuses.keys() else ''
-#         logging.info ('label: %s' % label)
-
-#         display = image.copy()
-#         drawRoi (display, roi, label)
-
-#         cv2.imshow('show', example)
-#         button = waitKey(-1)
-
-#         if button == keys['left']:
-#             logging.debug ('prev car')
-#             index -= 1
-#         elif button == keys['right']:
-#             logging.debug ('next car')
-#             index += 1
-#         elif button == keys['del']:
-#             logging.info ('delete')
-#             car_statuses[index] = 'badcar'
-#             index += 1
-#         elif button in keys.keys():  # any of the names added to keys in this function
-#             logging.info (keys[button])
-#             car_statuses[index] = keys[button]
-#             index += 1
-
-#     # actually delete or update
-#     for (index, status) in car_statuses.iteritems():
-#         if status == 'badcar':
-#             model[]
-#             deleteCar (c, carid)
-#         elif status == '':
-#             c  # nothing
-#         else:
-#             c.execute('UPDATE cars SET name=? WHERE id=?', (status, carid))
-
 
 
 

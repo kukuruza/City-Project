@@ -47,7 +47,7 @@ BackLearnRate = parsed.BackLearnRate;
 FilterSigmaCoef = parsed.FilterSigmaCoef;
 
 % output
-out_background_file = fullfile(in_video_dir, parsed.out_src_name);
+out_background_file = fullfile(in_video_dir, parsed.out_back_name);
 %out_ghost_file      = fullfile(in_video_dir, 'ghost.avi');
 
 % what to do
