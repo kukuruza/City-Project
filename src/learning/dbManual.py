@@ -54,6 +54,65 @@ def show (c, params = {}):
 
 
 
+def showPair (c, c_ref, params = {}):
+    ''' Show side by side. Iterate c, c_ref should have same imagefiles. '''
+
+    logging.info ('==== show ====')
+    setParamUnlessThere (params, 'show_empty_frames', False)
+    setParamUnlessThere (params, 'display_scale',     1.0)
+    setParamUnlessThere (params, 'image_processor',   ReaderVideo())
+    setParamUnlessThere (params, 'key_reader',        KeyReaderUser())
+    setParamUnlessThere (params, 'shuffle',           False)
+
+    c.execute('SELECT imagefile FROM images')
+    imagefiles = c.fetchall()
+
+    if params['shuffle']:
+      np.random.shuffle(imagefiles)
+
+    for (imagefile,) in imagefiles:
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        car_entries = c.fetchall()
+        logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+
+        c_ref.execute('SELECT COUNT(*) FROM images WHERE imagefile=?', (imagefile,))
+        assert len(c_ref.fetchone()) > 0, imagefile
+
+        c_ref.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        car_entries_ref = c_ref.fetchall()
+        logging.info ('%d cars found for %s' % (len(car_entries_ref), imagefile))
+
+        if len(car_entries) == 0 and not params['show_empty_frames']:
+            continue
+
+        display = params['image_processor'].imread(imagefile)
+        display_ref = display.copy()
+
+        for car_entry in car_entries:
+            roi       = bbox2roi (carField(car_entry, 'bbox'))
+            score     = carField(car_entry, 'score')
+            #name      = carField(car_entry, 'name')
+
+            if score is None: score = 1
+            logging.info ('roi: %s, score: %f' % (str(roi), score))
+            drawScoredRoi (display, roi, '', score)
+
+        for car_entry in car_entries_ref:
+            roi       = bbox2roi (carField(car_entry, 'bbox'))
+            score     = carField(car_entry, 'score')
+            #name      = carField(car_entry, 'name')
+
+            if score is None: score = 1
+            logging.info ('roi: %s, score: %f' % (str(roi), score))
+            drawScoredRoi (display_ref, roi, '', score)
+
+        f = params['display_scale']
+        display = cv2.resize(display, (0,0), fx=f, fy=f)
+        display_ref = cv2.resize(display_ref, (0,0), fx=f, fy=f)
+        cv2.imshow('display', np.hstack((display, display_ref)))
+        if params['key_reader'].readKey() == 27: break
+
+
 
 def examine (c, params = {}):
     '''
