@@ -244,10 +244,11 @@ def render_frame (video, camera, traffic):
   cv2.imwrite (carsonly_filepath, image)
 
   # create mask
-  mask = _get_masks (WORK_DIR, traffic)
-  # TODO: visibility is returned via traffic file, NOT straightforward
-  with open(traffic_path, 'w') as f:
-      f.write(json.dumps(traffic, indent=4))
+  if traffic['render_individual_cars'] == True:
+    mask = _get_masks (WORK_DIR, traffic)
+    # TODO: visibility is returned via traffic file, NOT straightforward
+    with open(traffic_path, 'w') as f:
+        f.write(json.dumps(traffic, indent=4))
 
   # correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
   # if op.exists(correction_path): os.remove(correction_path)
@@ -398,7 +399,7 @@ def process_video (job):
   # for checking timeout
   start_time = datetime.now()
 
-  cad = Cad(job['collection_names'])
+  cad = Cad()
 
   # upload info on parsed vehicles to the monitor server
   monitor = None # MonitorDatasetClient (cam_id=camera.info['cam_id'])

@@ -29,7 +29,7 @@ def make_snapshot (render_dir, car_names, params):
     setParamUnlessThere (params, 'scale', 1)
     setParamUnlessThere (params, 'render_individual_cars', True)
     # debug options
-    setParamUnlessThere (params, 'save_blend_file', False)
+    setParamUnlessThere (params, 'save_blender_file', False)
     setParamUnlessThere (params, 'render_satellite', False)
     setParamUnlessThere (params, 'render_cars_as_cubes', False)
 
@@ -99,10 +99,22 @@ def make_snapshot (render_dir, car_names, params):
     bpy.context.scene.node_tree.nodes['depth'].base_path = atcity(render_dir)
     bpy.context.scene.node_tree.nodes['render'].base_path = atcity(render_dir)
 
-    # render scene
+    # leave only shadows
+    for m in bpy.data.materials:
+      if m != bpy.data.materials['Material-dry-asphalt'] and \
+         m != bpy.data.materials['Material-wet-asphalt']:
+        m.use_only_shadow = True
+
+    # render shadows only
     bpy.data.objects['-Ground'].hide_render = False
     bpy.ops.render.render (write_still=True, layer='Render')
     _rename (render_dir, 'render0001', 'render.png')
+
+    # materials back to normal
+    for m in bpy.data.materials:
+      if m != bpy.data.materials['Material-dry-asphalt'] and \
+         m != bpy.data.materials['Material-wet-asphalt']:
+        m.use_only_shadow = False
 
     # render without ground
     bpy.data.objects['-Ground'].hide_render = True
@@ -111,7 +123,8 @@ def make_snapshot (render_dir, car_names, params):
     _rename (render_dir, 'render0001', 'cars-only.png')
     _rename (render_dir, 'depth0001', 'depth-all.png')
 
-    for car_i0, car_name0 in enumerate(car_names):
+    if params['render_individual_cars'] and not params['render_cars_as_cubes']:
+      for car_i0, car_name0 in enumerate(car_names):
 
         # remove all cars from the only layer, and add car_name0 back to it
         for car_name in car_names:

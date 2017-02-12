@@ -113,7 +113,11 @@ def set_rainy ():
 
     # turn on mist
     bpy.data.worlds['World'].mist_settings.use_mist = True
-    bpy.data.worlds['World'].mist_settings.intensity = normal(0.1, 0.07)
+    bpy.data.worlds['World'].mist_settings.intensity = 0.1 #normal(0.2, 0.07)
+    bpy.data.worlds['World'].mist_settings.depth = normal(150., 30.)
+    bpy.data.worlds['World'].mist_settings.falloff = 'INVERSE_QUADRATIC'
+    logging.info ('rainy weather set mist to %0.1f' % 
+      bpy.data.worlds['World'].mist_settings.depth)
 
 
 def set_wet ():
@@ -215,7 +219,7 @@ def set_weather (params):
     weather = params['weather']
 
     if weather == 'Rainy': 
-        logging.info ('setting cloudy weather')
+        logging.info ('setting rainy weather')
         set_rainy()
     elif weather == 'Wet':
         logging.info ('setting wet weather')
