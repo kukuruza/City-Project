@@ -6,7 +6,7 @@ import sqlite3
 import datetime
 import traceback
 from helperSetup import atcity, _setupCopyDb_, setParamUnlessThere, assertParamIsThere
-from helperDb    import createDb, carField
+from helperDb    import createDb, carField, makeTimeString
 from dbUtilities import bbox2roi, drawScoredRoi
 
 
@@ -81,6 +81,8 @@ def make_dataset (video_dir, db_file, params = {}):
     The format may change over time.
     '''
     logging.info ('==== make_dataset ====')
+    setParamUnlessThere (params, 'image_video_name', 'src.avi')
+    setParamUnlessThere (params, 'mask_video_name', 'mask.avi')
 
     # take care of dir and name of the db
     db_dir = op.dirname(atcity(db_file))
@@ -90,8 +92,8 @@ def make_dataset (video_dir, db_file, params = {}):
     db_name = op.basename(db_file)
 
     # form video and time paths
-    video_file = op.join(video_dir, 'src.avi')
-    mask_file  = op.join(video_dir, 'mask.avi')
+    video_file = op.join(video_dir, params['image_video_name'])
+    mask_file  = op.join(video_dir, params['mask_video_name'])
     time_file  = op.join(video_dir, 'time.txt')
 
     db_path = atcity(db_file)

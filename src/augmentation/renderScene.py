@@ -119,8 +119,15 @@ def make_snapshot (render_dir, car_names, params):
     # render without ground
     bpy.data.objects['-Ground'].hide_render = True
     bpy.ops.render.render (write_still=True, layer='Render')
-    bpy.ops.render.render (write_still=True, layer='Depth')
     _rename (render_dir, 'render0001', 'cars-only.png')
+
+    # TODO: move trees to a separate layer
+    # hide trees so that they don't get into the depth buffer
+    if '-Trees' in bpy.data.objects:
+      bpy.data.objects['-Trees'].hide_render = True
+
+    # render depth of all cars
+    bpy.ops.render.render (write_still=True, layer='Depth')
     _rename (render_dir, 'depth0001', 'depth-all.png')
 
     if params['render_individual_cars'] and not params['render_cars_as_cubes']:

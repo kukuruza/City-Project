@@ -1,6 +1,7 @@
 import logging
 import json
 import sqlite3
+from datetime import datetime
 
 
 def doesTableExist (cursor, table):
@@ -117,3 +118,10 @@ def polygonField (polygon, field):
     if field == 'x':         return polygon[2]
     if field == 'y':         return polygon[3]
     return None
+
+
+def makeTimeString (time):
+    ''' Write a string in my format.
+    Args: time -- datetime object
+    '''
+    return datetime.strftime(time, '%Y-%m-%d %H:%M:%S.%f')
