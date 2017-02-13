@@ -106,31 +106,3 @@ def make_dataset (video_dir, db_file, params = {}):
     conn.commit()
     conn.close()
     logging.info ('successfully made a db from %s' % video_file)
-
-
-    
-
-def exportVideo (c, params = {}):
-    logging.info ('==== exportVideo ====')
-    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    assertParamIsThere  (params, 'image_processor')
-
-    c.execute('SELECT imagefile FROM images')
-    for (imagefile,) in c.fetchall():
-
-        frame = params['image_processor'].imread(imagefile)
-
-        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-        for car_entry in c.fetchall():
-            roi       = bbox2roi (carField(car_entry, 'bbox'))
-            imagefile = carField (car_entry, 'imagefile')
-            name      = carField (car_entry, 'name')
-            score     = carField (car_entry, 'score')
-
-            if score is None: score = 1
-            logging.debug ('roi: %s, score: %f' % (str(roi), score))
-            drawScoredRoi (frame, roi, name, score)
-
-        params['image_processor'].imwrite(frame, imagefile)
-
-

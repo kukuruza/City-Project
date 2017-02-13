@@ -92,6 +92,9 @@ def make_snapshot (render_dir, car_names, params):
     def _rename (render_dir, from_name, to_name):
         os.rename(atcity(op.join(render_dir, from_name)), 
                   atcity(op.join(render_dir, to_name)))
+
+    # set directional blur amount from if given
+    #bpy.data.node_groups['Compositing Nodetree'].nodes['Camera-Blur'].zoom
     
     # there are two nodes -- "render" and "depth"
     # they save images in BW16 or RBG8
@@ -120,11 +123,6 @@ def make_snapshot (render_dir, car_names, params):
     bpy.data.objects['-Ground'].hide_render = True
     bpy.ops.render.render (write_still=True, layer='Render')
     _rename (render_dir, 'render0001', 'cars-only.png')
-
-    # TODO: move trees to a separate layer
-    # hide trees so that they don't get into the depth buffer
-    if '-Trees' in bpy.data.objects:
-      bpy.data.objects['-Trees'].hide_render = True
 
     # render depth of all cars
     bpy.ops.render.render (write_still=True, layer='Depth')

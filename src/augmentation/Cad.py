@@ -49,6 +49,9 @@ class Cad:
                   config_file='etc/monitor.ini', 
                   cam_timezone='-05:00'):
 
+        es_logger = logging.getLogger('elasticsearch')
+        es_logger.setLevel(logging.WARNING)
+
         self.cam_timezone = cam_timezone
         #self.verbose = args.verbose
         (self.max_time, self.server_address, self.server_credentials, self.machine_name) = \
