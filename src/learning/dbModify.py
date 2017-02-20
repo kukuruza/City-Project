@@ -586,15 +586,13 @@ def merge (c, c_add, params = {}):
 
 
 
-def split (c, db_out_names={'train': 0.5, 'test': 0.5}, randomly=True):
+def split (c, out_dir, db_out_names={'train': 0.5, 'test': 0.5}, randomly=True):
   ''' Split a db into several sets (randomly or sequentially).
   This function violates the principle of receiving cursors, for simplicity.
   Args: out_dir      - relative to CITY_DATA_PATH
         db_out_names - names of output db-s and their percentage;
                        if percentage sums to >1, last db-s will be underfilled.
   '''
-  out_dir = os.path.dirname(in_db_file)
-
   c.execute('SELECT imagefile FROM images')
   imagefiles = sorted(c.fetchall())
   if randomly: random.shuffle(imagefiles)
@@ -648,7 +646,23 @@ def keepFraction (c, fraction_keep, randomly=True):
     c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))
 
-  
+
+
+def filterOneWithAnother (c, c_ref):
+  '''Keep only those imagenames in c, that exist in c_ref.
+  '''
+  c_ref.execute('SELECT imagefile FROM images')
+  ref_imagefiles = c_ref.fetchall()
+  ref_imagenames = [op.basename(x) for x, in ref_imagefiles]
+
+  c.execute('SELECT imagefile FROM images')
+  imagefiles = c.fetchall()
+
+  del_imagefiles = [x for x, in imagefiles if op.basename(x) not in ref_imagenames]
+  for del_imagefile in del_imagefiles:
+    c.execute('DELETE FROM images WHERE imagefile=?', (del_imagefile,))
+    c.execute('DELETE FROM cars   WHERE imagefile=?', (del_imagefile,))
+
 
 
 # not supported because not used at the moment

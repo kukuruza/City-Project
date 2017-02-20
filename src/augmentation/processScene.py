@@ -2,6 +2,7 @@ import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 from glob import glob
 from time import sleep, time
+import scipy.misc
 import json
 import numpy as np
 import cv2
@@ -273,7 +274,15 @@ def combine_frame (background, video, camera):
   # get background file
   assert background is not None
   assert background.shape == (height0, width0, 3), background.shape
+  # make a completely gray background frame hahaha
+  #background.fill(128)
   cv2.imwrite (op.join(WORK_DIR, BACKGROUND_FILENAME), background)
+
+  # get shadows file
+  #shadow_path = op.join(WORK_DIR, 'render.png')
+  #shadow = scipy.misc.imread(shadow_path)
+  #shadow[:,:,3] = 0  # assign full transparency 
+  #scipy.misc.imsave(shadow_path, shadow)
 
   # remove previous result so that there is an error if blender fails
   if op.exists(op.join(WORK_DIR, COMBINED_FILENAME)): 
@@ -304,7 +313,8 @@ def combine_frame (background, video, camera):
 class Diapason:
 
   def _parse_range_str_ (self, range_str, length):
-    '''Parses string into python range
+    '''Parses string into python range.
+    Has another forth number (default to 1), signifying the number of repetitions.
     '''
     assert isinstance(range_str, basestring)
     # remove [ ] around the range
@@ -312,16 +322,20 @@ class Diapason:
         range_str = range_str[1:-1]
     # split into three elements start,end,step. Assign step=1 if missing
     arr = range_str.split(':')
-    assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 columns ":" in range str'
+    assert len(arr) >= 2 and len(arr) <= 4, 'need 1, 2 or 3 columns ":" in range str'
     if len(arr) == 2: arr.append('1')
+    if len(arr) == 3: arr.append('1')
     if arr[0] == '': arr[0] = '0'
     if arr[1] == '': arr[1] = str(length)
     if arr[2] == '': arr[2] = '1'
+    if arr[3] == '': arr[3] = '1'
     start = int(arr[0])
     end   = int(arr[1])
     step  = int(arr[2])
+    repeatitions = int(arr[3])
     range_py = range(start, end, step)
-    logging.debug ('Diapason parsed range_str %s into range of length %d' % 
+    range_py = range_py * repeatitions
+    logging.info ('Diapason parsed range_str %s into range of length %d' % 
                     (range_str, len(range_py)))
     return range_py
 
@@ -343,15 +357,6 @@ class Diapason:
       r = self.frame_range[i*chunk_size : min((i+1)*chunk_size, len(self.frame_range))]
       chunks.append(r)
     return chunks
-
-
-def get_time (video, timestamp, frame_id):
-  if timestamp is None:
-    assert video.start_time is not None, 'no time in .db or in video_info file'
-    time = video.start_time + timedelta(minutes=int(float(frame_id) / 960 * 40))
-  else:
-    time = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-  return time
 
 
 
@@ -423,7 +428,7 @@ def process_video (job):
 
   diapason = Diapason(len(image_entries), job['frame_range'])
   
-  num_processes = int(multiprocessing.cpu_count() / 3 + 1)
+  num_processes = int(multiprocessing.cpu_count() / 2 + 1)
   pool = multiprocessing.Pool (processes=num_processes)
 
   # each frame_range chunk is processed in parallel
@@ -475,7 +480,7 @@ def process_video (job):
       if not job['save_blender_files']: 
         shutil.rmtree(work_dir)
 
-  conn.commit()
+      conn.commit()
   conn.close()
 
   pool.close()

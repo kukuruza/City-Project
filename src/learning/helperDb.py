@@ -125,3 +125,9 @@ def makeTimeString (time):
     Args: time -- datetime object
     '''
     return datetime.strftime(time, '%Y-%m-%d %H:%M:%S.%f')
+
+
+def parseTimeString (timestring):
+    return datetime.strptime(timestring, '%Y-%m-%d %H:%M:%S.%f')
+
+

@@ -8,12 +8,13 @@ from pprint import pprint
 from learning.helperSetup import setupLogging, atcity
 from learning.helperSetup import assertParamIsThere, setParamUnlessThere
 from learning.video2dataset import make_dataset
+from learning.helperDb import parseTimeString
 from Cad import Cad
 from Camera import Camera
 from Video import Video
 from traffic import TrafficModel, TrafficModelRandom
 import sqlite3
-from processScene import Diapason, get_time
+from processScene import Diapason
 
 
 
@@ -55,7 +56,7 @@ def generate_video_traffic (job):
   for frame_id in diapason.frame_range:
     logging.info ('generating traffic for frame %d' % frame_id)
     timestamp = timestamps[frame_id][0]
-    time = get_time (video, timestamp, frame_id)
+    time = parseTimeString (timestamp)
     traffic_frame = model.get_next_frame(time)
     traffic_frame['frame_id'] = frame_id  # for validating
     traffic['frames'].append(traffic_frame)
@@ -98,6 +99,7 @@ if __name__ == "__main__":
     
     pprint (job)
     traffic = generate_video_traffic (job)
+    print 'generated traffic for %d frames' % len(traffic['frames'])
     with open(atcity(args.traffic_file), 'w') as f:
       f.write(json.dumps(traffic, indent=2))
 

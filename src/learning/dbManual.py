@@ -11,6 +11,21 @@ from helperImg   import ReaderVideo
 
 
 
+def getInfo (c, params = {}):
+    '''Show major info of database. To be used when a db view is not available.
+    Will add more options when he need comes.
+    '''
+    info = {}
+    c.execute('SELECT imagefile FROM images')
+    imagefiles = c.fetchall()
+    info['numimages'] = len(imagefiles)
+    imagedirs = [op.dirname(x) for x, in imagefiles]
+    imagedirs = list(set(imagedirs))
+    info['imagedirs'] = imagedirs
+
+    return info
+
+
 def show (c, params = {}):
     '''
     Browse through database and see car bboxes on top of images. Colors are not shown.

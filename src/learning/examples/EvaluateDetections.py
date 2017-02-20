@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 
 setupLogging ('log/detector/EvaluateDetections.log', logging.INFO, 'a')
 
-db_eval_file = 'faster-rcnn/572-Feb23-09h-Jan27/train-Jan29/real_detected_with_30K.db'
-db_true_file = 'faster-rcnn/572-Feb23-09h-Jan27/labelled-filt-test-e02-w25.db'
+db_eval_file = 'faster-rcnn/572-Feb23-09h/train-Jan29/real_detected_with_30K.db'
+db_true_file = 'faster-rcnn/572-Feb23-09h/labelled-filt-test-e02-w25.db'
 
 # sinthetic_range_contraint = {
 #   'image_constraint': 
@@ -26,8 +26,8 @@ db_true_file = 'faster-rcnn/572-Feb23-09h-Jan27/labelled-filt-test-e02-w25.db'
 # trained model has some strange failures near the bottom right corner
 #filterCustom(cursor_eval, {'car_constraint': 'y1 < 450 OR y1 + height < 470'})
 
-rec, prec, ap = evalClass (cursor_eval, cursor_true, classname=None)
-det_counts, gt_counts = evalCounting (cursor_eval, cursor_true, classname=None)
+rec, prec, ap = evalClass (c_gt=cursor_true, c_det=cursor_eval, params=params)
+det_counts, gt_counts = evalCounting (c_gt=cursor_true, c_det=cursor_eval)
 
 conn_eval.close()
 conn_true.close()

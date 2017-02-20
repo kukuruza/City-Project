@@ -35,8 +35,9 @@ def make_snapshot (render_dir, car_names, params):
 
     bpy.data.worlds['World'].light_settings.environment_energy = 0.0
     bpy.data.worlds['World'].light_settings.ao_factor = 0.5
-    bpy.data.objects['-Sky-sunset'].data.energy = 2
+    bpy.data.objects['-Sky-sunset'].data.energy = np.random.normal(1, 0.5) #2
 
+    params['weather'] = np.random.choice(['Sunny', 'Cloudy', 'Rainy', 'Wet'])
     set_weather (params)
 
     # render the image from satellite, when debuging
