@@ -383,7 +383,9 @@ def filterCustom (c, params = {}):
     '''
     setParamUnlessThere (params, 'image_constraint', '1')
     setParamUnlessThere (params, 'car_constraint', '1')
-    c.execute('DELETE FROM images WHERE NOT (%s)' % params['image_constraint'])
+    s = 'DELETE FROM images WHERE NOT (%s)' % params['image_constraint']
+    logging.info (s)
+    c.execute(s)
     c.execute('''SELECT id FROM cars WHERE 
                  NOT (%s) OR imagefile NOT IN 
                  (SELECT imagefile FROM images WHERE (%s))''' 
@@ -516,9 +518,11 @@ def assignOrientations (c, params):
 
 def moveDir (c, params):
     logging.info ('==== moveDir ====')
+    setParamUnlessThere (params, 'images_dir', None)
+    setParamUnlessThere (params, 'masks_dir', None)
 
-    if 'images_dir' in params:
-
+    if params['images_dir'] is not None:
+        logging.debug ('images_dir: %s' % params['images_dir'])
         c.execute('SELECT imagefile FROM images')
         imagefiles = c.fetchall()
 
@@ -528,8 +532,8 @@ def moveDir (c, params):
             c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
             c.execute('UPDATE cars SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
 
-    if 'masks_dir' in params:
-
+    if params['masks_dir'] is not None:
+        logging.debug ('masks_dir: %s' % params['masks_dir'])
         c.execute('SELECT maskfile FROM images')
         maskfiles = c.fetchall()
 
@@ -602,6 +606,7 @@ def split (c, out_dir, db_out_names={'train': 0.5, 'test': 0.5}, randomly=True):
     num_images_in_set = int(ceil(len(imagefiles) * setfraction))
     next = min(current + num_images_in_set, len(imagefiles))
 
+    logging.info('writing %d images to %s' % (num_images_in_set, db_out_name))
     db_out_path = atcity(op.join(out_dir, '%s.db' % db_out_name))
     if op.exists(db_out_path): os.remove(db_out_path)
     conn = sqlite3.connect(db_out_path)
@@ -663,6 +668,21 @@ def filterOneWithAnother (c, c_ref):
     c.execute('DELETE FROM images WHERE imagefile=?', (del_imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (del_imagefile,))
 
+
+
+def diffImagefiles (c, c_ref, params = {}):
+  ''' Difference between two databases.
+  Only those imagefiles which are not in c_ref are kept. 
+  '''
+  logging.info ('==== diffImagefiles ====')
+    
+  c_ref.execute('SELECT imagefile FROM images')
+  imagefiles_ref = c_ref.fetchall()
+   
+  for imagefile, in imagefiles_ref:
+    logging.debug('deleting %s' % imagefile)
+    c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
+    c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))
 
 
 # not supported because not used at the moment
@@ -747,6 +767,47 @@ def polygonsToMasks (c, c_labelled=None, c_all=None, params = {}):
         maskfile = processor.maskwrite (mask, imagefile)
         c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', 
           (maskfile, imagefile))
+
+
+
+# need a unit test
+def polygonsToMasks_old (c, params = {}):
+    '''
+    Create masks and maskfile db entries from polygons table.
+    Currently only supports ProcessorVideo (writes masks to video)
+    '''
+    logging.info ('==== polygonsToMasks ====')
+    setParamUnlessThere (params, 'relpath',    os.getenv('CITY_DATA_PATH'))
+    setParamUnlessThere (params, 'mask_name',  'mask-poly.avi')
+
+    # Assume mask field is null. Deduce the out mask name from imagefile.
+    #   Also send the image video to processor, so that it deduces video params.
+    c.execute('SELECT imagefile,width,height FROM images')
+    image_entries = c.fetchall()
+    in_image_video_file = '%s.avi' % op.dirname(image_entries[0][0])
+    out_mask_video_file = '%s/%s' % (op.dirname(in_image_video_file), params['mask_name'])
+    logging.info ('polygonsToMasks: in_image_video_file: %s' % in_image_video_file)
+    logging.info ('polygonsToMasks: out_mask_video_file: %s' % out_mask_video_file)
+    processor = ProcessorVideo \
+            ({'out_dataset': {in_image_video_file: out_mask_video_file} })
+
+    # copy images and possibly masks
+    for (imagefile,width,height) in image_entries:
+      processor.maskread (imagefile)  # processor needs to read first
+
+      mask = np.zeros((height, width), dtype=np.uint8)
+      c.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
+      for (carid,) in c.fetchall():
+        c.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+        polygon_entries = c.fetchall()
+        pts = [[pt[0], pt[1]] for pt in polygon_entries]
+        cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+      mask = mask > 0
+
+      maskfile = processor.maskwrite (mask, imagefile)
+      c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+      logging.info ('saved mask to file: %s' % maskfile)
+
 
 
 # TODO: need a unit test

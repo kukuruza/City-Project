@@ -3,7 +3,6 @@ import numpy as np
 import cv2
 #import xml.etree.ElementTree as ET
 from lxml import etree as ET
-#from lxml.html import soupparser
 from StringIO import StringIO
 import collections
 import logging
@@ -134,27 +133,3 @@ def folder2frames (c, annotations_dir, params):
     logging.debug ('processing imagefile: %s' % imagefile)
     _processFrame (c, imagefile, annotation_path, params)
 
-
-
-def filterDbWithList (c, in_list_file):
-  ''' Keep only images inside list. Temp helper function for idatafa. '''
-
-  # list input images names
-  with open(atcity(in_list_file)) as f:
-    imagefiles_new = f.read().splitlines()
-
-  c.execute('SELECT imagefile FROM images')
-  imagefiles_old = c.fetchall()
-  imagefiles_old = [str(x) for x, in imagefiles_old]  # to list
-
-  assert len(set(imagefiles_new) - set(imagefiles_old)) == 0, \
-    '%s has files not in the original db' % (in_list_file)
-
-  c.execute('SELECT COUNT(*) FROM cars')
-  numcars, = c.fetchone()
-  assert numcars == 0, 'deleting cars for images not implemented: %d' % numcars
-
-  imagefiles_del = list(set(imagefiles_old) - set(imagefiles_new))
-
-  for imagefile in imagefiles_del:
-    c.execute('DELETE FROM images WHERE imagefile=?;', (imagefile,));

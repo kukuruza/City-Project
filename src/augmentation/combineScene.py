@@ -3,6 +3,7 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 import logging
 import bpy
+import numpy as np
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
@@ -29,18 +30,8 @@ image_node = bpy.context.scene.node_tree.nodes['Image-Normal'].image
 image_node.filepath = op.join(WORK_DIR, NORMAL_FILENAME)
 
 
-if op.exists(correction_path):
-    frame_info = json.load(open( correction_path ))
-
-    # compensate for color changes throughout a video
-    hsv_node = bpy.context.scene.node_tree.nodes['Hue-Saturation-Compensation']
-    # print ('changed hue,sat from %.2f,%.2f' % \
-    #                (hsv_node.color_hue, hsv_node.color_saturation))
-    hsv_node.color_hue        += frame_info['dh']
-    hsv_node.color_saturation += frame_info['ds']
-    #hsv_node.color_value      += frame_info['dv']
-    # print ('changed hue,sat to %.2f,%.2f' % \
-    #                (hsv_node.color_hue, hsv_node.color_saturation))
+bpy.context.scene.node_tree.nodes['Hue-Saturation-Compensation'].color_saturation *= np.random.normal(1, 0.2)
+bpy.context.scene.node_tree.nodes['Hue-Saturation-Compensation'].color_value *= np.random.normal(1, 0.2)
 
 # render and save
 # TODO: should delete bpy.data.scenes['Scene'].render.filepath ??

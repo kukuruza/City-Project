@@ -1,7 +1,8 @@
 import os, sys, os.path as op
 import numpy as np
 import cv2
-import xml.etree.ElementTree as ET
+#import xml.etree.ElementTree as ET
+from lxml import etree as ET
 import collections
 import logging
 import glob

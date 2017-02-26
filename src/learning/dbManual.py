@@ -15,15 +15,33 @@ def getInfo (c, params = {}):
     '''Show major info of database. To be used when a db view is not available.
     Will add more options when he need comes.
     '''
+    logging.info ('==== getInfo ====')
     info = {}
+
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
     info['numimages'] = len(imagefiles)
     imagedirs = [op.dirname(x) for x, in imagefiles]
     imagedirs = list(set(imagedirs))
+    #for imagedir in imagedirs:
+    #    c.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?', )
     info['imagedirs'] = imagedirs
 
+    c.execute('SELECT maskfile FROM images')
+    maskfiles = c.fetchall()
+    maskdirs = [op.dirname(x) for x, in maskfiles]
+    maskdirs = list(set(maskdirs))
+    info['maskdirs'] = maskdirs
+
+    if 'print_imagefiles' in params and params.print_imagefiles:
+        for imagefile, in imagefiles:
+            print imagefile
+
+    c.execute('SELECT COUNT(*) FROM cars')
+    info['numcasr'] = c.fetchone()[0]
+
     return info
+
 
 
 def show (c, params = {}):

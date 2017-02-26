@@ -1,19 +1,28 @@
 import os, sys, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import logging
+import argparse
 from learning.helperSetup import setupLogging, dbInit
 from learning.dbModify import generateBackground
 
 
-setupLogging ('log/learning/Manually.log', logging.INFO, 'a')
+setupLogging ('log/learning/GenerateBackground.log', logging.INFO, 'a')
 
-in_db_file  = 'databases/idatafa/572-Feb23-09h/train-Jan26/forback-part.db'
-out_db_file = 'databases/idatafa/572-Feb23-09h/train-Jan26/back-part.db'
-out_videofile = 'camdata/cam572/Feb23-09h/back-part.avi'
+parser = argparse.ArgumentParser()
+parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--out_db_file', required=True)
+parser.add_argument('--out_videofile', required=True)
+parser.add_argument('--logging_level', default=20, type=int)
+parser.add_argument('--dilate_radius', default=2, type=int)
+args = parser.parse_args()
 
+setupLogging ('log/learning/GenerateBackground.log', args.logging_level, 'a')
 
-(conn, cursor) = dbInit(in_db_file, out_db_file)
-generateBackground (cursor, out_videofile, params={'show_debug': False, 'dilate_radius': 2})
+(conn, cursor) = dbInit(args.in_db_file, args.out_db_file)
+generateBackground (cursor, args.out_videofile, 
+                    params={'show_debug': False, 
+                            'dilate_radius': args.dilate_radius})
 conn.commit()
 conn.close()
+
 

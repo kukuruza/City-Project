@@ -6,20 +6,24 @@ import sqlite3
 import datetime
 from helperSetup import atcity, setParamUnlessThere, assertParamIsThere
 from helperDb    import createDb, imageField
-from helperImg   import ReaderVideo
+from helperImg   import ReaderVideo, SimpleWriter
+from dbUtilities import drawScoredRoi, bbox2roi
+from helperDb    import carField
 
 
-def exportVideo (c, params = {}):
+def exportVideoWBoxes (c, out_videofile, params = {}):
   ''' Write video with bounding boxes '''
   
   logging.info ('==== exportVideo ====')
   setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-  assertParamIsThere  (params, 'image_processor')
+  setParamUnlessThere (params, 'image_reader',  ReaderVideo())
+
+  video_writer = SimpleWriter(vimagefile=out_videofile)
 
   c.execute('SELECT imagefile FROM images')
   for (imagefile,) in c.fetchall():
 
-      frame = params['image_processor'].imread(imagefile)
+      frame = params['image_reader'].imread(imagefile)
 
       c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
       for car_entry in c.fetchall():
@@ -32,7 +36,7 @@ def exportVideo (c, params = {}):
           logging.debug ('roi: %s, score: %f' % (str(roi), score))
           drawScoredRoi (frame, roi, name, score)
 
-      params['image_processor'].imwrite(frame, imagefile)
+      video_writer.imwrite(frame)
 
 
 

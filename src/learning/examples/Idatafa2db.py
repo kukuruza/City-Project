@@ -2,23 +2,10 @@ import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 from learning.helperSetup         import setupLogging, dbInit
-from learning.labelme.idatafa2db  import folder2frames, filterDbWithList
-from learning.dbModify            import polygonsToMasks
+from learning.labelme.idatafa2db  import folder2frames
+from learning.dbModify            import polygonsToMasks, polygonsToMasks_old
  
 
-setupLogging ('log/learning/Idatafa2dbFrames.log', logging.INFO, 'a')
-
-
-db_all_file   = 'databases/idatafa/166-Feb14-11h/init-allimages.db'
-db_lab_file   = 'databases/idatafa/166-Feb14-11h/init-labelled.db'
-# in_list_file = 'databases/idatafa/164-Feb14-11h/list.txt'
-# (conn, cursor) = dbInit(db_all_file, db_lab_file)
-# filterDbWithList (cursor, in_list_file)
-# conn.commit()
-# conn.close()
-
-
-db_labparsed_file = 'databases/idatafa/166-Feb14-11h/parsed-labelled.db'
 # annotations_dir = 'databases/idatafa/Annotations/166-Feb23-09h'
 # params = { 'debug_show': True }
 # (conn, cursor) = dbInit(db_lab_file, db_labparsed_file)
@@ -26,10 +13,18 @@ db_labparsed_file = 'databases/idatafa/166-Feb14-11h/parsed-labelled.db'
 # conn.commit()
 # conn.close()
 
-db_out_file = 'databases/idatafa/166-Feb14-11h/parsed.db'
-(conn_lab, cursor_lab) = dbInit(db_labparsed_file)
-(conn_all, cursor_all) = dbInit(db_all_file, db_out_file)
-polygonsToMasks (cursor_all, cursor_lab, cursor_all)
-conn_all.commit()
-conn_all.close()
-conn_lab.close()
+parser = argparse.ArgumentParser()
+parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--out_db_file', required=True)
+parser.add_argument('--logging_level', default=20, type=int)
+args = parser.parse_args()
+
+setupLogging ('log/learning/Idatafa2dbFrames.log', args.logging_level, 'a')
+
+(conn, cursor) = dbInit(args.in_db_file, args.out_db_file)
+polygonsToMasks_old (cursor)
+conn.commit()
+conn.close()
+
+
+
