@@ -2,16 +2,13 @@ import os, sys, os.path as op
 import logging
 import shutil
 import cv2
-
-
-def _atcity(x):
-  return op.join(os.getenv('CITY_DATA_PATH'), x)
+from helperSetup       import setParamUnlessThere, assertParamIsThere, atcity
 
 
 def _open_video_capture (in_video_file):
   ''' Open video and set up bookkeeping '''
   logging.info ('opening video: %s' % in_video_file)
-  videopath = _atcity(in_video_file)
+  videopath = atcity(in_video_file)
   if not op.exists (videopath):
     raise Exception('videopath does not exist: %s' % videopath)
   handle = cv2.VideoCapture(videopath)  # open video
@@ -23,13 +20,13 @@ def _open_video_capture (in_video_file):
 def video2images (in_video_file, out_images_dir, every_nth=1, ext='jpg'):
   '''
   Args:
-    video_file:      path relative to $CITY_DATA_PATH
-    out_images_dir:  path relative to $CITY_DATA_PATH
+    video_file:      path relative to $CITY_PATH
+    out_images_dir:  path relative to $CITY_PATH
   '''
   # if a path is relative to CITY_DATA_PATH
   if out_images_dir[0] != '/':
-    out_images_dir = _atcity(out_images_dir)
-    logging.info ('consider the output path relative to CITY_DATA_PATH path')
+    out_images_dir = atcity(out_images_dir)
+    logging.info ('consider the output path relative to CITY_PATH path')
 
   # delete if exists and recreate out dir
   if op.exists(out_images_dir):
@@ -45,7 +42,7 @@ def video2images (in_video_file, out_images_dir, every_nth=1, ext='jpg'):
     if not ret: break
 
     if i % every_nth == 0:
-      path = _atcity(op.join(out_images_dir, '%06d.%s' % (i, ext)))
+      path = atcity(op.join(out_images_dir, '%06d.%s' % (i, ext)))
       cv2.imwrite(path, frame)
       print '%06d wrote' % i
       n_wrote += 1

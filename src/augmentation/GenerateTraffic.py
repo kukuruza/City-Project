@@ -32,9 +32,9 @@ def generate_video_traffic (job):
   video = Video(video_dir=job['video_dir'])
   camera = video.build_camera()
 
-  assert op.exists(atcity(job['in_db_file'])), \
+  assert op.exists(atcity(op.join(job['in_db_file']))), \
       'in db %s does not exist' % atcity(job['in_db_file'])
-  conn_in = sqlite3.connect(atcity(job['in_db_file']))
+  conn_in = sqlite3.connect(atcity(op.join(job['in_db_file']))
   c_in = conn_in.cursor()
   c_in.execute('SELECT time FROM images')
   timestamps = c_in.fetchall()

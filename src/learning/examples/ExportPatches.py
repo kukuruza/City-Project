@@ -10,8 +10,8 @@ from learning.dbModify    import filterCustom
 
 setupLogging ('log/learning/ExportPatches.log', logging.INFO, 'a')
 
-in_db_file  = 'databases/sparse/all-Feb29-wr-wb.db'
-out_dataset = 'augmentation/patches/sparse-taxi'
+in_db_file  = 'data/databases/sparse/all-Feb29-wr-wb.db'
+out_dataset = 'data/augmentation/patches/sparse-taxi'
 
 #(conn, cursor) = dbInit(atcity(in_db_file))
 #params = {'label': 1, 'resize': (40, 30), 'constraint': "name = 'sedan' AND width >= 30 AND width < 80"}

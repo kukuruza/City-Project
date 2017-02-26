@@ -1,10 +1,12 @@
+import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import numpy as np
 import cv2
-import sys, os, os.path as op
-#sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
+from helperSetup import atcity
 
 
-video_path = op.join(os.getenv('CITY_DATA_PATH'), 'camdata/cam717/Apr09-09h.avi')
+
+video_path = atcity('data/camdata/cam717/Apr09-09h.avi')
 
 cap = cv2.VideoCapture(video_path)
 

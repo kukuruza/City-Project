@@ -8,12 +8,12 @@ from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
 
-WORK_RENDER_DIR = atcity('augmentation/blender/current-frame')
-BACKGROUND_FILENAME = 'background.png'
-NORMAL_FILENAME     = 'render.png'
-CARSONLY_FILENAME   = 'cars-only.png'
+WORK_RENDER_DIR = atcity('data/augmentation/blender/current-frame')
+#BACKGROUND_FILENAME = 'background.png'
+#NORMAL_FILENAME     = 'render.png'
+#CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
-CORRECTION_FILENAME = 'color-correction.json'
+#CORRECTION_FILENAME = 'color-correction.json'
 
 WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
 WORK_DIR_SUFFIX = '-%d' % os.getppid()
@@ -35,7 +35,7 @@ bpy.context.scene.node_tree.nodes['Hue-Saturation-Compensation'].color_value *= 
 
 # render and save
 # TODO: should delete bpy.data.scenes['Scene'].render.filepath ??
-bpy.data.scenes['Scene'].render.filepath = atcity(op.join(WORK_DIR, COMBINED_FILENAME))
+bpy.data.scenes['Scene'].render.filepath = op.join(WORK_DIR, COMBINED_FILENAME)
 bpy.ops.render.render (write_still=True) 
 
 bpy.ops.wm.save_as_mainfile (filepath=op.join(WORK_DIR, 'combine.blend'))

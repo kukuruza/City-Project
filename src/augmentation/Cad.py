@@ -1,7 +1,7 @@
 import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import logging
-import json
+import simplejson as json
 import pprint
 import ConfigParser
 import traceback
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
 
     # from glob import glob
-    # for collection_dir in glob(atcity('augmentation/CAD/*')):
+    # for collection_dir in glob(atcity('data/augmentation/CAD/*')):
     #     if not op.isdir(collection_dir): continue
     #     for blend1_path in glob(op.join(collection_dir, 'blend/*.blend1')):
     #         os.remove (blend1_path)
@@ -321,7 +321,7 @@ if __name__ == "__main__":
         # collection = json.load(open(collection_path))
         # update_collection(collection)
 
-    collection_path = atcity('augmentation/CAD/5f08583b1f45a9a7c7193c87bbfa9088/readme-blended.json')
+    collection_path = atcity('data/augmentation/CAD/5f08583b1f45a9a7c7193c87bbfa9088/readme-blended.json')
     collection = json.load(open(collection_path))
     cad.update_collection(collection)
 

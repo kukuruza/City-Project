@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import fnmatch
 import argparse
 import numpy as np
 from random import shuffle
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import atcity
 
 def _find_files_ (directory, pattern):

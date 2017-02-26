@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import argparse
 import subprocess
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 from helperSetup import setupLogging, atcity
 
 
@@ -36,7 +36,7 @@ def download_video_dir(args):
         cam_names = [line.split()[0] for line in lines]
 
     for cam_name in cam_names:
-        video_dir = op.join('camdata', 'cam%s' % cam_name, args.video_dir_name)
+        video_dir = op.join('data/camdata/cam%s' % cam_name, args.video_dir_name)
         server_dir = op.join('etoropov@mouragroup.org:~/projects/City-Project/data/', video_dir)
         local_dir  = op.join('~/projects/City-Project/data/', video_dir)
         command = 'scp -r %s %s' % (server_dir, local_dir)

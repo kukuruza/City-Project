@@ -17,7 +17,7 @@ from processScene import mywrapper, render_frame, combine_frame
 from placeCars import axes_png2blender
 
 
-WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR     = atcity('data/augmentation/blender/current-frame')
 RENDERED_FILENAME   = 'render.png'
 CARSONLY_FILENAME   = 'cars-only.png'
 
@@ -52,7 +52,7 @@ def _init_traffic_gen (camera, video, bbox, H):
   # get the map of azimuths. 
   # it has gray values (r==g==b=) and alpha, saved as 4-channels
   camera.info['azimuth_name'] = 'google1/azimuth2-filled.png'
-  azimuth_path = atcity(op.join(camera.info['camera_dir'], camera.info['azimuth_name']))
+  azimuth_path = atcity(op.join('data', camera.info['camera_dir'], camera.info['azimuth_name']))
   azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
   assert azimuth_map is not None and azimuth_map.shape[2] == 4
   azimuth_map = azimuth_map[:,:,0]

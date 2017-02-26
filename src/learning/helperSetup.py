@@ -9,7 +9,7 @@ The main interface functions are dbInit(), setParamUnlessThere(), assertParamIsT
 '''
 
 def atcity (path):
-    return op.join(os.getenv('CITY_DATA_PATH'), path)
+    return op.join(os.getenv('CITY_PATH'), path)
 
 
 def setupLogHeader (db_in_path, db_out_path, params, name):

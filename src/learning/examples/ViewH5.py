@@ -8,7 +8,7 @@ from learning.helperH5    import viewPatches, crop, exportLabels
 
 setupLogging ('log/learning/exportGhosts.log', logging.DEBUG, 'a')
 
-in_dataset = 'patches/try-hdf5/testing-40x30'
+in_dataset = 'data/patches/try-hdf5/testing-40x30'
 
 # with h5py.File (atcity(in_dataset + '.h5')) as f:
 #     with open (atcity('truth.txt'), 'w') as f_out:

@@ -10,8 +10,8 @@ from learning.helperImg import ReaderVideo
 
 setupLogging ('log/learning/Modify.log', logging.INFO, 'a')
 
-in_db_file   = 'augmentation/video/cam572/Feb23-09h-Oct15/init-src.db'
-out_jpg_file = 'augmentation/video/cam572/Feb23-09h-Oct15/mean.jpg'
+in_db_file   = 'data/augmentation/video/cam572/Feb23-09h-Oct15/init-src.db'
+out_jpg_file = 'data/augmentation/video/cam572/Feb23-09h-Oct15/mean.jpg'
 
 (conn, c) = dbInit (in_db_file)
 c.execute('SELECT imagefile FROM images')

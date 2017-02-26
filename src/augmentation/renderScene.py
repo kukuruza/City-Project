@@ -8,7 +8,7 @@ from augmentation.common import *
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 
 
-WORK_RENDER_DIR   = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR   = atcity('data/augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 
 WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
@@ -165,7 +165,7 @@ for i,vehicle in enumerate(frame_info['vehicles']):
     else:
         collection_id = vehicle['collection_id']
         model_id = vehicle['model_id']
-        blend_path = atcity(op.join('augmentation/CAD', collection_id, 'blend', '%s.blend' % model_id))
+        blend_path = atcity(op.join('data/augmentation/CAD', collection_id, 'blend', '%s.blend' % model_id))
         car_name = 'car_%i' % i
         car_names.append(car_name)
         import_blend_car (blend_path, model_id, car_name)

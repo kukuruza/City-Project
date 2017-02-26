@@ -15,7 +15,7 @@ args = parser.parse_args()
 
 setupLogging('log/augmentation/UpdateCollection.log', args.logging_level, 'w')
 
-collection_file = 'augmentation/CAD/%s/readme-blended.json' % args.collection_id
+collection_file = 'data/augmentation/CAD/%s/readme-blended.json' % args.collection_id
 collection = json.load(open(atcity(collection_file)))
 
 cad = Cad()

@@ -5,7 +5,7 @@ import shutil
 import traceback
 import fnmatch
 from helperDb    import createTableMatches
-from helperSetup import setupLogging, _setupCopyDb_, dbInit
+from helperSetup import atcity, setupLogging, _setupCopyDb_, dbInit
 
 
 def _find_files_ (directory, pattern):
@@ -171,7 +171,7 @@ def upgrade4 (c, in_db_path):
 
 if __name__ == '__main__':
     setupLogging ('log/learning/UpgradeDb.log', logging.WARNING, 'a')
-    path = op.join(os.getenv('CITY_DATA_PATH'), 'databases/unlabelled')
+    path = atcity('data/databases/unlabelled')
     for db_in_path in _find_files_ (path, '*.db'):
         try:
             conn = sqlite3.connect (db_in_path)
@@ -183,8 +183,8 @@ if __name__ == '__main__':
                           (db_in_path, traceback.format_exc()))
 
 
-    # db_in_path = op.join(os.getenv('CITY_DATA_PATH'), 'databases/augmentation/Apr07-15h-traffic.db')
-    # db_out_path = op.join(os.getenv('CITY_DATA_PATH'), 'databases/augmentation/Apr07-15h-traffic.new.db')
+    # db_in_path = atcity('data/databases/augmentation/Apr07-15h-traffic.db')
+    # db_out_path = atcity('data/databases/augmentation/Apr07-15h-traffic.new.db')
     # (conn, cursor) = dbInit(db_in_path, db_out_path)
     # upgrade4 (cursor, db_in_path)
     # conn.commit()

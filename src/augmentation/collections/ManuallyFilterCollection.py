@@ -36,7 +36,7 @@ def classify (collection):
 
   collection_id = collection['collection_id']
   models = collection['vehicles']
-  collection_dir = 'augmentation/CAD/%s' % collection_id
+  collection_dir = 'data/augmentation/CAD/%s' % collection_id
 
   car_statuses = [''] * len(models)
   button = 0
@@ -103,8 +103,8 @@ args = parser.parse_args()
 
 setupLogging('log/augmentation/ManuallyFilterCollection.log', args.logging_level, 'w')
 
-collection_file = 'augmentation/CAD/%s/readme-blended.json' % args.collection_id
-backup_file     = 'augmentation/CAD/%s/unfiltered.json' % args.collection_id
+collection_file = 'data/augmentation/CAD/%s/readme-blended.json' % args.collection_id
+backup_file     = 'data/augmentation/CAD/%s/unfiltered.json' % args.collection_id
 # copy collection_file to backup_file
 _setupCopyDb_ (atcity(collection_file), atcity(backup_file))
 

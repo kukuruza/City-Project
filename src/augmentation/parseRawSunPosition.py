@@ -6,8 +6,8 @@ import pprint
 import cPickle
 from learning.helperSetup import atcity
 
-txt_file = 'augmentation/resources/sun_position.txt'
-bin_file = 'augmentation/resources/sun_position.pkl'
+txt_file = 'data/augmentation/resources/sun_position.txt'
+bin_file = 'data/augmentation/resources/sun_position.pkl'
 
 
 with open(atcity(txt_file)) as f:

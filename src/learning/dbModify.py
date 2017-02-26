@@ -694,7 +694,7 @@ def maskScores (c, params = {}):
     assertParamIsThere (params, 'score_map_path')
 
     # load the map of scores and normalize it by 1/255
-    score_map_path = op.join(os.getenv('CITY_DATA_PATH'), params['score_map_path'])
+    score_map_path = atcity(params['score_map_path'])
     if not op.exists(score_map_path):
         raise Exception ('score_map_path does not exist: ' + score_map_path)
     score_map = cv2.imread(score_map_path, -1).astype(float);

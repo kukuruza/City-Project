@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 from processScene import process_video
-from learning.helperSetup import setupLogging, atcity, setParamUnlessThere
+from learning.helperSetup import setupLogging, setParamUnlessThere
 
 
 

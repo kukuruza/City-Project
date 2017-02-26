@@ -17,7 +17,7 @@ import argparse
 from learning.helperSetup import atcity, setupLogging
 from augmentation.Cad import Cad
 
-WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
+WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
 
@@ -173,7 +173,7 @@ def run_patches_job (job):
                       (job['vehicles'][0]['model_id'], traceback.format_exc()))
 
     # move patches-id dirs to the new home dir and number them
-    scene_dir = atcity(op.join(job['out_dir'], 'scene-%06d' % job['i']))
+    scene_dir = atcity(op.join('data', job['out_dir'], 'scene-%06d' % job['i']))
     logging.debug('moving %s to %s' % (WORK_DIR, scene_dir))
     shutil.move(WORK_DIR, scene_dir)
 

@@ -18,7 +18,7 @@ class Video:
 
         if video_dir:
             video_name = op.basename(video_dir)
-            video_path = atcity(op.join(video_dir, '%s.json' % video_name))
+            video_path = atcity(op.join('data', video_dir, '%s.json' % video_name))
             assert op.exists(video_path), video_path
             logging.info ('Video: loading info from: %s' % video_path)
             video_info = json.load(open(video_path))
@@ -40,7 +40,7 @@ class Video:
             assert self.example_frame is not None
         else:
             # trying possible paths, and take the first to match
-            example_frame_paths = glob (atcity(op.join(video_dir, 'frame*.png')))
+            example_frame_paths = glob (atcity(op.join('data', video_dir, 'frame*.png')))
             if len(example_frame_paths) > 0:
                 logging.info ('- deduced example_frame: %s' % example_frame_paths[0])
                 self.example_frame = cv2.imread(example_frame_paths[0])
@@ -54,12 +54,12 @@ class Video:
         if 'example_background_name' in video_info:
             example_background_name = video_info['example_background_name']
             logging.info ('- found example_background_name: %s' % example_background_name)
-            example_background_path = atcity(op.join(video_dir, example_background_name))
+            example_background_path = atcity(op.join('data', video_dir, example_background_name))
             self.example_background = cv2.imread(example_background_path)
             assert self.example_background is not None
         else:
             # trying possible paths
-            example_back_paths = glob (atcity(op.join(video_dir, 'background*.png')))
+            example_back_paths = glob (atcity(op.join('data', video_dir, 'background*.png')))
             if len(example_back_paths) > 0:
                 logging.info ('- deduced example_background: %s' % example_back_paths[0])
                 self.example_background = cv2.imread(example_back_paths[0])
@@ -84,29 +84,29 @@ class Video:
             self.info['frame_range'] = ':'
 
         if 'render_blend_file' in video_info:
-            self.render_blend_file = video_info['render_blend_file']
+            self.render_blend_file = op.join('data', video_info['render_blend_file'])
             logging.info ('- found render_blend_file: %s' % self.render_blend_file)
             op.exists(atcity(self.render_blend_file))
-        elif op.exists(atcity(op.join(video_dir, 'render.blend'))):
+        elif op.exists(atcity(op.join('data', video_dir, 'render.blend'))):
             # if found the default name in the video folder
-            self.render_blend_file = op.join(video_dir, 'render.blend')
+            self.render_blend_file = op.join('data', video_dir, 'render.blend')
             logging.info ('- found render_blend_file in video dir: %s' % self.render_blend_file)
-        elif op.exists(atcity(op.join(video_dir, 'render-generated.blend'))):
+        elif op.exists(atcity(op.join('data', video_dir, 'render-generated.blend'))):
             # if found the default name in the video folder
-            self.render_blend_file = op.join(video_dir, 'render-generated.blend')
+            self.render_blend_file = op.join('data', video_dir, 'render-generated.blend')
             logging.warning ('- using generated render_blend_file: %s' % self.render_blend_file)
         else:
             logging.warning ('- could not figure out render_blend_file')
 
         if 'combine_blend_file' in video_info:
-            self.combine_blend_file = video_info['combine_blend_file']
+            self.combine_blend_file = op.join('data', video_info['combine_blend_file'])
             logging.info ('- found combine_blend_file: %s' % self.combine_blend_file)
             op.exists(atcity(self.combine_blend_file))
-        elif op.exists(atcity(op.join(video_dir, 'combine.blend'))):
+        elif op.exists(atcity(op.join('data', video_dir, 'combine.blend'))):
             # if found the default name in the video folder
-            self.combine_blend_file = op.join(video_dir, 'combine.blend')
+            self.combine_blend_file = op.join('data', video_dir, 'combine.blend')
             logging.info ('- found combine_blend_file in video dir: %s' % self.combine_blend_file)
-        elif op.exists(atcity(op.join(video_dir, 'combine-generated.blend'))):
+        elif op.exists(atcity(op.join('data', video_dir, 'combine-generated.blend'))):
             # if found the default name in the video folder
             self.combine_blend_file = op.join(video_dir, 'combine-generated.blend')
             logging.warning ('- using generated combine_blend_file: %s' % self.combine_blend_file)

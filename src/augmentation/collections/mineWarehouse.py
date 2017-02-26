@@ -19,7 +19,7 @@ from Cad import Cad
 
 
 
-CAD_DIR = atcity('augmentation/CAD')
+CAD_DIR = atcity('data/augmentation/CAD')
 README_NAME = 'readme-src.json'
 
 

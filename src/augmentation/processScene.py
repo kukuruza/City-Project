@@ -28,7 +28,7 @@ from traffic import TrafficModel
 from colorCorrection import color_correction, unsharp_mask
 
 
-WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR     = atcity('data/augmentation/blender/current-frame')
 RENDERED_FILENAME   = 'render.png'
 CARSONLY_FILENAME   = 'cars-only.png'
 BACKGROUND_FILENAME = 'background.png'
@@ -410,7 +410,7 @@ def process_video (job):
   monitor = None # MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
   # load traffic info
-  traffic_video = json.load(open(atcity(job['traffic_file'])))
+  traffic_video = json.load(open(atcity(op.join('data', job['traffic_file']))))
   
   # reader and writer
   video_reader = ReaderVideo()

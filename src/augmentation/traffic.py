@@ -17,7 +17,7 @@ from Cad import Cad
 from Camera import Camera
 from Video import Video
 
-WORK_RENDER_DIR     = atcity('augmentation/blender/current-frame')
+WORK_RENDER_DIR     = atcity('data/augmentation/blender/current-frame')
 TRAFFIC_FILENAME  = 'traffic.json'
 
 
@@ -81,7 +81,7 @@ def fit_image_to_screen(image, screen=(900,1440), fraction=0.5):
 
 class Sun:
   def __init__(self):
-    sun_pose_file  = 'augmentation/resources/sun_position.pkl'
+    sun_pose_file  = 'data/augmentation/resources/sun_position.pkl'
 
     with open(atcity(sun_pose_file), 'rb') as f:
       self.data = cPickle.load(f)
@@ -204,7 +204,7 @@ class TrafficModel:
 
     # load mask
     if 'mask' in camera:
-      mask_path = atcity(op.join(camera['camera_dir'], camera['mask']))
+      mask_path = atcity(op.join('data', camera['camera_dir'], camera['mask']))
       self.mask = cv2.imread (mask_path, cv2.IMREAD_GRAYSCALE)
       assert self.mask is not None, mask_path
       logging.info ('TrafficModel: loaded a mask')
@@ -212,7 +212,7 @@ class TrafficModel:
       self.mask = None
 
     # create lanes
-    lanes_path = atcity(op.join(camera['camera_dir'], camera['lanes_name']))
+    lanes_path = atcity(op.join('data', camera['camera_dir'], camera['lanes_name']))
     lanes_dicts = json.load(open( lanes_path ))
     self.lanes = [Lane(('%d' % i), l, cad, speed_kph, camera['pxls_in_meter']) 
                   for i,l in enumerate(lanes_dicts)]
@@ -305,13 +305,13 @@ class TrafficModelRandom:
 
     # get the map of azimuths. 
     # it has gray values (r==g==b=) and alpha, saved as 4-channels
-    azimuth_path = atcity(op.join(camera['camera_dir'], camera['azimuth_name']))
+    azimuth_path = atcity('data', op.join(camera['camera_dir'], camera['azimuth_name']))
     azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
     assert azimuth_map is not None and azimuth_map.shape[2] == 4
 
     # black out the invisible azimuth_map regions
     if 'mask' in camera and camera['mask']:
-      mask_path = atcity(op.join(camera['camera_dir'], camera['mask']))
+      mask_path = atcity('data', op.join(camera['camera_dir'], camera['mask']))
       mask = cv2.imread (mask_path, cv2.IMREAD_GRAYSCALE)
       assert mask is not None, mask_path
       azimuth_map[mask] = 0

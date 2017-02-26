@@ -1,6 +1,5 @@
-# This class provides an interface to nyctmc cameras
-
 import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import logging
 import copy
 import re
@@ -8,13 +7,11 @@ import urllib
 import datetime, time
 from cStringIO import StringIO
 from PIL import Image, ImageChops
-#from PIL import Image as pil
 import urllib2
 import numpy as np
 import cv2
 from random import randint
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
-from helperSetup import setupLogging
+from helperSetup import setupLogging, atcity
 
 
 #def imreadUrl(self, url):
@@ -125,8 +122,8 @@ def downloadSingleCam (camNum, outFileTemplate, numMinutes):
     '''
 
     # where to write video and intervals
-    videoPath     = op.join(os.getenv('CITY_DATA_PATH'), outFileTemplate + '.avi')
-    intervalsPath = op.join(os.getenv('CITY_DATA_PATH'), outFileTemplate + '.txt')
+    videoPath     = aticty(outFileTemplate + '.avi')
+    intervalsPath = atcity(outFileTemplate + '.txt')
 
     logging.info ('Will write video to ' + videoPath)
     logging.info ('Will write subtitles to ' + intervalsPath)
@@ -185,5 +182,5 @@ if __name__ == '__main__':
 
     setupLogging ('log/io/nyctmc.log', logging.DEBUG)
 
-    downloadSingleCam (578, 'camdata/test', 1)
+    downloadSingleCam (578, 'data/camdata/test', 1)
 

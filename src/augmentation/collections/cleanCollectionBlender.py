@@ -6,15 +6,12 @@ import collections
 import time
 import shutil
 from math import cos, sin, pi, sqrt
-
 import bpy
 from mathutils import Vector
-
-sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src/learning'))
 from learning.helperSetup import atcity, setupLogging
 from augmentation.common import *
 
-WORK_DIR = atcity('augmentation/blender/current-collection')
+WORK_DIR = atcity('data/augmentation/blender/current-collection')
 
 
 
@@ -361,7 +358,7 @@ def process_model (scene_path, model):
         raise Exception('not supported')
 
     # save clean blend
-    dst_blend_file = model['dst_blend_file']
+    dst_blend_file = op.join('data', model['dst_blend_file'])
     if not op.exists(atcity(op.dirname(dst_blend_file))):
         os.makedirs(atcity(op.dirname(dst_blend_file)))
     logging.info ('writing model to %s' % dst_blend_file)
@@ -374,7 +371,7 @@ def process_model (scene_path, model):
     plane.scale.y = model['dims']['y'] * 0.5
 
     # save a rendered example
-    example_file = model['example_file']
+    example_file = op.join('data', model['example_file'])
     if not op.exists(atcity(op.dirname(example_file))): 
         os.makedirs(atcity(op.dirname(example_file)))
     logging.info ('writing example to %s' % example_file)
@@ -385,7 +382,7 @@ def process_model (scene_path, model):
 
 setupLogging('log/augmentation/cleanCollectionBlender.log', logging.DEBUG, 'a')
 
-scene_path = atcity('augmentation/scenes/empty-import.blend')
+scene_path = atcity('data/augmentation/scenes/empty-import.blend')
 
 src_model_path = op.join(WORK_DIR, 'model-src.json')
 model = json.load(open(src_model_path))

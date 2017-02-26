@@ -14,7 +14,7 @@ from learning.helperKeys import KeyReaderUser, getCalibration
 from augmentation.Cad import Cad
 
 
-WORK_DIR = atcity('augmentation/blender/current-collection')
+WORK_DIR = atcity('data/augmentation/blender/current-collection')
 
 
 class Diapason:
@@ -51,7 +51,7 @@ def clean_model (model, params={}):
     collection_id = model['collection_id']
     model_id      = model['model_id']
 
-    collection_dir = 'augmentation/CAD/%s' % collection_id
+    collection_dir = 'data/augmentation/CAD/%s' % collection_id
     
     # did we export .blend or .obj from .skp
     src_blend_file = op.join(collection_dir, 'blend_src/%s.blend' % model_id)
@@ -82,7 +82,7 @@ def clean_model (model, params={}):
 
     # delete for seeing blender failures
     dst_model_path = op.join(WORK_DIR, 'model-dst.json')
-    if op.exists(atcity(dst_model_path)):   os.remove(atcity(dst_model_path))
+    if op.exists(dst_model_path):   os.remove(dst_model_path)
 
     try:
         command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
@@ -119,7 +119,7 @@ args = parser.parse_args()
 
 setupLogging('log/augmentation/CleanBlender.log', args.logging_level, 'w')
 
-src_collection_file = 'augmentation/CAD/%s/readme-src.json' % args.collection_id
+src_collection_file = 'data/augmentation/CAD/%s/readme-src.json' % args.collection_id
 collection = json.load(open(atcity(src_collection_file)))
 
 logging.info ('found %d models in the collection' % len(collection['vehicles']))
@@ -133,7 +133,7 @@ for i in Diapason().get_range(len(collection['vehicles']), args.model_range):
     del model['collection_id']
     collection['vehicles'][i] = model
 
-dst_collection_file = 'augmentation/CAD/%s/readme-blended.json' % args.collection_id
+dst_collection_file = 'data/augmentation/CAD/%s/readme-blended.json' % args.collection_id
 with open(atcity(dst_collection_file), 'w') as f:
     f.write(json.dumps(collection, indent=4))
 
