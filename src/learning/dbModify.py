@@ -654,7 +654,7 @@ def keepFraction (c, fraction_keep, randomly=True):
 
 
 def filterOneWithAnother (c, c_ref):
-  '''Keep only those imagenames in c, that exist in c_ref.
+  '''Keep only those image _names_ in c, that exist in c_ref.
   '''
   c_ref.execute('SELECT imagefile FROM images')
   ref_imagefiles = c_ref.fetchall()

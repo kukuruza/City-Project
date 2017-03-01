@@ -1,21 +1,25 @@
+#! /usr/bin/env python
 import os, sys, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import cv2
 import logging
+import argparse
 import numpy as np
-from scipy.misc import imsave
 from learning.helperSetup import setupLogging, dbInit, atcity
-from learning.helperImg import ReaderVideo
+from learning.helperImg import ReaderVideo, imsave
 
 
-setupLogging ('log/learning/Modify.log', logging.INFO, 'a')
+parser = argparse.ArgumentParser()
+parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--out_jpg_file', required=True)
+parser.add_argument('--logging_level', default=20, type=int)
 
-in_db_file   = 'data/augmentation/video/cam572/Feb23-09h-Oct15/init-src.db'
-out_jpg_file = 'data/augmentation/video/cam572/Feb23-09h-Oct15/mean.jpg'
+setupLogging ('log/learning/Modify.log', args.logging_level, 'a')
 
-(conn, c) = dbInit (in_db_file)
-c.execute('SELECT imagefile FROM images')
-imagefiles = c.fetchall()[:6000]
+
+(conn, cursor) = dbInit (args.in_db_file, backup=False)
+cursor.execute('SELECT imagefile FROM images')
+imagefiles = cursor.fetchall()[:6000]
 assert len(imagefiles) > 0
 conn.close()
 
@@ -32,5 +36,5 @@ for i,(imagefile,) in enumerate(imagefiles):
   img_avg += img
 img_avg /= len(imagefiles)
 img_avg = img_avg.astype(np.uint8)
-imsave (atcity(out_jpg_file), img_avg)
+imsave (atcity(args.out_jpg_file), img_avg)
 

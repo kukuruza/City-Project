@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
@@ -9,7 +10,6 @@ from learning.dbManual    import getInfo
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)
-parser.add_argument('--print_imagefiles', action='store_true')
 parser.add_argument('--logging_level', default=20, type=int)
 args = parser.parse_args()
 

@@ -1,6 +1,7 @@
 import os, sys, os.path as op
 import abc
 import numpy as np
+import scipy.misc
 import cv2
 import logging
 from pkg_resources import parse_version
@@ -9,8 +10,25 @@ from helperSetup import setParamUnlessThere, assertParamIsThere
 
 # returns OpenCV VideoCapture property id given, e.g., "FPS"
 def capPropId(prop):
-    OPCV3 = parse_version(cv2.__version__) >= parse_version('3')
-    return getattr(cv2 if OPCV3 else cv2.cv, ("" if OPCV3 else "CV_") + "CAP_PROP_" + prop)
+  OPCV3 = parse_version(cv2.__version__) >= parse_version('3')
+  return getattr(cv2 if OPCV3 else cv2.cv, ("" if OPCV3 else "CV_") + "CAP_PROP_" + prop)
+
+
+
+# These are thin wrappers around scipy.misc
+# The goal is to move gradually from cv2 to scipy.misc,
+#   and these function keep compatibility in channel order
+
+def imread(impath):
+  im = scipy.misc.imread(impath)
+  if len(im.shape) == 3 and im.shape[2] == 3:
+    im = im[:,:,[2,1,0]]
+  return im
+
+def imsave(impath, im):
+  if len(im.shape) == 3 and im.shape[2] == 3:
+    im = im[:,:,[2,1,0]]
+  scipy.misc.imsave(atcity(impath, im)) 
 
 
 class ProcessorBase (object):

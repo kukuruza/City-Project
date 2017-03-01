@@ -23,22 +23,35 @@ def getInfo (c, params = {}):
     info['numimages'] = len(imagefiles)
     imagedirs = [op.dirname(x) for x, in imagefiles]
     imagedirs = list(set(imagedirs))
-    #for imagedir in imagedirs:
-    #    c.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?', )
     info['imagedirs'] = imagedirs
+    
+    def collectImageRange(nums):
+      if len(nums) == 0: return []
+      nums = sorted(nums)
+      numrange = []
+      start = current = nums[0]
+      for num in nums[1:]:
+        if num > current + 1:
+          numrange.append((start, current+1))
+          start = num
+          if len(numrange) > 10:
+            numrange.append('too many ranges')
+            break
+        current = num
+      return numrange
+    info['imagerange'] = {}
+    for imagedir in imagedirs:
+      imagenums = [int(op.basename(x)) for x, in imagefiles if op.dirname(x) == imagedir]
+      info['imagerange'][imagedir] = collectImageRange(imagenums)
 
-    c.execute('SELECT maskfile FROM images')
-    maskfiles = c.fetchall()
-    maskdirs = [op.dirname(x) for x, in maskfiles]
-    maskdirs = list(set(maskdirs))
-    info['maskdirs'] = maskdirs
-
-    if 'print_imagefiles' in params and params.print_imagefiles:
-        for imagefile, in imagefiles:
-            print imagefile
+    #c.execute('SELECT maskfile FROM images')
+    #maskfiles = c.fetchall()
+    #maskdirs = [op.dirname(x) for x, in maskfiles]
+    #maskdirs = list(set(maskdirs))
+    #info['maskdirs'] = maskdirs
 
     c.execute('SELECT COUNT(*) FROM cars')
-    info['numcasr'] = c.fetchone()[0]
+    info['numcars'] = c.fetchone()[0]
 
     return info
 

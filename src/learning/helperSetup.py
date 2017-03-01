@@ -78,15 +78,15 @@ def dbInit (db_in_path, db_out_path=None, backup=True):
     It also sets up logging, backs up the database if necessary.
     '''
 
-    if not os.getenv('CITY_DATA_PATH') or not os.getenv('CITY_PATH'):
-        raise Exception ('Set environmental variables CITY_PATH, CITY_DATA_PATH')
+    if not os.getenv('CITY_PATH'):
+        raise Exception ('Set environmental variable CITY_PATH')
 
     logging.info ('db_in_file:  %s' % db_in_path)
     logging.info ('db_out_file: %s' % db_out_path)
 
-    CITY_DATA_PATH = os.getenv('CITY_DATA_PATH')
-    db_in_path  = op.join (CITY_DATA_PATH, db_in_path)
-    db_out_path = op.join (CITY_DATA_PATH, db_out_path) if db_out_path else db_in_path
+    CITY_PATH = os.getenv('CITY_PATH')
+    db_in_path  = op.join (CITY_PATH, db_in_path)
+    db_out_path = op.join (CITY_PATH, db_out_path) if db_out_path else db_in_path
 
     if backup or db_in_path != db_out_path:
         _setupCopyDb_ (db_in_path, db_out_path)

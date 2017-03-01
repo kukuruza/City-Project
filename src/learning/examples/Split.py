@@ -1,17 +1,20 @@
+#! /usr/bin/env python
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
+import argparse
 from learning.helperSetup import setupLogging, dbInit
 from learning.dbModify    import splitToRandomSets
 
 
-setupLogging ('log/learning/Split.log', logging.INFO, 'a')
+parser = argparse.ArgumentParser()
+parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--out_db_file', required=True)
+parser.add_argument('--logging_level', default=20, type=int)
 
-in_db_file = 'augmentation/video/cam572/Feb23-09h-406fr/traffic.db'
+setupLogging ('log/learning/Split.log', args.logging_level, 'a')
 
 (conn, cursor) = dbInit(in_db_file)
 db_out_names = {'test2': 0.005}
-
-splitToRandomSets (cursor, os.path.dirname(in_db_file), db_out_names)
-
+splitToRandomSets (cursor, os.path.dirname(args.in_db_file), db_out_names)
 conn.close()

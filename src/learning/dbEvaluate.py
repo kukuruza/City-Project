@@ -29,7 +29,7 @@ def _voc_ap(rec, prec):
   return ap
 
 
-def evalClass (c_gt, c_det, params={}):
+def dbEvalClass (c_gt, c_det, params={}):
   """ PASCAL VOC evaluation of a specific class or all detections.
   Args:
     c_gt:      cursor to the sqlite3 db with ground truth
@@ -38,11 +38,14 @@ def evalClass (c_gt, c_det, params={}):
     ovthresh:  overlap threshold (default = 0.5)
     car_constraint:  only these cars count towards TP and FN.
   """
+  logging.info ('=== dbEvalClass ===')
   setParamUnlessThere (params, 'ovthresh', 0.5)
   setParamUnlessThere (params, 'car_constraint', '1')
   setParamUnlessThere (params, 'image_constraint', '1')
   cars_of_interest_constr = params['car_constraint']
   images_of_interest_constr = params['image_constraint']
+  print ('cars_of_interest_constr: %s' % cars_of_interest_constr)
+  print ('images_of_interest_constr: %s' % images_of_interest_constr)
 
   c_det.execute('SELECT imagefile,x1,y1,width,height,score FROM cars '
                 'WHERE %s ORDER BY score DESC' % images_of_interest_constr)

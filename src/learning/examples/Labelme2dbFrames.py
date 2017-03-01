@@ -1,22 +1,22 @@
+#! /usr/bin/env python
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
+import argparse
 from learning.helperSetup         import setupLogging, dbInit
 from learning.labelme.labelme2db  import folder2frames
-from learning.dbModify            import polygonsToMasks
  
 
-setupLogging ('log/learning/Labelme2dbFrames.log', logging.INFO, 'a')
+parser = argparse.ArgumentParser()
+parser.add_argument('--in_annotations_dir', required=True)
+parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--out_db_file', required=True)
+parser.add_argument('--logging_level', default=20, type=int)
+args = parser.parse_args()
 
-#db_in_file  = 'databases/labelme/164-Feb23-09h/init-image.db'
-db_in_file  = 'databases/labelme/572-Jan13-10h/src-test.db'
-db_out_file = 'databases/labelme/572-Jan13-10h/parsed-test.db'
-annotations_dir = 'databases/labelme/572-Jan13-10h/xml'
-
-params = { 'debug_show': False }
+setupLogging ('log/learning/Labelme2dbFrames.log', args.logging_level, 'a')
 
 (conn, cursor) = dbInit(db_in_file, db_out_file)
-folder2frames (cursor, annotations_dir, params)
-#polygonsToMasks (cursor)
+folder2frames (cursor, in_annotations_dir, params={})
 conn.commit()
 conn.close()
