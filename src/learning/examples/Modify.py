@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 import os, sys, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import logging

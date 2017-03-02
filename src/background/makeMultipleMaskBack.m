@@ -1,5 +1,5 @@
 function makeMultipleMaskBack (camListFile, videoName, varargin)
-% Make mask, ghost, and background (default way) for a list of videos.
+% Make mask and background (default way) for a list of videos.
 %   Videos must be from different cameras, but must have the same name.
 % This functon knows about our organization of data, e.g.
 %   camdata/cam001/Jan01-01h

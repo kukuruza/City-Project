@@ -1,4 +1,4 @@
-classdef Background < BackgroundInterface
+classdef Background
     % Background takes in a video frame by frame and generates 
     % A thin wrapper around vision.ForegroundDetector
     %
