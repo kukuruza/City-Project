@@ -6,6 +6,7 @@ import logging
 import sqlite3
 import json
 import random
+from tqdm import trange, tqdm
 import dbUtilities
 from helperDb          import createDb, deleteCar, carField, imageField
 from helperDb          import doesTableExist, createTablePolygons
@@ -526,7 +527,7 @@ def moveDir (c, params):
         c.execute('SELECT imagefile FROM images')
         imagefiles = c.fetchall()
 
-        for (oldfile,) in imagefiles:
+        for (oldfile,) in tqdm(imagefiles, desc='image_dir'):
             # op.basename (op.dirname(oldfile)), 
             newfile = op.join (params['images_dir'], op.basename (oldfile))
             c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
@@ -537,7 +538,7 @@ def moveDir (c, params):
         c.execute('SELECT maskfile FROM images')
         maskfiles = c.fetchall()
 
-        for (oldfile,) in maskfiles:
+        for (oldfile,) in tqdm(maskfiles, desc='mask_dir'):
             # op.basename (op.dirname(oldfile)), 
             newfile = op.join (params['masks_dir'], op.basename (oldfile))
             c.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))

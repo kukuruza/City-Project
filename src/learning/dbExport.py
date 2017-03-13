@@ -17,13 +17,13 @@ import sqlite3
 import numpy as np
 import cv2
 import copy
-import h5py
+from skimage import color
+from scipy.misc import imresize
 from datetime    import datetime  # to print creation timestamp in readme.txt
 from helperDb    import carField, doesTableExist
 from dbUtilities import bbox2roi, expandRoiFloat, mask2bbox
-from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperSetup import setParamUnlessThere, assertParamIsThere, atcity
 from helperImg   import ReaderVideo
-from helperH5    import writeNextPatch, readPatch
 from helperKeys  import KeyReaderUser
 
 
@@ -31,15 +31,15 @@ from helperKeys  import KeyReaderUser
 Patch-helpers are responsible to write down a collection of patches.
 
 Different patch-helper classes write patches in different formats:
-  1) as a collection of image files or 2) as an hdf5 file.
+  1) as a collection of image files
+  2) as an hdf5 file
+  3) as a numpy npz archive 
 
-Ability to write patches in different ways in the language of architecture
-  introduces a "point of variability". That means that we want to be able
-  to switch between these two classes or write another one easily.
-
-The motivation for the point of variability here is that we use images for
+The motivation for having different classes here is that we use images for
   violajones and will use hdf5 format for CNN.
 '''
+
+
 
 class PatchHelperBase (object):
     ''' Declaration of interface functions '''
@@ -119,6 +119,8 @@ class PatchHelperFolder (PatchHelperBase):
 class PatchHelperHDF5 (PatchHelperBase):
 
     def __init__ (self, params = {}):
+        import h5py
+        from helperH5 import writeNextPatch, readPatch
         setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         self.params = params
 
@@ -331,7 +333,7 @@ def collectPatches (c, out_dataset, params = {}):
     logging.info ('==== collectGhosts ====')
     assertParamIsThere  (params, 'resize') # (width,height)
     setParamUnlessThere (params, 'label',           None)
-    setParamUnlessThere (params, 'patch_helper',    PatchHelperHDF5(params))
+    #setParamUnlessThere (params, 'patch_helper',    PatchHelperHDF5(params))
     setParamUnlessThere (params, 'image_processor', ReaderVideo())
     assert isinstance(params['resize'], tuple) and len(params['resize']) == 2
 
@@ -377,7 +379,7 @@ def collectPatches (c, out_dataset, params = {}):
                 continue
             roi = bbox2roi(bbox)
         else:
-            logging.warning('no mask or roi for imagefile %s' % imagefile)
+            logging.debug('no mask or roi for imagefile %s' % imagefile)
             msk_patch = None
             roi = None
 
@@ -446,42 +448,4 @@ def collectByMatch (c, out_dataset, params = {}):
 
 
 
-
-# FIXME: not tested
-#
-def collectGhostsTask (c, tasks_path, out_dir, params = {}):
-    '''
-    Cluster cars and save the patches in bulk, by "task".
-    Use filters to cluster and transform, and save the ghosts 
-    '''
-    logging.info ('=== exporting.collectGhostsTask ===')
-    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-    tasks_path = op.join (params['relpath'], tasks_path)
-    out_dir    = op.join (params['relpath'], out_dir)
-
-    # load tasks. Each task is a dictionary
-    if not op.exists(tasks_path):
-        raise Exception('tasks_path does not exist: %s' % tasks_path)
-    tasks_file = open(tasks_path)
-    tasks = json.load(tasks_file)
-    tasks_file.close()
-
-    # delete 'out_dir' dir, and recreate it
-    logging.warning ('will delete existing out dir: %s' % out_dir)
-    if op.exists (out_dir):
-        shutil.rmtree (out_dir)
-    os.makedirs (out_dir)
-
-    for task in tasks:
-        assert ('name' in task)
-        logging.info ('task name %s' % task['name'])
-        setParamUnlessThere (task, 'constraint', '1')
-        # FIXME: insert dbModify.customFilter for managing task constraint
-
-        collectPatches (c, op.join(out_dir, task['name']), task)
-
-    # write info
-    with open(op.join(out_dir, 'readme.txt'), 'w') as readme:
-        readme.write('created at: %s\n' % datetime.now().strftime("%I:%M%p on %B %d, %Y"))
-        readme.write('with tasks %s\n' % json.dumps(tasks, indent=4))
 
