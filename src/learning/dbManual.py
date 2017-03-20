@@ -34,15 +34,16 @@ def getInfo (c, params = {}):
         if num > current + 1:
           numrange.append((start, current+1))
           start = num
-          if len(numrange) > 10:
+          if len(numrange) >= 2:
             numrange.append('too many ranges')
             break
         current = num
       return numrange
-    info['imagerange'] = {}
-    for imagedir in imagedirs:
-      imagenums = [int(op.basename(x)) for x, in imagefiles if op.dirname(x) == imagedir]
-      info['imagerange'][imagedir] = collectImageRange(imagenums)
+    if params.imagerange:
+      info['imagerange'] = {}
+      for imagedir in imagedirs:
+        imagenums = [int(op.basename(x)) for x, in imagefiles if op.dirname(x) == imagedir]
+        info['imagerange'][imagedir] = collectImageRange(imagenums)
 
     #c.execute('SELECT maskfile FROM images')
     #maskfiles = c.fetchall()

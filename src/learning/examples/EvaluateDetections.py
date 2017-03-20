@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 import argparse
 from learning.helperSetup import setupLogging, dbInit, atcity
-from learning.dbEvaluate  import evalClass, evalCounting
+from learning.dbEvaluate  import dbEvalClass
 from learning.dbModify import filterCustom
 import matplotlib.pyplot as plt
 
@@ -26,7 +26,7 @@ setupLogging ('log/learning/EvaluateDetections.log', args.logging_level, 'a')
 (conn_eval, cursor_eval) = dbInit(args.eval_db_file, backup=False)
 
 params = {'car_constraint': args.car_constraint}
-rec, prec, ap = evalClass (c_gt=cursor_true, c_det=cursor_eval, params=params)
+rec, prec, ap = dbEvalClass (c_gt=cursor_true, c_det=cursor_eval, params=params)
 #det_counts, gt_counts = evalCounting (c_gt=cursor_true, c_det=cursor_eval)
 
 conn_eval.close()

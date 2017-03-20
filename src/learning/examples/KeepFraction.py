@@ -19,7 +19,7 @@ setupLogging ('log/learning/KeepFraction.log', args.logging_level, 'a')
 
 
 (conn, cursor) = dbInit (args.in_db_file, args.out_db_file)
-keepFraction(cursor, fraction_keep=args.keep_fraction, randomly=args.randomly)
+keepFraction(cursor, fraction_keep=args.fraction_keep, randomly=args.randomly)
 conn.commit()
 conn.close()
 

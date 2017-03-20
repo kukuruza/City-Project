@@ -648,7 +648,7 @@ def keepFraction (c, fraction_keep, randomly=True):
   if randomly: random.shuffle(imagefiles)
 
   num_to_remove = int((1 - fraction_keep) * len(imagefiles))
-  for imagefile, in imagefiles[-num_to_remove:]:
+  for imagefile, in tqdm(imagefiles[-num_to_remove:]):
     c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))
 

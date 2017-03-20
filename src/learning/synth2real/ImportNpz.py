@@ -12,6 +12,8 @@ parser.add_argument('--in_db_file', required=True)
 parser.add_argument('--in_npz_file', required=True, type=str)
 parser.add_argument('--out_db_file', required=True)
 parser.add_argument('--num', default=1000000000000, type=int)
+parser.add_argument('--replace_fraction', default=1.0, type=float)
+parser.add_argument('--score_threshold', default=1.0, type=float)
 parser.add_argument('--car_constraint', default='1')
 parser.add_argument('--image_constraint', default='1')
 parser.add_argument('--logging_level', default=20, type=int)
@@ -23,7 +25,9 @@ out_video_file = op.join(op.relpath(op.dirname(args.out_db_file), os.getenv('CIT
 
 (conn, cursor) = dbInit(args.in_db_file, args.out_db_file)
 dbReplaceCarsWithNpz(cursor, args.in_npz_file, out_video_file, 
-        params={'num': args.num, 'image_constraint': args.image_constraint, 
+        params={'num': args.num, 'replace_fraction': args.replace_fraction,
+            'score_threshold': args.score_threshold,
+            'image_constraint': args.image_constraint, 
             'car_constraint': args.car_constraint})
 conn.commit()
 conn.close()
