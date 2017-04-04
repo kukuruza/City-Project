@@ -639,15 +639,20 @@ def split (c, out_dir, db_out_names={'train': 0.5, 'test': 0.5}, randomly=True):
 
 
 
-def keepFraction (c, fraction_keep, randomly=True):
-  '''Remove 1-fraction_keep images and their cars. 
-  TODO: maybe it is a user-case of split.
+def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):
+  '''Remove 1-keep_fraction Or all-keep_num images and their cars. 
   '''
   c.execute('SELECT imagefile FROM images')
   imagefiles = sorted(c.fetchall())
   if randomly: random.shuffle(imagefiles)
 
-  num_to_remove = int((1 - fraction_keep) * len(imagefiles))
+  if keep_fraction is not None:
+    assert keep_fraction > 0 and keep_fraction <= 1
+    num_to_remove = int((1 - keep_fraction) * len(imagefiles))
+  elif keep_num is not None:
+    assert keep_num > 0 and keep_num <= len(imagefiles)
+    num_to_remove = len(imagefiles) - keep_num
+  
   for imagefile, in tqdm(imagefiles[-num_to_remove:]):
     c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))

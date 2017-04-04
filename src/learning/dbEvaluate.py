@@ -44,8 +44,7 @@ def dbEvalClass (c_gt, c_det, params={}):
   setParamUnlessThere (params, 'image_constraint', '1')
   cars_of_interest_constr = params['car_constraint']
   images_of_interest_constr = params['image_constraint']
-  print ('cars_of_interest_constr: %s' % cars_of_interest_constr)
-  print ('images_of_interest_constr: %s' % images_of_interest_constr)
+  logging.info('cars_of_interest_constr: %s' % cars_of_interest_constr)
 
   c_det.execute('SELECT imagefile,x1,y1,width,height,score FROM cars '
                 'WHERE %s ORDER BY score DESC' % images_of_interest_constr)
@@ -120,10 +119,11 @@ def dbEvalClass (c_gt, c_det, params={}):
   tp = tp[np.bitwise_not(ignored)]
   fp = fp[np.bitwise_not(ignored)]
 
-  print 'ignored: %d' % np.count_nonzero(ignored)
-  print 'tp: %d' % np.count_nonzero(tp)
-  print 'fp: %d' % np.count_nonzero(fp)
-  print 'gt: %d' % n_gt
+  logging.info('ignored: %d, tp: %d, fp: %d, gt: %d' %
+               (np.count_nonzero(ignored),
+                np.count_nonzero(tp),
+                np.count_nonzero(fp),
+                n_gt))
   assert np.count_nonzero(tp) + np.count_nonzero(fp) + np.count_nonzero(ignored) == len(cars_det)
 
   # compute precision-recall

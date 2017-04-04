@@ -10,7 +10,7 @@ from learning.dbModify import keepFraction
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)
 parser.add_argument('--out_db_file', required=True)
-parser.add_argument('--fraction_keep', required=True, type=float)
+parser.add_argument('--keep_fraction', required=True, type=float)
 parser.add_argument('--randomly', action='store_true')
 parser.add_argument('--logging_level', default=20, type=int)
 args = parser.parse_args()
@@ -19,7 +19,7 @@ setupLogging ('log/learning/KeepFraction.log', args.logging_level, 'a')
 
 
 (conn, cursor) = dbInit (args.in_db_file, args.out_db_file)
-keepFraction(cursor, fraction_keep=args.fraction_keep, randomly=args.randomly)
+keepFraction(cursor, keep_fraction=args.keep_fraction, randomly=args.randomly)
 conn.commit()
 conn.close()
 

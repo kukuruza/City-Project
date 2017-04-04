@@ -69,7 +69,7 @@ class ReaderVideo (ProcessorBase):
 
     def _openVideoCapture_ (self, videopath):
         ''' Open video and set up bookkeeping '''
-        logging.info ('opening video: %s' % videopath)
+        logging.debug ('opening video: %s' % videopath)
         videopath = op.join (self.relpath, videopath)
         if not op.exists (videopath):
             raise Exception('videopath does not exist: %s' % videopath)
