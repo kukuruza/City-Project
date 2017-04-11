@@ -34,7 +34,7 @@ def imread(impath):
 def imsave(impath, im):
   if len(im.shape) == 3 and im.shape[2] == 3:
     im = im[:,:,[2,1,0]]
-  scipy.misc.imsave(atcity(impath, im)) 
+  scipy.misc.imsave(atcity(impath), im)
 
 
 class ProcessorBase (object):

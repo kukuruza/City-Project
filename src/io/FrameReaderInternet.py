@@ -85,13 +85,13 @@ class FrameReader:
         response.close()
         logging.debug ('read frame')
       except:
-        logging.warning ('exception at reading url')
+        logging.info ('exception at reading url')
         time.sleep (self.CallInterval)
         continue 
 
       # that's possible
       if self.img_str is None: 
-        logging.warning ('frame was None')
+        logging.info ('frame was None')
         continue
       
       # if it is the first frame

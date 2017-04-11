@@ -9,6 +9,7 @@ from learning.dbModify    import keepFraction
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--dry_run', action='store_true')
 parser.add_argument('--out_nums', nargs='+', required=True, type=int,
                     help='Number of images to keep for each output dir.')
 parser.add_argument('--logging_level', default=20, type=int)
@@ -37,8 +38,9 @@ for out_num in args.out_nums:
   out_db_file = op.join(out_db_dir, '%s.db' % out_db_name)
   logging.info('out_num %d, out_db_file: %s' % (out_num, out_db_file))
 
-  (conn, cursor) = dbInit (args.in_db_file, out_db_file)
-  keepFraction(cursor, keep_num=out_num, randomly=True)
-  conn.commit()
-  conn.close()
+  if not args.dry_run:
+    (conn, cursor) = dbInit (args.in_db_file, out_db_file)
+    keepFraction(cursor, keep_num=out_num, randomly=True)
+    conn.commit()
+    conn.close()
 
