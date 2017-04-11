@@ -131,3 +131,8 @@ def parseTimeString (timestring):
     return datetime.strptime(timestring, '%Y-%m-%d %H:%M:%S.%f')
 
 
+def parseIdatafaTimeString (timestring):
+    # E.g. 2016/04/25 18:00:25
+    return datetime.strptime(timestring, '%Y/%m/%d %H:%M:%S')
+
+

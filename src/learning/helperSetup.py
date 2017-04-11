@@ -8,6 +8,13 @@ Everything one may need to process a database.
 The main interface functions are dbInit(), setParamUnlessThere(), assertParamIsThere()
 '''
 
+
+def print_to_tqdm(t, msg, msg_len=50):
+  msg = msg.ljust(msg_len)
+  t.set_description(msg)
+  t.refresh()
+
+
 def atcity (path):
   if op.isabs(path):
     return path
@@ -15,6 +22,15 @@ def atcity (path):
     if not os.getenv('CITY_PATH'):
         raise Exception ('Please set environmental variable CITY_PATH')
     return op.join(os.getenv('CITY_PATH'), path)
+
+
+def atcitydata (path):
+  if op.isabs(path):
+    return path
+  else:
+    if not os.getenv('CITY_DATA_PATH'):
+      raise Exception ('Please set environmental variable CITY_DATA_PATH')
+    return op.join(os.getenv('CITY_DATA_PATH'), path)
 
 
 def setupLogHeader (db_in_path, db_out_path, params, name):
@@ -63,18 +79,21 @@ def assertParamIsThere (params, key):
 def setupLogging (filename, level=logging.INFO, filemode='w'):
     log = logging.getLogger('')
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s: \t%(message)s')
-    log.setLevel(level)
+    log.setLevel(logging.DEBUG)
 
-    log_path = os.path.join (os.getenv('CITY_PATH'), filename)
+    log_path = atcity(filename)
     if not op.exists (op.dirname(log_path)):
         os.makedirs (op.dirname(log_path))
     fh = logging.handlers.RotatingFileHandler(log_path, mode=filemode)
+    fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     log.addHandler(fh)
 
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(formatter)
+    sh.setLevel(level)
     log.addHandler(sh)
+
 
 
 def dbInit (db_in_path, db_out_path=None, backup=True):

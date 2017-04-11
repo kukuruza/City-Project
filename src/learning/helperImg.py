@@ -5,7 +5,7 @@ import scipy.misc
 import cv2
 import logging
 from pkg_resources import parse_version
-from helperSetup import setParamUnlessThere, assertParamIsThere
+from helperSetup import setParamUnlessThere, assertParamIsThere, atcity, atcitydata
 
 
 # returns OpenCV VideoCapture property id given, e.g., "FPS"
@@ -13,6 +13,12 @@ def capPropId(prop):
   OPCV3 = parse_version(cv2.__version__) >= parse_version('3')
   return getattr(cv2 if OPCV3 else cv2.cv, ("" if OPCV3 else "CV_") + "CAP_PROP_" + prop)
 
+
+def getVideoLength (videofile):
+  assert op.exists(atcity(videofile)), atcity(videofile)
+  handle = cv2.VideoCapture(atcity(videofile))
+  video_length = int(handle.get(capPropId('FRAME_COUNT')))
+  return video_length
 
 
 # These are thin wrappers around scipy.misc
@@ -60,19 +66,21 @@ class ReaderVideo (ProcessorBase):
     '''
 
     def __init__ (self, params = {}):
-        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        self.relpath = params['relpath']
         self.image_cache = {}    # cache of previously read image(s)
         self.mask_cache = {}     # cache of previously read mask(s)
         self.image_video = {}    # map from image video name to VideoCapture object
         self.mask_video = {}     # map from mask  video name to VideoCapture object
 
-    def _openVideoCapture_ (self, videopath):
+    def _openVideoCapture_ (self, videofile):
         ''' Open video and set up bookkeeping '''
-        logging.debug ('opening video: %s' % videopath)
-        videopath = op.join (self.relpath, videopath)
+        logging.debug ('opening video: %s' % videofile)
+        videopath = atcity(videofile)
         if not op.exists (videopath):
-            raise Exception('videopath does not exist: %s' % videopath)
+          if op.exists(atcitydata(videofile)):
+            videopath = atcitydata(videofile)
+            logging.warning('Deprecated video path relative to CITY_DATA_PATH')
+          else:
+            raise Exception('videofile does not exist: %s' % videofile)
         handle = cv2.VideoCapture(videopath)  # open video
         if not handle.isOpened():
             raise Exception('video failed to open: %s' % videopath)
@@ -93,6 +101,9 @@ class ReaderVideo (ProcessorBase):
         video_dict[videopath].set(capPropId('POS_FRAMES'), frame_id)
         retval, img = video_dict[videopath].read()
         if not retval:
+          if frame_id >= video_dict[videopath].get(capPropId('FRAME_COUNT')):
+            raise ValueError('frame_id %d exceeds the video length' % frame_id)
+          else:
             raise Exception('could not read image_id %s' % image_id)
         # assign the dict back to where it was taken from
         if ismask: self.mask_video = video_dict 
@@ -133,9 +144,7 @@ class ProcessorVideo (ReaderVideo):
     def __init__ (self, params = {}):
         super(ProcessorVideo, self).__init__(params)
 
-        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
         assertParamIsThere  (params, 'out_dataset')
-        self.relpath = params['relpath']
         self.out_dataset = params['out_dataset']
         self.out_image_video = {}    # map from image video name to VideoWriter object
         self.out_mask_video = {}     # map from mask  video name to VideoWriter object
@@ -154,9 +163,9 @@ class ProcessorVideo (ReaderVideo):
         self.out_current_frame[videofile] = -1  # first write will turn in to 0
 
         logging.info ('opening video: %s' % videofile)
-        videopath = op.join (self.relpath, videofile)
-        assert not op.exists (op.join (self.relpath, videopath)), \
-            'Video already exists at %s. Is it a mistake?' % op.join(self.relpath, videopath)
+        videopath = atcity (videofile)
+        assert not op.exists (videopath), \
+            'Video already exists at %s. Is it a mistake?' % videopath
         assert op.exists(op.dirname(videopath)), \
             'Video directory does not exist at %s. Is it a mistake?' % op.dirname(videopath)
         handler = cv2.VideoWriter (videopath, fourcc, fps, frame_size, not ismask)
@@ -232,9 +241,7 @@ class ProcessorVideo (ReaderVideo):
 class SimpleWriter:
 
   def __init__(self, vimagefile=None, vmaskfile=None, params={}):
-    setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
     setParamUnlessThere (params, 'unsafe', False)  # if False, will raise if video exists
-    self.relpath = params['relpath']
     self.unsafe  = params['unsafe']
     self.vimagefile = vimagefile
     self.vmaskfile = vmaskfile
@@ -262,7 +269,7 @@ class SimpleWriter:
     logging.info ('SimpleWriter: opening video: %s' % vfile)
     
     # check if video exists
-    vpath = op.join (self.relpath, vfile)
+    vpath = atcity(vfile)
     if op.exists (vpath):
       if self.unsafe:
         os.remove(vpath)
@@ -288,7 +295,6 @@ class SimpleWriter:
   def imwrite (self, image):
     assert self.vimagefile is not None
     if self.image_writer is None:
-      logging.info('need to open')
       self._openVideoWriter_ (image, ismask=False)
     assert len(image.shape) == 3 and image.shape[2] == 3
     # write

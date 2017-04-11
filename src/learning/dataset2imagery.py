@@ -4,6 +4,7 @@ import cv2
 import logging
 import sqlite3
 import datetime
+from tqdm import trange, tqdm
 from helperSetup import atcity, setParamUnlessThere, assertParamIsThere
 from helperDb    import createDb, imageField
 from helperImg   import ReaderVideo, SimpleWriter
@@ -18,10 +19,10 @@ def exportVideoWBoxes (c, out_videofile, params = {}):
   setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
   setParamUnlessThere (params, 'image_reader',  ReaderVideo())
 
-  video_writer = SimpleWriter(vimagefile=out_videofile)
+  video_writer = SimpleWriter(vimagefile=out_videofile, params=params)
 
   c.execute('SELECT imagefile FROM images')
-  for (imagefile,) in c.fetchall():
+  for (imagefile,) in tqdm(c.fetchall()):
 
       frame = params['image_reader'].imread(imagefile)
 
@@ -32,9 +33,9 @@ def exportVideoWBoxes (c, out_videofile, params = {}):
           name      = carField (car_entry, 'name')
           score     = carField (car_entry, 'score')
 
-          if score is None: score = 1
-          logging.debug ('roi: %s, score: %f' % (str(roi), score))
-          drawScoredRoi (frame, roi, name, score)
+          logging.debug ('roi: %s, score: %s' % (str(roi), str(score)))
+          # do not draw color since it's not necessary
+          drawScoredRoi (frame, roi, label=name, score=score)
 
       video_writer.imwrite(frame)
 

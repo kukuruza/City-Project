@@ -36,7 +36,7 @@ def bottomCenter (roi):
     return (roi[0] * 0.25 + roi[2] * 0.75, roi[1] * 0.5 + roi[3] * 0.5)
 
 
-def drawRoi (img, roi, label = None, color = None):
+def drawRoi (img, roi, label=None, color=None, thickness=1):
     ''' roi = [y1 x1 y2 x2] '''
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
@@ -47,22 +47,16 @@ def drawRoi (img, roi, label = None, color = None):
             color = (0,0,255)
         else:
             color = (255,0,0)
-        thickness = 1
-    else:
-        thickness = 2
     cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
     cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, color, thickness)
 
 
-def drawScoredRoi (img, roi, label = None, score = 1.0):
-    assert (score >= 0 and score <= 1)
+def drawScoredRoi (img, roi, label = None, score = None, thickness=2):
+    assert score is None or score >= 0 and score <= 1
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
     if score is None:
-        score = 1
-        thickness = 1
-    else:
-        thickness = 2
+        score = 0
     color = tuple([int(x * 255) for x in plt.cm.jet(float(score))][0:3])
     cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
     cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, score, thickness)

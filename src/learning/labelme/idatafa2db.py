@@ -8,36 +8,42 @@ import collections
 import logging
 from glob import glob
 import shutil
+import re
 import sqlite3
-from learning.helperDb import createTablePolygons
+from tqdm import trange, tqdm
+from learning.helperDb import createTablePolygons, createDb
+from learning.helperDb import parseIdatafaTimeString, makeTimeString
 from learning.dbUtilities import *
 from learning.helperSetup import setParamUnlessThere, atcity
 from learning.labelme.parser import FrameParser
-from learning.helperImg   import ReaderVideo
+from learning.helperImg   import ReaderVideo, getVideoLength
+from learning.dataset2imagery import exportVideoWBoxes
 
 
     
 def _getRoi (annotation, was_scaled):
   pt = annotation.find('bndbox')
   xmin = int(pt.find('xmin').text) / was_scaled
-  xmax = int(pt.find('xmax').text) / was_scaled
+  xmax = int(pt.find('xmax').text) / was_scaled - 1
   ymin = int(pt.find('ymin').text) / was_scaled
-  ymax = int(pt.find('ymax').text) / was_scaled
+  ymax = int(pt.find('ymax').text) / was_scaled - 1
   roi = [ymin, xmin, ymax, xmax]
   roi = [int(x) for x in roi]
   return roi
 
 
 def _vehicleType (text):
-  if text == '1': return 'taxi'
-  if text == '2': return 'black sedan'
-  if text == '3': return 'sedan'
-  if text == '4': return 'little truck'
-  if text == '5': return 'middle truck'
-  if text == '6': return 'big truck'
-  if text == '7': return 'van'
-  if text == '8': return 'middle bus'
-  if text == '9': return 'big bus'
+  ''' translate Shanghang's types to Evgeny's '''
+  if text == '1':  return 'taxi'
+  if text == '2':  return 'sedan'  # 'black sedan'
+  if text == '3':  return 'sedan'
+  if text == '4':  return 'truck'  # 'little truck'
+  if text == '5':  return 'truck'  # 'middle truck'
+  if text == '6':  return 'truck'  # 'big truck'
+  if text == '7':  return 'van'
+  if text == '8':  return 'bus'    # 'middle bus'
+  if text == '9':  return 'bus'    # 'big bus'
+  if text == '10': return 'object' # 'other'
   logging.warning ('type is not 1-9: %s' % text)
   return 'object'
 
@@ -45,34 +51,42 @@ def _vehicleType (text):
 def _processFrame (c, imagefile, annotation_path, params):
 
   # get paths and names
-  imagename = op.basename(imagefile)
-  logging.debug ('annotation_file: %s' % annotation_path)
+  logging.debug ('annotation_path: %s' % annotation_path)
 
   text = open(annotation_path, 'r').read()
   parser = ET.XMLParser(ns_clean=True, recover=True)
   tree = ET.parse(StringIO(text), parser)
-  #tree = ET.parse(annotation_path, recover=True)
 
-  # get dimensions from db
-  c.execute('SELECT height,width FROM images WHERE imagefile=?', (imagefile,))
-  sz = (height,width) = c.fetchone()
+  # do not check consistency of <video> or <frame> because Idatafa fucks it up
 
   # get dimensions from xml (for some reason it was rescaled)
-  widthxml = int(tree.getroot().find('width').text)
-  was_scaled = widthxml / float(width)
+  width  = int(tree.getroot().find('width').text)
+  height = int(tree.getroot().find('height').text)
+  sz = (height,width)
 
+  # get time
+  timestr = tree.getroot().find('time').text
+  time = parseIdatafaTimeString(timestr)
+  timestr = makeTimeString(time)
 
-  if params['debug_show']:
+  # write image entry to db
+  image_entry = (imagefile,width,height,timestr)
+  s = 'images(imagefile,width,height,time)'
+  c.execute('INSERT INTO %s VALUES (?,?,?,?);' % s, image_entry)
+
+  # read only once per image
+  if params['debug_show']: 
     img = params['image_reader'].imread(imagefile)
 
-  for object_ in tree.getroot().findall('vehicle'):
+  objects = tree.getroot().findall('vehicle')
+  for object_ in objects:
 
     # find the name of object. Filter all generic objects
     name = _vehicleType(object_.find('type').text)
     name = params['parser'].parse(name)
 
     # get all the points
-    roi = _getRoi (object_, was_scaled)
+    roi = _getRoi (object_, was_scaled=1.)
 
     # validate roi
     if roi[0] < 0 or roi[1] < 0 or roi[2] >= sz[0] or roi[3] >= sz[1]:
@@ -100,10 +114,11 @@ def _processFrame (c, imagefile, annotation_path, params):
     if params['debug_show']: 
       drawRoi (img, roi, name, (0,0,255))
 
+  logging.debug('found %d objects' % len(objects))
   if params['debug_show']: 
     cv2.imshow('debug_show', img)
     key = cv2.waitKey(-1)
-    if key == 27: 
+    if key == 27:
       params['debug_show'] = False
       cv2.destroyAllWindows()
 
@@ -133,3 +148,59 @@ def folder2frames (c, annotations_dir, params):
     logging.debug ('processing imagefile: %s' % imagefile)
     _processFrame (c, imagefile, annotation_path, params)
 
+
+
+def parseIdatafaFolder (in_video_file, out_db_file, params={}):
+  ''' Make a db from a standard Shanghang directory organization '''
+
+  logging.info ('==== parseIdatafaFolder ====')
+  setParamUnlessThere (params, 'debug_show', False)
+  setParamUnlessThere (params, 'image_reader',   ReaderVideo())
+  setParamUnlessThere (params, 'bboxes_video', False)
+  params['parser'] = FrameParser()
+
+  # create a dir for db, if necessary
+  out_db_dir = op.dirname(atcity(out_db_file))
+  logging.info ('out_db_dir: %s' % out_db_dir)
+  if not op.exists(out_db_dir): 
+    os.makedirs (out_db_dir)
+
+  # create db
+  if op.exists(out_db_file): 
+    os.remove(out_db_file)
+  conn = sqlite3.connect(atcity(out_db_file))
+  createDb(conn)
+  c = conn.cursor()
+  createTablePolygons(c)
+
+  # get all the annotations
+  xmldir = op.splitext(in_video_file)[0]
+  xmlpaths = sorted(glob(atcity(op.join(xmldir, '*.xml'))))
+  # filename should be exactly 6 digits: XXXXXX.xml
+  xmlpaths = filter(lambda x: re.compile('.*\/\d{6}.xml$').match(x), xmlpaths)
+  #xmlpaths = [x for x in xmlpaths if re.compile('.*\/\d{6}.xml$').match(x)]
+  logging.info ('found %d annotation files' % len(xmlpaths))
+
+  # verify that the video covers the number of xml
+  video_length = getVideoLength(in_video_file)
+  if video_length < len(xmlpaths):
+    logging.error('too many xml: %d < %d' % (video_length, len(xmlpaths)))
+    xmlpaths = xmlpaths[:video_length]
+    logging.error('dropped xmls after %s' % xmlpaths[-1])
+
+  for i, xmlpath in enumerate(tqdm(xmlpaths)):
+    xmlname = op.basename(op.splitext(xmlpath)[0])
+    assert xmlname == '%06d' % (i+1), xmlname
+    imagename = '%06d' % i
+    imagefile = op.join(op.splitext(in_video_file)[0], imagename)
+    imagefile = op.relpath(imagefile, os.getenv('CITY_PATH'))
+    logging.debug('parsing xml_path: %s (imagename %s)' % (xmlpath, imagename))
+    _processFrame (c, imagefile, xmlpath, params)
+
+  # export video with bboxes
+  if params['bboxes_video']:
+    out_videofile = '%s-bboxes-parsed.avi' % op.splitext(in_video_file)[0]
+    exportVideoWBoxes (c, out_videofile, params={'unsafe': True})
+
+  conn.commit()
+  conn.close()
