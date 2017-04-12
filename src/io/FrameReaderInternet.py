@@ -3,13 +3,19 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src/learning'))
 import logging
 import re
 import datetime, time
-from cStringIO import StringIO
+try:
+        from StringIO import StringIO
+except ImportError:
+        from io import StringIO
+#from cStringIO import StringIO
 from PIL import Image, ImageChops
 import urllib2
 import numpy as np
 from random import randint
 from helperSetup import setupLogging, atcity
 from helperDb import makeTimeString
+from dbUtilities import drawScoredRoi
+from helperImg import imsave
 
 
 #def imreadUrl(self, url):
@@ -115,7 +121,7 @@ class FrameReader:
       else:
         break
 
-    if not self.IsBGR:
+    if self.IsBGR:
       frame = frame[:,:,[2,1,0]]
 
     logging.info ('frame updated in %s sec.' % str(time.time() - self.lastCall))
@@ -132,12 +138,13 @@ if __name__ == '__main__':
 
     setupLogging ('log/io/FrameReaderInternet.log', logging.DEBUG)
 
-    reader = FrameReader(578)
+    cam = 572
+    temp_im_path = '%03d_tmp.jpg' % cam
+    out_im_path  = atcity('data/server/media/%03d.jpg' % cam)
+    reader = FrameReader(cam)
 
-    import cv2
     while True:
-      frame, timestamp = reader.getNextFrame()
-      print makeTimeString(timestamp)
-      cv2.imshow('test', frame)
-      cv2.waitKey(10)
+      im, _ = reader.getNextFrame()
+      imsave(op.abspath(temp_im_path), im)
+      os.rename(temp_im_path, out_im_path)
 
