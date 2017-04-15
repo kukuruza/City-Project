@@ -86,7 +86,7 @@ def clean_model (model, params={}):
 
     try:
         command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
-                   '%s/src/augmentation/cleanCollectionBlender.py' % os.getenv('CITY_PATH')]
+                   atcity('src/augmentation/collections/cleanCollectionBlender.py')]
         returncode = subprocess.call (command, shell=False)
         logging.info ('blender returned code %s' % str(returncode))
     except:

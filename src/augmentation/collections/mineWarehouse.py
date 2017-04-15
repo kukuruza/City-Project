@@ -15,12 +15,12 @@ import time
 import traceback
 
 from learning.helperSetup import atcity, setupLogging
-from Cad import Cad
+from augmentation.Cad import Cad
 
 
 
 CAD_DIR = atcity('data/augmentation/CAD')
-README_NAME = 'readme-src.json'
+README_NAME = 'collection.json'
 
 
 # delete special characters
@@ -39,8 +39,8 @@ def _find_carmodel_in_vehicles_ (models_info, model_id):
 
 def download_model (browser, url, model_dir, args):
 
-    # model_id is the last part of the url
-    model_id = url.split('=')[-1]
+    # model_id is the last part of the url blahblah/model_id/model_name
+    model_id = url.split('/')[-2]
     logging.info ('started with model_id: %s' % model_id)
 
     # open the page with model
@@ -149,7 +149,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
         # process the model
         try:
             logging.debug('model url: %s' % model_url)
-            model_dir = op.join(collection_dir, 'skp_src')
+            model_dir = op.join(collection_dir, 'skp')
             model_info = download_model (browser, model_url, model_dir, args)
             counts['downloaded'] += 1
         except:
@@ -201,8 +201,8 @@ def download_collection (browser, collection_id, cad, args):
                     % sys.exc_info()[0])
     else:
         models_info = []
-        if not op.exists(op.join(collection_dir, 'skp_src')):
-            os.makedirs(op.join(collection_dir, 'skp_src'))
+        if not op.exists(op.join(collection_dir, 'skp')):
+            os.makedirs(op.join(collection_dir, 'skp'))
 
     # open the page with collection
     browser.get(url)
@@ -288,8 +288,8 @@ def download_author_models (browser, author_id, cad, args):
                     % sys.exc_info()[0])
     else:
         models_info = []
-        if not op.exists(op.join(collection_dir, 'skp_src')):
-            os.makedirs(op.join(collection_dir, 'skp_src'))
+        if not op.exists(op.join(collection_dir, 'skp')):
+            os.makedirs(op.join(collection_dir, 'skp'))
 
     # open the page with collection
     browser.get(url)
