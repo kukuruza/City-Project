@@ -8,7 +8,7 @@ from random import choice
 from numpy.random import normal, uniform
 import cv2
 from glob import glob
-from math import ceil
+from math import ceil, pi
 import subprocess
 import multiprocessing
 import traceback
@@ -197,12 +197,12 @@ if __name__ == "__main__":
     parser.add_argument('--render', default='SEQUENTIAL')
     parser.add_argument('--save_blender', action='store_true',
                         help='save .blend render file')
-    parser.add_argument('--models_range', default='[::]', 
-                        help='python style range of models in collection, e.g. "[5::2]"')
     parser.add_argument('--collection_id', required=False,
                         help='if left empty, use all collections')
     parser.add_argument('--vehicle_type', required=False,
                         help='if left empty, use all types')
+    parser.add_argument('--azimuth_low',     type=int, default=0)
+    parser.add_argument('--azimuth_high',    type=int, default=360)
 
     args = parser.parse_args()
 
@@ -217,14 +217,13 @@ if __name__ == "__main__":
 
     main_models = cad.get_ready_models(
       collection_id=args.collection_id, vehicle_type=args.vehicle_type)
-
-    diapason = Diapason (len(main_models), args.models_range)
-    main_models   = diapason.filter_list(main_models)
     logging.info('Using total %d models.' % len(main_models))
 
     job = {'num_per_session': args.num_per_session,
            'out_dir':         args.out_dir,
            'main_models':     main_models,
+           'azimuth_low':     float(args.azimuth_low) * pi / 180,
+           'azimuth_high':    float(args.azimuth_high) * pi / 180,
            'save_blender':    args.save_blender}
 
     # give a number to each job

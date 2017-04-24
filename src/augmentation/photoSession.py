@@ -35,7 +35,7 @@ SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
 
-def prepare_simplest_photo (car_sz):
+def prepare_simplest_photo (car_sz, azimuth_low, azimuth_high):
     '''Pick only random camera pose, and finally render a frame
     '''
     # pick random weather
@@ -45,10 +45,9 @@ def prepare_simplest_photo (car_sz):
     # turn off sky reflexion
     bpy.data.lamps['Sky-sunset'].energy = 0
 
-
     # pick random camera angle and distance
     scale = normal (1, SCALE_NOISE_SIGMA)
-    azimuth  = uniform (low=0, high=2*pi)
+    azimuth  = uniform (low=azimuth_low, high=azimuth_high)
     altitude = uniform (low=PITCH_LOW, high=PITCH_HIGH)
     print ('scale: %.2f, azimuth: %.2f, altitude: %.2f' % 
            (scale, azimuth*180/pi, altitude))
@@ -71,7 +70,7 @@ def prepare_simplest_photo (car_sz):
 
 
 
-def prepare_photo (car_sz):
+def prepare_photo (car_sz, azimuth_low, azimuth_high):
     '''Pick some random parameters, adjust lighting, and finally render a frame
     '''
     # pick random weather
@@ -83,9 +82,9 @@ def prepare_photo (car_sz):
 
     # pick random camera angle and distance
     scale = normal (1, SCALE_NOISE_SIGMA)
-    azimuth  = uniform (low=0, high=2*pi)
+    azimuth  = uniform (low=azimuth_low, high=azimuth_high)
     altitude = uniform (low=PITCH_LOW, high=PITCH_HIGH)
-    print ('scale: %.2f, azimuth: %.2f, altitude: %.2f' % 
+    logging.info ('prepare_photo: scale: %.2f, azimuth (deg): %.2f, altitude: %.2f' % 
            (scale, azimuth*180/pi, altitude))
 
     # compute camera position
@@ -188,6 +187,9 @@ def photo_session (job):
     num_per_session = job['num_per_session']
     vehicles        = job['vehicles']
 
+    azimuth_low     = job['azimuth_low']
+    azimuth_high    = job['azimuth_high']
+
     # open the blender file
     scene_path = atcity('data/augmentation/scenes/photo-session.blend')
     bpy.ops.wm.open_mainfile (filepath=scene_path)
@@ -217,7 +219,8 @@ def photo_session (job):
     car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
     for i in range(num_per_session):
         render_dir = op.join(WORK_DIR, '%06d' % i)
-        params = make_snapshot (render_dir, car_names, prepare_photo(car_sz))
+        params = make_snapshot (render_dir, car_names, 
+                                prepare_photo(car_sz, azimuth_low, azimuth_high))
 
         if job['save_blender']:
             bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))

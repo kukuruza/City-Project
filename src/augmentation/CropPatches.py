@@ -166,6 +166,7 @@ if __name__ == "__main__":
               'patch_id':     op.join(scene_name, op.splitext(patch_name)[0]),
               'roi':          roi,
               'visible_perc': visible_perc,
+              'model_id':     out_info['model_id'],
               'vehicle_type': out_info['vehicle_type'],
               'azimuth':      out_info['azimuth'],
               'altitude':     out_info['altitude'],
