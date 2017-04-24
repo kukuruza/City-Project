@@ -32,15 +32,15 @@ def generate_video_traffic (job):
   video = Video(video_dir=job['video_dir'])
   camera = video.build_camera()
 
-  assert op.exists(atcity(op.join(job['in_db_file']))), \
+  assert op.exists(atcity(job['in_db_file'])), \
       'in db %s does not exist' % atcity(job['in_db_file'])
-  conn_in = sqlite3.connect(atcity(op.join(job['in_db_file']))
+  conn_in = sqlite3.connect(atcity(job['in_db_file']))
   c_in = conn_in.cursor()
   c_in.execute('SELECT time FROM images')
   timestamps = c_in.fetchall()
   conn_in.close()
 
-  cad = Cad(job['collection_names'])
+  cad = Cad()
 
   if 'speed_kph' in job:
     model = TrafficModel (camera, video, cad=cad, speed_kph=job['speed_kph'])
@@ -70,8 +70,8 @@ if __name__ == "__main__":
     parser.add_argument('--logging_level', default=20, type=int)
     parser.add_argument('--frame_range', default='[::]', 
                         help='python style ranges, e.g. "[5::2]"')
-    parser.add_argument('--job_file', required=True)
     parser.add_argument('--in_db_file', required=True)
+    parser.add_argument('--video_dir', required=True)
     parser.add_argument('--traffic_file', required=True,
                         help='output .json file where to write traffic info. '
                              'Can be "traffic.json" in video output dir.')
@@ -85,12 +85,11 @@ if __name__ == "__main__":
     if not op.exists(atcity(op.dirname(args.traffic_file))):
       os.makedirs(atcity(op.dirname(args.traffic_file)))
               
-    assert op.exists(atcity(args.job_file)), atcity(args.job_file)
-    job = simplejson.load(open(atcity(args.job_file) ))
-    setParamUnlessThere (job, 'frame_range', args.frame_range)
-    setParamUnlessThere (job, 'in_db_file', args.in_db_file)
-    setParamUnlessThere (job, 'video_dir', op.dirname(args.job_file))
-    setParamUnlessThere (job, 'out_video_dir', op.dirname(args.in_db_file))
+    job = {'frame_range':   args.frame_range,
+           'in_db_file':    args.in_db_file,
+           'video_dir':     args.video_dir,
+           'out_video_dir': op.dirname(args.in_db_file)
+    }
     if args.speed_kph is not None:
       setParamUnlessThere (job, 'speed_kph', args.speed_kph)
     elif args.num_cars is not None:

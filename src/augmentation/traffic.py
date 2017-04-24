@@ -99,10 +99,10 @@ class Sun:
 class Vehicle:
   ''' Vehicle class stores info in a dict. '''
 
-  def __init__(self, cad):
+  def __init__(self, model_info):
 
     # model
-    self.info = cad.get_random_ready_models(number=1) [0]
+    self.info = model_info
     
     # id
     hash_generator.update(str(time.time()))
@@ -144,7 +144,8 @@ class Lane:
     self.speed_kph = speed_kph
     self.lane_speed_dev = 0.
 
-    self.vehicles.append(Vehicle(self.cad))
+    model_info = self.cad.get_random_ready_models(number=1)[0]
+    self.vehicles.append(Vehicle(model_info))
 
 
   def update(self):
@@ -204,7 +205,7 @@ class TrafficModel:
 
     # load mask
     if 'mask' in camera:
-      mask_path = atcity(op.join('data', camera['camera_dir'], camera['mask']))
+      mask_path = atcity(op.join(camera['camera_dir'], camera['mask']))
       self.mask = cv2.imread (mask_path, cv2.IMREAD_GRAYSCALE)
       assert self.mask is not None, mask_path
       logging.info ('TrafficModel: loaded a mask')
@@ -212,7 +213,7 @@ class TrafficModel:
       self.mask = None
 
     # create lanes
-    lanes_path = atcity(op.join('data', camera['camera_dir'], camera['lanes_name']))
+    lanes_path = atcity(op.join(camera['camera_dir'], camera['lanes_name']))
     lanes_dicts = json.load(open( lanes_path ))
     self.lanes = [Lane(('%d' % i), l, cad, speed_kph, camera['pxls_in_meter']) 
                   for i,l in enumerate(lanes_dicts)]
@@ -305,13 +306,13 @@ class TrafficModelRandom:
 
     # get the map of azimuths. 
     # it has gray values (r==g==b=) and alpha, saved as 4-channels
-    azimuth_path = atcity('data', op.join(camera['camera_dir'], camera['azimuth_name']))
+    azimuth_path = atcity(op.join(camera['camera_dir'], camera['azimuth_name']))
     azimuth_map = cv2.imread (azimuth_path, cv2.IMREAD_UNCHANGED)
     assert azimuth_map is not None and azimuth_map.shape[2] == 4
 
     # black out the invisible azimuth_map regions
     if 'mask' in camera and camera['mask']:
-      mask_path = atcity('data', op.join(camera['camera_dir'], camera['mask']))
+      mask_path = atcity(op.join(camera['camera_dir'], camera['mask']))
       mask = cv2.imread (mask_path, cv2.IMREAD_GRAYSCALE)
       assert mask is not None, mask_path
       azimuth_map[mask] = 0
@@ -365,7 +366,7 @@ class TrafficModelRandom:
         y = int(y)
 
         # keep choosing a car until find a valid one
-        vehicle = self.cad.get_random_ready_models(number=1) [0]
+        vehicle = self.cad.get_random_ready_models(number=1)[0]
         dims_dict[vehicle['model_id']] = vehicle['dims']
 
         # cars can't be too close. TODO: they can be close on different lanes

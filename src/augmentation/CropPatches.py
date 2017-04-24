@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
-import json
+import simplejson as json
 import logging
 import numpy as np
 from random import choice
@@ -43,6 +43,7 @@ def crop_patches (patch_dir, expand_perc, keep_ratio, target_width, target_heigh
         if keep_ratio:
           expandRoiToRatio (roi, imshape, 0, ratio)
         expandRoiFloat   (roi, imshape, (expand_perc, expand_perc))
+        roi = [int(x) for x in roi]
 
         target_shape = (target_width, target_height)
 
@@ -103,8 +104,8 @@ def get_visible_perc (patch_dir):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--in_dir',  default='augmentation/patches/test')
-    parser.add_argument('--out_dir', default='augmentation/patches/test_crops')
+    parser.add_argument('--in_dir',  default='data/augmentation/patches/test')
+    parser.add_argument('--out_dir', default='data/augmentation/patches/test_crops')
     parser.add_argument('--logging_level',   type=int,   default=20)
     parser.add_argument('--expand_perc',     type=float, default=0.1)
     parser.add_argument('--target_width',    type=int,   default=40)
@@ -116,17 +117,12 @@ if __name__ == "__main__":
 
     setupLogging('log/augmentation/CropPatches.log', args.logging_level, 'w')
 
+    meta = []
 
     # delete and recreate out_dir dir
     if op.exists(atcity(args.out_dir)):
         shutil.rmtree(atcity(args.out_dir))
     os.makedirs(atcity(args.out_dir))
-
-    ids_f = open(atcity(op.join(args.out_dir, 'ids.txt')), 'w')
-    vis_f = open(atcity(op.join(args.out_dir, 'visibility.txt')), 'w')
-    roi_f = open(atcity(op.join(args.out_dir, 'roi.txt')), 'w')
-    typ_f = open(atcity(op.join(args.out_dir, 'types.txt')), 'w')
-    ang_f = open(atcity(op.join(args.out_dir, 'angles.txt')), 'w')
 
     for in_scene_dir in glob(atcity(op.join(args.in_dir, 'scene-??????'))):
         scene_name = op.basename(in_scene_dir)
@@ -142,6 +138,10 @@ if __name__ == "__main__":
                 continue
             patch, mask = crop_patches(patch_dir, args.expand_perc, args.keep_ratio,
                                        args.target_width, args.target_height)
+
+            # make a roi str
+            bbox = mask2bbox(mask)
+            roi = bbox2roi(bbox)  # [y1 x1 y2 x2]
 
             # something went wrong, probably the mask is empty
             if patch is None or mask is None: continue
@@ -162,22 +162,17 @@ if __name__ == "__main__":
             out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
 
             # write ids, bboxes, visibility, and angles
-            patch_id = op.join(scene_name, op.splitext(patch_name)[0])
-            bbox = mask2bbox (mask)
-            assert bbox is not None
-            roi_str = ' '.join([str(x) for x in bbox2roi(bbox)])
-            roi_f.write('%s %s\n' % (patch_id, roi_str)) # [y1 x1 y2 x2]
-            vis_f.write('%s %f\n' % (patch_id, visible_perc))
-            ids_f.write('%s\n'    %  patch_id)
-            typ_f.write('%s %s\n' % (patch_id, out_info['vehicle_type']))
-            ang_f.write('%s %.2f %.2f\n' % 
-                        (patch_id, out_info['azimuth'], out_info['altitude']))
+            meta.append({
+              'patch_id':     op.join(scene_name, op.splitext(patch_name)[0]),
+              'roi':          roi,
+              'visible_perc': visible_perc,
+              'vehicle_type': out_info['vehicle_type'],
+              'azimuth':      out_info['azimuth'],
+              'altitude':     out_info['altitude'],
+            })
           except:
             logging.error('postprocessing failed for patch %s: %s' %
                           (patch_dir, traceback.format_exc()))
 
-    ids_f.close()
-    vis_f.close()
-    roi_f.close()
-    typ_f.close()
-    ang_f.close()
+    with open(atcity(op.join(args.out_dir, 'metadata.json')), 'w') as fid:
+      fid.write(json.dumps(meta, indent=2))

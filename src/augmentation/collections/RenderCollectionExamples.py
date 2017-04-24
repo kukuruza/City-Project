@@ -93,3 +93,5 @@ for i in Diapason().get_range(len(collection['vehicles']), args.model_range):
   model = collection['vehicles'][i]
   model['collection_id'] = args.collection_id
   render_example (model)
+
+

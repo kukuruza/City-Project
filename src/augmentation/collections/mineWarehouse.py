@@ -338,8 +338,9 @@ if __name__ == "__main__":
     setupLogging('log/augmentation/MineWarehouse.log', logging.INFO, 'w')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--collection_id')
-    parser.add_argument('--author_id')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--collection_id')
+    group.add_argument('--author_id')
     parser.add_argument('--overwrite_collection', action='store_true')
     parser.add_argument('--vehicle_type', nargs='?', default='object')
     parser.add_argument('--timeout', nargs='?', default=10, type=int)
@@ -349,9 +350,7 @@ if __name__ == "__main__":
 
     # use firefox to get page with javascript generated content
     with closing(Firefox()) as browser:
-        if   args.collection_id is not None and args.author_id is None:
+        if args.collection_id is not None:
             download_collection (browser, args.collection_id, cad, args)
-        elif args.collection_id is None and args.author_id is not None:
+        elif args.author_id is not None:
             download_author_models (browser, args.author_id, cad, args)
-        else:
-            logging.error ('Supply exatcly one of collection_id or author_id')

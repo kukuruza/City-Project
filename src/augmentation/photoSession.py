@@ -15,10 +15,10 @@ from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 
 
 
-COLLECTIONS_DIR  = atcity('augmentation/CAD')
-ROAD_TEXTURE_DIR = atcity('augmentation/textures/road')
-BLDG_TEXTURE_DIR = atcity('augmentation/textures/buildings')
-WORK_PATCHES_DIR = atcity('augmentation/blender/current-patch')
+COLLECTIONS_DIR  = atcity('data/augmentation/CAD')
+ROAD_TEXTURE_DIR = atcity('data/augmentation/resources/textures/road')
+BLDG_TEXTURE_DIR = atcity('data/augmentation/resources/textures/buildings')
+WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
 
@@ -189,7 +189,7 @@ def photo_session (job):
     vehicles        = job['vehicles']
 
     # open the blender file
-    scene_path = atcity('augmentation/scenes/photo-session.blend')
+    scene_path = atcity('data/augmentation/scenes/photo-session.blend')
     bpy.ops.wm.open_mainfile (filepath=scene_path)
 
     setParamUnlessThere (job, 'render_width',  200)
@@ -225,9 +225,10 @@ def photo_session (job):
         ### write down some labelling info
         out_path = atcity(op.join(render_dir, OUT_INFO_NAME))
         with open(out_path, 'w') as f:
-            f.write(json.dumps({'azimuth': (180 - params['azimuth']) % 360, # match KITTI
-                                'altitude': params['altitude'],
-                                'vehicle_type': vehicles[0]['vehicle_type']}, indent=4))
+            f.write(json.dumps({'azimuth':      (180 - params['azimuth']) % 360, # match KITTI
+                                'altitude':     params['altitude'],
+                                'vehicle_type': vehicles[0]['vehicle_type'],
+                                'model_id':     vehicle['model_id']}, indent=4))
 
 
 

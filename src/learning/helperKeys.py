@@ -88,3 +88,7 @@ class KeyReaderSequence (KeyReader):
         key = self.sequence.pop(0)
         cv2.waitKey(10)
         return key
+
+
+if __name__ == "__main__":
+    getCalibration()

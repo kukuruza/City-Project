@@ -14,6 +14,7 @@ import multiprocessing
 import traceback
 import shutil
 import argparse
+from pprint import pprint
 from learning.helperSetup import atcity, setupLogging
 from augmentation.Cad import Cad
 
@@ -104,6 +105,8 @@ def place_occluding_vehicles (vehicle0, other_models):
     Returns:
       other_vehicles:  same as other_models, but with x,y,azimuth fields
     '''
+    INTERCAR_DIST_COEFF = 0.2
+
     vehicles = []
     for i,model in enumerate(other_models):
         logging.debug ('place_occluding_vehicles: try %d on model_id %s' 
@@ -125,7 +128,8 @@ def place_occluding_vehicles (vehicle0, other_models):
             y2 = existing_vehicle['y']
             dim_x2 = existing_vehicle['dims']['x']
             dim_y2 = existing_vehicle['dims']['y']
-            if (abs(x1-x2) < (dim_x1+dim_x2)/2 and abs(y1-y2) < (dim_y1+dim_y2)/2):
+            if (abs(x1-x2) < (dim_x1+dim_x2)/2 * (1+INTERCAR_DIST_COEFF) and 
+                abs(y1-y2) < (dim_y1+dim_y2)/2 * (1+INTERCAR_DIST_COEFF)):
                 logging.debug ('place_occluding_vehicles: intersecting, dismiss')
                 does_intersect = True
                 break
@@ -162,6 +166,7 @@ def run_patches_job (job):
 
     job_path = op.join(WORK_DIR, JOB_INFO_NAME)
     with open(job_path, 'w') as f:
+        logging.debug('writing info to job_path %s' % job_path)
         f.write(json.dumps(job, indent=4))
     try:
         command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
@@ -196,6 +201,8 @@ if __name__ == "__main__":
                         help='python style range of models in collection, e.g. "[5::2]"')
     parser.add_argument('--collection_id', required=False,
                         help='if left empty, use all collections')
+    parser.add_argument('--vehicle_type', required=False,
+                        help='if left empty, use all types')
 
     args = parser.parse_args()
 
@@ -208,12 +215,8 @@ if __name__ == "__main__":
 
     cad = Cad()
 
-    if args.collection_id is None:
-        logging.info ('using get_all_ready_models')
-        main_models = cad.get_all_ready_models()
-    else:
-        logging.info ('using get_ready_models_in_collection')
-        main_models = cad.get_ready_models_in_collection(args.collection_id)
+    main_models = cad.get_ready_models(
+      collection_id=args.collection_id, vehicle_type=args.vehicle_type)
 
     diapason = Diapason (len(main_models), args.models_range)
     main_models   = diapason.filter_list(main_models)
@@ -230,11 +233,12 @@ if __name__ == "__main__":
     jobs = [job.copy() for i in range(num_sessions)]
     for i,job in enumerate(jobs): 
         job['i'] = i
-        job['occl_models'] = cad.get_random_ready_models (args.num_occluding)
+        job['occl_models'] = cad.get_random_ready_models (
+          number=args.num_occluding, vehicle_type=args.vehicle_type)
+        logging.debug(job['occl_models'])
         for occl_model in job['occl_models']:
             if 'description' in occl_model:
                 del occl_model['description']  # to make it more compact
-
 
     # workhorse
     if args.render == 'SEQUENTIAL':

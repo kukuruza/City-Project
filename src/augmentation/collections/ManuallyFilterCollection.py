@@ -9,10 +9,10 @@ import shutil
 import numpy as np
 import cv2
 import traceback
-from learning.helperSetup import setupLogging, atcity, _setupCopyDb_
+from learning.helperSetup import setupLogging, atcity
 from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 from learning.helperKeys import KeyReaderUser, getCalibration
-from pprint import pprint
+from pprint import pprint, pformat
 
 
 
@@ -21,37 +21,34 @@ def classify (collection):
 
   keys = getCalibration()
   keys[ord('h')] = 'vehicle'    # but can't see the type, or not in the list
-  keys[ord(' ')] = 'sedan'      # generic small car
-  keys[ord('d')] = 'double'     # several cars stacked into one bbox
+  keys[ord(' ')] = 'passenger'  # generic small car
   keys[ord('c')] = 'taxi'       # (cab)
   keys[ord('t')] = 'truck'
-  keys[ord('v')] = 'van'        # (== a small truck)
-  keys[ord('m')] = 'minivan'
+  keys[ord('v')] = 'van'
   keys[ord('b')] = 'bus'
-  keys[ord('p')] = 'pickup'
-  keys[ord('l')] = 'limo'
-  keys[ord('s')] = 'suv'
   keys[ord('o')] = 'object'     # not a car, pedestrian, or bike
-  keys[ord('k')] = 'bike'       # (bike or motobike)
 
   collection_id = collection['collection_id']
   models = collection['vehicles']
   collection_dir = 'data/augmentation/CAD/%s' % collection_id
+  indices = [i for i in range(len(models)) if models[i]['valid']]
 
-  car_statuses = [''] * len(models)
   button = 0
-  index = 0
-  while button != 27 and index >= 0 and index < len(models):
-    model = models[index]
-    if logging.getLogger().getEffectiveLevel() == logging.DEBUG: pprint (model)
-    if model['valid'] == False:
-      index += 1
-      continue
+  i = 0
+  while i < len(indices):
+    logging.debug('i: %d' % i)
+    if i < 0:
+      logging.warning('i < 0, reset to the first model')
+      i = 0
+
+    model = models[indices[i]]
+    logging.info('model_id: %s' % model['model_id'])
+    logging.debug(pformat(model))
 
     example_file = op.join(collection_dir, 'examples/%s.png' % model['model_id'])
     example = cv2.imread(atcity(example_file))
     assert example is not None, example_file
-    label = car_statuses[index] if car_statuses[index] != '' else model['vehicle_type']
+    label = model['vehicle_type'] if model['valid'] == True else 'invalid'
     logging.info ('label: %s' % label)
 
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -60,69 +57,57 @@ def classify (collection):
     cv2.putText (example, label, (50,50), font, 2, color, thickness)
     cv2.imshow('show', example)
     button = cv2.waitKey(-1)
+    logging.debug('user pressed button: %d' % button)
 
-    if button == keys['left']:
+    if button == keys['esc']:
+      break
+    elif button == keys['left']:
       logging.debug ('prev car')
-      index -= 1
+      i -= 1
     elif button == keys['right']:
       logging.debug ('next car')
-      index += 1
+      i += 1
     elif button == keys['del']:
       logging.info ('delete')
-      car_statuses[index] = 'badcar'
-      index += 1
+      model['valid'] = False
+      model['error'] = 'user defined in ManuallyFilterCollection'
+      logging.info('model %s made invalid' % model['model_id'])
+      models[indices[i]] = model
+      i += 1
     elif button in keys.keys():  # any of the names added to keys in this function
       logging.info (keys[button])
-      car_statuses[index] = keys[button]
-      index += 1
+      model['vehicle_type'] = keys[button]
+      logging.info('model %s assigned type %s' % (model['model_id'], model['vehicle_type']))
+      models[indices[i]] = model
+      i += 1
 
-  # actually delete or update
   for index in range(len(models)):
     model = models[index]
-    model['description'] = None  # FIXME: remove
-    status = car_statuses[index]
-    if status == 'badcar':
-      logging.info('model %s is deleted')
-      model['valid'] = False
+    if model['valid'] == False:
       model['ready'] = False
-      model['error'] = 'user decided'
-    elif status == '':
-      logging.info ('model %s is not changed' % model['model_id'])
-      pass
-    else:
-      logging.info('model %s assigned type %s' % (model['model_id'], status))
-      model['vehicle_type'] = status
+      example_file = op.join(collection_dir, 'examples/%s.png' % model['model_id'])
+      if op.exists(atcity(example_file)):
+        logging.info('removing example for non-valid model: %s' % model['model_id'])
+        os.remove(atcity(example_file))
+    models[index] = model
 
 
+if __name__ == "__main__":
 
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--collection_id', required=True)
+  parser.add_argument('--logging_level', type=int, default=20)
+  args = parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--collection_id')
-parser.add_argument('--logging_level', type=int, default=20)
-args = parser.parse_args()
+  setupLogging('log/augmentation/ManuallyFilterCollection.log', args.logging_level, 'w')
 
-setupLogging('log/augmentation/ManuallyFilterCollection.log', args.logging_level, 'w')
+  collection_file = 'data/augmentation/CAD/%s/collection.json' % args.collection_id
 
-collection_file = 'data/augmentation/CAD/%s/readme-blended.json' % args.collection_id
-backup_file     = 'data/augmentation/CAD/%s/unfiltered.json' % args.collection_id
-# copy collection_file to backup_file
-_setupCopyDb_ (atcity(collection_file), atcity(backup_file))
+  collection = json.load(open(atcity(collection_file)))
+  logging.info ('found %d models in the collection' % len(collection['vehicles']))
 
-collection = json.load(open(atcity(collection_file)))
-logging.info ('found %d models in the collection' % len(collection['vehicles']))
+  classify(collection)
+  pprint (collection)
 
-classify(collection)
-pprint (collection)
-
-with open(atcity(collection_file), 'w') as f:
-  f.write(json.dumps(collection, indent=4))
-
-# cad = Cad()
-#
-# update models
-# collection_path = op.join(collection_dir, 'readme-blended.json')
-# collection = json.load(open(collection_path))
-# for model in collection['vehicles']:
-#     cad.update_model (model, args.collection_id)
-# with open(collection_path, 'w') as f:
-#     f.write(json.dumps(collection, indent=4))
+  with open(atcity(collection_file), 'w') as f:
+    f.write(json.dumps(collection, indent=4))

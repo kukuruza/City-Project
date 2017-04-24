@@ -9,16 +9,16 @@ from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
 ''' Make all frame postprocessing and combination in RENDER_DIR '''
 
 WORK_RENDER_DIR = atcity('data/augmentation/blender/current-frame')
-#BACKGROUND_FILENAME = 'background.png'
-#NORMAL_FILENAME     = 'render.png'
-#CARSONLY_FILENAME   = 'cars-only.png'
+BACKGROUND_FILENAME = 'background.png'
+NORMAL_FILENAME     = 'render.png'
+CARSONLY_FILENAME   = 'cars-only.png'
 COMBINED_FILENAME   = 'out.png'
 #CORRECTION_FILENAME = 'color-correction.json'
 
 WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getppid())
 WORK_DIR_SUFFIX = '-%d' % os.getppid()
 
-correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
+#correction_path = op.join(WORK_DIR, CORRECTION_FILENAME)
 
 image_node = bpy.context.scene.node_tree.nodes['Image-Background'].image
 image_node.filepath = op.join(WORK_DIR, BACKGROUND_FILENAME)

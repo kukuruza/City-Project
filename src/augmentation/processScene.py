@@ -360,7 +360,7 @@ class Diapason:
 
 
 
-def mywrapper((video, camera, traffic, back, job)):
+def worker((video, camera, traffic, back, job)):
   ''' wrapper for parallel processing. Argument is an element of frame_jobs 
   '''
   WORK_DIR = '%s-%d' % (WORK_RENDER_DIR, os.getpid())
@@ -373,10 +373,10 @@ def mywrapper((video, camera, traffic, back, job)):
 
 
 
-def sequentialwrapper(frame_jobs):
+def sequentialworker(frame_jobs):
   ''' Wrap mywrapper for sequential run (in debugging) '''
   for frame_job in frame_jobs:
-    yield mywrapper(frame_job)
+    yield worker(frame_job)
 
 
 
@@ -410,7 +410,7 @@ def process_video (job):
   monitor = None # MonitorDatasetClient (cam_id=camera.info['cam_id'])
 
   # load traffic info
-  traffic_video = json.load(open(atcity(op.join('data', job['traffic_file']))))
+  traffic_video = json.load(open(atcity(job['traffic_file'])))
   
   # reader and writer
   video_reader = ReaderVideo()
@@ -458,8 +458,8 @@ def process_video (job):
 
       frame_jobs.append((video, camera, traffic, back, job))
 
-    #for i, (out_image, out_mask, work_dir) in enumerate(sequentialwrapper(frame_jobs)):
-    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(mywrapper, frame_jobs)):
+    #for i, (out_image, out_mask, work_dir) in enumerate(sequentialworker(frame_jobs)):
+    for i, (out_image, out_mask, work_dir) in enumerate(pool.imap(worker, frame_jobs)):
       frame_id = frame_range[i]
       logging.info ('processed frame number %d' % frame_id)
 
