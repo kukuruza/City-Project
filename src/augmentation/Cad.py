@@ -284,11 +284,6 @@ class Cad:
               body=model)
 
 
-  def update_collection (self, collection):
-      for model in collection['vehicles']:
-          self.update_model (model, collection)
-
-
 
 
 

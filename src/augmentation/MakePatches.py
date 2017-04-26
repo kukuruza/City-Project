@@ -149,8 +149,8 @@ def run_patches_job (job):
 
     logging.info ('run_patches_job started job %d' % job['i'])
 
-    main_model  = choice(job['main_models'])
-    del job['main_models']
+    main_model  = job['main_model']
+    del job['main_model']
     occl_models = job['occl_models']
     del job['occl_models']
 
@@ -178,7 +178,7 @@ def run_patches_job (job):
                       (job['vehicles'][0]['model_id'], traceback.format_exc()))
 
     # move patches-id dirs to the new home dir and number them
-    scene_dir = atcity(op.join('data', job['out_dir'], 'scene-%06d' % job['i']))
+    scene_dir = atcity(op.join(job['out_dir'], 'scene-%06d' % job['i']))
     logging.debug('moving %s to %s' % (WORK_DIR, scene_dir))
     shutil.move(WORK_DIR, scene_dir)
 
@@ -188,10 +188,10 @@ def run_patches_job (job):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--out_dir', default='augmentation/patches/test')
+    parser.add_argument('--out_dir', default='data/augmentation/patches/test')
     parser.add_argument('--logging_level',   type=int,   default=20)
-    parser.add_argument('--number',          type=int,   default=4,
-                        help='total number of pathces to generate')
+    parser.add_argument('--num_sessions',    type=int,
+                        help='if not given, use one per model')
     parser.add_argument('--num_per_session', type=int,   default=2)
     parser.add_argument('--num_occluding',   type=int,   default=5)
     parser.add_argument('--render', default='SEQUENTIAL')
@@ -221,17 +221,20 @@ if __name__ == "__main__":
 
     job = {'num_per_session': args.num_per_session,
            'out_dir':         args.out_dir,
-           'main_models':     main_models,
            'azimuth_low':     float(args.azimuth_low) * pi / 180,
            'azimuth_high':    float(args.azimuth_high) * pi / 180,
            'save_blender':    args.save_blender}
 
     # give a number to each job
-    num_sessions = int(ceil(float(args.number) / args.num_per_session))
+    if args.num_sessions:
+      num_sessions = args.num_sessions
+    else:
+      num_sessions = len(main_models)
     logging.info ('num_sessions: %d' % num_sessions)
     jobs = [job.copy() for i in range(num_sessions)]
     for i,job in enumerate(jobs): 
         job['i'] = i
+        job['main_model'] = main_models[i % num_sessions]
         job['occl_models'] = cad.get_random_ready_models (
           number=args.num_occluding, vehicle_type=args.vehicle_type)
         logging.debug(job['occl_models'])
