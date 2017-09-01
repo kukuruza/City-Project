@@ -6,7 +6,6 @@ import logging
 import numpy as np
 from random import choice
 from numpy.random import normal, uniform
-import cv2
 from glob import glob
 from math import ceil, pi
 import subprocess
@@ -21,6 +20,8 @@ from augmentation.Cad import Cad
 WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
+
+FNULL = open(op.join(os.getenv('CITY_PATH'), 'log/augmentation/blender.log'), 'w')
 
 # placing other cars
 PROB_SAME_LANE    = 0.3
@@ -171,7 +172,7 @@ def run_patches_job (job):
     try:
         command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
                    '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
-        returncode = subprocess.call (command, shell=False)
+        returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
         logging.info ('blender returned code %s' % str(returncode))
     except:
         logging.error('job for %s failed to process: %s' %
@@ -194,7 +195,7 @@ if __name__ == "__main__":
                         help='if not given, use one per model')
     parser.add_argument('--num_per_session', type=int,   default=2)
     parser.add_argument('--num_occluding',   type=int,   default=5)
-    parser.add_argument('--render', default='SEQUENTIAL')
+    parser.add_argument('--render', default='SEQUENTIAL', choices=['SEQUENTIAL', 'PARALLEL'])
     parser.add_argument('--save_blender', action='store_true',
                         help='save .blend render file')
     parser.add_argument('--collection_id', required=False,
@@ -214,6 +215,7 @@ if __name__ == "__main__":
     os.makedirs(atcity(args.out_dir))
 
     cad = Cad()
+    logging.info(cad.check_connection())
 
     main_models = cad.get_ready_models(
       collection_id=args.collection_id, vehicle_type=args.vehicle_type)
@@ -232,9 +234,9 @@ if __name__ == "__main__":
       num_sessions = len(main_models)
     logging.info ('num_sessions: %d' % num_sessions)
     jobs = [job.copy() for i in range(num_sessions)]
-    for i,job in enumerate(jobs): 
+    for i,job in enumerate(jobs):
         job['i'] = i
-        job['main_model'] = main_models[i % num_sessions]
+        job['main_model'] = main_models[i % len(main_models)]
         job['occl_models'] = cad.get_random_ready_models (
           number=args.num_occluding, vehicle_type=args.vehicle_type)
         logging.debug(job['occl_models'])
@@ -245,9 +247,10 @@ if __name__ == "__main__":
     # workhorse
     if args.render == 'SEQUENTIAL':
         for job in jobs:
+            print 'running a job'
             run_patches_job (job)
     elif args.render == 'PARALLEL':
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(processes=5)
         logging.info ('the pool has %d workers' % pool._processes)
         pool.map (run_patches_job, jobs)
         pool.close()

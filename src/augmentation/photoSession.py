@@ -26,11 +26,13 @@ WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getppid())
 
 
 SCALE_FACTOR = 3   # how far a camera is from the origin
+RENDER_WIDTH  = 200
+RENDER_HEIGHT = 150
 
 # sampling weather and camera position
 SCALE_NOISE_SIGMA = 0.1
-PITCH_LOW         = 5 * pi / 180
-PITCH_HIGH        = 40 * pi / 180
+PITCH_LOW         = 10 * pi / 180
+PITCH_HIGH        = 30 * pi / 180
 SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
@@ -194,8 +196,8 @@ def photo_session (job):
     scene_path = atcity('data/augmentation/scenes/photo-session.blend')
     bpy.ops.wm.open_mainfile (filepath=scene_path)
 
-    setParamUnlessThere (job, 'render_width',  200)
-    setParamUnlessThere (job, 'render_height', 150)
+    setParamUnlessThere (job, 'render_width',  RENDER_WIDTH)
+    setParamUnlessThere (job, 'render_height', RENDER_HEIGHT)
     bpy.context.scene.render.resolution_x = job['render_width']
     bpy.context.scene.render.resolution_y = job['render_height']
 
@@ -214,7 +216,7 @@ def photo_session (job):
         import_blend_car (blend_path, vehicle['model_id'], car_name)
         position_car (car_name, vehicles[i]['x'], vehicles[i]['y'], vehicles[i]['azimuth'])
 
-    # take snapeshots from different angles
+    # take snapshots from different angles
     dims = vehicles[0]['dims']  # dict with 'x', 'y', 'z' in meters
     car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
     for i in range(num_per_session):
@@ -231,7 +233,7 @@ def photo_session (job):
             f.write(json.dumps({'azimuth':      (180 - params['azimuth']) % 360, # match KITTI
                                 'altitude':     params['altitude'],
                                 'vehicle_type': vehicles[0]['vehicle_type'],
-                                'model_id':     vehicle['model_id']}, indent=4))
+                                'model_id':     vehicles[0]['model_id']}, indent=4))
 
 
 

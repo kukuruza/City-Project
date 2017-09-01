@@ -45,7 +45,7 @@ def generate_video_traffic (job):
   if 'speed_kph' in job:
     model = TrafficModel (camera, video, cad=cad, speed_kph=job['speed_kph'])
   elif 'num_cars' in job:
-    model = TrafficModelRandom (camera, video, cad=cad, num_cars=job['num_cars'])
+    model = TrafficModelRandom (camera, video, cad=cad, num_cars_mean=job['num_cars'])
   else: assert False
 
   diapason = Diapason (len(timestamps), job['frame_range'])

@@ -13,6 +13,7 @@ import copy
 import cPickle
 from numpy.random import normal, uniform, choice
 from learning.helperSetup import atcity, setupLogging, setParamUnlessThere
+from learning.dbUtilities import gammaProb
 from Cad import Cad
 from Camera import Camera
 from Video import Video
@@ -297,7 +298,7 @@ def get_norm(x): return sqrt (sq(x['x']) + sq(x['y']) + sq(x['z']))
 
 class TrafficModelRandom:
 
-  def __init__ (self, camera, video, cad, num_cars):
+  def __init__ (self, camera, video, cad, num_cars_mean):
 
     self.sun = Sun()
 
@@ -317,7 +318,8 @@ class TrafficModelRandom:
       assert mask is not None, mask_path
       azimuth_map[mask] = 0
 
-    self.num_cars = num_cars
+    self.num_cars_mean = num_cars_mean
+    self.num_cars_std  = num_cars_mean * 1.0
     self.azimuth_map = azimuth_map
     self.cad = cad
     self.pxls_in_meter = camera['pxls_in_meter']
@@ -325,14 +327,15 @@ class TrafficModelRandom:
 
   def _put_random_vehicles (self):
     '''Places a number of random models to random points in the lane map.
-    Args:
-      azimuth_map:         a color array (all values are gray) with alpha mask, [YxXx4]
-      pxl_in_meter:        for this particular map
-      num_cars:            a number of vehicles to pick
-      intercar_dist_mult:  cars won't be sampled closer than sum of their dims, 
-                             multiplied by this factor
+
+    azimuth_map:         a color array (all values are gray) with alpha mask, [YxXx4]
+    pxl_in_meter:        for this particular map
+    num_cars_mean:       the average number of vehicles to pick
+    num_cars_std:        std of the average number of cars to pick
+    intercar_dist_mult:  cars won't be sampled closer than sum of their dims, 
+                         multiplied by this factor
     Returns:
-      vehicles:            a list of dictionaries, each has x,y,azimuth attributes
+      vehicles:          a list of dictionaries, each has x,y,azimuth attributes
     '''
     INTERCAR_DIST_MULT = 1.5
 
@@ -345,8 +348,11 @@ class TrafficModelRandom:
     assert Ps.shape[0] > 0, 'azimuth_map is all zeros'
 
     # pick random points
-    assert self.num_cars > 0
-    ind = np.random.choice (Ps.shape[0], size=self.num_cars, replace=True)
+    #num_cars = gammaProb (, self.num_cars_mean, 1)[0]
+    num_cars = int(np.random.normal(loc=self.num_cars_mean, scale=self.num_cars_std))
+    print num_cars
+    if num_cars <= 0: num_cars = 1
+    ind = np.random.choice (Ps.shape[0], size=num_cars, replace=True)
 
     # get angles (each azimuth is multiplied by 2 by convention)
     dims_dict = {}
@@ -448,7 +454,7 @@ if __name__ == "__main__":
   cad = Cad(collection_names)
 
   #model = TrafficModel (camera, video, cad=cad, speed_kph=10, burn_in=True)
-  model = TrafficModelRandom (camera, video, cad, num_cars=10)
+  model = TrafficModelRandom (camera, video, cad, num_cars_mean=10)
 
   # cv2.imshow('lanesmap', model.generate_map())
   # cv2.waitKey(-1)

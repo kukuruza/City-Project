@@ -289,10 +289,10 @@ class Cad:
 
 
 if __name__ == "__main__":
-  logging.basicConfig (level=logging.INFO)
+  logging.basicConfig (level=logging.DEBUG)
 
   cad = Cad()
-  result = cad.check_connection()
+  print cad.check_connection()
   #result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
   #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
 
@@ -313,12 +313,13 @@ if __name__ == "__main__":
       # collection = json.load(open(collection_path))
       # update_collection(collection)
 
-  collection_path = atcity('data/augmentation/CAD/5f08583b1f45a9a7c7193c87bbfa9088/readme-blended.json')
-  collection = json.load(open(collection_path))
-  cad.update_collection(collection)
+  #collection_path = atcity('data/augmentation/CAD/5f08583b1f45a9a7c7193c87bbfa9088/readme-blended.json')
+  #collection = json.load(open(collection_path))
+  #cad.update_collection(collection)
 
-  # models = cad.get_all_models_in_collection (collection_id)
+  collection_id = '5f08583b1f45a9a7c7193c87bbfa9088'
+  models = cad.get_ready_models (collection_id=collection_id)
   # for model in models:
   #     assert 'ready' in model
   # print (json.dumps(models, indent=4))
-  # print len(models)
+  print len(models)

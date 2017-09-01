@@ -155,7 +155,7 @@ def set_sunny ():
     sun = bpy.data.objects['-Sun']
     sun.hide_render = False
     sun.hide = False
-    sun.data.energy = normal(4.5, 1.0)
+    sun.data.energy = normal(3, 1.0)   # was 4.5
     sun.data.color = (1.0000, 0.9163, 0.6905)
 
     bpy.data.objects['-Sky-sunset'].data.energy = 1.0
