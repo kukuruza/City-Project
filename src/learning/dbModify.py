@@ -8,7 +8,7 @@ import json
 import random
 from tqdm import trange, tqdm
 import dbUtilities
-from helperDb          import createDb, deleteCar, carField, imageField
+from helperDb          import createDb, deleteCar, carField, imageField, deleteCars
 from helperDb          import doesTableExist, createTablePolygons
 from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
 from annotations.terms import TermTree
@@ -392,8 +392,8 @@ def filterCustom (c, params = {}):
                  (SELECT imagefile FROM images WHERE (%s))''' 
                  % (params['car_constraint'], params['image_constraint']))
     car_ids = c.fetchall()
-    for (car_id,) in car_ids:
-        deleteCar (c, car_id)
+    logging.info ('will delete %d cars' % len(car_ids))
+    deleteCars(c, car_ids)
 
 
 def deleteEmptyImages (c, params = {}):
@@ -408,12 +408,9 @@ def thresholdScore (c, params = {}):
     logging.info ('==== thresholdScore ====')
     setParamUnlessThere (params, 'score_threshold', 0.5)
 
-    c.execute('SELECT id,score FROM cars')
-    car_entries = c.fetchall()
-
-    for (carid,score) in car_entries:
-        if score < params['score_threshold']:
-            c.execute('DELETE FROM cars WHERE id = ?', (carid,))
+    c.execute('SELECT id FROM cars WHERE score < %f' % params['score_threshold'])
+    car_ids = c.fetchall()
+    deleteCars (c, car_ids)
 
 
 

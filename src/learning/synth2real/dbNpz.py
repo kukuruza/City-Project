@@ -125,7 +125,7 @@ def dbExportCarsNpz (c, out_npz_file, params={}):
     
   patches = np.array(patches)
   carids  = np.array(carids)
-  np.savez(atcity(out_npz_file), cars=patches, carids=carids)
+  np.savez(atcity(out_npz_file), patches=patches, model_ids=carids)
 
 
 

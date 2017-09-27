@@ -242,6 +242,9 @@ def examine (c, params = {}):
                 logging.debug ('next car')
                 index_car += 1
 
+            #if button == keys['>']:
+
+
         if button == keys['left']:
             logging.debug ('prev image')
             if index_im == 0:

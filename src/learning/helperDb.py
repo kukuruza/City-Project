@@ -80,6 +80,16 @@ def deleteCar (cursor, carid):
         cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
 
 
+def deleteCars (cursor, carids):
+    ''' delete cars in car_ids '''
+    has_polygon_table = doesTableExist (cursor, 'polygons')
+    for (carid,) in carids:
+        cursor.execute('DELETE FROM cars WHERE id=?', (carid,))
+        #cursor.execute('DELETE FROM matches  WHERE carid=?', (carid,))
+        #if has_polygon_table:
+        #    cursor.execute('DELETE FROM polygons WHERE carid=?', (carid,))
+
+
 def carField (car, field):
     ''' all knowledge about 'cars' table is here '''
     if field == 'id':        return car[0]
