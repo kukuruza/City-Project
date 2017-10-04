@@ -1,5 +1,6 @@
 import os, sys, os.path as op
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
+import argparse
 import abc
 import logging
 import shutil
@@ -85,39 +86,42 @@ def dbReplaceCarsWithNpz (c, in_npz_file, out_video_file, params={}):
       c.execute('UPDATE cars SET imagefile=? WHERE imagefile=?', (new_imagefile, imagefile))
 
 
-
-
-def dbExportCarsNpz (c, out_npz_file, params={}):
+def dbExportCarsNpz (c, argv):
   logging.info('=== dbExportCarsNpz ===')
-  setParamUnlessThere (params, 'grayscale', False)
-  assertParamIsThere (params, 'width')
-  assertParamIsThere (params, 'height')
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--out_npz_file', required=True, type=str)
+  parser.add_argument('--width', required=True, type=int)
+  parser.add_argument('--height', required=True, type=int)
+  parser.add_argument('--grayscale', action='store_true')
+  args, _ = parser.parse_known_args(argv)
 
-  c.execute('SELECT * FROM cars')
+  c.execute('SELECT * FROM cars WHERE score > 0')
   cars = c.fetchall()
 
   reader = ReaderVideo()
-  if params['grayscale']:
-    arr = np.zeros((len(cars),params['height'],params['width']), np.uint8)
+  if args.grayscale:
+    arr = np.zeros((len(cars), args.height, args.width), np.uint8)
   else:
-    arr = np.zeros((len(cars),params['height'],params['width'],3), np.uint8)
+    arr = np.zeros((len(cars), args.height, args.width, 3), np.uint8)
   logging.info ('init array of shape %s' % str(arr.shape))
 
   # via list for efficient appending. Cant pre-allocate 
   carids = []
   patches = []
 
-  for icar,car in enumerate(cars):
+  for icar,car in enumerate(tqdm(cars)):
     carid = carField(car, 'id')
     imagefile = carField(car, 'imagefile')
     roi = carField(car, 'roi')
-    logging.info ('processing %d patch from imagefile %s' % (icar, imagefile))
+    logging.debug ('processing %d patch from imagefile %s' % (icar, imagefile))
     img = reader.imread(imagefile)
-    patch = img[roi[0]:roi[2], roi[1]:roi[3], :]
-    if params['grayscale']:
+    pad=img.shape[1]
+    img = np.pad(img, pad_width=((pad,pad),(pad,pad),(0,0)), mode='constant')
+    patch = img[roi[0]+pad : roi[2]+pad, roi[1]+pad : roi[3]+pad]
+    if args.grayscale:
       patch = color.rgb2gray(patch)
     try:
-      patch = imresize(patch, (params['height'], params['width']))
+      patch = imresize(patch, (args.height, args.width))
       patches.append(patch)
       carids.append(carid)
     except ValueError:
@@ -125,7 +129,7 @@ def dbExportCarsNpz (c, out_npz_file, params={}):
     
   patches = np.array(patches)
   carids  = np.array(carids)
-  np.savez(atcity(out_npz_file), patches=patches, model_ids=carids)
+  np.savez(atcity(args.out_npz_file), patches=patches, model_ids=carids)
 
 
 

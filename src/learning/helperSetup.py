@@ -1,12 +1,8 @@
 import sys, os, os.path as op
+import argparse
 import logging, logging.handlers
 import shutil
 import sqlite3
-
-'''
-Everything one may need to process a database.
-The main interface functions are dbInit(), setParamUnlessThere(), assertParamIsThere()
-'''
 
 
 def print_to_tqdm(t, msg, msg_len=50):

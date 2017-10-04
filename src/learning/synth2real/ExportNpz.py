@@ -5,20 +5,20 @@ import logging
 import argparse
 from learning.helperSetup import setupLogging, dbInit
 from learning.synth2real.dbNpz import dbExportCarsNpz
+from learning.dbModify import filterCustom, expandBboxes, filterByBorder
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)
-parser.add_argument('--out_file', required=True, type=str)
-parser.add_argument('--width', required=True, type=int)
-parser.add_argument('--height', required=True, type=int)
-parser.add_argument('--grayscale', action='store_true')
 parser.add_argument('--logging_level', default=20, type=int)
-args = parser.parse_args()
+args, _ = parser.parse_known_args()
 
 setupLogging ('log/learning/synth2real/ExportNpz.log', args.logging_level, 'a')
 
 (conn, cursor) = dbInit(args.in_db_file, backup=False)
-dbExportCarsNpz(cursor, args.out_file, params={'grayscale': args.grayscale, 'width': args.width, 'height': args.height})
+filterCustom(cursor, sys.argv[1:])
+filterByBorder(cursor, sys.argv[1:])
+expandBboxes(cursor, sys.argv[1:])
+dbExportCarsNpz(cursor, sys.argv[1:])
 conn.close()
 

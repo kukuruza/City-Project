@@ -1,6 +1,7 @@
 import logging
 import json
 import sqlite3
+from tqdm import tqdm
 from datetime import datetime
 
 
@@ -64,30 +65,26 @@ def createTableMatches (cursor):
 # TODO: change conn to cursor
 def createDb (conn):
     cursor = conn.cursor()
-
     conn.execute('PRAGMA user_version = 3')
-    #createTableSets(cursor)
+    createTablePolygons(cursor)
     createTableImages(cursor)
     createTableCars(cursor)
     createTableMatches(cursor)
 
 
-def deleteCar (cursor, carid):
-    ''' delete all information about a single car '''
-    cursor.execute('DELETE FROM cars WHERE id=?;', (carid,));
-    cursor.execute('DELETE FROM matches  WHERE carid=?;', (carid,));
-    if doesTableExist (cursor, 'polygons'):
-        cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,));
+def deleteCar (cursor, carid, has_polygons=False, has_matches=False):
+  ''' delete all information about a single car '''
+  cursor.execute('DELETE FROM cars WHERE id=?;', (carid,))
+  if has_matches:
+    cursor.execute('DELETE FROM matches  WHERE carid=?;', (carid,))
+  if has_polygons:
+    cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,))
 
 
-def deleteCars (cursor, carids):
-    ''' delete cars in car_ids '''
-    has_polygon_table = doesTableExist (cursor, 'polygons')
-    for (carid,) in carids:
-        cursor.execute('DELETE FROM cars WHERE id=?', (carid,))
-        #cursor.execute('DELETE FROM matches  WHERE carid=?', (carid,))
-        #if has_polygon_table:
-        #    cursor.execute('DELETE FROM polygons WHERE carid=?', (carid,))
+def deleteCars (cursor, carids, has_polygons=False, has_matches=False):
+  logging.info('Will delete %d cars.' % len(carids))
+  for carid, in tqdm(carids):
+    deleteCar (cursor, carid, has_polygons=has_polygons, has_matches=has_matches)
 
 
 def carField (car, field):

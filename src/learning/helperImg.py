@@ -78,7 +78,7 @@ class ReaderVideo (ProcessorBase):
         if not op.exists (videopath):
           if op.exists(atcitydata(videofile)):
             videopath = atcitydata(videofile)
-            logging.warning('Deprecated video path relative to CITY_DATA_PATH')
+            logging.warning('Deprecated video path relative to CITY_DATA_PATH: %s' % videopath)
           else:
             raise Exception('videofile does not exist: %s' % videofile)
         handle = cv2.VideoCapture(videopath)  # open video
@@ -296,7 +296,7 @@ class SimpleWriter:
     assert self.vimagefile is not None
     if self.image_writer is None:
       self._openVideoWriter_ (image, ismask=False)
-    assert len(image.shape) == 3 and image.shape[2] == 3
+    assert len(image.shape) == 3 and image.shape[2] == 3, image.shape
     # write
     assert (image.shape[1], image.shape[0]) == self.frame_size
     self.image_writer.write(image)

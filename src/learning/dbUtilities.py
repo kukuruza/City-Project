@@ -62,86 +62,147 @@ def drawScoredRoi (img, roi, label = None, score = None, thickness=2):
     cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, score, thickness)
 
 
-
-#
-# expandRoiFloat expands a ROI, and clips it within borders
-#
-def expandRoiFloat (roi, (imheight, imwidth), (perc_y, perc_x), integer_result = True):
-    '''
-    floats are rounded to the nearest integer
-    '''
-    if (perc_y, perc_x) == (0, 0): return roi
-
-    half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
-    half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
-    # the result must be within (imheight, imwidth)
-    bbox_height = roi[2] + 1 - roi[0] + half_delta_y * 2
-    bbox_width  = roi[3] + 1 - roi[1] + half_delta_x * 2
-    if bbox_height > imheight or bbox_width > imwidth:
-        logging.warning ('expanded bbox of size (%d,%d) does not fit into image (%d,%d)' %
-            (bbox_height, bbox_width, imheight, imwidth))
-        # if so, decrease half_delta_y, half_delta_x
-        coef = min(imheight / bbox_height, imwidth / bbox_width)
-        logging.warning ('decreased bbox to (%d,%d)' % (bbox_height, bbox_width))
-        bbox_height *= coef
-        bbox_width  *= coef
-        #logging.warning ('imheight, imwidth (%d,%d)' % (imheight, imwidth))
-        logging.warning ('decreased bbox to (%d,%d)' % (bbox_height, bbox_width))
-        half_delta_y = (bbox_height - (roi[2] + 1 - roi[0])) * 0.5
-        half_delta_x = (bbox_width  - (roi[3] + 1 - roi[1])) * 0.5
-        #logging.warning ('perc_y, perc_x: %.1f, %1.f: ' % (perc_y, perc_x))
-        #logging.warning ('original roi: %s' % str(roi))
-        #logging.warning ('half_delta-s y: %.1f, x: %.1f' % (half_delta_y, half_delta_x))
-    # and a small epsilon to account for floating-point imprecisions
-    EPS = 0.001
-    # expand each side
-    roi[0] -= (half_delta_y - EPS)
-    roi[1] -= (half_delta_x - EPS)
-    roi[2] += (half_delta_y - EPS)
-    roi[3] += (half_delta_x - EPS)
-    # move to clip into borders
-    if roi[0] < 0:
-        roi[2] += abs(roi[0])
-        roi[0] = 0
-    if roi[1] < 0:
-        roi[3] += abs(roi[1])
-        roi[1] = 0
-    if roi[2] > imheight-1:
-        roi[0] -= abs((imheight-1) - roi[2])
-        roi[2] = imheight-1
-    if roi[3] > imwidth-1:
-        roi[1] -= abs((imwidth-1) - roi[3])
-        roi[3] = imwidth-1
-    # check that now averything is within borders (bbox is not too big)
-    assert roi[0] >= 0 and roi[1] >= 0, str(roi)
-    assert roi[2] <= imheight-1 and roi[3] <= imwidth-1, str(roi)
-    # make integer
-    if integer_result:
-        roi = [int(round(x)) for x in roi]
-    return roi
+def drawScoredPolygon (img, polygon, label=None, score=None, thickness=2):
+  '''
+  Args:
+    polygon:  a list of coordinates (x,y)
+  '''
+  assert len(polygon) > 2, polygon
+  assert type(polygon[0]) is tuple, polygon
+  
+  font = cv2.FONT_HERSHEY_SIMPLEX
+  if label is None: label = ''
+  if score is None:
+    score = 0
+  color = tuple([int(x * 255) for x in plt.cm.jet(float(score))][0:3])
+  for i1 in range(len(polygon)):
+    i2 = (i1 + 1) % len(polygon)
+    cv2.line(img, polygon[i1], polygon[i2], color, thickness)
+  # Draw a label.
+  xmin = polygon[0][0]
+  ymin = polygon[0][1]
+  for i in range(len(polygon)-1):
+    xmin = min(xmin, polygon[i][0])
+    ymin = min(ymin, polygon[i][1])
+  cv2.putText (img, label, (xmin, ymin - 5), font, 0.6, score, thickness)
 
 
-#
-# expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
-#
-def expandRoiToRatio (roi, (imheight, imwidth), expand_perc, ratio):
-    bbox = roi2bbox(roi)
-    # adjust width and height to ratio
-    height = float(roi[2] + 1 - roi[0])
-    width  = float(roi[3] + 1 - roi[1])
-    if height / width < ratio:
-       perc = ratio * width / height - 1
-       roi = expandRoiFloat (roi, (imheight, imwidth), (perc, 0), integer_result = False)
-    else:
-       perc = height / width / ratio - 1
-       roi = expandRoiFloat (roi, (imheight, imwidth), (0, perc), integer_result = False)
-    # additional expansion
-    perc = (1 + expand_perc) / (1 + perc) - 1
-    if perc > 0:
-        roi = expandRoiFloat (roi, (imheight, imwidth), (perc, perc), integer_result = False)
+
+def expandRoiFloatBorder (roi, (imheight, imwidth), (perc_y, perc_x), integer_result = True):
+  '''Expands a ROI, and clips it within borders.
+  Floats are rounded to the nearest integer.
+  '''
+  if (perc_y, perc_x) == (0, 0): return roi
+
+  half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
+  half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
+  # the result must be within (imheight, imwidth)
+  bbox_height = roi[2] + 1 - roi[0] + half_delta_y * 2
+  bbox_width  = roi[3] + 1 - roi[1] + half_delta_x * 2
+  if bbox_height > imheight or bbox_width > imwidth:
+    logging.warning ('expanded bbox of size (%d,%d) does not fit into image (%d,%d)' %
+        (bbox_height, bbox_width, imheight, imwidth))
+    # if so, decrease half_delta_y, half_delta_x
+    coef = min(imheight / bbox_height, imwidth / bbox_width)
+    logging.warning ('decreased bbox to (%d,%d)' % (bbox_height, bbox_width))
+    bbox_height *= coef
+    bbox_width  *= coef
+    #logging.warning ('imheight, imwidth (%d,%d)' % (imheight, imwidth))
+    logging.warning ('decreased bbox to (%d,%d)' % (bbox_height, bbox_width))
+    half_delta_y = (bbox_height - (roi[2] + 1 - roi[0])) * 0.5
+    half_delta_x = (bbox_width  - (roi[3] + 1 - roi[1])) * 0.5
+    #logging.warning ('perc_y, perc_x: %.1f, %1.f: ' % (perc_y, perc_x))
+    #logging.warning ('original roi: %s' % str(roi))
+    #logging.warning ('half_delta-s y: %.1f, x: %.1f' % (half_delta_y, half_delta_x))
+  # and a small epsilon to account for floating-point imprecisions
+  EPS = 0.001
+  # expand each side
+  roi[0] -= (half_delta_y - EPS)
+  roi[1] -= (half_delta_x - EPS)
+  roi[2] += (half_delta_y - EPS)
+  roi[3] += (half_delta_x - EPS)
+  # move to clip into borders
+  if roi[0] < 0:
+    roi[2] += abs(roi[0])
+    roi[0] = 0
+  if roi[1] < 0:
+    roi[3] += abs(roi[1])
+    roi[1] = 0
+  if roi[2] > imheight-1:
+    roi[0] -= abs((imheight-1) - roi[2])
+    roi[2] = imheight-1
+  if roi[3] > imwidth-1:
+    roi[1] -= abs((imwidth-1) - roi[3])
+    roi[3] = imwidth-1
+  # check that now averything is within borders (bbox is not too big)
+  assert roi[0] >= 0 and roi[1] >= 0, str(roi)
+  assert roi[2] <= imheight-1 and roi[3] <= imwidth-1, str(roi)
+  # make integer
+  if integer_result:
     roi = [int(round(x)) for x in roi]
-    return roi
+  return roi
 
+
+def expandRoiToRatioBorder (roi, (imheight, imwidth), expand_perc, ratio):
+  '''Expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
+  '''
+  bbox = roi2bbox(roi)
+  # adjust width and height to ratio
+  height = float(roi[2] + 1 - roi[0])
+  width  = float(roi[3] + 1 - roi[1])
+  if height / width < ratio:
+    perc = ratio * width / height - 1
+    roi = expandRoiFloatBorder (roi, (imheight, imwidth), (perc, 0), integer_result=False)
+  else:
+    perc = height / width / ratio - 1
+    roi = expandRoiFloatBorder (roi, (imheight, imwidth), (0, perc), integer_result=False)
+  # additional expansion
+  perc = (1 + expand_perc) / (1 + perc) - 1
+  if perc > 0:
+    roi = expandRoiFloat (roi, (imheight, imwidth), (perc, perc), integer_result=False)
+  roi = [int(round(x)) for x in roi]
+  return roi
+
+
+def expandRoiFloat (roi, (perc_y, perc_x), integer_result = True):
+  '''Expands a ROI. Floats are rounded to the nearest integer.
+  '''
+  if (perc_y, perc_x) == (0, 0): return roi
+
+  half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
+  half_delta_x = float(roi[3] + 1 - roi[1]) * perc_x / 2
+  # and a small epsilon to account for floating-point imprecisions
+  EPS = 0.001
+  # expand each side
+  roi[0] -= (half_delta_y - EPS)
+  roi[1] -= (half_delta_x - EPS)
+  roi[2] += (half_delta_y - EPS)
+  roi[3] += (half_delta_x - EPS)
+  # make integer
+  if integer_result:
+    roi = [int(round(x)) for x in roi]
+  return roi
+
+
+def expandRoiToRatio (roi, expand_perc, ratio):
+  '''Expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
+  '''
+  bbox = roi2bbox(roi)
+  # adjust width and height to ratio
+  height = float(roi[2] + 1 - roi[0])
+  width  = float(roi[3] + 1 - roi[1])
+  if height / width < ratio:
+   perc = ratio * width / height - 1
+   roi = expandRoiFloat (roi, (perc, 0), integer_result=False)
+  else:
+   perc = height / width / ratio - 1
+   roi = expandRoiFloat (roi, (0, perc), integer_result=False)
+  # additional expansion
+  perc = (1 + expand_perc) / (1 + perc) - 1
+  if perc > 0:
+    roi = expandRoiFloat (roi, (perc, perc), integer_result=False)
+  roi = [int(round(x)) for x in roi]
+  return roi
 
 
 def gammaProb (x, max_value, shape):

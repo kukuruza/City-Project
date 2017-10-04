@@ -5,7 +5,6 @@ import logging
 import argparse
 from learning.helperSetup import setupLogging, dbInit, atcity
 from learning.dbEvaluate  import dbEvalClass
-from learning.dbModify import filterCustom
 import matplotlib.pyplot as plt
 
 

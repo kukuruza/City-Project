@@ -1,103 +1,119 @@
 import os, sys, os.path as op
+import argparse
 import numpy as np
 import cv2
 import logging
 import sqlite3
-from dbUtilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi, getCenter
-from helperDb    import deleteCar, carField, createTableMatches
+from dbUtilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi, drawScoredPolygon
+from dbUtilities import getCenter
+from helperDb    import deleteCar, carField, createTableMatches, doesTableExist
 from helperSetup import setParamUnlessThere
 from helperKeys  import KeyReaderUser, getCalibration
 from helperImg   import ReaderVideo
 
 
 
-def getInfo (c, params = {}):
-    '''Show major info of database. To be used when a db view is not available.
-    Will add more options when he need comes.
-    '''
-    logging.info ('==== getInfo ====')
-    info = {}
+def getInfo (c, argv=[]):
+  '''Show major info of database. To be used when a db view is not available.
+  Will add more options when he need comes.
+  '''
+  logging.info ('==== getInfo ====')
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--imagedirs', action='store_true')
+  parser.add_argument('--imagerange', action='store_true')
+  args, _ = parser.parse_known_args(argv)
+  info = {}
 
-    c.execute('SELECT imagefile FROM images')
-    imagefiles = c.fetchall()
-    info['numimages'] = len(imagefiles)
-    imagedirs = [op.dirname(x) for x, in imagefiles]
-    imagedirs = list(set(imagedirs))
+  c.execute('SELECT imagefile FROM images')
+  imagefiles = c.fetchall()
+  info['numimages'] = len(imagefiles)
+  imagedirs = [op.dirname(x) for x, in imagefiles]
+  imagedirs = list(set(imagedirs))
+  if args.imagedirs:
     info['imagedirs'] = imagedirs
-    
-    def collectImageRange(nums):
-      if len(nums) == 0: return []
-      nums = sorted(nums)
-      numrange = []
-      start = current = nums[0]
-      for num in nums[1:]:
-        if num > current + 1:
-          numrange.append((start, current+1))
-          start = num
-          if len(numrange) >= 2:
-            numrange.append('too many ranges')
-            break
-        current = num
-      return numrange
-    if params.imagerange:
-      info['imagerange'] = {}
-      for imagedir in imagedirs:
-        imagenums = [int(op.basename(x)) for x, in imagefiles if op.dirname(x) == imagedir]
-        info['imagerange'][imagedir] = collectImageRange(imagenums)
+  
+  def collectImageRange(nums):
+    if len(nums) == 0: return []
+    nums = sorted(nums)
+    numrange = []
+    start = current = nums[0]
+    for num in nums[1:]:
+      if num > current + 1:
+        numrange.append((start, current+1))
+        start = num
+        if len(numrange) >= 2:
+          numrange.append('too many ranges')
+          break
+      current = num
+    return numrange
+  if args.imagerange:
+    info['imagerange'] = {}
+    for imagedir in imagedirs:
+      imagenums = [int(op.basename(x)) for x, in imagefiles if op.dirname(x) == imagedir]
+      info['imagerange'][imagedir] = collectImageRange(imagenums)
 
-    #c.execute('SELECT maskfile FROM images')
-    #maskfiles = c.fetchall()
-    #maskdirs = [op.dirname(x) for x, in maskfiles]
-    #maskdirs = list(set(maskdirs))
-    #info['maskdirs'] = maskdirs
+  #c.execute('SELECT maskfile FROM images')
+  #maskfiles = c.fetchall()
+  #maskdirs = [op.dirname(x) for x, in maskfiles]
+  #maskdirs = list(set(maskdirs))
+  #info['maskdirs'] = maskdirs
 
-    c.execute('SELECT COUNT(*) FROM cars')
-    info['numcars'] = c.fetchone()[0]
-
-    return info
-
+  c.execute('SELECT COUNT(*) FROM cars')
+  info['numcars'] = c.fetchone()[0]
+  return info
 
 
-def show (c, params = {}):
-    '''
-    Browse through database and see car bboxes on top of images. Colors are not shown.
-    Any key will scroll to the next image.
-    '''
-    logging.info ('==== show ====')
-    setParamUnlessThere (params, 'show_empty_frames', False)
-    setParamUnlessThere (params, 'display_scale',     1.0)
-    setParamUnlessThere (params, 'image_processor',   ReaderVideo())
-    setParamUnlessThere (params, 'key_reader',        KeyReaderUser())
-    setParamUnlessThere (params, 'shuffle',           False)
+def display (c, argv=[]):
+  '''
+  Browse through database and see car bboxes on top of images. Colors are not shown.
+  Any key will scroll to the next image.
+  '''
+  logging.info ('==== show ====')
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--display_scale', type=float, default=1.)
+  parser.add_argument('--show_empty_frames', action='store_true')
+  parser.add_argument('--shuffle', action='store_true')
+  args, _ = parser.parse_known_args(argv)
 
-    c.execute('SELECT imagefile FROM images')
-    imagefiles = c.fetchall()
+  image_reader = ReaderVideo()
+  key_reader = KeyReaderUser()
 
-    if params['shuffle']:
-      np.random.shuffle(imagefiles)
+  has_polygons = doesTableExist(c, 'polygons')
 
-    for (imagefile,) in imagefiles:
-        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-        car_entries = c.fetchall()
-        logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+  c.execute('SELECT imagefile FROM images')
+  imagefiles = c.fetchall()
 
-        if len(car_entries) == 0 and not params['show_empty_frames']:
-            continue
+  if args.shuffle:
+    np.random.shuffle(imagefiles)
 
-        display = params['image_processor'].imread(imagefile)
+  for (imagefile,) in imagefiles:
+    c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+    car_entries = c.fetchall()
+    logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+    if len(car_entries) == 0 and not args.show_empty_frames:
+      continue
 
-        for car_entry in car_entries:
-            roi       = bbox2roi (carField(car_entry, 'bbox'))
-            score     = carField(car_entry, 'score')
-            #name      = carField(car_entry, 'name')
+    display = image_reader.imread(imagefile)
 
-            if score is None: score = 1
-            logging.info ('roi: %s, score: %f' % (str(roi), score))
-            drawScoredRoi (display, roi, '', score)
+    for car_entry in car_entries:
+      carid = carField(car_entry, 'id')
+      roi   = bbox2roi (carField(car_entry, 'bbox'))
+      score = carField(car_entry, 'score')
 
-        f = params['display_scale']
-        cv2.imshow('display', cv2.resize(display, (0,0), fx=f, fy=f))
-        if params['key_reader'].readKey() == 27: break
+      if has_polygons:
+        c.execute('SELECT x,y FROM polygons WHERE carid=?', (carid,))
+        polygon = c.fetchall()
+      if score is None: score = 1
+      if has_polygons and polygon:
+        logging.info ('polygon: %s, score: %f' % (str(polygon), score))
+        drawScoredPolygon(display, polygon, '', score)
+      else:
+        logging.info ('roi: %s, score: %f' % (str(roi), score))
+        drawScoredRoi (display, roi, '', score)
+
+    f = args.display_scale
+    cv2.imshow('display', cv2.resize(display, (0,0), fx=f, fy=f))
+    if key_reader.readKey() == 27: break
 
 
 
