@@ -25,9 +25,9 @@ OUT_INFO_NAME    = 'out_info.json'
 WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getppid())
 
 
-SCALE_FACTOR = 3   # how far a camera is from the origin
-RENDER_WIDTH  = 200
-RENDER_HEIGHT = 150
+SCALE_FACTOR = 2   # how far a camera is from the origin
+RENDER_WIDTH  = 400
+RENDER_HEIGHT = 400
 
 # sampling weather and camera position
 SCALE_NOISE_SIGMA = 0.1
