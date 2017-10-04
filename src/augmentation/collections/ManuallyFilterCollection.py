@@ -25,6 +25,7 @@ def classify (collection):
   keys[ord('c')] = 'taxi'       # (cab)
   keys[ord('t')] = 'truck'
   keys[ord('v')] = 'van'
+  keys[ord('p')] = 'pickup'
   keys[ord('b')] = 'bus'
   keys[ord('o')] = 'object'     # not a car, pedestrian, or bike
 

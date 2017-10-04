@@ -19,7 +19,6 @@ from learning.dbUtilities import *
 from learning.helperImg import SimpleWriter, ReaderVideo
 from learning.helperSetup import _setupCopyDb_, setupLogging, atcity, dbInit
 from learning.helperSetup import setParamUnlessThere, assertParamIsThere
-from learning.helperDb import createDb
 from monitor.MonitorDatasetClient import MonitorDatasetClient
 from Cad import Cad
 from Camera import Camera
