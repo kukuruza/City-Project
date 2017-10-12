@@ -20,6 +20,7 @@ class CityImagesDataset:
     self.fraction = fraction
     self.image_reader = ReaderVideo()
 
+    self.pos = 0  # Position for __getitem__.
 
   def _load_image(self, image_entry):
     logging.debug ('CityImagesDataset: reading %s' % 
@@ -28,9 +29,15 @@ class CityImagesDataset:
     assert im is not None, image_entry
     return im
 
-
   # interface functions
+  
+  def __len__(self):
+    return len(self.image_entries)
 
+  def __getitem__(self):
+    image = self._load_image(self.image_entries[self.pos])
+    self.pos = (self.pos + 1) % self.__len__()
+    return image
 
   def iterateImages(self, randomly=True):
     '''Yields pairs (im,gt) taken randomly from the whole dataset. 

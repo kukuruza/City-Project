@@ -82,7 +82,6 @@ def deleteCar (cursor, carid, has_polygons=False, has_matches=False):
 
 
 def deleteCars (cursor, carids, has_polygons=False, has_matches=False):
-  logging.info('Will delete %d cars.' % len(carids))
   for carid, in tqdm(carids):
     deleteCar (cursor, carid, has_polygons=has_polygons, has_matches=has_matches)
 

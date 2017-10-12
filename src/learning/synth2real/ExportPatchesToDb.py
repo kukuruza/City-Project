@@ -1,27 +1,22 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 import argparse
 from learning.helperSetup import setupLogging, dbInit
+from learning.synth2real.dbPatch import exportCarsToDb
 from learning.dbModify import filter, expandBboxes
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)
-parser.add_argument('--out_db_file', required=True)
 parser.add_argument('--logging_level', default=20, type=int)
-parser.add_argument('--expand_bboxes', action='store_true')
 args, _ = parser.parse_known_args()
-argv = sys.argv[1:]
 
-setupLogging ('log/learning/Filter.log', args.logging_level, 'a')
+setupLogging ('log/learning/synth2real/ExportPatchesToDb.log', args.logging_level, 'a')
 
-
-(conn, cursor) = dbInit (args.in_db_file, args.out_db_file)
-filter (cursor, argv)
-if args.expand_bboxes:
-  expandBboxes (cursor, argv)
-conn.commit()
+(conn, cursor) = dbInit(args.in_db_file, backup=False)
+#filter(cursor, sys.argv[1:])
+expandBboxes(cursor, sys.argv[1:])
+exportCarsToDb(cursor, sys.argv[1:])
 conn.close()
-

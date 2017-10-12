@@ -5,6 +5,12 @@ import shutil
 import sqlite3
 
 
+class ArgumentParser(argparse.ArgumentParser):
+  def exit(self, status=0, message=None):
+    if message:
+      self._print_message(message, _sys.stderr)
+
+
 def print_to_tqdm(t, msg, msg_len=50):
   msg = msg.ljust(msg_len)
   t.set_description(msg)
@@ -47,7 +53,7 @@ def _setupCopyDb_ (in_path, out_path):
         raise Exception ('db does not exist: %s' % in_path)
     if op.exists (out_path):
         logging.warning ('will back up existing out_path')
-        backup_path = out_path + '.backup'
+        backup_path = op.splitext(out_path)[0]  + '.backup.db'
         if in_path != out_path:
             if op.exists (backup_path): os.remove (backup_path)
             os.rename (out_path, backup_path)

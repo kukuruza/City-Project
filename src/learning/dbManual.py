@@ -69,7 +69,7 @@ def display (c, argv=[]):
   Any key will scroll to the next image.
   '''
   logging.info ('==== show ====')
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser('display')
   parser.add_argument('--display_scale', type=float, default=1.)
   parser.add_argument('--show_empty_frames', action='store_true')
   parser.add_argument('--shuffle', action='store_true')
@@ -89,15 +89,16 @@ def display (c, argv=[]):
   for (imagefile,) in imagefiles:
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
-    logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
     if len(car_entries) == 0 and not args.show_empty_frames:
       continue
+    logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
     display = image_reader.imread(imagefile)
 
     for car_entry in car_entries:
       carid = carField(car_entry, 'id')
       roi   = bbox2roi (carField(car_entry, 'bbox'))
+      name =  carField(car_entry, 'name')
       score = carField(car_entry, 'score')
 
       if has_polygons:
@@ -105,10 +106,10 @@ def display (c, argv=[]):
         polygon = c.fetchall()
       if score is None: score = 1
       if has_polygons and polygon:
-        logging.info ('polygon: %s, score: %f' % (str(polygon), score))
+        logging.info ('polygon: %s, name: %s, score: %f' % (str(polygon), name, score))
         drawScoredPolygon(display, polygon, '', score)
       else:
-        logging.info ('roi: %s, score: %f' % (str(roi), score))
+        logging.info ('roi: %s, name: %s, score: %f' % (str(roi), name, score))
         drawScoredRoi (display, roi, '', score)
 
     f = args.display_scale

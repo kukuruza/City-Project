@@ -13,7 +13,7 @@ from helperDb          import createDb, deleteCar, carField, imageField, deleteC
 from helperDb          import doesTableExist, createTablePolygons
 from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
 from annotations.terms import TermTree
-from helperSetup       import setParamUnlessThere, assertParamIsThere, atcity
+from helperSetup       import setParamUnlessThere, assertParamIsThere, atcity, ArgumentParser
 from helperKeys        import KeyReaderUser
 from helperImg         import ReaderVideo, ProcessorVideo, SimpleWriter
 
@@ -31,78 +31,14 @@ def isRoiAtBorder (roi, width, height, border_thresh_perc):
   return min (roi[0], roi[1], height+1 - roi[2], width+1 - roi[3]) < border_thresh
 
 
-def sizeProbability (roi, params):
-  # naive definition of size
-  size = ((roi[2] - roi[0]) + (roi[3] - roi[1])) / 2
-  bc = bottomCenter(roi)
-  max_prob = params['size_map'][bc[0], bc[1]]
-  prob = dbUtilities.gammaProb (size, max_prob, params['size_acceptance'])
-  if size < params['min_width']: prob = 0
-  logging.debug ('probability of ROI size: %f' % prob)
-  return prob
-
-
-def ratioProbability (roi, params):
-  ratio = float(roi[2] - roi[0]) / (roi[3] - roi[1])   # height / width
-  prob = dbUtilities.gammaProb (ratio, params['target_ratio'], params['ratio_acceptance'])
-  logging.debug ('ratio of roi probability: ' + str(prob))
-  return prob
-
-
-def _filterRatioCar_ (c, car_entry, params):
-
-  carid = carField(car_entry, 'id')
-  roi = bbox2roi (carField(car_entry, 'bbox'))
-  imagefile = carField(car_entry, 'imagefile')
-
-  # get current score
-  c.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
-  (name,score) = c.fetchone()
-  if score is None: score = 1.0 
-
-  # get probabilities of car, given constraints
-  ratio_prob = ratioProbability(roi, params)
-  
-  # update score in db
-  score *= ratio_prob
-  c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
-
-  if params['debug']:
-      dbUtilities.drawScoredRoi (params['display'], roi, '', score)
-
-
-
-def _filterSizeCar_ (c, car_entry, params):
-
-  carid = carField(car_entry, 'id')
-  roi = bbox2roi (carField(car_entry, 'bbox'))
-  imagefile = carField(car_entry, 'imagefile')
-
-  # get current score
-  c.execute('SELECT name,score FROM cars WHERE id=?', (carid,))
-  (name,score) = c.fetchone()
-  if score is None: score = 1.0 
-
-  # get probabilities of car, given constraints
-  size_prob = sizeProbability (roi, params)
-  
-  # update score in db
-  score *= size_prob
-  c.execute('UPDATE cars SET score=? WHERE id=?', (score,carid))
-
-  if params['debug']:
-      dbUtilities.drawScoredRoi (params['display'], roi, '', score)
-
-
-def _expandCarBbox_ (c, car_entry, args):
+def _expandCarBbox_ (car_entry, args):
   carid = carField(car_entry, 'id')
   roi = bbox2roi (carField(car_entry, 'bbox'))
   if args.keep_ratio:
     roi = dbUtilities.expandRoiToRatio(roi, args.expand_perc, args.target_ratio)
   else:
     roi = dbUtilities.expandRoiFloat(roi, (args.expand_perc, args.expand_perc))
-  s = 'x1=?, y1=?, width=?, height=?'
-  c.execute('UPDATE cars SET %s WHERE id=?' % s, tuple(roi2bbox(roi) + [carid]))
+  return roi
 
 
 def _clusterBboxes_ (c, imagefile, params):
@@ -176,24 +112,22 @@ def _clusterBboxes_ (c, imagefile, params):
                    VALUES (?,?,?,?,?,?,?);''', entry)
 
 
-def filterByBorder (c, params = {}):
+def filterByBorder (c, argv=[]):
   '''Zero 'score' of bboxes that is closer than 'border_thresh_perc' from border
   '''
   logging.info ('==== filterByBorder ====')
   parser = argparse.ArgumentParser()
   parser.add_argument('--border_thresh_perc', default=0.03)
   parser.add_argument('--debug', action='store_true')
-  args, _ = parser.parse_known_args()
-
-  c.execute('SELECT imagefile FROM images')
-  image_entries = c.fetchall()
+  args, _ = parser.parse_known_args(argv)
 
   if args.debug:
     key = 0
     image_reader = ReaderVideo()
     key_reader = KeyReaderUser()
 
-  for (imagefile,) in tqdm(image_entries):
+  c.execute('SELECT imagefile FROM images')
+  for (imagefile,) in tqdm(c.fetchall()):
 
     if args.debug and key != 27:
       display = image_reader.imread(imagefile)
@@ -208,7 +142,6 @@ def filterByBorder (c, params = {}):
     for car_entry in car_entries:
       carid = carField(car_entry, 'id')
       roi = bbox2roi (carField(car_entry, 'bbox'))
-      imagefile = carField(car_entry, 'imagefile')
 
       if isRoiAtBorder(roi, imwidth, imheight, args.border_thresh_perc):
         logging.debug ('border roi %s' % str(roi))
@@ -225,90 +158,85 @@ def filterByBorder (c, params = {}):
       if key == 27: cv2.destroyWindow('debug')
 
 
-def filterByRatio (c, params = {}):
+def filterByIntersection (c, argv=[]):
+  ''' Remove cars that have high intersection with other cars.
+  If 'expand_bboxes' is set to True, a car is removed if the intersection
+    of its expanded box and original boxes of other cars is too high.
   '''
-  Reduce score of boxes, for which height/width is too different than 'target_ratio'
-  Score reduction factor is controlled with 'ratio_acceptance'
-  '''
-  logging.info ('==== filterByRatio ====')
-  setParamUnlessThere (params, 'target_ratio',     0.75)
-  setParamUnlessThere (params, 'ratio_acceptance', 3)
-  setParamUnlessThere (params, 'debug',            False)
-  setParamUnlessThere (params, 'image_processor',  ReaderVideo())
-  setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
+
+  logging.info ('==== filterByIntersection ====')
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--intersection_thresh_perc', default=0.1, type=float)
+  parser.add_argument('--expand_perc', type=float, default=0.1)
+  parser.add_argument('--target_ratio', type=float, default=0.75)  # h / w.
+  parser.add_argument('--keep_ratio', action='store_true')
+  parser.add_argument('--debug', action='store_true')
+  parser.add_argument('--debug2', action='store_true')
+  args, _ = parser.parse_known_args(argv)
+
+  if args.debug:
+    key = 0
+    image_reader = ReaderVideo()
+    key_reader = KeyReaderUser()
+
+  def _get_intesection(rioi1, roi2):
+    dy = min(roi1[2], roi2[2]) - max(roi1[0], roi2[0])
+    dx = min(roi1[3], roi2[3]) - max(roi1[1], roi2[1])
+    if dy <= 0 or dx <= 0: return 0
+    return dy * dx
 
   c.execute('SELECT imagefile FROM images')
-  image_entries = c.fetchall()
+  for (imagefile,) in tqdm(c.fetchall()):
 
-  for (imagefile,) in image_entries:
+    c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+    car_entries = c.fetchall()
+    logging.debug('%d cars found for %s' % (len(car_entries), imagefile))
 
-      if params['debug'] and ('key' not in locals() or key != 27):
-          params['display'] = params['image_processor'].imread(imagefile)
+    good_cars = np.ones(shape=len(car_entries), dtype=bool)
+    for icar1, car_entry1 in enumerate(car_entries):
+      roi1 = _expandCarBbox_(car_entry1, args)
 
-      c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-      car_entries = c.fetchall()
-      logging.info (str(len(car_entries)) + ' cars found for ' + imagefile)
+      area1 = (roi1[2] - roi1[0]) * (roi1[3] - roi1[1])
+      if area1 == 0:
+        logging.warning('A car in %s has area 0. Will delete.' % imagefile)
+        good_cars[icar1] = False
+        break
 
-      for car_entry in car_entries:
-          _filterRatioCar_ (c, car_entry, params)
+      for icar2, car_entry2 in enumerate(car_entries):
+        if icar2 == icar1:
+          continue
+        roi2 = bbox2roi (carField(car_entry2, 'bbox'))
+        overlay_perc = _get_intesection(roi1, roi2) / float(area1)
+        if overlay_perc > args.intersection_thresh_perc:
+          good_cars[icar1] = False
+          break
 
-      if params['debug'] and ('key' not in locals() or key != 27):
-          cv2.imshow('debug', params['display'])
-          key = params['key_reader'].readKey()
-          if key == 27: cv2.destroyWindow('debug')
+      if args.debug2 and key != 27:
+        display = image_reader.imread(imagefile).copy()
+        color = (255,0,0) if good_cars[icar1] else (0,0,255)
+        drawRoi (display, roi1, '', color, thickness=2)
+        for icar2, car_entry2 in enumerate(car_entries):
+          if icar1 == icar2: continue
+          roi2 = bbox2roi (carField(car_entry2, 'bbox'))
+          drawRoi (display, roi2, '', color=(255,0,0))
+        cv2.imshow('debug', display)
+        key = key_reader.readKey()
+        if key == 27: cv2.destroyWindow('debug')
 
+    if args.debug and key != 27:
+      display = image_reader.imread(imagefile)
+      for car_entry, good_car in zip(car_entries, good_cars):
+        roi = bbox2roi (carField(car_entry, 'bbox'))
+        color = (255,0,0) if good_car else (0,0,255)
+        drawRoi (display, roi, '', color)
+      cv2.imshow('debug', display)
+      key = key_reader.readKey()
+      if key == 27: cv2.destroyWindow('debug')
 
+    for car_entry, good_car in zip(car_entries, good_cars):
+      if not good_car:
+        deleteCar(c, carField(car_entry, 'id'))
 
-def filterBySize (c, params = {}):
-  '''
-  Reduce score of boxes, whose size is too different than predicted by 'size_map'
-  Score reduction factor is controlled with 'size_acceptance'
-  '''
-  logging.info ('==== filterBySize ====')
-  setParamUnlessThere (params, 'min_width',       10)
-  setParamUnlessThere (params, 'size_acceptance', 3)
-  setParamUnlessThere (params, 'sizemap_dilate',  21)
-  setParamUnlessThere (params, 'debug',           False)
-  setParamUnlessThere (params, 'debug_sizemap',   False)
-  assertParamIsThere  (params, 'size_map_path')
-  setParamUnlessThere (params, 'relpath',         os.getenv('CITY_DATA_PATH'))
-  setParamUnlessThere (params, 'image_processor', ReaderVideo())
-  setParamUnlessThere (params, 'key_reader',      KeyReaderUser())
-
-  # load size_map
-  size_map_path = op.join(params['relpath'], params['size_map_path'])
-  params['size_map'] = cv2.imread (params['size_map_path'], 0).astype(np.float32)
-
-  if params['debug_sizemap']:
-      cv2.imshow ('filterBySize: size_map original', params['size_map'])
-
-  # dilate size_map
-  kernel = np.ones ((params['sizemap_dilate'], params['sizemap_dilate']), 'uint8')
-  params['size_map'] = cv2.dilate (params['size_map'], kernel)
-
-  if params['debug_sizemap']:
-      cv2.imshow ('filterBySize: size_map dilated', params['size_map'])
-      cv2.waitKey(-1)
-
-  c.execute('SELECT imagefile FROM images')
-  image_entries = c.fetchall()
-
-  for (imagefile,) in image_entries:
-
-      if params['debug'] and ('key' not in locals() or key != 27):
-          params['display'] = params['image_processor'].imread(imagefile)
-
-      c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-      car_entries = c.fetchall()
-      logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
-
-      for car_entry in car_entries:
-          _filterSizeCar_ (c, car_entry, params)
-
-      if params['debug'] and ('key' not in locals() or key != 27):
-          cv2.imshow('debug', params['display'])
-          key = params['key_reader'].readKey()
-          if key == 27: cv2.destroyWindow('debug')
 
 
 def filterUnknownNames (c):
@@ -338,12 +266,13 @@ def filterCustom (c, argv=[]):
   s = 'DELETE FROM images WHERE NOT (%s)' % args.image_constraint
   logging.info('command to delete images: %s' % s)
   c.execute(s)
-  c.execute('''SELECT id FROM cars WHERE 
-               NOT (%s) OR imagefile NOT IN 
-               (SELECT imagefile FROM images WHERE (%s))''' 
-               % (args.car_constraint, args.image_constraint))
+  s = '''SELECT id FROM cars WHERE NOT (%s) OR imagefile NOT IN 
+         (SELECT imagefile FROM images WHERE (%s));''' % (
+          args.car_constraint, args.image_constraint)
+  logging.info('command to delete cars: %s' % s)
+  c.execute(s)
   car_ids = c.fetchall()
-  logging.info ('will delete %d cars' % len(car_ids))
+  logging.info ('Will delete %d cars.' % len(car_ids))
   if args.car_constraint is not '1':  # Skip expensive operation.
     deleteCars(c, car_ids)
 
@@ -355,6 +284,26 @@ def deleteEmptyImages (c):
   logging.info('deleteEmptyImages found %d empty images' % num)
   c.execute('DELETE FROM images WHERE imagefile NOT IN '
             '(SELECT imagefile FROM cars)')
+
+
+def filter(c, argv=[]):
+  parser = ArgumentParser('filter')
+  parser.add_argument('--filter_by_border', action='store_true')
+  parser.add_argument('--delete_empty_images', action='store_true')
+  parser.add_argument('--filter_by_intersection', action='store_true')
+  args, _ = parser.parse_known_args(argv)
+
+  if args.delete_empty_images:
+    deleteEmptyImages (c)
+  if args.filter_by_intersection:
+    filterByIntersection (c, argv)
+  filterCustom (c, argv)
+  if args.filter_by_border:
+    filterByBorder (c, argv)
+    thresholdScore (c)
+
+  c.execute('SELECT COUNT(*) FROM cars')
+  print ('After filtering %d cars left' % c.fetchone()[0])
 
 
 def thresholdScore (c, argv=[]):
@@ -379,8 +328,8 @@ def expandBboxes (c, argv):
   '''
   logging.info ('==== expandBboxes ====')
   parser = argparse.ArgumentParser()
-  parser.add_argument('--expand_perc', type=float, default=0.1)
-  parser.add_argument('--target_ratio', type=float, default=0.75)  # h / w.
+  parser.add_argument('--expand_perc', type=float, default=0.0)
+  parser.add_argument('--target_ratio', type=float, default=1.)  # h / w.
   parser.add_argument('--keep_ratio', action='store_true')
   parser.add_argument('--debug', action='store_true')
   args, _ = parser.parse_known_args()
@@ -403,7 +352,10 @@ def expandBboxes (c, argv):
       oldroi = bbox2roi (carField(car_entry, 'bbox'))
 
     for car_entry in car_entries:
-      _expandCarBbox_(c, car_entry, args)
+      carid = carField(car_entry, 'id')
+      roi = _expandCarBbox_(car_entry, args)
+      s = 'x1=?, y1=?, width=?, height=?'
+      c.execute('UPDATE cars SET %s WHERE id=?' % s, tuple(roi2bbox(roi) + [carid]))
 
     # draw roi on the 'display' image
     if args.debug and key != 27:

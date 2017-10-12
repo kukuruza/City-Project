@@ -198,9 +198,9 @@ def expandRoiToRatio (roi, expand_perc, ratio):
    perc = height / width / ratio - 1
    roi = expandRoiFloat (roi, (0, perc), integer_result=False)
   # additional expansion
-  perc = (1 + expand_perc) / (1 + perc) - 1
-  if perc > 0:
-    roi = expandRoiFloat (roi, (perc, perc), integer_result=False)
+  #perc = (1 + expand_perc) / (1 + perc) - 1
+  #if perc > 0:
+  roi = expandRoiFloat (roi, (expand_perc, expand_perc))
   roi = [int(round(x)) for x in roi]
   return roi
 
