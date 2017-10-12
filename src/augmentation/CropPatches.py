@@ -135,12 +135,14 @@ if __name__ == "__main__":
   createDb(conn)
   c = conn.cursor()
 
-  i_patch = 0
+  i_patch = -1
   for in_scene_dir in glob(atcity(op.join(args.in_dir, 'scene-??????'))):
     scene_name = op.basename(in_scene_dir)
 
     for patch_dir in glob(op.join(in_scene_dir, '??????')):
       try:
+        i_patch += 1
+
         mask = write_visible_mask (patch_dir)
         visible_perc = get_visible_perc (patch_dir, mask)
         if visible_perc == 0: 
@@ -181,8 +183,6 @@ if __name__ == "__main__":
         s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch)'
         c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?);' % s,
             (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], visible_perc, yaw, pitch))
-
-        i_patch += 1
 
       except:
         logging.error('postprocessing failed for patch %s: %s' %

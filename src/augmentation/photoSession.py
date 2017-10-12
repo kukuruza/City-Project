@@ -31,8 +31,8 @@ RENDER_HEIGHT = 400
 
 # sampling weather and camera position
 SCALE_NOISE_SIGMA = 0.1
-PITCH_LOW         = 10 * pi / 180
-PITCH_HIGH        = 30 * pi / 180
+PITCH_LOW         = 20 * pi / 180
+PITCH_HIGH        = 40 * pi / 180
 SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
