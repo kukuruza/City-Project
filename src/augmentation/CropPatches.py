@@ -23,40 +23,38 @@ OUT_INFO_NAME    = 'out_info.json'
 
 
 
-def crop_patches (patch, mask, expand_perc, keep_ratio, target_width, target_height):
+def crop_patches (patch, mask, bbox, expand_perc, keep_ratio, target_width, target_height):
     '''Crop patches in patch_dir directory according to their masks.
     Args:
       patch_dir:     dir with files depth-all.png, depth-car.png
     Returns:
       cropped image
     '''
-    try:
-        assert patch is not None
-        assert mask is not None and mask.dtype == bool
-        assert patch.shape[0:2] == mask.shape[0:2]
+    MIN_BBOX_SIZE = 10
 
-        bbox = mask2bbox(mask)
-        if bbox is None:
-            raise Exception('Mask is empty. Car is outside of the image.')
-        roi = bbox2roi(bbox)
-        ratio = float(target_height) / target_width
-        if keep_ratio:
-          expandRoiToRatio (roi, 0, ratio)
-        expandRoiFloat (roi, (expand_perc, expand_perc))
-        roi = [int(x) for x in roi]
+    assert patch is not None
+    assert mask is not None and mask.dtype == bool
+    assert patch.shape[0:2] == mask.shape[0:2]
 
-        target_shape = (target_height, target_width)
+    roi = bbox2roi(bbox)
+    ratio = float(target_height) / target_width
+    if keep_ratio:
+      expandRoiToRatio (roi, 0, ratio)
+    expandRoiFloat (roi, (expand_perc, expand_perc))
+    roi = [int(x) for x in roi]
 
-        mask = mask.astype(np.uint8)
-        crop_patch = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
-        crop_mask  = mask [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
-        crop_patch = scipy.misc.imresize(crop_patch, target_shape, 'bilinear')
-        crop_mask  = scipy.misc.imresize(crop_mask,  target_shape, 'nearest')
-        crop_mask = crop_mask.astype(bool)
-        return crop_patch, crop_mask
-    except:
-        logging.error('crop for %s failed: %s' % (patch_dir, traceback.format_exc()))
-        return (None, None)
+    target_shape = (target_height, target_width)
+    if roi[2]-roi[0] < MIN_BBOX_SIZE or roi[3] - roi[1] < MIN_BBOX_SIZE:
+      logging.error('The crop is too small. Roi: %s' % str(roi))
+      raise Exception('The crop is too small.')
+
+    mask = mask.astype(np.uint8)
+    crop_patch = patch[roi[0]:roi[2]+1, roi[1]:roi[3]+1, :]
+    crop_mask  = mask [roi[0]:roi[2]+1, roi[1]:roi[3]+1]
+    crop_patch = scipy.misc.imresize(crop_patch, target_shape, 'bilinear')
+    crop_mask  = scipy.misc.imresize(crop_mask,  target_shape, 'nearest')
+    crop_mask = crop_mask.astype(bool)
+    return crop_patch, crop_mask
 
 
 
@@ -73,12 +71,17 @@ def write_visible_mask (patch_dir):
 
     # full main car mask (including occluded parts)
     mask_car = (depth_car < 255*255)
+
+    bbox = mask2bbox(mask_car)
+    if bbox is None:
+        raise Exception('Mask is empty. Car is outside of the image.')
+
     # main_car mask of visible regions
     visible_car = depth_car == depth_all
     un_mask_car = np.logical_not(mask_car)
     visible_car[un_mask_car] = False
     imsave(mask_path, visible_car.astype(np.uint8)*255)
-    return visible_car
+    return visible_car, bbox
 
 
 
@@ -89,6 +92,7 @@ def get_visible_perc (patch_dir, visible_car):
       patch_dir:     dir with files depth-all.png, depth-car.png
     Returns:
       visible_perc:  occluded fraction
+      bbox:          bounding box is calculated on visible AND occluded parts.
     '''
     #visible_car = imread(op.join(patch_dir, 'mask.png'), 0) > 0
     mask_car    = imread(op.join(patch_dir, 'depth-car.png')) < 255*255
@@ -119,6 +123,8 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
 
+  MIN_MASK_NNZ = 100
+
   setupLogging('log/augmentation/CropPatches.log', args.logging_level, 'w')
 
   # delete and recreate out_dir dir
@@ -135,24 +141,24 @@ if __name__ == "__main__":
   createDb(conn)
   c = conn.cursor()
 
-  i_patch = -1
+  i_patch = 0
   for in_scene_dir in glob(atcity(op.join(args.in_dir, 'scene-??????'))):
     scene_name = op.basename(in_scene_dir)
 
-    for patch_dir in glob(op.join(in_scene_dir, '??????')):
-      try:
-        i_patch += 1
-
-        mask = write_visible_mask (patch_dir)
+    try:
+      for patch_dir in glob(op.join(in_scene_dir, '??????')):
+        mask, bbox = write_visible_mask (patch_dir)
         visible_perc = get_visible_perc (patch_dir, mask)
         if visible_perc == 0: 
           logging.warning('nothing visibible for %s' % patch_dir)
           continue
         patch = imread(op.join(patch_dir, 'render.png'))
-        patch, mask = crop_patches(patch, mask,
+        patch, mask = crop_patches(patch, mask, bbox,
                                    args.expand_perc, args.keep_ratio,
                                    args.target_width, args.target_height)
         assert mask.dtype == bool, mask.dtype
+        if np.count_nonzero(mask) < MIN_MASK_NNZ:
+          raise Exception('nothing visible in the mask')
 
         # read angles
         out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
@@ -166,16 +172,7 @@ if __name__ == "__main__":
         image_writer.maskwrite(mask)
         logging.info ('wrote cropped patch: %d' % i_patch)
 
-        # write to .db
         imagefile = op.join(args.out_dir, 'patch', '%06d' % i_patch)
-        maskfile = op.join(args.out_dir, 'mask', '%06d' % i_patch)
-        w = args.target_width
-        h = args.target_height
-        timestamp = makeTimeString(datetime.now())
-        s = 'images(imagefile,maskfile,src,width,height,time)'
-        c.execute ('INSERT INTO %s VALUES (?,?,?,?,?,?);' % s,
-            (imagefile, maskfile, '' , w, h, timestamp))
-
         bbox = mask2bbox(mask)
         name = out_info['vehicle_type']
         yaw = out_info['azimuth']
@@ -184,9 +181,23 @@ if __name__ == "__main__":
         c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?);' % s,
             (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], visible_perc, yaw, pitch))
 
-      except:
-        logging.error('postprocessing failed for patch %s: %s' %
-                      (patch_dir, traceback.format_exc()))
+        # write to .db
+        maskfile = op.join(args.out_dir, 'mask', '%06d' % i_patch)
+        w = args.target_width
+        h = args.target_height
+        timestamp = makeTimeString(datetime.now())
+        s = 'images(imagefile,maskfile,src,width,height,time)'
+        c.execute ('INSERT INTO %s VALUES (?,?,?,?,?,?);' % s,
+            (imagefile, maskfile, '' , w, h, timestamp))
+
+        i_patch += 1
+#      if i_patch > 200:
+#        conn.commit()
+#        conn.close()
+#        break
+    except:
+      logging.error('postprocessing failed for patch %s: %s' %
+                    (patch_dir, traceback.format_exc()))
 
   conn.commit()
   conn.close()
