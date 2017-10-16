@@ -26,8 +26,9 @@ def exportCarsToDb (c, argv):
 
   reader = ReaderVideo()
 
-  vimagefile = op.splitext(op.basename(args.out_db_file))[0] + '.avi'
-  image_writer = SimpleWriter(vimagefile=op.join(out_dir, vimagefile))
+  vimagefile = op.join(op.relpath(out_dir, os.getenv('CITY_PATH')),
+                       op.splitext(op.basename(args.out_db_file))[0] + '.avi')
+  image_writer = SimpleWriter(vimagefile=vimagefile)
 
   conn = sqlite3.connect(atcity(args.out_db_file))
   print (atcity(args.out_db_file))
@@ -56,11 +57,10 @@ def exportCarsToDb (c, argv):
 
     c.execute('SELECT * FROM images WHERE imagefile = ?', (imagefile,))
     image_entry = c.fetchone()
-    out_imagefile = op.join(out_dir, 'patch', '%06d' % icar)
     w = args.target_width
     h = args.target_height
     timestamp = imageField(image_entry, 'timestamp')
-    out_imagefile = op.join(op.relpath(out_dir, os.getenv('CITY_PATH')), '%06d' % icar)
+    out_imagefile = op.join(op.splitext(vimagefile)[0], '%06d' % icar)
     s = 'images(imagefile,width,height,time)'
     c_out.execute('INSERT INTO %s VALUES (?,?,?,?)' % s,
         (out_imagefile, w, h, timestamp))

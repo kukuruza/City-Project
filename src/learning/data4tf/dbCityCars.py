@@ -10,7 +10,7 @@ import logging
 
 
 class CitycarsDataset:
-  def __init__(self, db_file, fraction=1., car_constraint='1'):
+  def __init__(self, db_file, fraction=1., car_constraint='1', crop_car=True):
 
     (conn, c) = dbInit(db_file)
     c.execute('SELECT * FROM cars WHERE %s ORDER BY imagefile' % car_constraint)
@@ -18,6 +18,7 @@ class CitycarsDataset:
     conn.close()
 
     self.fraction = fraction
+    self.crop_car = crop_car
     self.image_reader = ReaderVideo()
 
 
@@ -25,8 +26,11 @@ class CitycarsDataset:
     logging.debug ('CitycarsDataset: reading car %d from %s imagefile' % 
             (carField(car_entry, 'id'), carField(car_entry, 'imagefile')))
     im = self.image_reader.imread (carField(car_entry, 'imagefile'))
-    roi = carField(car_entry, 'roi')
-    car = im[roi[0]:roi[2], roi[1]:roi[3]]
+    if self.crop_car:
+      roi = carField(car_entry, 'roi')
+      car = im[roi[0]:roi[2], roi[1]:roi[3]]
+    else:
+      car = im
     return car
 
 
@@ -49,7 +53,7 @@ class CitycarsDataset:
     if randomly: np.random.shuffle(car_entries)
 
     for car_entry in car_entries[:num_to_use]:
-      yield self._load_image(car_entry)
+      yield self._load_image(car_entry), car_entry
 
 
 
