@@ -23,7 +23,7 @@ OUT_INFO_NAME    = 'out_info.json'
 
 
 
-def crop_patches (patch, mask, bbox, expand_perc, keep_ratio, target_width, target_height):
+def crop_patches (patch, mask, bbox, expand_perc, edges, target_width, target_height):
     '''Crop patches in patch_dir directory according to their masks.
     Args:
       patch_dir:     dir with files depth-all.png, depth-car.png
@@ -38,7 +38,7 @@ def crop_patches (patch, mask, bbox, expand_perc, keep_ratio, target_width, targ
 
     roi = bbox2roi(bbox)
     ratio = float(target_height) / target_width
-    if keep_ratio:
+    if edges == 'distort':
       expandRoiToRatio (roi, 0, ratio)
     expandRoiFloat (roi, (expand_perc, expand_perc))
     roi = [int(x) for x in roi]
@@ -116,8 +116,7 @@ if __name__ == "__main__":
   parser.add_argument('--expand_perc',   type=float, default=0.1)
   parser.add_argument('--target_width',  type=int,   default=40)
   parser.add_argument('--target_height', type=int,   default=30)
-  parser.add_argument('--keep_ratio', action='store_true',
-                      help='do not distort the patch, and increase bbox if needed')
+  parser.add_argument('--edges', choices={'distort', 'image', 'pad', 'constant'})
   parser.add_argument('--logging_level', type=int,   default=20,
                       choices={10,20,30,40,50})
 
@@ -154,7 +153,7 @@ if __name__ == "__main__":
           continue
         patch = imread(op.join(patch_dir, 'render.png'))
         patch, mask = crop_patches(patch, mask, bbox,
-                                   args.expand_perc, args.keep_ratio,
+                                   args.expand_perc, args.edges,
                                    args.target_width, args.target_height)
         assert mask.dtype == bool, mask.dtype
         if np.count_nonzero(mask) < MIN_MASK_NNZ:

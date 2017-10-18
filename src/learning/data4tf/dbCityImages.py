@@ -9,8 +9,8 @@ import logging
 
 
 
-class CityImagesDataset:
-  def __init__(self, db_file, fraction=1., image_constraint='1'):
+class CityimagesDataset:
+  def __init__(self, db_file, fraction=1., image_constraint='1', randomly=True):
 
     (conn, c) = dbInit(db_file)
     c.execute('SELECT * FROM images WHERE %s ORDER BY imagefile' % image_constraint)
@@ -19,6 +19,7 @@ class CityImagesDataset:
 
     self.fraction = fraction
     self.image_reader = ReaderVideo()
+    self.randomly = randomly
 
     self.pos = 0  # Position for __getitem__.
 
@@ -32,14 +33,19 @@ class CityImagesDataset:
   # interface functions
   
   def __len__(self):
-    return len(self.image_entries)
+    return int(len(self.image_entries) * self.fraction)
+
+  def _getitem_by_index(self, index):
+    '''
+    Args:
+      index:   if given, returns the given index rather then
+               yielding all num_to_use images from dataset
+               That is used for torch.utils.data.Dataset
+    '''
+    image_entry = self.image_entries[index]
+    return self._load_image(image_entry)
 
   def __getitem__(self):
-    image = self._load_image(self.image_entries[self.pos])
-    self.pos = (self.pos + 1) % self.__len__()
-    return image
-
-  def iterateImages(self, randomly=True):
     '''Yields pairs (im,gt) taken randomly from the whole dataset. 
     Used to train segmentation.
     Returns:
@@ -53,10 +59,23 @@ class CityImagesDataset:
 
     image_entries = list(self.image_entries)  # make a copy
     assert len(image_entries) > 0
-    if randomly: np.random.shuffle(image_entries)
+    if self.randomly: np.random.shuffle(image_entries)
 
     for image_entry in image_entries[:num_to_use]:
       yield self._load_image(image_entry)
+
+  def _get_batch(self, imsize, batchsize):
+    assert type(imsize) is list or type(imsize) is tuple, imsize
+    assert len(imsize) == 2, imsize
+    batch = None
+    for i, image in enumerate(self.dataset.__getitem__()):
+      image = imresize(image, imsize)
+      if batch is None:
+        batch = np.zeros([batchsize] + list(image.shape), float)
+      batch[i % batchsize] = image
+      if (i-1) % batchsize == 0:
+        logging.debug(batch.shape)
+        yield batch
 
 
 
@@ -68,8 +87,11 @@ if __name__ == "__main__":
   parser.add_argument('--in_db_file', required=True)
   args = parser.parse_args()
 
-  dataset = CityImagesDataset(args.in_db_file, fraction=0.01)
+  dataset = CityimagesDataset(args.in_db_file, fraction=0.01)
 
-  for im in dataset.iterateImages(randomly=True):
+  im = dataset._getitem_by_index(1)
+  print im.shape
+
+  for im in dataset.__getitem__():
     print im.shape
 
