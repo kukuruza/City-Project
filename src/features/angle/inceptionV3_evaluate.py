@@ -14,8 +14,8 @@ from keras.layers import Dense, GlobalAveragePooling2D
 from keras import backend as K
 from keras.optimizers import SGD
 from scipy.misc import imresize
-from learning.data4tf.dbCityCars import CitycarsDataset
-from learning.helperDb import carField
+from db.lib.dbDataset import CitycarsDataset
+from db.lib.helperDb import carField
 
 np.set_printoptions(precision=2, linewidth=120, suppress=True)
 
@@ -40,14 +40,14 @@ def car_to_label(car_entry, blur):
     label_one_hot[(label - 1) % 12] = 0.2
   else:
     label_one_hot[label] = 1.
-  return label_one_hot
+  return label_one_hot, label
 
 def generate_batches(dataset, batchsize, blur=False):
   batch = None
   while True:
     for i, (image, car_entry) in enumerate(dataset.iterateImages()):
       image = imresize(image, (139,139))
-      label = car_to_label(car_entry, blur=blur)
+      label, _ = car_to_label(car_entry, blur=blur)
       if batch is None:
         batch = np.zeros([batchsize] + list(image.shape), dtype=float)
         labels = np.zeros([batchsize, 12], dtype=float)
@@ -94,13 +94,13 @@ print (model.metrics_names[0], scores[0])
 print (model.metrics_names[1], scores[1])
 
 dataset = CitycarsDataset(args.in_db_file, fraction=1., crop_car=False, randomly=False)
-for i, (img, car_entry) in enumerate(dataset.iterateImages()):
+for i, (img, car_entry) in enumerate(dataset.__getitem__()):
   img = imresize(img, (139,139))
   img = img.astype(float)
   img = preprocess_input(img)
   img = np.expand_dims(img, axis=0)
 
-  preds = model.predict(img)
-  print (preds, car_to_label(car_entry, blur=False))
+  preds = model.predict(img).argmax()
+  print (preds, car_to_label(car_entry, blur=False)[1])
   if i == 32: sys.exit()
 

@@ -14,14 +14,14 @@ import traceback
 import shutil
 import argparse
 from pprint import pprint
-from learning.helperSetup import atcity, setupLogging
+from db.lib.helperSetup import atcity
 from augmentation.Cad import Cad
 
 WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
 
-FNULL = open(op.join(os.getenv('CITY_PATH'), 'log/augmentation/blender.log'), 'w')
+FNULL = open('/dev/null', 'w')
 
 # placing other cars
 PROB_SAME_LANE    = 0.3
@@ -173,6 +173,7 @@ def run_patches_job (job):
         command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
                    '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
         returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
+#        returncode = subprocess.call (command, shell=False)
         logging.info ('blender returned code %s' % str(returncode))
     except:
         logging.error('job for %s failed to process: %s' %
@@ -189,7 +190,7 @@ def run_patches_job (job):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--out_dir', default='data/augmentation/patches/test')
+    parser.add_argument('--out_dir', default='data/patches/test')
     parser.add_argument('--logging_level',   type=int,   default=20)
     parser.add_argument('--num_sessions',    type=int,
                         help='if not given, use one per model')
@@ -204,10 +205,7 @@ if __name__ == "__main__":
                         help='if left empty, use all types')
     parser.add_argument('--azimuth_low',     type=int, default=0)
     parser.add_argument('--azimuth_high',    type=int, default=360)
-
     args = parser.parse_args()
-
-    setupLogging('log/augmentation/MakePatches.log', args.logging_level, 'w')
 
     # delete and recreate out_dir
     if op.exists(atcity(args.out_dir)):

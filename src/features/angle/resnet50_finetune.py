@@ -12,11 +12,9 @@ from keras.applications.resnet50 import preprocess_input, decode_predictions
 from keras.models import Model
 from keras.layers import Dense, GlobalAveragePooling2D
 from keras import backend as K
-
-
 from scipy.misc import imresize
-from learning.data4tf.dbCityCars import CitycarsDataset
-from learning.helperDb import carField
+from db.lib.dbDataset import CitycarsDataset
+from db.lib.helperDb import carField
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)

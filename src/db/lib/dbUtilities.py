@@ -7,7 +7,7 @@ import sys, os, os.path as op
 import logging
 from scipy.stats import gamma
 from math import atan
-from helperSetup import setParamUnlessThere
+from scipy.misc import imresize
 
 
 
@@ -205,6 +205,44 @@ def expandRoiToRatio (roi, expand_perc, ratio):
   return roi
 
 
+def cropPatch(image, roi, target_height, target_width, edge):
+  ''' Crop a patch from the image.
+  Args:
+    edge:          {'distort', 'constant', 'expand'}
+    target_ratio:  height / width
+  '''
+  if edge == 'background':
+    target_ratio = target_height / target_width
+    roi = expandRoiToRatio (roi, 0.0, target_ratio)
+
+  pad = image.shape[1]
+  image = np.pad(image, pad_width=((pad,pad),(pad,pad),(0,0)), mode='constant')
+  roi = [x + pad for x in roi]
+  height, width = roi[2] - roi[0], roi[3] - roi[1]
+
+  if len(image.shape) == 2:
+    patch = image[roi[0]:roi[2], roi[1]:roi[3]]
+  else:
+    patch = image[roi[0]:roi[2], roi[1]:roi[3], :]
+
+  if edge == 'constant':
+    target_ratio = target_height / target_width
+    if height > int(target_ratio * width):
+      pad1 = (int(height / target_ratio) - width) // 2
+      pad2 = int(height / target_ratio) - width - pad1
+      patch = np.pad(patch, pad_width=((0,0),(pad1,pad2),(0,0)), mode='constant')
+    else:
+      pad1 = (int(target_ratio * width) - height) // 2
+      pad2 = int(target_ratio * width) - height - pad1
+      patch = np.pad(patch, pad_width=((pad1,pad2),(0,0),(0,0)), mode='constant')
+
+  elif edge == 'distort':
+    pass
+
+  patch = imresize(patch, (target_height, target_width))
+  return patch
+
+
 def gammaProb (x, max_value, shape):
     '''
     x is distributed with Gamma(shape, scale).  
@@ -239,7 +277,7 @@ def hierarchicalClusterRoi (rois, params = {}):
     if not rois:         return [], [], []
     elif len(rois) == 1: return rois, [0], [1]
 
-    setParamUnlessThere (params, 'debug_clustering', False)
+    params['debug_clustering'] = False
 
     N = len(rois)
     pairwise_distances = np.zeros((N,N), dtype = float)
@@ -307,7 +345,7 @@ def hierarchicalClusterPolygons (polygons, params):
     if not polygons:         return [], []
     elif len(polygons) == 1: return [polygon2roi(polygons[0])], [0]
 
-    params = setParamUnlessThere (params, 'debug_clustering', False)
+    params['debug_clustering'] = False
 
     N = len(polygons)
     pairwise_distances = np.zeros((N,N), dtype = float)

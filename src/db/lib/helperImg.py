@@ -5,7 +5,7 @@ import scipy.misc
 import cv2
 import logging
 from pkg_resources import parse_version
-from helperSetup import setParamUnlessThere, assertParamIsThere, atcity, atcitydata
+from helperSetup import atcity, atcitydata
 
 
 # returns OpenCV VideoCapture property id given, e.g., "FPS"
@@ -65,7 +65,7 @@ class ReaderVideo (ProcessorBase):
       Also, let's have a cache of a few previously read frames
     '''
 
-    def __init__ (self, params = {}):
+    def __init__ (self):
         self.image_cache = {}    # cache of previously read image(s)
         self.mask_cache = {}     # cache of previously read mask(s)
         self.image_video = {}    # map from image video name to VideoCapture object
@@ -74,13 +74,14 @@ class ReaderVideo (ProcessorBase):
     def _openVideoCapture_ (self, videofile):
         ''' Open video and set up bookkeeping '''
         logging.debug ('opening video: %s' % videofile)
-        videopath = atcity(videofile)
-        if not op.exists (videopath):
-          if op.exists(atcitydata(videofile)):
-            videopath = atcitydata(videofile)
-            logging.warning('Deprecated video path relative to CITY_DATA_PATH: %s' % videopath)
-          else:
-            raise Exception('videofile does not exist: %s' % videofile)
+        if op.exists(atcity(videofile)):
+          videopath = atcity(videofile)
+          logging.debug('Videopath is relative to CITY_PATH: %s' % videopath)
+        elif op.exists(atcitydata(videofile)):
+          videopath = atcitydata(videofile)
+          logging.warning('Deprecated video path relative to CITY_DATA_PATH: %s' % videopath)
+        else:
+          raise Exception('videofile does not exist: %s' % videofile)
         handle = cv2.VideoCapture(videopath)  # open video
         if not handle.isOpened():
             raise Exception('video failed to open: %s' % videopath)
@@ -141,11 +142,9 @@ class ProcessorVideo (ReaderVideo):
       and to get parameters of the input video
     '''
 
-    def __init__ (self, params = {}):
-        super(ProcessorVideo, self).__init__(params)
-
-        assertParamIsThere  (params, 'out_dataset')
-        self.out_dataset = params['out_dataset']
+    def __init__ (self, out_dataset):
+        super(ProcessorVideo, self).__init__()
+        self.out_dataset = out_dataset
         self.out_image_video = {}    # map from image video name to VideoWriter object
         self.out_mask_video = {}     # map from mask  video name to VideoWriter object
         self.out_current_frame = {}  # used to return imagefile and maskfile 
@@ -240,9 +239,8 @@ class ProcessorVideo (ReaderVideo):
 # TODO: need unit tests
 class SimpleWriter:
 
-  def __init__(self, vimagefile=None, vmaskfile=None, params={}):
-    setParamUnlessThere (params, 'unsafe', False)  # if False, will raise if video exists
-    self.unsafe  = params['unsafe']
+  def __init__(self, vimagefile=None, vmaskfile=None, unsafe=False):
+    self.unsafe  = unsafe
     self.vimagefile = vimagefile
     self.vmaskfile = vmaskfile
     self.image_writer = None
@@ -333,14 +331,12 @@ class ProcessorImagefile (ProcessorBase):
     Implementation based on Image <-> Imagefile
     '''
 
-    def __init__ (self, params = {}):
-        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        self.relpath = params['relpath']
+    def __init__ (self):
         self.image_cache = {}   # cache of previously read image(s)
         self.mask_cache = {}    # cache of previously read mask(s)
 
     def readImpl (self, image_id):
-        imagepath = op.join (self.relpath, image_id)
+        imagepath = op.join (os.getenv('CITY_PATH'), image_id)
         logging.debug ('imagepath: %s' % imagepath)
         if not op.exists (imagepath):
             raise Exception ('image does not exist at path: "%s"' % imagepath)
@@ -350,7 +346,7 @@ class ProcessorImagefile (ProcessorBase):
         return img
 
     def writeImpl (self, image, image_id):
-        imagepath = op.join (self.relpath, image_id)
+        imagepath = op.join (os.getenv('CITY_PATH'), image_id)
         if image is None:
             raise Exception ('image to write is None')
         if not op.exists (op.dirname(imagepath)):
@@ -389,101 +385,4 @@ class ProcessorImagefile (ProcessorBase):
 
     def close (self): pass
 
-
-
-class ProcessorFolder (ProcessorBase):
-    '''
-    Implementation based on Image <-> (Dataset, Id)
-      'dataset' is a directory with images
-      'image_id' is a name of image in that folder
-    '''
-
-    def __init__ (self, params = {}):
-        setParamUnlessThere (params, 'relpath', os.getenv('CITY_DATA_PATH'))
-        self.relpath = params['relpath']
-        self.image_cache = {}   # cache of previously read image(s)
-        self.mask_cache = {}    # cache of previously read mask(s)
-
-    def readImpl (self, name, dataset):
-        imagepath = op.join (self.relpath, dataset, name)
-        if not op.exists (imagepath):
-            raise Exception ('ProcessorFolder: image does not exist at path: "%s"' % imagepath)
-        img = cv2.imread(imagepath)
-        if img is None:
-            raise Exception ('ProcessorFolder: image file exists, but failed to read it')
-        return img
-
-    def writeImpl (self, image, name, dataset):
-        imagepath = op.join (self.relpath, dataset, name)
-        if image is None:
-            raise Exception ('ProcessorFolder: image to write is None')
-        if not op.exists (op.dirname(imagepath)):
-            os.makedirs (op.dirname(imagepath))
-        cv2.imwrite (imagepath, image)
-
-    def imread (self, image_id, dataset):
-        unique_id = (image_id, dataset)
-        if unique_id in self.image_cache: 
-            logging.debug ('ProcessorFolder.imread: found image in cache')
-            return self.image_cache[unique_id]  # get cached image if possible
-        image = self.readImpl ('%06d.jpg' % image_id, dataset) # image names are 6-digits
-        logging.debug ('ProcessorFolder.imread: new image, updating cache')
-        self.image_cache = {unique_id: image}   # currently only 1 image in the cache
-        return image
-
-    def maskread (self, mask_id, dataset):
-        unique_id = (mask_id, dataset)
-        if unique_id in self.mask_cache: 
-            logging.debug ('ProcessorFolder.maskread: found mask in cache')
-            return self.mask_cache[unique_id]  # get cached image if possible
-        mask = self.readImpl ('%06d.png' % mask_id, dataset) # mask names are 6-digits
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-        mask = mask > 127
-        logging.debug ('ProcessorFolder.maskread: new mask, updating cache')
-        self.mask_cache = {unique_id: mask}   # currently only 1 image in the cache
-        return mask
-
-    def imwrite (self, image, image_id, dataset):
-        assert len(image.shape) == 3 and image.shape[2] == 3
-        self.writeImpl (image, '%06d.jpg' % image_id, dataset)
-
-    def maskwrite (self, mask, mask_id, dataset):
-        assert len(mask.shape) == 2
-        self.writeImpl (mask, '%06d.png' % mask_id, dataset)
-
-    def close (self): pass
-
-
-
-class ProcessorRandom (ProcessorBase):
-    '''
-    Generate a random image for unittests in different modules
-    Currently both 'imread' and 'maskread' interface is compatible with ProcessorImagefile
-    '''    
-
-    def __init__ (self, params):
-        assertParamIsThere (params, 'dims')
-        self.dims = params['dims']
-
-    def imread (self, image_id = None):
-        (height, width) = self.dims
-        return np.ones ((height, width, 3), dtype=np.uint8) * 128
-
-    def maskread (self, mask_id = None):
-        ''' Generate a 2x2 checkerboard '''
-        (height, width) = self.dims
-        mask = np.zeros (self.dims, dtype=bool)
-        mask[0:height/2, 0:width/2] = 255
-        mask[height/2:height, width/2:width] = 255
-        return mask
-
-    def imwrite (self, image, image_id = None):
-        assert len(image.shape) == 3 and image.shape[2] == 3 and image.shape[0:2] == self.dims
-        return
-
-    def maskwrite (self, mask, mask_id = None):
-        assert len(mask.shape) == 2 and mask.shape == self.dims
-        return
-
-    def close (self): pass
 

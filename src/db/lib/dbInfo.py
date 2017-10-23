@@ -1,0 +1,97 @@
+import os, sys, os.path as op
+import argparse
+import numpy as np
+import logging
+import matplotlib.pyplot as plt
+from pprint import pprint
+from helperDb import carField
+
+
+def add_parsers(subparsers):
+  infoParser(subparsers)
+  scatterParser(subparsers)
+
+
+def scatterParser(subparsers):
+  parser = subparsers.add_parser('scatter',
+    description='Get a 2d scatter plot of fields of cars.')
+  parser.set_defaults(func=scatter)
+  parser.add_argument('-x', required=True)
+  parser.add_argument('-y', required=True)
+  parser.add_argument('--constraint', default='1')
+  parser.add_argument('--scatter_display', action='store_true')
+  parser.add_argument('--scatter_out_path')
+
+def scatter(c, args):
+  logging.info ('==== scatter ====')
+  c.execute('SELECT %s,%s FROM cars WHERE %s' % (args.x, args.y, args.constraint))
+  car_entries = c.fetchall()
+
+  xylist = [(x,y) for (x,y) in car_entries if x is not None and y is not None]
+  logging.info('Out of %d cars, %d are valid.' % (len(car_entries), len(xylist)))
+  if not xylist:
+    logging.info('No cars, nothing to draw.')
+    return
+  xlist, ylist = tuple(map(list, zip(*xylist)))
+  logging.debug(str(xlist) + '\n' + str(ylist))
+
+  plt.scatter(xlist, ylist, alpha=0.5)
+  plt.xlabel(args.x)
+  plt.ylabel(args.y)
+  if args.scatter_display:
+    plt.show()
+  if args.scatter_out_path:
+    logging.info('Saving to %s' % args.scatter_out_path)
+    plt.savefig(args.scatter_out_path)
+
+
+def infoParser(subparsers):
+  parser = subparsers.add_parser('info',
+    description='Show major info of database.')
+  parser.set_defaults(func=info)
+  parser.add_argument('--imagedirs', action='store_true')
+  parser.add_argument('--imagerange', action='store_true')
+
+def info (c, args):
+  logging.info ('==== info ====')
+  info = {}
+
+  c.execute('SELECT imagefile FROM images')
+  imagefiles = c.fetchall()
+  info['numimages'] = len(imagefiles)
+  imagedirs = [op.dirname(x) for x, in imagefiles]
+  imagedirs = list(set(imagedirs))
+  if args.imagedirs:
+    info['imagedirs'] = imagedirs
+  
+  def collectImageRange(nums):
+    if len(nums) == 0: return []
+    nums = sorted(nums)
+    numrange = []
+    start = current = nums[0]
+    for num in nums[1:]:
+      if num > current + 1:
+        numrange.append((start, current+1))
+        start = num
+        if len(numrange) >= 2:
+          numrange.append('too many ranges')
+          break
+      current = num
+    return numrange
+  if args.imagerange:
+    info['imagerange'] = {}
+    for imagedir in imagedirs:
+      imagenums = [int(op.basename(x)) for x, in imagefiles if op.dirname(x) == imagedir]
+      info['imagerange'][imagedir] = collectImageRange(imagenums)
+
+  #c.execute('SELECT maskfile FROM images')
+  #maskfiles = c.fetchall()
+  #maskdirs = [op.dirname(x) for x, in maskfiles]
+  #maskdirs = list(set(maskdirs))
+  #info['maskdirs'] = maskdirs
+
+  c.execute('SELECT COUNT(*) FROM cars')
+  info['numcars'] = c.fetchone()[0]
+  pprint (info, width=120)
+
+

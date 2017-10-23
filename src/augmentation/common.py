@@ -7,7 +7,6 @@ import numpy as np
 import logging
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
-from learning.helperSetup import setParamUnlessThere, assertParamIsThere
 
 
 def dump(obj):
@@ -215,7 +214,6 @@ def set_sun_angle (azimuth, altitude):
 def set_weather (params):
     '''Set sun and weather conditions
     '''
-    assertParamIsThere  (params, 'weather')
     weather = params['weather']
 
     if weather == 'Rainy': 
@@ -228,8 +226,6 @@ def set_weather (params):
         logging.info ('setting cloudy weather')
         set_cloudy()
     elif weather == 'Sunny': 
-        assertParamIsThere  (params, 'sun_altitude')
-        assertParamIsThere  (params, 'sun_azimuth')
         alt = params['sun_altitude']
         azi = params['sun_azimuth']
         logging.info ('setting sunny weather with azimuth,altitude = %f,%f' % (azi, alt))

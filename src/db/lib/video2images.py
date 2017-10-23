@@ -2,7 +2,7 @@ import os, sys, os.path as op
 import logging
 import shutil
 import cv2
-from helperSetup       import setParamUnlessThere, assertParamIsThere, atcity
+from helperSetup import atcity
 
 
 def _open_video_capture (in_video_file):

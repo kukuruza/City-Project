@@ -10,8 +10,7 @@ from random import choice
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
 from augmentation.common import *
-from learning.helperSetup import atcity, setupLogging
-from learning.helperSetup import setParamUnlessThere, assertParamIsThere
+from db.lib.helperSetup import atcity, setupLogging
 
 
 
@@ -196,8 +195,8 @@ def photo_session (job):
     scene_path = atcity('data/augmentation/scenes/photo-session.blend')
     bpy.ops.wm.open_mainfile (filepath=scene_path)
 
-    setParamUnlessThere (job, 'render_width',  RENDER_WIDTH)
-    setParamUnlessThere (job, 'render_height', RENDER_HEIGHT)
+    if 'render_width' not in job: job['render_width'] = RENDER_WIDTH
+    if 'render_height' not in job: job['render_height'] = RENDER_HEIGHT
     bpy.context.scene.render.resolution_x = job['render_width']
     bpy.context.scene.render.resolution_y = job['render_height']
 

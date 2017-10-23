@@ -7,7 +7,7 @@ import ConfigParser
 import traceback
 from datetime import datetime
 from elasticsearch import Elasticsearch, RequestsHttpConnection
-from learning.helperSetup import atcity, setupLogging
+from db.lib.helperSetup import atcity
 
 README_NAME = 'readme-blended.json'
 

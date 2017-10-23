@@ -14,8 +14,8 @@ from keras.layers import Dense, GlobalAveragePooling2D
 from keras import backend as K
 from keras.optimizers import SGD
 from scipy.misc import imresize
-from learning.data4tf.dbCityCars import CitycarsDataset
-from learning.helperDb import carField
+from db.lib.dbDataset import CitycarsDataset
+from db.lib.helperDb import carField
 
 np.set_printoptions(precision=2, linewidth=120, suppress=True)
 

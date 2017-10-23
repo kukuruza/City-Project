@@ -8,13 +8,13 @@ from keras.preprocessing import image
 from keras.applications.resnet50 import preprocess_input, decode_predictions
 import numpy as np
 from scipy.misc import imresize
-from learning.data4tf.dbCityImages import CityImagesDataset
+from db.lib.dbDataset import CityimagesDataset
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_db_file', required=True)
 args = parser.parse_args()
 
-dataset = CityImagesDataset(args.in_db_file, fraction=0.1)
+dataset = CityimagesDataset(args.in_db_file, fraction=0.1)
 
 model = ResNet50(weights='imagenet')
 
