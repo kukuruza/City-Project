@@ -55,7 +55,7 @@ def expandBoxes (c, args):
   c.execute('SELECT imagefile FROM images')
   image_entries = c.fetchall()
 
-  for (imagefile,) in image_entries:
+  for (imagefile,) in tqdm(image_entries):
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
@@ -208,7 +208,7 @@ def splitParser(subparsers):
     help='Common directory for all databases relative to CITY_PATH')
   parser.add_argument('--out_db_names', required=True, nargs='+',
     help='Output database names.')
-  parser.add_argument('--fractions', required=True, nargs='+',
+  parser.add_argument('--fractions', required=True, nargs='+', type=float,
     help='''Fractions to put to each output db.
             If percentage sums to >1, last db-s will be underfilled.''')
   parser.add_argument('--randomly', action='store_true')
@@ -221,10 +221,10 @@ def split (c, args):
 
   assert len(args.out_db_names) == len(args.fractions), \
     'Sizes not equal: %d != %d' % (len(args.out_db_names), len(args.fractions))
-  out_db_names_and_fractions = zip(args.out_db_names, args.fractions)
 
   current = 0
-  for db_out_name, fraction in out_db_names_and_fractions.iteritems():
+  for db_out_name, fraction in zip(args.out_db_names, args.fractions):
+    logging.info((db_out_name, fraction))
     num_images_in_set = int(ceil(len(imagefiles) * fraction))
     next = min(current + num_images_in_set, len(imagefiles))
 
@@ -233,7 +233,7 @@ def split (c, args):
     if op.exists(db_out_path): os.remove(db_out_path)
     conn_out = sqlite3.connect(db_out_path)
     createDb(conn_out)
-    c_out = conn.cursor()
+    c_out = conn_out.cursor()
 
     for imagefile, in imagefiles[current : next]:
 

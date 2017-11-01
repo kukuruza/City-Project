@@ -5,6 +5,7 @@ import simplejson as json
 import logging
 import numpy as np
 from glob import glob
+from tqdm import tqdm
 import argparse
 from db.lib.helperSetup import atcity
 from db.lib.dbUtilities import bbox2roi, mask2bbox
@@ -66,28 +67,28 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
   parser.add_argument('--in_dir',  default='data/patches/test')
-  parser.add_argument('--out_db_file', default='data/patches/test/scenes.db')
+  parser.add_argument('-o', '--out_db_file', default='data/patches/test/scenes.db')
   args = parser.parse_args()
 
   MIN_MASK_NNZ = 100
 
   dataset_writer = DatasetWriter(args.out_db_file, overwrite=True)
 
-  for in_scene_dir in glob(atcity(op.join(args.in_dir, 'scene-??????'))):
+  for in_scene_dir in tqdm(glob(atcity(op.join(args.in_dir, 'scene-??????')))):
     scene_name = op.basename(in_scene_dir)
 
     for patch_dir in glob(op.join(in_scene_dir, '??????')):
       mask, bbox = write_visible_mask (patch_dir)
       visible_perc = get_visible_perc (patch_dir, mask)
       if visible_perc == 0: 
-        logging.warning('nothing visibible for %s' % patch_dir)
+        logging.debug('nothing visibible for %s' % patch_dir)
         continue
       patch = imread(op.join(patch_dir, 'render.png'))[:,:,:3]
       imagefile = dataset_writer.add_image(patch, mask=mask)
 
       out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
       bbox = mask2bbox(mask)
-      name = out_info['vehicle_type']
+      name = out_info['model_id'] #out_info['vehicle_type']
       yaw = out_info['azimuth']
       pitch = out_info['altitude']
       car = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], visible_perc, yaw, pitch)

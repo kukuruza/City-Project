@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
-
 import argparse
 import logging
 import numpy as np
@@ -15,55 +14,29 @@ from keras import backend as K
 from keras.optimizers import SGD
 from scipy.misc import imresize
 from db.lib.dbDataset import CitycarsDataset
-from db.lib.helperDb import carField
-
-np.set_printoptions(precision=2, linewidth=120, suppress=True)
+from dataset_utilities import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--in_db_file', required=True)
+parser.add_argument('--train_db_file', required=True)
+parser.add_argument('--valid_db_files', nargs='*')
 parser.add_argument('--out_h5_file')
 parser.add_argument('--num_epochs', default=1, type=int)
 parser.add_argument('--steps_per_epoch', default=10, type=int)
-parser.add_argument('--logging_level', default=20, type=int)
+parser.add_argument('--batchsize', default=128, type=int)
+parser.add_argument('--logging', default=20, type=int)
 parser.add_argument('--show_layers', action='store_true')
 args = parser.parse_args()
 
-#logging.basicConfig(level=args.logging_level)
+logging.basicConfig(level=args.logging)
 
-# Setting crop_car to False since we want the full patch.
-dataset = CitycarsDataset(args.in_db_file, fraction=1., crop_car=False, randomly=False)
+dataset_train = CitycarsDataset(args.train_db_file, fraction=1.,
+    crop_car=False, randomly=True, car_constraint='yaw IS NOT NULL')
+datasets_valid = []
+for valid_db_file in args.valid_db_files:
+  datasets_valid.append( CitycarsDataset(valid_db_file, fraction=1.,
+      crop_car=False, randomly=True, car_constraint='yaw IS NOT NULL') )
 
-def car_to_label(car_entry, blur):
-  label = int(carField(car_entry, 'yaw'))
-  label = label // (360 // 12)
-  label_one_hot = np.zeros([12], dtype=float)
-  if blur:
-    label_one_hot[label] = 0.6
-    label_one_hot[(label + 1) % 12] = 0.2
-    label_one_hot[(label - 1) % 12] = 0.2
-  else:
-    label_one_hot[label] = 1.
-  return label_one_hot
-
-def generate_batches(dataset, batchsize, blur=False):
-  batch = None
-  while True:
-    for i, (image, car_entry) in enumerate(dataset.__getitem__()):
-      image = imresize(image, (139,139))
-      label = car_to_label(car_entry, blur=blur)
-      if batch is None:
-        batch = np.zeros([batchsize] + list(image.shape), dtype=float)
-        labels = np.zeros([batchsize, 12], dtype=float)
-      batch[i % batchsize] = image
-      labels[i % batchsize] = label
-      if (i-1) % batchsize == 0:
-        batch = preprocess_input(batch)
-        logging.debug((str(batch.shape), str(labels)))
-        yield batch, labels
-    
-
-#for i, (batch,labels) in enumerate(generate_batches(dataset, 4)):
-#  if i == 10: sys.exit()
+batchsize=args.batchsize
 
 # create the base pre-trained model
 base_model = InceptionV3(weights='imagenet', include_top=False, input_shape=(139,139,3))
@@ -91,8 +64,17 @@ model.compile(optimizer='rmsprop',
 
 # train the model on the new data for a few epochs
 print ('Fine-tuning all layers...')
-model.fit_generator(generate_batches(dataset, 16, blur=True), 
-    steps_per_epoch=args.steps_per_epoch, epochs=args.num_epochs)
+for epoch in range(args.num_epochs):
+  model.fit_generator(generate_batches(dataset_train, batchsize, blur=True, crop=True), 
+      steps_per_epoch=args.steps_per_epoch, epochs=1)
+  scores = model.evaluate_generator(iter(
+    BatchGenerator(dataset_train, batchsize)), len(dataset_train) // batchsize)
+  print ('dataset_train', model.metrics_names[1], scores[1])
+  for dataset_valid in datasets_valid:
+    scores = model.evaluate_generator(iter(
+      BatchGenerator(dataset_valid, batchsize)), len(dataset_valid) // batchsize)
+    print ('dataset_valid', model.metrics_names[1], '%.2f' % scores[1])
+
 
 # at this point, the top layers are well trained and we can start fine-tuning
 # convolutional layers from inception V3. We will freeze the bottom N layers
@@ -120,8 +102,17 @@ model.compile(optimizer=SGD(lr=0.0001, momentum=0.9),
 # we train our model again (this time fine-tuning the top 2 inception blocks
 # alongside the top Dense layers
 print ('Fine-tuning top layers...')
-model.fit_generator(generate_batches(dataset, 16, blur=False),
-    steps_per_epoch=args.steps_per_epoch, epochs=args.num_epochs)
+for epoch in range(args.num_epochs):
+  model.fit_generator(generate_batches(dataset_train, batchsize, blur=True, crop=True), 
+      steps_per_epoch=args.steps_per_epoch, epochs=1)
+  scores = model.evaluate_generator(iter(
+    BatchGenerator(dataset_train, batchsize)), len(dataset_train) // batchsize)
+  print ('dataset_train', model.metrics_names[1], '%.2f' % scores[1])
+  for dataset_valid in datasets_valid:
+    scores = model.evaluate_generator(iter(
+      BatchGenerator(dataset_valid, batchsize)), len(dataset_valid) // batchsize)
+    print ('dataset_valid', model.metrics_names[1], '%.2f' % scores[1])
 
 if args.out_h5_file:
   model.save(args.out_h5_file)
+

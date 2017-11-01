@@ -175,7 +175,7 @@ def filterUnknownNamesParser(subparsers):
     description='Filter away car entries with unknown names.')
   parser.set_defaults(func=filterUnknownNames)
 
-def filterUnknownNames (c):
+def filterUnknownNames (c, args):
   # load terms tree
   dictionary_path = atcity('src/learning/annotations/dictionary.json')
   assert op.exists(dictionary_path), dictionary_path

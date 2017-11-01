@@ -244,7 +244,7 @@ if __name__ == "__main__":
 
     # workhorse
     if args.render == 'SEQUENTIAL':
-        for job in jobs:
+        for job in tqdm(jobs):
             print 'running a job'
             run_patches_job (job)
     elif args.render == 'PARALLEL':

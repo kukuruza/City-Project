@@ -63,7 +63,13 @@ def info (c, args):
   imagedirs = list(set(imagedirs))
   if args.imagedirs:
     info['imagedirs'] = imagedirs
-  
+    for i,imagedir in enumerate(imagedirs):
+      #imagefile = [x for x in imagefiles if imagedir in x][0]
+      imagefile = imagefiles[0]
+      c.execute('SELECT width,height FROM images WHERE imagefile=?', imagefile)
+      (width, height) = c.fetchone()
+      print (width, height)
+
   def collectImageRange(nums):
     if len(nums) == 0: return []
     nums = sorted(nums)

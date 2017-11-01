@@ -29,6 +29,8 @@ def imread(impath):
   im = scipy.misc.imread(impath)
   if len(im.shape) == 3 and im.shape[2] == 3:
     im = im[:,:,[2,1,0]]
+  elif len(im.shape) == 3 and im.shape[2] == 4:
+    im = im[:,:,[2,1,0,3]]
   return im
 
 def imsave(impath, im):

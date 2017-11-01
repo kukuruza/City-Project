@@ -3,6 +3,7 @@ from helperSetup import atcity, dbInit, setupLogging
 from helperDb import imageField, carField
 from helperImg import ReaderVideo
 import numpy as np
+from scipy.misc import imresize
 import argparse
 import logging
 
@@ -76,7 +77,7 @@ class CitycarsDataset:
   def __init__(self, db_file, fraction=1., car_constraint='1', crop_car=True,
                randomly=True):
 
-    (conn, c) = dbInit(db_file, backup=False)
+    (conn, c) = dbInit(db_file)
     c.execute('SELECT * FROM cars WHERE %s ORDER BY imagefile' % car_constraint)
     self.car_entries = c.fetchall()
     conn.close()
@@ -113,7 +114,7 @@ class CitycarsDataset:
             [imheight, imwidth] are image and mask ogirinal dimensions.
     '''
     num_to_use = self.__len__()
-    logging.info('CitycarsDataset: will use %d frames.' % num_to_use)
+    logging.debug('CitycarsDataset: will use %d frames.' % num_to_use)
 
     car_entries = list(self.car_entries)  # make a copy
     if self.randomly:
@@ -122,7 +123,7 @@ class CitycarsDataset:
     for car_entry in car_entries[:num_to_use]:
       yield self._load_image(car_entry), car_entry
 
-    logging.info('CitycarsDataset: done with the dataset.')
+    logging.debug('CitycarsDataset: done with the dataset.')
 
 
   def _getitem_by_index(self, index):
@@ -139,15 +140,17 @@ class CitycarsDataset:
   def get_batch(self, imsize, batchsize):
     assert type(imsize) is list or type(imsize) is tuple, imsize
     assert len(imsize) == 2, imsize
-    batch = None
-    for i, image in enumerate(self.dataset.__getitem__()):
+    batch_image = None
+    batch_car_entry = [None] * batchsize
+    for i, (image, car_entry) in enumerate(self.__getitem__()):
       image = imresize(image, imsize)
-      if batch is None:
-        batch = np.zeros([batchsize] + list(image.shape), float)
-      batch[i % batchsize] = image
-      if (i-1) % batchsize == 0:
-        logging.debug(batch.shape)
-        yield batch
+      if batch_image is None:
+        batch_image = np.zeros([batchsize] + list(image.shape), float)
+      batch_image[i % batchsize] = image
+      batch_car_entry[i % batchsize] = car_entry
+      if (i+1) % batchsize == 0:
+        logging.debug(batch_image.shape)
+        yield batch_image, batch_car_entry
 
 
 if __name__ == "__main__":

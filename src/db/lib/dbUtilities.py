@@ -216,10 +216,11 @@ def cropPatch(image, roi, target_height, target_width, edge):
     roi = expandRoiToRatio (roi, 0.0, target_ratio)
 
   pad = image.shape[1]
-  if len(image.shape) == 2:
-    image = np.pad(image, pad_width=((pad,pad),(pad,pad)), mode='constant')
-  else:
-    image = np.pad(image, pad_width=((pad,pad),(pad,pad),(0,0)), mode='constant')
+  if len(image.shape) == 2:  # Grayscale.
+    pad_width=((pad,pad),(pad,pad))
+  else:  # Color.
+    pad_width=((pad,pad),(pad,pad),(0,0))
+  image = np.pad(image, pad_width=pad_width, mode='constant')
   roi = [x + pad for x in roi]
   height, width = roi[2] - roi[0], roi[3] - roi[1]
 
@@ -233,22 +234,25 @@ def cropPatch(image, roi, target_height, target_width, edge):
     if height > int(target_ratio * width):
       pad1 = (int(height / target_ratio) - width) // 2
       pad2 = int(height / target_ratio) - width - pad1
-      if len(image.shape) == 2:
-        patch = np.pad(patch, pad_width=((0,0),(pad1,pad2)), mode='constant')
-      else:
-        patch = np.pad(patch, pad_width=((0,0),(pad1,pad2),(0,0)), mode='constant')
+      if len(image.shape) == 2:  # Grayscale.
+        pad_width=((0,0),(pad,pad))
+      else:  # Color.
+        pad_width=((0,0),(pad1,pad2),(0,0))
+      patch = np.pad(patch, pad_width=pad_width, mode='constant')
     else:
       pad1 = (int(target_ratio * width) - height) // 2
       pad2 = int(target_ratio * width) - height - pad1
-      if len(image.shape) == 2:
-        patch = np.pad(patch, pad_width=((pad1,pad2),(0,0)), mode='constant')
-      else:
-        patch = np.pad(patch, pad_width=((pad1,pad2),(0,0),(0,0)), mode='constant')
+      if len(image.shape) == 2:  # Grayscale.
+        pad_width=((pad,pad),(0,0))
+      else:  # Color.
+        pad_width=((pad1,pad2),(0,0),(0,0))
+      patch = np.pad(patch, pad_width=pad_width, mode='constant')
 
   elif edge == 'distort':
     pass
 
   patch = imresize(patch, (target_height, target_width))
+  if len(patch.shape) == 2: patch = patch > 0
   return patch
 
 
