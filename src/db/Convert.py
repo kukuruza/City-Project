@@ -5,6 +5,7 @@ import logging
 import argparse
 from db.lib.helperSetup import dbInit
 from db.lib import dbFilter, dbModify, dbManual, dbInfo, dbExport
+from augmentation import dbCadFilter
 
 
 parser = argparse.ArgumentParser(description=
@@ -25,6 +26,11 @@ dbModify.add_parsers(subparsers)
 dbManual.add_parsers(subparsers)
 dbInfo.add_parsers(subparsers)
 dbExport.add_parsers(subparsers)
+dbCadFilter.add_parsers(subparsers)
+# Add a dummy option to allow passing '--' in order to end lists.
+dummy = subparsers.add_parser('--')
+dummy.set_defaults(func=lambda *args: None)
+
 
 # Parse main parser and the first subsparser.
 args, rest = parser.parse_known_args(sys.argv[1:])
@@ -33,6 +39,7 @@ out_db_file = args.out_db_file
 logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 (conn, cursor) = dbInit(args.in_db_file, args.out_db_file)
 
+# Iterate tools.
 args.func(cursor, args)
 while rest:
   args, rest = parser.parse_known_args(['-i', 'dummy'] + rest)

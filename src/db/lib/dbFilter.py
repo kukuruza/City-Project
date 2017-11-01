@@ -6,7 +6,7 @@ import json
 from tqdm import tqdm
 from helperDb import deleteCars, deleteCar, carField, imageField, doesTableExist
 from annotations.terms import TermTree
-from dbUtilities import drawRoi
+from dbUtilities import drawRoi, bbox2roi
 from helperSetup import atcity
 from helperKeys import KeyReaderUser
 from helperImg import ReaderVideo
@@ -65,7 +65,7 @@ def filterByBorder (c, args):
     logging.debug('%d cars found for %s' % (len(car_entries), imagefile))
 
     for car_entry in car_entries:
-      carid = carField(car_entry, 'id')
+      car_id = carField(car_entry, 'id')
       roi = bbox2roi (carField(car_entry, 'bbox'))
 
       if isRoiAtBorder(roi, imwidth, imheight, args.border_thresh_perc):
@@ -81,9 +81,6 @@ def filterByBorder (c, args):
       cv2.imshow('display_border', display)
       key = key_reader.readKey()
       if key == 27: cv2.destroyWindow('display_border')
-
-  c.execute('SELECT id FROM cars WHERE score < ?', (args.score_threshold,))
-  car_ids = c.fetchall()
 
 
 
@@ -221,7 +218,8 @@ def deleteEmptyImagesParser(subparsers):
   parser = subparsers.add_parser('deleteEmptyImages')
   parser.set_defaults(func=deleteEmptyImages)
 
-def deleteEmptyImages(c):
+def deleteEmptyImages(c, args):
+  logging.info ('==== deleteEmptyImages ====')
   c.execute('SELECT COUNT(*) FROM images WHERE imagefile NOT IN '
             '(SELECT imagefile FROM cars)')
   num, = c.fetchone()

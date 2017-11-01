@@ -96,13 +96,23 @@ def exportCarsToDataset(c, args):
     imagefile = carField(car, 'imagefile')
     roi = carField(car, 'roi')
     logging.debug ('processing %d car from imagefile %s' % (carid, imagefile))
-    image = reader.imread(imagefile)
-    patch = cropPatch(image, roi, args.target_height, args.target_width, args.edges)
 
     c.execute('SELECT * FROM images WHERE imagefile = ?', (imagefile,))
     image_entry = c.fetchone()
+    maskfile = imageField(image_entry, 'maskfile')
     timestamp = imageField(image_entry, 'timestamp')
-    out_imagefile = dataset_writer.add_image(image=patch, timestamp=timestamp)
+
+    image = reader.imread(imagefile)
+    patch = cropPatch(image, roi, args.target_height, args.target_width, args.edges)
+    if maskfile is not None:
+      mask = reader.maskread(maskfile).astype(np.uint8) * 255
+      maskpatch = cropPatch(mask, roi, args.target_height, args.target_width, args.edges)
+      maskpatch = maskpatch > 127
+    else:
+      maskpatch = None
+
+    out_imagefile = dataset_writer.add_image(
+        image=patch, mask=maskpatch, timestamp=timestamp)
     car_entry = (out_imagefile, carField(car,'name'), 
                  0, 0, args.target_width, args.target_height,
                  carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'))
