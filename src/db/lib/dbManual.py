@@ -7,10 +7,12 @@ from dbUtilities import getCenter
 from helperDb    import deleteCar, carField, createTableMatches, doesTableExist
 from helperKeys  import KeyReaderUser, getCalibration
 from helperImg   import ReaderVideo
+from scipy.misc import imresize
 
 
 def add_parsers(subparsers):
   displayParser(subparsers)
+  examineParser(subparsers)
 
 
 def displayParser(subparsers):
@@ -62,106 +64,98 @@ def display (c, args):
         logging.info ('roi: %s, name: %s, score: %f' % (str(roi), name, score))
         drawScoredRoi (display, roi, '', score)
 
-    f = args.display_scale
-    cv2.imshow('display', cv2.resize(display, (0,0), fx=f, fy=f))
+    cv2.imshow('display', imresize(display, args.display_scale))
     if key_reader.readKey() == 27: break
 
 
 
-def examine (c, params = {}):
-    '''
-    Browse through database and see car bboxes on top of images. Colors are shown.
-    Left/right key will loop through images.
-    This is an enhanced version of show() function for careful examination.
-    '''
-    logging.info ('==== examine ====')
-    setParamUnlessThere (params, 'disp_scale',       1.5)
-    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
-    setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
-    keys = getCalibration()
+def examineParser(subparsers):
+  parser = subparsers.add_parser('examine',
+    description='''Browse through database and see car bboxes on top of images.
+                   Preset keys for left/right will loop through cars.''')
+  parser.set_defaults(func=examine)
+  parser.add_argument('--display_scale', type=float, default=1.)
+  parser.add_argument('--shuffle', action='store_true')
 
-    color_config = {}
-    color_config['']       = None
-    color_config['black']  = (0,0,0)
-    color_config['white']  = (255,255,255)
-    color_config['blue']   = (255,0,0)
-    color_config['yellow'] = (0,255,255)
-    color_config['red']    = (0,0,255)
-    color_config['green']  = (0,255,0)
-    color_config['gray']   = (128,128,128)
-    color_config['badroi'] = color_config['red']
+def examine (c, args):
+  logging.info ('==== examine ====')
 
-    c.execute('SELECT count(*) FROM cars')
-    (total_num,) = c.fetchone()
-    logging.info('total number of objects found in db: ' + str(total_num))
+  image_reader = ReaderVideo()
+  key_reader = KeyReaderUser()
+  keys = getCalibration()
 
-    c.execute('SELECT imagefile FROM images')
-    image_entries = c.fetchall()
+  c.execute('SELECT count(*) FROM cars')
+  (total_num,) = c.fetchone()
+  logging.info('Found %d objects in db.' % total_num)
 
-    if 'imagefile_start' in params.keys(): 
-        imagefile_start = params['imagefile_start']
-        try:
-            index_im = image_entries.index((imagefile_start,))
-        except ValueError:
-            logging.error ('provided image does not exist ' + imagefile_start)
-            sys.exit()
+  c.execute('SELECT imagefile FROM images')
+  image_entries = c.fetchall()
+
+  if args.shuffle:
+    np.random.shuffle(image_entries)
+
+  button = 0
+  index_im = 0
+  index_car = 0
+  while button != 27 and index_im < len(image_entries):
+    (imagefile,) = image_entries[index_im]
+
+    image = None
+
+    c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+    car_entries = c.fetchall()
+    logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+
+    if index_car == -1:
+      index_car = len(car_entries) - 1  # did 'prev image'
     else:
-        index_im = 0
+      index_car = 0
+    while button != 27 and index_car >= 0 and index_car < len(car_entries):
+      car_entry = car_entries[index_car]
+      roi       = bbox2roi (carField(car_entry, 'bbox'))
+      imagefile = carField(car_entry, 'imagefile')
+      name      = carField(car_entry, 'name')
+      color     = carField(car_entry, 'color')
+      score     = carField(car_entry, 'score')
+      yaw       = carField(car_entry, 'yaw')
+      pitch     = carField(car_entry, 'pitch')
 
-    car_statuses = {}
-    button = 0
-    index_car = 0
-    while button != 27 and index_im < len(image_entries):
-        (imagefile,) = image_entries[index_im]
+      if image is None:
+        image = image_reader.imread(imagefile)
 
-        img = None
+      display = image.copy()  # each car roi is drawn on a copy
+      drawRoi (display, roi)
+      display = imresize(display, args.display_scale)
+      font = cv2.FONT_HERSHEY_SIMPLEX
+      cv2.putText (display, 'name: %s' % name, (10, 20), font, 0.5, (255,255,255), 2)
+      cv2.putText (display, 'color: %s' % color, (10, 40), font, 0.5, (255,255,255), 2)
+      if score is not None:
+        cv2.putText (display, 'score: %.3f' % score, (10, 60), font, 0.5, (255,255,255), 2)
+      if yaw is not None:
+        cv2.putText (display, 'yaw: %.1f' % yaw, (10, 80), font, 0.5, (255,255,255), 2)
+      if pitch is not None:
+        cv2.putText (display, 'pitch: %.1f' % pitch, (10, 100), font, 0.5, (255,255,255), 2)
 
-        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-        car_entries = c.fetchall()
-        logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+      cv2.imshow('examine', display)
+      button = key_reader.readKey()
 
-        if index_car == -1: index_car = len(car_entries) - 1  # did 'prev image'
-        else: index_car = 0
-        while button != 27 and index_car >= 0 and index_car < len(car_entries):
-            car_entry = car_entries[index_car]
-            roi       = bbox2roi (carField(car_entry, 'bbox'))
-            imagefile = carField(car_entry, 'imagefile')
-            name      = carField(car_entry, 'name')
-            color     = carField(car_entry, 'color')
+      if button == keys['left']:
+        logging.debug ('prev car')
+        index_car -= 1
+      elif button == keys['right']:
+        logging.debug ('next car')
+        index_car += 1
 
-            # TODO: color based on score
-
-            # lazily load image
-            if img is None: img = params['image_processor'].imread(imagefile)
-
-            display = img.copy()  # each car roi is drawn on a copy
-            drawRoi (display, roi, name, color_config[color or ''])
-
-            disp_scale = params['disp_scale']
-            display = cv2.resize(display, (0,0), fx=disp_scale, fy=disp_scale)
-            cv2.imshow('show', display)
-            button = params['key_reader'].readKey()
-
-            if button == keys['left']:
-                logging.debug ('prev car')
-                index_car -= 1
-            elif button == keys['right']:
-                logging.debug ('next car')
-                index_car += 1
-
-            #if button == keys['>']:
-
-
-        if button == keys['left']:
-            logging.debug ('prev image')
-            if index_im == 0:
-                logging.warning ('already the first image')
-            else:
-                index_im -= 1
-                index_car = -1
-        else: 
-            logging.debug ('next image')
-            index_im += 1
+    if button == keys['left']:
+      logging.debug ('prev image')
+      if index_im == 0:
+        logging.warning ('already the first image')
+      else:
+        index_im -= 1
+        index_car = -1
+    else: 
+      logging.debug ('next image')
+      index_im += 1
 
 
 
