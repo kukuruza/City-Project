@@ -6,6 +6,7 @@ import argparse
 from db.lib.helperSetup import dbInit
 from db.lib import dbFilter, dbModify, dbManual, dbInfo, dbExport
 from augmentation import dbCadFilter
+import progressbar
 
 
 parser = argparse.ArgumentParser(description=
@@ -36,6 +37,7 @@ dummy.set_defaults(func=lambda *args: None)
 args, rest = parser.parse_known_args(sys.argv[1:])
 out_db_file = args.out_db_file
 
+progressbar.streams.wrap_stderr()
 logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 (conn, cursor) = dbInit(args.in_db_file, args.out_db_file)
 

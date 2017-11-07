@@ -3,18 +3,19 @@ import argparse
 import logging
 import sqlite3
 import numpy as np
-from tqdm import trange, tqdm
+from progressbar import ProgressBar
 from inspect import stack
 from datetime import datetime
 from helperDb import carField, imageField, createDb, makeTimeString
 from helperSetup import atcity
-from helperImg import ReaderVideo, SimpleWriter
+from helperImg import imsave, ReaderVideo, SimpleWriter
 from dbUtilities import cropPatch
 
 
 def add_parsers(subparsers):
   exportCarsToDatasetParser(subparsers)
   exportImagesWBoxesParser(subparsers)
+  exportCarsToFolderParser(subparsers)
 
 
 
@@ -64,7 +65,19 @@ class DatasetWriter:
 
   def add_car(self, car_entry):
     s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch)'
+    logging.debug('Adding a new car %s' % str(car_entry))
     self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?);' % s, car_entry)
+    return self.c.lastrowid
+
+  def add_match(self, car_id, match=None):
+    if match is None:
+      self.c.execute('SELECT MAX(match) FROM matches')
+      match = self.c.fetchone()[0]
+      match = match + 1 if match is not None else 0
+    s = 'matches(match,carid)'
+    logging.debug('Adding a new match %d for car_id %d' % (match, car_id))
+    self.c.execute('INSERT INTO %s VALUES (?,?);' % s, (match, car_id))
+    return match
 
   def close(self):
     self.conn.commit()
@@ -90,8 +103,8 @@ def exportCarsToDataset(c, args):
   reader = ReaderVideo()
   dataset_writer = DatasetWriter(args.patch_db_file, overwrite=True)
 
-  c.execute('SELECT * FROM cars')
-  for car in tqdm(c.fetchall()):
+  c.execute('SELECT * FROM cars ORDER BY id')
+  for car in ProgressBar()(c.fetchall()):
     carid = carField(car, 'id')
     imagefile = carField(car, 'imagefile')
     roi = carField(car, 'roi')
@@ -111,12 +124,22 @@ def exportCarsToDataset(c, args):
     else:
       maskpatch = None
 
+    # Add the image.
     out_imagefile = dataset_writer.add_image(
         image=patch, mask=maskpatch, timestamp=timestamp)
+
+    # Add the car entry.
     car_entry = (out_imagefile, carField(car,'name'), 
                  0, 0, args.target_width, args.target_height,
                  carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'))
-    dataset_writer.add_car(car_entry)
+    out_carid = dataset_writer.add_car(car_entry)
+
+    # Add the match entry, if any.
+    # Assume there is the matches table.
+    c.execute('SELECT match FROM matches WHERE carid = ?', (carid,))
+    match = c.fetchone()
+    if match is not None:
+      dataset_writer.add_match(out_carid, match[0])
 
   dataset_writer.close()
 
@@ -135,7 +158,7 @@ def exportImagesWBoxes (c, out_videofile):
   video_writer = SimpleWriter(vimagefile=out_videofile)
 
   c.execute('SELECT imagefile FROM images')
-  for (imagefile,) in tqdm(c.fetchall()):
+  for (imagefile,) in ProgressBar()(c.fetchall()):
 
     frame = reader.imread(imagefile)
 
@@ -150,3 +173,40 @@ def exportImagesWBoxes (c, out_videofile):
     video_writer.imwrite(frame)
 
   video_writer.close()
+
+
+def exportCarsToFolderParser(subparsers):
+  parser = subparsers.add_parser('exportCarsToFolder',
+    description='Export cars to a folder with only patches.')
+  parser.set_defaults(func=exportCarsToFolder)
+  parser.add_argument('--patch_dir', required=True, type=str)
+  parser.add_argument('--target_width', required=True, type=int)
+  parser.add_argument('--target_height', required=True, type=int)
+  parser.add_argument('--edges', required=True,
+    choices={'distort', 'constant', 'background'},
+    help='''"distort" distorts the patch to get to the desired ratio,
+            "constant" keeps the ratio but pads the patch with zeros,
+            "background" keeps the ratio but includes image background.''')
+
+def exportCarsToFolder(c, args):
+  logging.info('=== exportCarsToFolder ===')
+
+  reader = ReaderVideo()
+
+  if not op.exists(atcity(args.patch_dir)):
+    os.makedirs(atcity(args.patch_dir))
+
+  c.execute('SELECT * FROM cars')
+  for car in ProgressBar()(c.fetchall()):
+    carid = carField(car, 'id')
+    roi = carField(car, 'roi')
+    imagefile = carField(car, 'imagefile')
+    logging.debug ('processing %d car from imagefile %s' % (carid, imagefile))
+
+    image = reader.imread(imagefile)
+    patch = cropPatch(image, roi, args.target_height, args.target_width, args.edges)
+
+    out_name = '%s.jpg' % op.basename(imagefile)
+    out_imagefile = op.join(atcity(args.patch_dir), out_name)
+    imsave(out_imagefile, patch)
+

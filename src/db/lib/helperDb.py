@@ -1,7 +1,7 @@
 import logging
 import json
 import sqlite3
-from tqdm import tqdm
+from progressbar import ProgressBar
 from datetime import datetime
 
 
@@ -72,17 +72,31 @@ def createDb (conn):
     createTableMatches(cursor)
 
 
-def deleteCar (cursor, carid, has_polygons=False, has_matches=False):
-  ''' delete all information about a single car '''
+def deleteCar (cursor, carid, has_polygons=False, has_matches=False):#, remove_matched=True):
+  ''' Delete all information about a car.
+  If the car does not exist, operation has no effect.
+  Args:
+    remove_matches:  if True, also delete all cars matched to the current car.
+  '''
   cursor.execute('DELETE FROM cars WHERE id=?;', (carid,))
   if has_matches:
-    cursor.execute('DELETE FROM matches  WHERE carid=?;', (carid,))
+    cursor.execute('''SELECT carid FROM matches WHERE carid IN
+                      (SELECT match FROM matches WHERE carid=?)''', (carid,))
+    carids_matched = cursor.fetchall()
+    logging.debug ('Car is in %d matches.' % len(carids_matched))
+    cursor.execute('DELETE FROM matches WHERE carid=?;', (carid,))
+    #if remove_matched:
+    #  for carid_matched, in carids_matched:
+    #    if carid_matched != carid:
+    #      deleteCar(cursor, carid_matched, has_polygons, has_matches, remove_matched=False)
   if has_polygons:
     cursor.execute('DELETE FROM polygons WHERE carid=?;', (carid,))
 
 
-def deleteCars (cursor, carids, has_polygons=False, has_matches=False):
-  for carid, in tqdm(carids):
+def deleteCars (cursor, carids):
+  has_polygons = doesTableExist(cursor, 'polygons')
+  has_matches = doesTableExist(cursor, 'matches')
+  for carid, in ProgressBar()(carids):
     deleteCar (cursor, carid, has_polygons=has_polygons, has_matches=has_matches)
 
 

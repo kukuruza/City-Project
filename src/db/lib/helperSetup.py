@@ -5,12 +5,6 @@ import shutil
 import sqlite3
 
 
-def print_to_tqdm(t, msg, msg_len=50):
-  msg = msg.ljust(msg_len)
-  t.set_description(msg)
-  t.refresh()
-
-
 def atcity (path):
   if op.isabs(path):
     return path

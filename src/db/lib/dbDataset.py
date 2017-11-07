@@ -31,7 +31,10 @@ class CityimagesDataset:
 
 
   def __len__(self):
-    return int(len(self.image_entries) * self.fraction)
+    if self.fraction == 1:
+      return len(self.image_entries)  # No rounding errors.
+    else:
+      return int(len(self.image_entries) * self.fraction)
 
 
   def __getitem__(self):

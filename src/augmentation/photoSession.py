@@ -13,7 +13,6 @@ from augmentation.common import *
 from db.lib.helperSetup import atcity, setupLogging
 
 
-
 COLLECTIONS_DIR  = atcity('data/augmentation/CAD')
 ROAD_TEXTURE_DIR = atcity('data/augmentation/resources/textures/road')
 BLDG_TEXTURE_DIR = atcity('data/augmentation/resources/textures/buildings')
@@ -24,56 +23,20 @@ OUT_INFO_NAME    = 'out_info.json'
 WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getppid())
 
 
-SCALE_FACTOR = 2   # how far a camera is from the origin
-RENDER_WIDTH  = 400
-RENDER_HEIGHT = 400
+SCALE_FACTOR = 3   # how far a camera is from the origin
+RENDER_WIDTH  = 600
+RENDER_HEIGHT = 600
 
 # sampling weather and camera position
-SCALE_NOISE_SIGMA = 0.1
-PITCH_LOW         = 20 * pi / 180
-PITCH_HIGH        = 40 * pi / 180
+PITCH_LOW         = 20
+PITCH_HIGH        = 40
 SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
 
-def prepare_simplest_photo (car_sz, azimuth_low, azimuth_high):
-    '''Pick only random camera pose, and finally render a frame
-    '''
-    # pick random weather
-    params = {}
-    params['weather'] = 'Cloudy'
-    set_weather (params)
-    # turn off sky reflexion
-    bpy.data.lamps['Sky-sunset'].energy = 0
+def choose_params(azimuth_low, azimuth_high, pitch_low, pitch_high):
+    ''' Pick some random parameters, adjust lighting, and finally render a frame. '''
 
-    # pick random camera angle and distance
-    scale = normal (1, SCALE_NOISE_SIGMA)
-    azimuth  = uniform (low=azimuth_low, high=azimuth_high)
-    altitude = uniform (low=PITCH_LOW, high=PITCH_HIGH)
-    print ('scale: %.2f, azimuth: %.2f, altitude: %.2f' % 
-           (scale, azimuth*180/pi, altitude))
-
-    # compute camera position
-    dist  = car_sz * SCALE_FACTOR / scale
-    x = dist * cos(azimuth) * cos(altitude)
-    y = dist * sin(azimuth) * cos(altitude)
-    z = dist * sin(altitude)
-    bpy.data.objects['-Camera'].location = (x,y,z)
-
-    # hide everything
-    bpy.data.objects['-Building'].hide_render = True
-    bpy.data.objects['-Ground'].hide_render = True
-
-    params['azimuth'] = azimuth * 180 / pi
-    params['altitude'] = altitude * 180 / pi
-
-    return params
-
-
-
-def prepare_photo (car_sz, azimuth_low, azimuth_high):
-    '''Pick some random parameters, adjust lighting, and finally render a frame
-    '''
     # pick random weather
     params = {}
     params['sun_azimuth']  = uniform(low=0, high=360)
@@ -82,53 +45,32 @@ def prepare_photo (car_sz, azimuth_low, azimuth_high):
     set_weather (params)
 
     # pick random camera angle and distance
-    scale = normal (1, SCALE_NOISE_SIGMA)
-    azimuth  = uniform (low=azimuth_low, high=azimuth_high)
-    altitude = uniform (low=PITCH_LOW, high=PITCH_HIGH)
-    logging.info ('prepare_photo: scale: %.2f, azimuth (deg): %.2f, altitude: %.2f' % 
-           (scale, azimuth*180/pi, altitude))
-
-    # compute camera position
-    dist  = car_sz * SCALE_FACTOR / scale
-    x = dist * cos(azimuth) * cos(altitude)
-    y = dist * sin(azimuth) * cos(altitude)
-    z = dist * sin(altitude)
-
-    # set up lighting
-    bpy.data.objects['-Camera'].location = (x,y,z)
-    bpy.data.objects['-Sky-sunset'].location = (-x,-y,10)
-    bpy.data.objects['-Sky-sunset'].rotation_euler = (60*pi/180, 0, azimuth-pi/2)
-
-    # set up road
+    params['azimuth'] = uniform (low=azimuth_low, high=azimuth_high)
+    params['altitude'] = uniform (low=pitch_low, high=pitch_high)
+    logging.info ('prepare_photo: azimuth (deg): %.1f, altitude: %.1f (deg)' %
+        (params['azimuth'], params['altitude']))
+   
     # assign a random texture from the directory
     road_texture_path = choice(glob(op.join(ROAD_TEXTURE_DIR, '*.jpg')))
     logging.info ('road_texture_path: %s' % road_texture_path)
-    bpy.data.images['ground'].filepath = road_texture_path
+    params['road_texture_path'] = road_texture_path
     # pick a random road width
-    road_width = normal(15, 5)
-    bpy.data.objects['-Ground'].dimensions.x = road_width
+    params['road_width'] = normal(15, 5)
 
-    # set up building
     # assign a random texture from the directory
     buidling_texture_path = choice(glob(op.join(BLDG_TEXTURE_DIR, '*.jpg')))
     logging.info ('buidling_texture_path: %s' % buidling_texture_path)
-    bpy.data.images['building'].filepath = buidling_texture_path
-    # put the building at the edge of the road, opposite to the camera
-    bpy.data.objects['-Building'].location.y = road_width/2 * (1 if y < 0 else -1)
+    params['buidling_texture_path'] = buidling_texture_path
     # pick a random height dim
-    bpy.data.objects['-Building'].dimensions.z = normal(20, 5)
+    params['building.dimensions.z'] = normal(20, 5)
     # move randomly along a X and Z axes
-    bpy.data.objects['-Building'].location.x = normal(0, 5)
-    bpy.data.objects['-Building'].location.z = uniform(-5, 0)
-
-    params['azimuth'] = azimuth * 180 / pi
-    params['altitude'] = altitude * 180 / pi
+    params['building.location.x'] = normal(0, 5)
+    params['building.location.z'] = uniform(-5, 0)
 
     return params
 
 
-
-def make_snapshot (render_dir, car_names, params):
+def make_snapshot (car_sz, render_dir, car_names, params):
     '''Set up the weather, and render vehicles into files
     Args:
       render_dir:  path to directory where to put all rendered images
@@ -139,6 +81,31 @@ def make_snapshot (render_dir, car_names, params):
     '''
     logging.info ('make_snapshot: started')
 
+    # compute camera position
+    azimuth_rad = params['azimuth'] * pi / 180
+    altitude_rad = params['altitude'] * pi / 180
+    dist  = car_sz * SCALE_FACTOR
+    x = dist * cos(azimuth_rad) * cos(altitude_rad)
+    y = dist * sin(azimuth_rad) * cos(altitude_rad)
+    z = dist * sin(altitude_rad)
+    bpy.data.objects['-Camera'].location = (x,y,z)
+
+    # set up lighting
+    bpy.data.objects['-Sky-sunset'].location = (-x,-y,10)
+    bpy.data.objects['-Sky-sunset'].rotation_euler = (60*pi/180, 0, azimuth_rad-pi/2)
+
+    # set up road
+    bpy.data.images['ground'].filepath = params['road_texture_path']
+    bpy.data.objects['-Ground'].dimensions.x = params['road_width']
+
+    # set up building
+    bpy.data.images['building'].filepath = params['buidling_texture_path']
+    bpy.data.objects['-Building'].dimensions.z = params['building.dimensions.z']
+    bpy.data.objects['-Building'].location.x = params['building.location.x']
+    bpy.data.objects['-Building'].location.z = params['building.location.z']
+    # put the building at the edge of the road, opposite to the camera
+    bpy.data.objects['-Building'].location.y = params['road_width'] / 2 * (1 if y < 0 else -1)
+    
     # create render dir
     print (atcity(render_dir))
     if not op.exists(atcity(render_dir)):
@@ -177,7 +144,6 @@ def make_snapshot (render_dir, car_names, params):
         show_car (car_name)
 
     logging.info ('make_snapshot: successfully finished a frame')
-    return params
     
 
 
@@ -188,8 +154,10 @@ def photo_session (job):
     num_per_session = job['num_per_session']
     vehicles        = job['vehicles']
 
-    azimuth_low     = job['azimuth_low']
-    azimuth_high    = job['azimuth_high']
+    azimuth_low = job['azimuth_low']
+    azimuth_high = job['azimuth_high']
+    pitch_low = PITCH_LOW
+    pitch_high = PITCH_HIGH
 
     # open the blender file
     scene_path = atcity('data/augmentation/scenes/photo-session.blend')
@@ -220,8 +188,16 @@ def photo_session (job):
     car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
     for i in range(num_per_session):
         render_dir = op.join(WORK_DIR, '%06d' % i)
-        params = make_snapshot (render_dir, car_names, 
-                                prepare_photo(car_sz, azimuth_low, azimuth_high))
+        use_90turn = job['use_90turn'] if 'use_90turn' in job else False
+        logging.info ('use_90turn %s' % str(use_90turn))
+        if use_90turn and i % 2 == 1:
+          logging.info ('using use_90turn')
+          params['azimuth'] = (params['azimuth'] + 90) % 360
+        else:
+          logging.info ('PREPARED: using azimuth: %.1f - %.1f, pitch: %.1f - %.1f' % 
+            (azimuth_low, azimuth_high, pitch_low, pitch_high))
+          params = choose_params(azimuth_low, azimuth_high, pitch_low, pitch_high)
+        make_snapshot (car_sz, render_dir, car_names, params)
 
         if job['save_blender']:
             bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
@@ -236,7 +212,9 @@ def photo_session (job):
 
 
 
-setupLogging('log/augmentation/photoSession.log', logging.DEBUG, 'a')
+logging.basicConfig(level=logging.WARNING, stream=sys.stderr, 
+    format='%(levelname)s:photosession: %(message)s')
+#setupLogging('log/augmentation/photoSession.log', logging.DEBUG, 'a')
 
 job = json.load(open( op.join(WORK_DIR, JOB_INFO_NAME) ))
 

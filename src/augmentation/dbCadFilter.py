@@ -2,7 +2,7 @@ import os, sys, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import numpy as np
 import logging
-from tqdm import tqdm
+from progressbar import ProgressBar
 from pprint import pprint
 from db.lib.helperDb import deleteCars, deleteCar, carField, imageField, doesTableExist
 from db.lib.helperSetup import atcity
@@ -31,9 +31,10 @@ def filterByCadCollections (c, args):
   models = cad.get_ready_models()
 
   c.execute('SELECT * FROM cars')
-  for car_entry in tqdm(c.fetchall()):
+  for car_entry in ProgressBar()(c.fetchall()):
     car_id = carField(car_entry, 'id')
     name = carField(car_entry, 'name')
+    logging.debug(car_entry)
     # TODO: maybe speed optimize by requesting ES for each model.
     found = False
     for model in models:
@@ -65,9 +66,10 @@ def filterByCadTypes (c, args):
   models = cad.get_ready_models()
 
   c.execute('SELECT * FROM cars')
-  for car_entry in tqdm(c.fetchall()):
+  for car_entry in ProgressBar()(c.fetchall()):
     car_id = carField(car_entry, 'id')
     name = carField(car_entry, 'name')
+    logging.debug(car_entry)
     # TODO: maybe speed optimize by requesting ES for each model.
     found = False
     for model in models:

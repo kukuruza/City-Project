@@ -3,18 +3,22 @@ import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 import logging
-import numpy as np
-from random import choice
-from numpy.random import normal, uniform
-from glob import glob
-from math import ceil, pi
 import subprocess
 import multiprocessing
 import traceback
 import shutil
 import argparse
+import progressbar
+import numpy as np
+from numpy.random import normal, uniform
+from random import choice
+from glob import glob
+from math import ceil, pi
 from pprint import pprint
 from db.lib.helperSetup import atcity
+from db.lib.dbUtilities import mask2bbox
+from db.lib.dbExport import DatasetWriter
+from db.lib.helperImg import imread, imsave
 from augmentation.Cad import Cad
 
 WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
@@ -31,227 +35,272 @@ SIGMA_SIDE        = 0.1
 MEAN_SAME         = 1.5
 MEAN_SIDE         = 1.5
 
-class Diapason:
-
-    def _parse_range_str_ (self, range_str, length):
-        '''Parses python range STRING into python range
-        '''
-        assert isinstance(range_str, basestring)
-        # remove [ ] around the range
-        if len(range_str) >= 2 and range_str[0] == '[' and range_str[-1] == ']':
-            range_str = range_str[1:-1]
-        # split into three elements start,end,step. Assign step=1 if missing
-        arr = range_str.split(':')
-        assert len(arr) == 2 or len(arr) == 3, 'need 1 or 2 commas "," in range string'
-        if len(arr) == 2: arr.append('1')
-        if arr[0] == '': arr[0] = '0'
-        if arr[1] == '': arr[1] = str(length)
-        if arr[2] == '': arr[2] = '1'
-        start = int(arr[0])
-        end   = int(arr[1])
-        step  = int(arr[2])
-        range_py = range(start, end, step)
-        logging.info ('Diapason parsed range_str %s into range of length %d' % 
-                      (range_str, len(range_py)))
-        logging.debug ('Diapason range %s' % range_py)
-        return range_py
-
-    def __init__ (self, length, range_str):
-        self._range = self._parse_range_str_ (range_str, length)
-
-    def filter_list (self, in_list):
-        return [el for i,el in enumerate(in_list) if i in self._range]
-
-
 
 def pick_spot_for_a_vehicle (dims0, model):
-    '''Given car dimensions, randomly pick a spot around the main car
+  '''Given car dimensions, randomly pick a spot around the main car
 
-    Args:
-      dims0:     dict with fields 'x' and 'y' for the main model
-      model:     a dict with field 'dims'
-    Returns:
-      vehicle:   same as model, but with x,y,azimuth fields
-    '''
-    # in the same lane or on the lanes on the sides
-    is_in_same_lane = (uniform() < PROB_SAME_LANE)
+  Args:
+    dims0:     dict with fields 'x' and 'y' for the main model
+    model:     a dict with field 'dims'
+  Returns:
+    vehicle:   same as model, but with x,y,azimuth fields
+  '''
+  # in the same lane or on the lanes on the sides
+  is_in_same_lane = (uniform() < PROB_SAME_LANE)
 
-    # define probabilities for other vehicles
-    if is_in_same_lane:
-        x = normal(MEAN_SAME, SIGMA_SAME) * choice([-1,1])
-        y = normal(0, SIGMA_SAME)
-    else: 
-        x = normal(0, 1.5)
-        y = normal(MEAN_SIDE, SIGMA_SIDE) * choice([-1,1])
+  # define probabilities for other vehicles
+  if is_in_same_lane:
+    x = normal(MEAN_SAME, SIGMA_SAME) * choice([-1,1])
+    y = normal(0, SIGMA_SAME)
+  else: 
+    x = normal(0, 1.5)
+    y = normal(MEAN_SIDE, SIGMA_SIDE) * choice([-1,1])
 
-    # normalize to our car size
-    x *= (dims0['x'] + model['dims']['x']) / 2
-    y *= (dims0['y'] + model['dims']['y']) / 2
-    azimuth = normal(0, SIGMA_AZIMUTH) + 90
-    vehicle = model
-    vehicle['x'] = x
-    vehicle['y'] = y
-    vehicle['azimuth'] = azimuth
-    return vehicle
-
+  # normalize to our car size
+  x *= (dims0['x'] + model['dims']['x']) / 2
+  y *= (dims0['y'] + model['dims']['y']) / 2
+  azimuth = normal(0, SIGMA_AZIMUTH) + 90
+  vehicle = model
+  vehicle['x'] = x
+  vehicle['y'] = y
+  vehicle['azimuth'] = azimuth
+  return vehicle
 
 
 def place_occluding_vehicles (vehicle0, other_models):
-    '''Distributes existing models across the scene.
-    Vehicle[0] is the main photo-session character. It is in the center.
+  '''Distributes existing models across the scene.
+  Vehicle[0] is the main photo-session character. It is in the center.
 
-    Args:
-      vehicles0:       main model dict with x,y,azimuth
-      other_models:    dicts without x,y,azimuth
-    Returns:
-      other_vehicles:  same as other_models, but with x,y,azimuth fields
-    '''
-    INTERCAR_DIST_COEFF = 0.2
+  Args:
+    vehicles0:       main model dict with x,y,azimuth
+    other_models:    dicts without x,y,azimuth
+  Returns:
+    other_vehicles:  same as other_models, but with x,y,azimuth fields
+  '''
+  INTERCAR_DIST_COEFF = 0.2
 
-    vehicles = []
-    for i,model in enumerate(other_models):
-        logging.debug ('place_occluding_vehicles: try %d on model_id %s' 
-                       % (i, model['model_id']))
+  vehicles = []
+  for i,model in enumerate(other_models):
+    logging.debug ('place_occluding_vehicles: try %d on model_id %s' 
+                    % (i, model['model_id']))
 
-        # pick its location and azimuth
-        assert 'dims' in vehicle0, '%s' % json.dumps(vehicle0, indent=4)
-        vehicle = pick_spot_for_a_vehicle(vehicle0['dims'], model)
+    # pick its location and azimuth
+    assert 'dims' in vehicle0, '%s' % json.dumps(vehicle0, indent=4)
+    vehicle = pick_spot_for_a_vehicle(vehicle0['dims'], model)
 
-        # find if it intersects with anything (cars are almost parallel)
-        x1     = vehicle['x']
-        y1     = vehicle['y']
-        dim_x1 = vehicle['dims']['x']
-        dim_y1 = vehicle['dims']['y']
-        does_intersect = False
-        # compare to all previous vehicles (O(N^2) haha)
-        for existing_vehicle in vehicles:
-            x2 = existing_vehicle['x']
-            y2 = existing_vehicle['y']
-            dim_x2 = existing_vehicle['dims']['x']
-            dim_y2 = existing_vehicle['dims']['y']
-            if (abs(x1-x2) < (dim_x1+dim_x2)/2 * (1+INTERCAR_DIST_COEFF) and 
-                abs(y1-y2) < (dim_y1+dim_y2)/2 * (1+INTERCAR_DIST_COEFF)):
-                logging.debug ('place_occluding_vehicles: intersecting, dismiss')
-                does_intersect = True
-                break
-        if not does_intersect:
-            vehicles.append(vehicle)
-            logging.debug ('place_occluding_vehicles: placed this one')
+    # find if it intersects with anything (cars are almost parallel)
+    x1     = vehicle['x']
+    y1     = vehicle['y']
+    dim_x1 = vehicle['dims']['x']
+    dim_y1 = vehicle['dims']['y']
+    does_intersect = False
+    # compare to all previous vehicles (O(N^2) haha)
+    for existing_vehicle in vehicles:
+      x2 = existing_vehicle['x']
+      y2 = existing_vehicle['y']
+      dim_x2 = existing_vehicle['dims']['x']
+      dim_y2 = existing_vehicle['dims']['y']
+      if (abs(x1-x2) < (dim_x1+dim_x2)/2 * (1+INTERCAR_DIST_COEFF) and 
+          abs(y1-y2) < (dim_y1+dim_y2)/2 * (1+INTERCAR_DIST_COEFF)):
+        logging.debug ('place_occluding_vehicles: intersecting, dismiss')
+        does_intersect = True
+        break
+    if not does_intersect:
+      vehicles.append(vehicle)
+      logging.debug ('place_occluding_vehicles: placed this one')
 
-    return vehicles
+  return vehicles
 
+
+def write_visible_mask (patch_dir):
+  '''Write the mask of the car visible area
+  '''
+  logging.debug ('making a mask in %s' % patch_dir)
+  mask_path = op.join(patch_dir, 'mask.png')
+
+  depth_all = imread(op.join(patch_dir, 'depth-all.png'))
+  depth_car = imread(op.join(patch_dir, 'depth-car.png'))
+  assert depth_all is not None
+  assert depth_car is not None
+
+  # full main car mask (including occluded parts)
+  mask_car = (depth_car < 255*255)
+
+  bbox = mask2bbox(mask_car)
+  if bbox is None:
+    raise Exception('Mask is empty. Car is outside of the image.')
+
+  # main_car mask of visible regions
+  visible_car = depth_car == depth_all
+  un_mask_car = np.logical_not(mask_car)
+  visible_car[un_mask_car] = False
+  imsave(mask_path, visible_car.astype(np.uint8)*255)
+  return visible_car, bbox
+
+
+def get_visible_perc (patch_dir, visible_car):
+  '''Some parts of the main car is occluded. 
+  Calculate the percentage of the occluded part.
+  Args:
+    patch_dir:     dir with files depth-all.png, depth-car.png
+  Returns:
+    visible_perc:  occluded fraction
+  '''
+  mask_car = imread(op.join(patch_dir, 'depth-car.png')) < 255*255
+  assert visible_car is not None
+  assert mask_car is not None
+
+  # visible percentage
+  nnz_car     = np.count_nonzero(mask_car)
+  nnz_visible = np.count_nonzero(visible_car)
+  visible_perc = float(nnz_visible) / nnz_car
+  logging.debug ('visible perc: %0.2f' % visible_perc)
+  return visible_perc
+
+
+def process_scene_dir(patch_dir):
+  try:
+    mask, bbox = write_visible_mask (patch_dir)
+    visible_perc = get_visible_perc (patch_dir, mask)
+    patch = imread(op.join(patch_dir, 'render.png'))[:,:,:3]
+
+    out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
+    bbox = mask2bbox(mask)
+    name = out_info['model_id'] #out_info['vehicle_type']
+    yaw = out_info['azimuth']
+    pitch = out_info['altitude']
+    return (patch, mask, name, bbox, visible_perc, yaw, pitch)
+  except:
+    logging.error('A patch failed for some reason in scene %s' % patch_dir)
+    return None
 
 
 def run_patches_job (job):
-    WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getpid())
-    if op.exists(WORK_DIR):
-        shutil.rmtree(WORK_DIR)
-    os.makedirs(WORK_DIR)
+  WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getpid())
+  if op.exists(WORK_DIR):
+    shutil.rmtree(WORK_DIR)
+  os.makedirs(WORK_DIR)
 
-    logging.info ('run_patches_job started job %d' % job['i'])
+  logging.info ('run_patches_job started job %d' % job['i'])
 
-    main_model  = job['main_model']
-    del job['main_model']
-    occl_models = job['occl_models']
-    del job['occl_models']
+  # After getting info delete to avoid pollution.
+  main_model  = job['main_model']
+  del job['main_model']
+  occl_models = job['occl_models']
+  del job['occl_models']
+  # place the main vehicle
+  main_vehicle = main_model
+  main_vehicle.update({'x': 0, 'y': 0, 'azimuth': 90})
+  # place occluding vehicles
+  occl_vehicles = place_occluding_vehicles (main_vehicle, occl_models)
+  logging.info ('have total of %d occluding cars' % len(occl_vehicles))
+  # Finally, send to job.
+  job['vehicles'] = [main_vehicle] + occl_vehicles
 
-    # place the main vehicle
-    main_vehicle = main_model
-    main_vehicle.update({'x': 0, 'y': 0, 'azimuth': 90})
+  job_path = op.join(WORK_DIR, JOB_INFO_NAME)
+  with open(job_path, 'w') as f:
+    logging.debug('writing info to job_path %s' % job_path)
+    f.write(json.dumps(job, indent=4))
+  try:
+    command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
+                '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
+    returncode = subprocess.call (command, shell=False, stdout=FNULL)
+    logging.debug ('blender returned code %s' % str(returncode))
+    patch_entries = [process_scene_dir(patch_dir) for
+            patch_dir in sorted(glob(op.join(WORK_DIR, '??????')))]
+  except:
+    logging.error('job for %s failed to process: %s' %
+                  (job['vehicles'][0]['model_id'], traceback.format_exc()))
+    patch_entries = None
 
-    # place occluding vehicles
-    occl_vehicles = place_occluding_vehicles (main_vehicle, occl_models)
-    logging.info ('have total of %d occluding cars' % len(occl_vehicles))
-    
-    job['vehicles'] = [main_vehicle] + occl_vehicles
-
-    job_path = op.join(WORK_DIR, JOB_INFO_NAME)
-    with open(job_path, 'w') as f:
-        logging.debug('writing info to job_path %s' % job_path)
-        f.write(json.dumps(job, indent=4))
-    try:
-        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
-                   '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
-        returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
-#        returncode = subprocess.call (command, shell=False)
-        logging.info ('blender returned code %s' % str(returncode))
-    except:
-        logging.error('job for %s failed to process: %s' %
-                      (job['vehicles'][0]['model_id'], traceback.format_exc()))
-
-    # move patches-id dirs to the new home dir and number them
-    scene_dir = atcity(op.join(job['out_dir'], 'scene-%06d' % job['i']))
-    logging.debug('moving %s to %s' % (WORK_DIR, scene_dir))
-    shutil.move(WORK_DIR, scene_dir)
+  shutil.rmtree(WORK_DIR)
+  return patch_entries
 
 
+def write_results(dataset_writer, patch_entries, use_90turn):
+  if patch_entries is None:
+    logging.warning('Dropping the whole scene.')
+    return
+
+  if any(x is None for x in patch_entries):
+    logging.error('One patch is bad for some reason, dropping the whole scene.')
+    return
+
+  for i,patch_entry in enumerate(patch_entries):
+    (patch, mask, name, bbox, visible_perc, yaw, pitch) = patch_entry
+    imagefile = dataset_writer.add_image(patch, mask=mask)
+    car = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], visible_perc, yaw, pitch)
+    carid = dataset_writer.add_car(car)
+    if use_90turn:
+      if i % 2 == 0:
+        match = dataset_writer.add_match(carid)
+      else:
+        dataset_writer.add_match(carid, match)
     
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--out_dir', default='data/patches/test')
-    parser.add_argument('--logging_level',   type=int,   default=20)
-    parser.add_argument('--num_sessions',    type=int,
-                        help='if not given, use one per model')
-    parser.add_argument('--num_per_session', type=int,   default=2)
-    parser.add_argument('--num_occluding',   type=int,   default=5)
-    parser.add_argument('--render', default='SEQUENTIAL', choices=['SEQUENTIAL', 'PARALLEL'])
-    parser.add_argument('--save_blender', action='store_true',
-                        help='save .blend render file')
-    parser.add_argument('--collection_id', required=False,
-                        help='if left empty, use all collections')
-    parser.add_argument('--vehicle_type', required=False,
-                        help='if left empty, use all types')
-    parser.add_argument('--azimuth_low',     type=int, default=0)
-    parser.add_argument('--azimuth_high',    type=int, default=360)
-    args = parser.parse_args()
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-o', '--out_db_file', default='data/patches/test/scenes.db')
+  parser.add_argument('--logging', type=int, default=20, choices=[10,20,30,40])
+  parser.add_argument('--num_sessions',    type=int, default=5)
+  parser.add_argument('--num_per_session', type=int, default=2)
+  parser.add_argument('--num_occluding',   type=int, default=5)
+  parser.add_argument('--mode', default='SEQUENTIAL', choices=['SEQUENTIAL', 'PARALLEL'])
+  parser.add_argument('--save_blender', action='store_true',
+                      help='save .blend render file')
+  parser.add_argument('--collection_id', required=False,
+                      help='if left empty, use all collections')
+  parser.add_argument('--vehicle_type', required=False,
+                      help='if left empty, use all types')
+  parser.add_argument('--azimuth_low',     type=int, default=0)
+  parser.add_argument('--azimuth_high',    type=int, default=360)
+  parser.add_argument('--use_90turn', action='store_true')
+  args = parser.parse_args()
 
-    # delete and recreate out_dir
-    if op.exists(atcity(args.out_dir)):
-        shutil.rmtree(atcity(args.out_dir))
-    os.makedirs(atcity(args.out_dir))
+  logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
+  progressbar.streams.wrap_stderr()
 
-    cad = Cad()
-    logging.info(cad.check_connection())
+  cad = Cad()
+  logging.info(cad.check_connection())
 
-    main_models = cad.get_ready_models(
+  main_models = cad.get_ready_models(
       collection_id=args.collection_id, vehicle_type=args.vehicle_type)
-    logging.info('Using total %d models.' % len(main_models))
+  logging.info('Using total %d models.' % len(main_models))
 
-    job = {'num_per_session': args.num_per_session,
-           'out_dir':         args.out_dir,
-           'azimuth_low':     float(args.azimuth_low) * pi / 180,
-           'azimuth_high':    float(args.azimuth_high) * pi / 180,
-           'save_blender':    args.save_blender}
+  job = {'num_per_session': args.num_per_session,
+          'azimuth_low':     float(args.azimuth_low),
+          'azimuth_high':    float(args.azimuth_high),
+          'save_blender':    args.save_blender,
+          'use_90turn':      args.use_90turn}
 
-    # give a number to each job
-    if args.num_sessions:
-      num_sessions = args.num_sessions
-    else:
-      num_sessions = len(main_models)
-    logging.info ('num_sessions: %d' % num_sessions)
-    jobs = [job.copy() for i in range(num_sessions)]
-    for i,job in enumerate(jobs):
-        job['i'] = i
-        job['main_model'] = main_models[i % len(main_models)]
-        job['occl_models'] = cad.get_random_ready_models (
-          number=args.num_occluding, vehicle_type=args.vehicle_type)
-        logging.debug(job['occl_models'])
-        for occl_model in job['occl_models']:
-            if 'description' in occl_model:
-                del occl_model['description']  # to make it more compact
+  # give parameters to each job
+  jobs = [job.copy() for i in range(args.num_sessions)]
+  for i,job in enumerate(jobs):
+    job['i'] = i
+    job['main_model'] = main_models[i % len(main_models)]
+    job['occl_models'] = cad.get_random_ready_models(
+        number=args.num_occluding, vehicle_type=args.vehicle_type)
+    logging.debug(job['occl_models'])
+    for occl_model in job['occl_models']:
+      if 'description' in occl_model:
+        del occl_model['description']  # to make it more compact
 
-    # workhorse
-    if args.render == 'SEQUENTIAL':
-        for job in tqdm(jobs):
-            print 'running a job'
-            run_patches_job (job)
-    elif args.render == 'PARALLEL':
-        pool = multiprocessing.Pool(processes=5)
-        logging.info ('the pool has %d workers' % pool._processes)
-        pool.map (run_patches_job, jobs)
-        pool.close()
-        pool.join()
-    else:
-        raise Exception ('wrong args.render: %s' % args.render)
+  dataset_writer = DatasetWriter(args.out_db_file, overwrite=True)
+
+  # workhorse
+  progressbar = progressbar.ProgressBar(max_value=len(jobs))
+  if args.mode == 'SEQUENTIAL':
+    for job in progressbar(jobs):
+      patch_entries = run_patches_job (job)
+      write_results(dataset_writer, patch_entries, args.use_90turn)
+  elif args.mode == 'PARALLEL':
+    pool = multiprocessing.Pool(processes=5)
+    logging.info ('the pool has %d workers' % pool._processes)
+    for patch_entries in progressbar(pool.imap(run_patches_job, jobs)):
+      write_results(dataset_writer, patch_entries, args.use_90turn)
+    pool.close()
+    pool.join()
+
+  dataset_writer.close()
+

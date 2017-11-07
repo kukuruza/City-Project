@@ -65,7 +65,7 @@ model.compile(optimizer='rmsprop',
 # train the model on the new data for a few epochs
 print ('Fine-tuning all layers...')
 for epoch in range(args.num_epochs):
-  model.fit_generator(generate_batches(dataset_train, batchsize, blur=True, crop=True), 
+  model.fit_generator(generate_batches(dataset_train, batchsize, blur=False, crop=True), 
       steps_per_epoch=args.steps_per_epoch, epochs=1)
   scores = model.evaluate_generator(iter(
     BatchGenerator(dataset_train, batchsize)), len(dataset_train) // batchsize)
@@ -103,7 +103,7 @@ model.compile(optimizer=SGD(lr=0.0001, momentum=0.9),
 # alongside the top Dense layers
 print ('Fine-tuning top layers...')
 for epoch in range(args.num_epochs):
-  model.fit_generator(generate_batches(dataset_train, batchsize, blur=True, crop=True), 
+  model.fit_generator(generate_batches(dataset_train, batchsize, blur=False, crop=True), 
       steps_per_epoch=args.steps_per_epoch, epochs=1)
   scores = model.evaluate_generator(iter(
     BatchGenerator(dataset_train, batchsize)), len(dataset_train) // batchsize)

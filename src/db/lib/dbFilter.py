@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import logging
 import json
-from tqdm import tqdm
+from progressbar import ProgressBar
 from helperDb import deleteCars, deleteCar, carField, imageField, doesTableExist
 from annotations.terms import TermTree
 from dbUtilities import drawRoi, bbox2roi
@@ -51,8 +51,9 @@ def filterByBorder (c, args):
     image_reader = ReaderVideo()
     key_reader = KeyReaderUser()
 
+  num_deleted = 0
   c.execute('SELECT imagefile FROM images')
-  for (imagefile,) in tqdm(c.fetchall()):
+  for (imagefile,) in ProgressBar()(c.fetchall()):
 
     if args.display_border and key != 27:
       display = image_reader.imread(imagefile)
@@ -71,6 +72,7 @@ def filterByBorder (c, args):
       if isRoiAtBorder(roi, imwidth, imheight, args.border_thresh_perc):
         logging.debug ('border roi %s' % str(roi))
         deleteCar (c, car_id, has_polygons=has_polygons, has_matches=has_matches)
+        num_deleted += 1
         if args.display_border and key != 27:
           drawRoi (display, roi, '', (0,0,255))
       else:
@@ -82,6 +84,7 @@ def filterByBorder (c, args):
       key = key_reader.readKey()
       if key == 27: cv2.destroyWindow('display_border')
 
+  logging.info('Deleted %d cars.' % num_deleted)
 
 
 
@@ -115,7 +118,7 @@ def filterByIntersection (c, args):
     return dy * dx
 
   c.execute('SELECT imagefile FROM images')
-  for (imagefile,) in tqdm(c.fetchall()):
+  for (imagefile,) in ProgressBar()(c.fetchall()):
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()

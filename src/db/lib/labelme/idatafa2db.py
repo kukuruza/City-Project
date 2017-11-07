@@ -10,7 +10,7 @@ from glob import glob
 import shutil
 import re
 import sqlite3
-from tqdm import trange, tqdm
+from progressbar import ProgressBar
 from learning.helperDb import createTablePolygons, createDb
 from learning.helperDb import parseIdatafaTimeString, makeTimeString
 from learning.dbUtilities import *
@@ -188,7 +188,7 @@ def parseIdatafaFolder (in_video_file, out_db_file, params={}):
     xmlpaths = xmlpaths[:video_length]
     logging.error('dropped xmls after %s' % xmlpaths[-1])
 
-  for i, xmlpath in enumerate(tqdm(xmlpaths)):
+  for i, xmlpath in enumerate(ProgressBar()(xmlpaths)):
     xmlname = op.basename(op.splitext(xmlpath)[0])
     assert xmlname == '%06d' % (i+1), xmlname
     imagename = '%06d' % i

@@ -6,7 +6,7 @@ import logging
 import sqlite3
 import json
 import random
-from tqdm import trange, tqdm
+from progressbar import ProgressBar
 import dbUtilities
 from helperDb          import createDb, deleteCar, carField, imageField, deleteCars
 from helperDb          import doesTableExist, createTablePolygons
@@ -55,7 +55,7 @@ def expandBoxes (c, args):
   c.execute('SELECT imagefile FROM images')
   image_entries = c.fetchall()
 
-  for (imagefile,) in tqdm(image_entries):
+  for (imagefile,) in ProgressBar()(image_entries):
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
@@ -134,7 +134,7 @@ def moveVideo (c, params):
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
 
-    for oldfile, in tqdm(imagefiles):
+    for oldfile, in ProgressBar()(imagefiles):
       newfile = op.join (image_video, op.basename(oldfile))
       c.execute('UPDATE images SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
       c.execute('UPDATE cars SET imagefile=? WHERE imagefile=?', (newfile, oldfile))
@@ -145,7 +145,7 @@ def moveVideo (c, params):
     c.execute('SELECT maskfile FROM images')
     maskfiles = c.fetchall()
 
-    for oldfile, in tqdm(maskfiles, desc='mask_dir'):
+    for oldfile, in ProgressBar()(maskfiles, desc='mask_dir'):
       newfile = op.join (image_video, op.basename(oldfile))
       c.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
 
@@ -273,7 +273,7 @@ def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):
     assert keep_num > 0 and keep_num <= len(imagefiles)
     num_to_remove = len(imagefiles) - keep_num
   
-  for imagefile, in tqdm(imagefiles[-num_to_remove:]):
+  for imagefile, in ProgressBar()(imagefiles[-num_to_remove:]):
     c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))
 
