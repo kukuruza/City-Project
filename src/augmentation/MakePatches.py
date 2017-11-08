@@ -166,7 +166,10 @@ def process_scene_dir(patch_dir):
 
     out_info = json.load(open( op.join(patch_dir, OUT_INFO_NAME) ))
     bbox = mask2bbox(mask)
-    name = out_info['model_id'] #out_info['vehicle_type']
+    if bbox is None:
+      logging.warning('Nothing is visible in the patch, mask2bbox returned None.')
+      return None
+    name = out_info['model_id']  # Write model_id to name.
     yaw = out_info['azimuth']
     pitch = out_info['altitude']
     return (patch, mask, name, bbox, visible_perc, yaw, pitch)
@@ -204,7 +207,7 @@ def run_patches_job (job):
   try:
     command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
                 '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
-    returncode = subprocess.call (command, shell=False, stdout=FNULL)
+    returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
     logging.debug ('blender returned code %s' % str(returncode))
     patch_entries = [process_scene_dir(patch_dir) for
             patch_dir in sorted(glob(op.join(WORK_DIR, '??????')))]
