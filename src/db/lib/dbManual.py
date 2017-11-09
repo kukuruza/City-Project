@@ -13,6 +13,7 @@ from scipy.misc import imresize
 def add_parsers(subparsers):
   displayParser(subparsers)
   examineParser(subparsers)
+  displayMatchesParser(subparsers)
 
 
 def displayParser(subparsers):
@@ -157,6 +158,52 @@ def examine (c, args):
       logging.debug ('next image')
       index_im += 1
 
+
+
+def displayMatchesParser(subparsers):
+  parser = subparsers.add_parser('displayMatches',
+    description='''Browse through database and see car bboxes on top of images.
+                   Any key will scroll to the next image.''')
+  parser.set_defaults(func=displayMatches)
+  parser.add_argument('--scale', type=float, default=1.)
+  parser.add_argument('--shuffle', action='store_true')
+
+def displayMatches (c, args):
+  logging.info ('==== displayMatches ====')
+
+  image_reader = ReaderVideo()
+  key_reader = KeyReaderUser()
+
+  c.execute('SELECT DISTINCT(match) FROM matches')
+  matches = c.fetchall()
+
+  if args.shuffle:
+    np.random.shuffle(matches)
+
+  for match, in matches:
+    c.execute('SELECT * FROM cars WHERE id IN (SELECT carid FROM matches WHERE match=?)', (match,))
+    car_entries = c.fetchall()
+    logging.info ('%d cars found for match %s' % (len(car_entries), match))
+
+    images = []
+    for car_entry in car_entries:
+      imagefile = carField(car_entry, 'imagefile')
+      carid = carField(car_entry, 'id')
+      roi   = bbox2roi (carField(car_entry, 'bbox'))
+      score = carField(car_entry, 'score')
+
+      image = image_reader.imread(imagefile)
+
+      if score is None: score = 1
+      logging.info ('roi: %s, score: %f' % (str(roi), score))
+      drawScoredRoi (image, roi, '', score)
+      images.append(image)
+
+    # Assume all images have the same size for now.
+    display = np.hstack(images)
+
+    cv2.imshow('display', imresize(display, args.scale))
+    if key_reader.readKey() == 27: break
 
 
 def classifyName (c, params = {}):
