@@ -28,8 +28,6 @@ RENDER_WIDTH  = 600
 RENDER_HEIGHT = 600
 
 # sampling weather and camera position
-PITCH_LOW         = 20
-PITCH_HIGH        = 40
 SUN_ALTITUDE_MIN  = 20
 SUN_ALTITUDE_MAX  = 70
 
@@ -156,8 +154,8 @@ def photo_session (job):
 
     azimuth_low = job['azimuth_low']
     azimuth_high = job['azimuth_high']
-    pitch_low = PITCH_LOW
-    pitch_high = PITCH_HIGH
+    pitch_low = job['pitch_low']
+    pitch_high = job['pitch_high']
 
     # open the blender file
     scene_path = atcity('data/augmentation/scenes/photo-session.blend')

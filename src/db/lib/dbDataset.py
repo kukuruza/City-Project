@@ -109,12 +109,9 @@ class CitycarsDataset:
 
   def __getitem__(self):
     '''Yields pairs (im,gt) taken randomly from the whole dataset. 
-    Used to train segmentation.
-    Returns:
+    Yields:
       im: np.uint8 array of shape [imheight, imwidth, 3]
-      gt: np.uint8 array of shape [imheight, imwidth, 1]
-              and values in range [0,255]
-            [imheight, imwidth] are image and mask ogirinal dimensions.
+      gt: car_entry
     '''
     num_to_use = self.__len__()
     logging.debug('CitycarsDataset: will use %d frames.' % num_to_use)
@@ -156,22 +153,104 @@ class CitycarsDataset:
         yield batch_image, batch_car_entry
 
 
+class CitymatchesDataset:
+  ''' Dataset for getting tuples of matched car patches. '''
+
+  def __init__(self, db_file, fraction=1., crop_car=True, randomly=True):
+
+    (conn, c) = dbInit(db_file)
+
+    # TODO: do all of this in my SQL request
+    c.execute('''SELECT DISTINCT(match) FROM matches
+                 GROUP BY match HAVING COUNT(*) > 1''')
+    matches = c.fetchall()
+    self.matched_car_entries = []
+    for match, in matches:
+      c.execute('''SELECT * FROM cars WHERE id IN 
+                   (SELECT carid FROM matches WHERE match = ?)''', (match,))
+      car_entries = c.fetchall()
+      assert len(car_entries) >= 2
+      self.matched_car_entries.append(car_entries)
+
+    conn.close()
+
+    self.fraction = fraction
+    self.crop_car = crop_car
+    self.image_reader = ReaderVideo()
+    self.randomly = randomly
+
+
+  def _load_image(self, car_entry):
+    logging.debug ('CitycarsDataset: reading car %d from %s imagefile' % 
+            (carField(car_entry, 'id'), carField(car_entry, 'imagefile')))
+    im = self.image_reader.imread (carField(car_entry, 'imagefile'))
+    if self.crop_car:
+      roi = carField(car_entry, 'roi')
+      car = im[roi[0]:roi[2], roi[1]:roi[3]]
+    else:
+      car = im
+    return car
+
+
+  def __len__(self):
+    return int(len(self.matched_car_entries) * self.fraction)
+
+
+  def __getitem__(self):
+    '''Yields tuples of matched pairs ((im,gt), (im,gt), ...).
+    Matches are smapled randomly throughout the database.
+    Yields:
+      im: np.uint8 array of shape [imheight, imwidth, 3]
+      gt: car_entry
+    '''
+    num_to_use = len(self)
+    logging.debug('CitymatchesDataset: will use %d matches.' % num_to_use)
+
+    if self.randomly:
+      np.random.shuffle(self.matched_car_entries)
+
+    for cars_tuple in self.matched_car_entries[:num_to_use]:
+      yield [(self._load_image(car_entry), car_entry) for car_entry in cars_tuple]
+
+    logging.debug('CitycarsDataset: done with the dataset.')
+
+
+  def _getitem_by_index(self, index):
+    '''
+    Args:
+      index:   if given, returns the given index rather then
+               yielding all num_to_use images from dataset
+               That is used for torch.utils.data.Dataset
+    '''
+    cars_tuple = self.matched_car_entries[index]
+    return [(self._load_image(car_entry), car_entry) for car_entry in cars_tuple]
+
+
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('--in_db_file', required=True)
+  parser.add_argument('-i', '--in_db_file', required=True)
+  parser.add_argument('--dataset_type', required=True,
+      choices=['images', 'cars', 'matches'])
   args = parser.parse_args()
 
-  dataset = CityimagesDataset(args.in_db_file, fraction=0.01)
-
-  im = dataset.getitem_by_index(1)
-  print im.shape
-
-  for im in dataset.__getitem__():
+  if args.dataset_type == 'images':
+    dataset = CityimagesDataset(args.in_db_file, fraction=0.01)
+    im,  = dataset.getitem_by_index(1)
     print im.shape
+    for im in dataset.__getitem__():
+        print im.shape
 
-  dataset = CitycarsDataset(args.in_db_file, fraction=0.005, randomly=False)
+  elif args.dataset_type == 'cars':
+    dataset = CitycarsDataset(args.in_db_file, fraction=0.005, randomly=False)
+    for im, car_entry in dataset.__getitem__():
+      print im.shape
 
-  print ('length', dataset.__len__())
-  for im, _ in dataset.__getitem__():
-    print im.shape
+  elif args.dataset_type == 'matches':
+    dataset = CitymatchesDataset(args.in_db_file, fraction=0.005, randomly=False)
+    print ('length', len(dataset))
+    for matched_cars in dataset.__getitem__():
+      print (' ')
+      for im, car_entry in matched_cars:
+        print im.shape, car_entry
+

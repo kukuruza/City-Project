@@ -256,8 +256,10 @@ if __name__ == "__main__":
                       help='if left empty, use all collections')
   parser.add_argument('--vehicle_type', required=False,
                       help='if left empty, use all types')
-  parser.add_argument('--azimuth_low',     type=int, default=0)
-  parser.add_argument('--azimuth_high',    type=int, default=360)
+  parser.add_argument('--azimuth_low', type=float, default=0.)
+  parser.add_argument('--azimuth_high', type=float, default=360.)
+  parser.add_argument('--pitch_low', type=float, default=20.)
+  parser.add_argument('--pitch_high', type=float, default=40.)
   parser.add_argument('--use_90turn', action='store_true')
   args = parser.parse_args()
 
@@ -272,10 +274,12 @@ if __name__ == "__main__":
   logging.info('Using total %d models.' % len(main_models))
 
   job = {'num_per_session': args.num_per_session,
-          'azimuth_low':     float(args.azimuth_low),
-          'azimuth_high':    float(args.azimuth_high),
-          'save_blender':    args.save_blender,
-          'use_90turn':      args.use_90turn}
+          'azimuth_low':  args.azimuth_low,
+          'azimuth_high': args.azimuth_high,
+          'pitch_low':    args.pitch_low,
+          'pitch_high':   args.pitch_high,
+          'save_blender': args.save_blender,
+          'use_90turn':   args.use_90turn}
 
   # give parameters to each job
   jobs = [job.copy() for i in range(args.num_sessions)]
