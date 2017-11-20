@@ -1,7 +1,7 @@
 import sys, os, os.path as op
 import logging
 import simplejson as json
-from learning.helperSetup import setupLogging, atcity
+from db.lib.helperSetup import setupLogging, atcity
 
 
 class Camera:
