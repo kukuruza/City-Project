@@ -11,8 +11,8 @@ function GetAzimuthMap (in_lane_template)
 %                       e.g. 'augmentation/scenes/cam124/google1/lane*.png'
 
 % set paths
-assert (~isempty(getenv('CITY_DATA_PATH')));  % make sure environm. var set
-CITY_DATA_PATH = [getenv('CITY_DATA_PATH') '/'];    % make a local copy
+assert (~isempty(getenv('CITY_PATH')));  % make sure environm. var set
+CITY_PATH = [getenv('CITY_PATH') '/'];    % make a local copy
 addpath(genpath(fullfile(getenv('CITY_PATH'), 'src')));  % add tree to search path
 cd (fileparts(mfilename('fullpath')));        % change dir to this script
 
@@ -20,11 +20,10 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 %% input
 
 % input
-in_lane_template = [CITY_DATA_PATH in_lane_template];
+in_lane_template = [CITY_PATH in_lane_template];
 
 % output
 out_angles_path = fullfile (fileparts(in_lane_template), 'azimuth.png');
-out_lanes_path  = fullfile (fileparts(in_lane_template), 'lanes.json');
 
 % verbose == 0:  basic printout
 %         == 1:  show plot for each segment in each file
@@ -33,7 +32,7 @@ verbose = 0;
 
 % what to do
 write = true;
-show = true;
+show = false;
 
 
 
@@ -55,7 +54,7 @@ for i = 1 : length(lane_names)
     im = double(im);
 
     % convention to have lanes on black background, without alpha
-    assert (min(alpha(:)) == 255 || min(alpha(:)) == 256^2-1);  % alpha does not exist
+    %assert (min(alpha(:)) == 255 || min(alpha(:)) == 256^2-1);  % alpha does not exist
 
     % create output var on the first iteration
     if ~exist('azimuths0','var'), azimuths0 = zeros(size(im)); end
@@ -73,18 +72,18 @@ assert (all(all(azimuths0 >= 0 & azimuths0 <= 360)));
 
 if show
     imagesc (azimuths0, [0, 360]);
-    hold on
-    for lane = lanes0
-        i = round(lane.N / 2);
-        x1 = lane.x(i);
-        y1 = lane.y(i);
-        azimuth = lane.azimuth(i) - 90;
-        x2 = x1 + 20 * cos(azimuth*pi/180);
-        y2 = y1 + 20 * sin(azimuth*pi/180);
-        scatter(x1, y1, 'filled');
-        scatter(linspace(x1, x2, 100), linspace(y1, y2, 100), 1);
-    end
-    hold off
+%     hold on
+%     for lane = lanes0
+%         i = round(lane.N / 2);
+%         x1 = lane.x(i);
+%         y1 = lane.y(i);
+%         azimuth = lane.azimuth(i) - 90;
+%         x2 = x1 + 20 * cos(azimuth*pi/180);
+%         y2 = y1 + 20 * sin(azimuth*pi/180);
+%         scatter(x1, y1, 'filled');
+%         scatter(linspace(x1, x2, 100), linspace(y1, y2, 100), 1);
+%     end
+%     hold off
 end
 if write
     % we'll write half precision to fit into uint8 [0, 255]
@@ -92,7 +91,6 @@ if write
     assert (all(all(azimuths0 >= 0 & azimuths0 <= 255)));
     out = uint8 (azimuths0(:,:,[1,1,1]));
     imwrite (out, out_angles_path, 'Alpha', double(mask0));
-    savejson('', lanes0, struct('FileName',out_lanes_path));
 end
 
 end
