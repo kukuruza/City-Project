@@ -47,7 +47,7 @@ class Pose(Camera):
 
     assert 'poses' in self.info
     assert pose_id < len(self.info['poses']), pose_id
-    logging.info ('Using pose_id %d' % pose_id)
+    logging.info ('Pose: using pose_id %d' % pose_id)
     self.info['pose'] = self.info['poses'][pose_id]
     del self.info['poses']
 

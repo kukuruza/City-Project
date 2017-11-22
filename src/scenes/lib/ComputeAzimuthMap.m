@@ -1,4 +1,4 @@
-function GetAzimuthMap (in_lane_template)
+function GetAzimuthMap (in_lane_template, out_azimuth_file)
 % Given several files with maps of lanes, generate a map of azimuths
 % Each file with lane maps must have one or more lines in the lane middles
 % Output is just one png file with the map of azimuth angles, and alpha ch.
@@ -23,7 +23,7 @@ cd (fileparts(mfilename('fullpath')));        % change dir to this script
 in_lane_template = [CITY_PATH in_lane_template];
 
 % output
-out_angles_path = fullfile (fileparts(in_lane_template), 'azimuth.png');
+out_azimuth_path = [CITY_PATH out_azimuth_file];
 
 % verbose == 0:  basic printout
 %         == 1:  show plot for each segment in each file
@@ -90,7 +90,7 @@ if write
     azimuths0 = azimuths0 / 2;
     assert (all(all(azimuths0 >= 0 & azimuths0 <= 255)));
     out = uint8 (azimuths0(:,:,[1,1,1]));
-    imwrite (out, out_angles_path, 'Alpha', double(mask0));
+    imwrite (out, out_azimuth_path, 'Alpha', double(mask0));
 end
 
 end
