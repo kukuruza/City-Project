@@ -24,13 +24,18 @@ class Window:
 
   def __init__(self, img, winsize=500, name='display'):
     self.name = name
-    self.img = pad_to_square(img.copy())
+    self.img = pad_to_square(img.copy()[:,:,::-1])  # cv2 expects image as BGR.
     #
     self.imgsize = self.img.shape[0]
-    self.winsize = winsize
+    self.winsize = min(winsize, self.imgsize)
     logging.debug('%s: imgsize: %d, winsize: %d' %
         (self.name, self.imgsize, self.winsize))
-    self.zoom = self.imgsize / float(self.winsize) / 2
+    self.Const_zoom = self.imgsize / float(self.winsize)
+    logging.info('%s: max_zoom: %f' % (self.name, self.Const_zoom))
+    self.Num_Zoom_Levels = 20
+    self.Zoom_levels = range(self.Num_Zoom_Levels)
+    logging.info('%s: zooms_levels: %d' % (self.name, self.Num_Zoom_Levels))
+    self.zoom_level = 0.
     self.scrollx = 0.5  # 0. to 1.
     self.scrolly = 0.5  # 0. to 1.
     #
@@ -38,74 +43,110 @@ class Window:
     self.rpressx = None
     self.rpressy = None
     #
+    self.zbuttonpressed = False
+    self.zpressy = None
+    #
     self.cached_zoomed_img = None
     #
     cv2.namedWindow(self.name)
     cv2.setMouseCallback(self.name, self.mouseHandler)
-    self.make_cached_zoomed_img()
+    #
+    self.make_cached_zoomed_images()
+    self.update_cached_zoomed_img()
     self.redraw()
+
 
   def mouseHandler(self, event, x, y, flags, params):
 
-    # Scrolling.
-    if event == cv2.EVENT_LBUTTONDOWN:
-      logging.info('%s: registered mouse l. press.' % self.name)
-      self.rbuttonpressed = True
-      self.rpressx, self.rpressy = x, y
-    if event == cv2.EVENT_LBUTTONUP:
-      self.rbuttonpressed = False
-      self.rpressx, self.rpressy = None, None
-      logging.info('%s: released mouse l. press.' % self.name)
-    elif event == cv2.EVENT_MOUSEMOVE:
-      if self.rbuttonpressed:
-        self.scrollx -= (x - self.rpressx) / float(self.winsize)
-        self.scrolly -= (y - self.rpressy) / float(self.winsize)
-        self.scrollx = clip(self.scrollx, 0., 1.)
-        self.scrolly = clip(self.scrolly, 0., 1.)
-        self.rpressx, self.rpressy = x, y
-        #logging.debug('%s: scrollx %.2f, scrolly %.2f' %
-        #    (self.name, self.scrollx, self.scrolly))
-        self.redraw()
-
     # Zooming.
-    #elif event == cv2.EVENT_MOUSEWHEEL:
-    #  logging.info('%s: released wheel.' % self.name)
+    if event == cv2.EVENT_MOUSEWHEEL:
+      logging.info('%s: registered mouse zooming press.' % self.name)
+      self.zoom_level += (1 if flags > 0 else -1)
+      self.zoom_level = clip(self.zoom_level, 0, len(self.Zoom_levels) - 1)
+      self.update_cached_zoomed_img()
+      self.redraw()
+
+    # Scrolling.
+    else:
+      if event == cv2.EVENT_LBUTTONDOWN:
+        logging.info('%s: registered mouse scroll press.' % self.name)
+        self.rbuttonpressed = True
+        self.rpressx, self.rpressy = x, y
+      elif event == cv2.EVENT_LBUTTONUP:
+        self.rbuttonpressed = False
+        self.rpressx, self.rpressy = None, None
+        logging.info('%s: released mouse scroll press.' % self.name)
+      elif event == cv2.EVENT_MOUSEMOVE:
+        if self.rbuttonpressed:
+          if self.cropsize != self.winsize:
+            self.scrollx -= (x - self.rpressx) / float(self.cropsize - self.winsize)
+            self.scrolly -= (y - self.rpressy) / float(self.cropsize - self.winsize)
+            self.scrollx = clip(self.scrollx, 0., 1.)
+            self.scrolly = clip(self.scrolly, 0., 1.)
+          self.rpressx, self.rpressy = x, y
+          self.redraw()
 
 
-  def make_cached_zoomed_img(self):
-    ''' Cache image at a zoom level to make scrolling faster. '''
-    self.cached_zoomed_img = imresize(self.img, 1. / self.zoom)
+  def get_zoom(self, zoom_level):
+    return ((float(self.Const_zoom) - 1.) / (self.Num_Zoom_Levels - 1.) * zoom_level + 1.) / self.Const_zoom
+
+
+  def make_cached_zoomed_images(self):
+    ''' Cache images at different zoom levels to make scrolling faster. '''
+    self.cached_zoomed_images = {}
+    for zoom_level in self.Zoom_levels:
+      zoom = self.get_zoom(zoom_level)
+      zoomed_img = cv2.resize(self.img, (0,0), fx=zoom, fy=zoom)  # Scipy resizes very slowly.
+      logging.info ('%s: caching zoom level %.2f, zoom %.2f, imsize %s' %
+          (self.name, zoom_level, zoom, zoomed_img.shape))
+      self.cached_zoomed_images[zoom_level] = zoomed_img
+
+
+  def update_cached_zoomed_img(self):
+    ''' Pick one from the one the image pyramid. '''
+    self.cached_zoomed_img = self.cached_zoomed_images[int(self.zoom_level)].copy()
+    self.cropsize = self.cached_zoomed_img.shape[0]
+    logging.info ('%s: got cached image of shape %s' % (self.name, self.cropsize))
+
 
   def get_offsets(self):
     ''' Get win offsets based on zoom and scrolls '''
     assert self.cached_zoomed_img is not None
-    cropsize = self.cached_zoomed_img.shape[0]
-    maxoffset = cropsize - self.winsize
-    logging.debug ('%s: zoom: %.1f, cropsize: %d, maxoffset: %d' %
-        (self.name, self.zoom, cropsize, maxoffset))
+    maxoffset = self.cropsize - self.winsize
+    logging.debug ('%s: zoom level: %.1f, cropsize: %d, maxoffset: %d' %
+        (self.name, self.zoom_level, self.cropsize, maxoffset))
     offsetx = int(self.scrollx * maxoffset)
     offsety = int(self.scrolly * maxoffset)
-    assert offsetx >= 0 and offsetx <= self.winsize, offsetx
-    assert offsety >= 0 and offsety <= self.winsize, offsety
+    assert offsetx >= 0 and offsetx <= maxoffset, offsetx
+    assert offsety >= 0 and offsety <= maxoffset, offsety
     return offsetx, offsety
     
   def redraw(self):
     offsetx, offsety = self.get_offsets()
-    crop = self.cached_zoomed_img.copy()
+    crop = self.cached_zoomed_img
+    logging.debug('%s: redraw offset: %d, %d, cropsize: %d %d' %
+        (self.name, offsetx, offsety, crop.shape[1], crop.shape[0]))
     crop = crop[offsety : offsety + self.winsize,
                 offsetx : offsetx + self.winsize, :]
-    crop = crop[:,:,::-1]  # cv2 expects image as BGR not RGB.
     cv2.imshow(self.name, crop)
 
-  def image_to_window_coords(self, x, y):
+  def image_to_zoomedimage_coords(self, x, y):
     offsetx, offsety = self.get_offsets()
-    return (x / self.zoom - offsetx,
-            y / self.zoom - offsety)
+    zoom = self.get_zoom(self.zoom_level)
+    xwin = x * zoom
+    ywin = y * zoom
+    logging.debug('%s: img2win zoom: %.1f;  %.1f, %.1f -> %.1f, %.1f' %
+        (self.name, zoom, x, y, xwin, ywin))
+    return xwin, ywin
 
   def window_to_image_coords(self, x, y):
     offsetx, offsety = self.get_offsets()
-    return ((x + offsetx) * self.zoom,
-            (y + offsety) * self.zoom)
+    zoom = self.get_zoom(self.zoom_level)
+    xim = float(x + offsetx) / zoom
+    yim = float(y + offsety) / zoom
+    logging.debug('%s: win2img offset: %d, %d, zoom: %.1f;  %.1f, %.1f -> %.1f, %.1f' %
+        (self.name, offsetx, offsety, zoom, x, y, xim, yim))
+    return xim, yim
 
 
 
@@ -121,6 +162,7 @@ if __name__ == "__main__":
 
   window = Window(imread(args.image_path), args.winsize)
   window.redraw()
-  cv2.waitKey(-1)
+  while cv2.waitKey(50) != 27:
+    pass
   
 

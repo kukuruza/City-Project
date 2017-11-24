@@ -7,56 +7,53 @@ import cv2
 import simplejson as json
 from scipy.misc import imread
 from lib.cvScrollZoomWindow import Window
+import colorsys
 
-
-def pad_to_square(img):
-  ''' Pads the right or the bottom of an image to make it square. '''
-  assert img is not None
-  pad = abs(img.shape[0] - img.shape[1])
-  if img.shape[0] < img.shape[1]:
-    img = np.pad(img, ((0,pad),(0,0),(0,0)), 'constant')
-  else:
-    img = np.pad(img, ((0,0),(0,pad),(0,0)), 'constant')
-  return img
-
-def clip(x, xmin, xmax):
-  return max(min(x, xmax), xmin)
+def get_random_color():
+  ''' Get a random bright color. '''
+  h,s,l = np.random.random(), 0.5 + np.random.random()/2.0, 0.4 + np.random.random()/5.0
+  r,g,b = [int(256*i) for i in colorsys.hls_to_rgb(h,l,s)]
+  return r,g,b
 
 
 class MatchWindow(Window):
+  ''' Use mouse left button and wheel to navigate, shift + left button
+  to select points. Select a point in each image, and the match will be added.
+  '''
 
   def __init__(self, img, winsize=500, name='display'):
+    self.pointselected = None
+    self.points = []  # (x, y), (b,g,r)
     Window.__init__(self, img, winsize, name)
-    self.pointx = None
-    self.poitny = None
 
   def mouseHandler(self, event, x, y, flags, params):
+
     # Call navigation handler from the base class.
     Window.mouseHandler(self, event, x, y, flags, params)
 
     # Select a point.
-    if event == cv2.EVENT_LBUTTONDBLCLK:
-      logging.info('%s: registered mouse l. double click.' % self.name)
-      self.rpressx, self.rpressy = x, y
+    if event == cv2.EVENT_LBUTTONDOWN and flags == 17:  # Shift
+      logging.info('%s: registered mouse select press.' % self.name)
+      x, y = self.window_to_image_coords(x, y)
+      self.pointselected = (x, y)
+      self.update_cached_zoomed_img()
+      self.redraw()
 
+  def update_cached_zoomed_img(self):
+    Window.update_cached_zoomed_img(self)
+    for (x, y), color in self.points:
+      self._drawpoint(x, y, color)
+    if self.pointselected is not None:
+      self._drawpoint(self.pointselected[0], self.pointselected[1], (0,0,255))
+
+  def _drawpoint(self, x, y, color):
+    x, y = self.image_to_zoomedimage_coords(x, y)
+    cv2.circle (self.cached_zoomed_img, (int(x), int(y)), 10, color, thickness=3)
 
 
 
 def labelMatches (image_path1, image_path2, matches_path, 
                   winsize1=500, winsize2=500, backup_matches=True):
-
-  # If already exists, we'll load existing matches.
-  # pts_pairs is a list of tuples (x_frame, y_frame, x_satellite, y_satellite)
-  if op.exists(matches_path):
-    if backup_matches:
-      backup_path = op.splitext(matches_path)[0] + '.backup.json'
-      shutil.copyfile(matches_path, backup_path)
-    with open(matches_path) as f:
-      matches = json.load(f)
-    pts_pairs = zip(*(matches['frame']['x'], matches['frame']['y'],
-                      matches['map']['x'], matches['map']['y']))
-  else:
-    pts_pairs = []
 
   # Read both images.
   assert op.exists(image_path1), image_path1
@@ -71,25 +68,54 @@ def labelMatches (image_path1, image_path2, matches_path,
   if name1 == name2:
     name1 += '-1'
     name2 += '-2'
-  window1 = Window(img1, args.winsize1, name=name1)
-  window2 = Window(img2, args.winsize2, name=name2)
+  window1 = MatchWindow(img1, args.winsize1, name=name1)
+  window2 = MatchWindow(img2, args.winsize2, name=name2)
+
+  # If already exists, we'll load existing matches.
+  # pts_pairs is a list of tuples (x1, y1, x2, y2)
+  if op.exists(matches_path):
+    if backup_matches:
+      backup_path = op.splitext(matches_path)[0] + '.backup.json'
+      shutil.copyfile(matches_path, backup_path)
+    with open(matches_path) as f:
+      matches = json.load(f)
+    for i in range(len(matches['frame']['x'])):
+      color = get_random_color()
+      window1.points.append(((matches['frame']['x'][i], matches['frame']['y'][i]), color))
+      window2.points.append(((matches['map']['x'][i], matches['map']['y'][i]), color))
+    window1.update_cached_zoomed_img()
+    window2.update_cached_zoomed_img()
+    window1.redraw()
+    window2.redraw()
 
   BUTTON_ESCAPE = 27
   BUTTON_ENTER = 13
   button = -1
   while button != BUTTON_ESCAPE and button != BUTTON_ENTER:
+    if window1.pointselected is not None and window2.pointselected is not None:
+      logging.info('Adding a match')
+      color = get_random_color()
+      window1.points.append((window1.pointselected, color))
+      window2.points.append((window2.pointselected, color))
+      window1.pointselected = None
+      window2.pointselected = None
+      window1.update_cached_zoomed_img()
+      window2.update_cached_zoomed_img()
+      window1.redraw()
+      window2.redraw()
     button = cv2.waitKey(50)
 
   # Save and exit.
   if button == BUTTON_ENTER:
-    if len(pts_pairs) > 0:
-      matches = {'frame': {'x': [], 'y': []}, 'map': {'x': [], 'y': []}}
-      matches['frame']['x'], matches['frame']['y'], \
-      matches['map']['x'], matches['map']['y'] = map(list, zip(*pts_pairs))
-      with open(matches_path, 'w') as f:
-        f.write(json.dumps(matches, sort_keys=True, indent=2))
-    else:
-      logging.warning('No points - will not write matches.json file.')
+    matches = {'frame': {'x': [], 'y': []}, 'map': {'x': [], 'y': []}}
+    for p in window1.points:
+      matches['frame']['x'].append(p[0][0])
+      matches['frame']['y'].append(p[0][1])
+    for p in window2.points:
+      matches['map']['x'].append(p[0][0])
+      matches['map']['y'].append(p[0][1])
+    with open(matches_path, 'w') as f:
+      f.write(json.dumps(matches, sort_keys=True, indent=2))
   elif button == BUTTON_ESCAPE:
     logging.info('Exiting without saving.')
 
