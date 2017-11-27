@@ -1,4 +1,5 @@
-import sys, os, os.path as op
+#!/usr/bin/env python
+import os, os.path as op
 import logging
 import shutil
 import argparse
@@ -8,6 +9,7 @@ import simplejson as json
 from scipy.misc import imread
 from lib.cvScrollZoomWindow import Window
 import colorsys
+
 
 def get_random_color():
   ''' Get a random bright color. '''
@@ -52,24 +54,11 @@ class MatchWindow(Window):
 
 
 
-def labelMatches (image_path1, image_path2, matches_path, 
+def labelMatches (img1, img2, matches_path, 
                   winsize1=500, winsize2=500, backup_matches=True):
 
-  # Read both images.
-  assert op.exists(image_path1), image_path1
-  assert op.exists(image_path2), image_path2
-  img1 = imread(image_path1)
-  img2 = imread(image_path2)
-  assert img1 is not None
-  assert img2 is not None
-
-  name1 = op.splitext(op.basename(image_path1))[0]
-  name2 = op.splitext(op.basename(image_path2))[0]
-  if name1 == name2:
-    name1 += '-1'
-    name2 += '-2'
-  window1 = MatchWindow(img1, args.winsize1, name=name1)
-  window2 = MatchWindow(img2, args.winsize2, name=name2)
+  window1 = MatchWindow(img1, winsize1, name='1')
+  window2 = MatchWindow(img2, winsize2, name='2')
 
   # If already exists, we'll load existing matches.
   # pts_pairs is a list of tuples (x1, y1, x2, y2)
@@ -134,5 +123,13 @@ if __name__ == "__main__":
   
   logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 
-  labelMatches (args.image_path1, args.image_path2, args.matches_path,
+  # Read both images.
+  assert op.exists(image_path1), image_path1
+  assert op.exists(image_path2), image_path2
+  img1 = imread(image_path1)
+  img2 = imread(image_path2)
+  assert img1 is not None
+  assert img2 is not None
+
+  labelMatches (img1, img2, args.matches_path,
       winsize1=args.winsize1, winsize2=args.winsize2)
