@@ -1,6 +1,5 @@
 import os, sys, os.path as op
 import numpy as np
-import cv2
 import logging
 from dbUtilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi, drawScoredPolygon
 from dbUtilities import getCenter
@@ -13,6 +12,7 @@ from scipy.misc import imresize
 def add_parsers(subparsers):
   displayParser(subparsers)
   examineParser(subparsers)
+  labelAzimuthParser(subparsers)
   displayMatchesParser(subparsers)
 
 
@@ -27,6 +27,7 @@ def displayParser(subparsers):
 
 def display (c, args):
   logging.info ('==== display ====')
+  import cv2
 
   image_reader = ReaderVideo()
   key_reader = KeyReaderUser()
@@ -80,6 +81,7 @@ def examineParser(subparsers):
 
 def examine (c, args):
   logging.info ('==== examine ====')
+  import cv2
 
   image_reader = ReaderVideo()
   key_reader = KeyReaderUser()
@@ -129,7 +131,8 @@ def examine (c, args):
       display = imresize(display, args.display_scale)
       font = cv2.FONT_HERSHEY_SIMPLEX
       cv2.putText (display, 'name: %s' % name, (10, 20), font, 0.5, (255,255,255), 2)
-      cv2.putText (display, 'color: %s' % color, (10, 40), font, 0.5, (255,255,255), 2)
+      if color is not None:
+        cv2.putText (display, 'color: %s' % color, (10, 40), font, 0.5, (255,255,255), 2)
       if score is not None:
         cv2.putText (display, 'score: %.3f' % score, (10, 60), font, 0.5, (255,255,255), 2)
       if yaw is not None:
@@ -170,6 +173,7 @@ def displayMatchesParser(subparsers):
 
 def displayMatches (c, args):
   logging.info ('==== displayMatches ====')
+  import cv2
 
   image_reader = ReaderVideo()
   key_reader = KeyReaderUser()
@@ -206,11 +210,97 @@ def displayMatches (c, args):
     if key_reader.readKey() == 27: break
 
 
+def labelAzimuthParser(subparsers):
+  parser = subparsers.add_parser('labelAzimuth',
+    description='''Go through cars and label yaw (azimuth)
+    by either accepting one of the close yaw values from a map,
+    or by assigning a value manually.''')
+  parser.set_defaults(func=labelAzimuth)
+  parser.add_argument('--display_scale', type=float, default=1.)
+  parser.add_argument('--shuffle', action='store_true')
+  parser.add_argument('--load_labelled', action='store_true')
+
+def labelAzimuth (c, args):
+  logging.info ('==== labelAzimuth ====')
+  import cv2
+
+  image_reader = ReaderVideo()
+  key_reader = KeyReaderUser()
+  keys = getCalibration()
+
+  if args.load_labelled:
+    c.execute('SELECT * FROM cars WHERE yaw = NULL')
+  else:
+    c.execute('SELECT * FROM cars')
+  car_entries = c.fetchall()
+  logging.info('Found %d objects in db.' % len(car_entries))
+
+  if args.shuffle:
+    np.random.shuffle(car_entries)
+
+  button = 0
+  index_car = 0
+  prev_imagefile = None
+  char_list = []
+  while button != 27:
+
+    car_entry = car_entries[index_car]
+    carid     = carField(car_entry, 'id')
+    roi       = carField(car_entry, 'roi')
+    imagefile = carField(car_entry, 'imagefile')
+    yaw       = carField(car_entry, 'yaw')
+
+    # Read only if different from the previous image.
+    if prev_imagefile is None or imagefile != prev_imagefile:
+      image = image_reader.imread(imagefile)
+
+    display = image.copy()  # each car roi is drawn on a copy
+    drawRoi (display, roi)
+    display = imresize(display, args.display_scale)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    if yaw is not None:
+      cv2.putText (display, 'yaw: %.1f' % yaw, (10, 80), font, 0.5, (255,255,255), 2)
+    cv2.imshow('labelYaw', display)
+    button = key_reader.readKey()
+
+    # Navigation.
+    if button == keys['left']:
+      logging.debug ('prev car')
+      if index_car > 0:
+        index_car -= 1
+      else:
+        logging.warning('Already at the first car.')
+    elif button == keys['right']:
+      logging.debug ('next car')
+      if index_car < len(car_entries):
+        index_car += 1
+      else:
+        logging.warning('Already at the last car. Press Esc to save and exit.')
+
+    # Manual entry.
+    elif button >= ord('0') and button <= ord('9') or button == ord('.'):
+      char_list += chr(button)
+      logging.debug('Added %s character to number and got %s' %
+          (chr(button), ''.join(char_list)))
+    elif button == 13:  # enter.
+      number_str = ''.join(char_list)
+      char_list = []
+      try:
+        yaw = float(number_str)
+      except ValueError:
+        logging.warning('Could not convert entered %s to number.' % number_str)
+        continue
+      c.execute('UPDATE cars SET yaw=? WHERE id=?', (yaw, carid))
+      logging.info('Yaw is assigned to %.f' % yaw)
+      index_car += 1
+
+
 def classifyName (c, params = {}):
     '''
     Assign a name to each car (currently most names reflect car type)
     '''
     logging.info ('==== classifyName ====')
+    import cv2
     setParamUnlessThere (params, 'disp_scale',       1.5)
     setParamUnlessThere (params, 'car_constraint',   '1')
     setParamUnlessThere (params, 'image_processor',  ReaderVideo())
@@ -322,6 +412,7 @@ def classifyName (c, params = {}):
 
 def classifyColor (c, params = {}):
     logging.info ('==== classifyColor ====')
+    import cv2
     setParamUnlessThere (params, 'disp_scale', 1.5)
     setParamUnlessThere (params, 'car_constraint',   '1')
     setParamUnlessThere (params, 'image_processor',     ReaderVideo())
@@ -495,6 +586,7 @@ def labelMatches (c, params = {}):
     - Pass 'imagefile_start' number in parameters to start with a certain image pair.
     '''
     logging.info ('==== labelMatches ====')
+    import cv2
     setParamUnlessThere (params, 'debug', False)
     setParamUnlessThere (params, 'disp_scale', 1.5)
     setParamUnlessThere (params, 'image_processor',     ReaderVideo())

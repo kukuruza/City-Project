@@ -60,34 +60,13 @@ def getCalibration ():
     return { 'del': keydel, 'right': keyright, 'left': keyleft, 'esc': keyesc }
 
 
-
-### KeyReader interface and its two implementations. ###
-#
-# KeyReaderUser reads pressed key from a user
-# KeyReaderSequence takes the next pressed key from a provided sequence
-#
-
-class KeyReader (object):
-
-    @abc.abstractmethod
-    def readKey(self):
-        __metaclass__ = abc.ABCMeta
-        return
-
 class KeyReaderUser (KeyReader):
     ''' Read keys from user '''
+    def __init__(self):
+        import cv2
+
     def readKey(self):
         return cv2.waitKey(-1)
-
-class KeyReaderSequence (KeyReader):
-    ''' Read key from a predefined sequence '''
-    def __init__ (self, sequence):
-        self.sequence = sequence
-    def readKey(self):
-        if len(self.sequence) == 0: raise Exception ('KeyReaderSequence: no more keys in sequence')
-        key = self.sequence.pop(0)
-        cv2.waitKey(10)
-        return key
 
 
 if __name__ == "__main__":

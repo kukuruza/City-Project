@@ -1,7 +1,6 @@
 import os, sys, os.path as op
 from math import ceil
 import numpy as np
-import cv2
 import logging
 import sqlite3
 import json
@@ -46,6 +45,7 @@ def expandBoxesParser(subparsers):
 
 def expandBoxes (c, args):
   logging.info ('==== expandBoxes ====')
+  import cv2
 
   if args.display_expand:
     key = 0
@@ -91,6 +91,7 @@ def assignOrientationsParser(subparsers):
 
 def assignOrientations (c, params):
   logging.info ('==== assignOrientations ====')
+  import cv2
 
   assert op.exists(atcity(args.size_map_file)), atcity(args.size_map_file)
   size_map = cv2.imread(atcity(args.size_map_file), 0).astype(np.float32)
@@ -318,6 +319,7 @@ def polygonsToMasks (c, c_labelled=None, c_all=None, params = {}):
   Currently only supports ProcessorVideo (writes masks to video)
   '''
   logging.info ('==== polygonsToMasks ====')
+  import cv2
   setParamUnlessThere (params, 'relpath',    os.getenv('CITY_DATA_PATH'))
   setParamUnlessThere (params, 'mask_name',  'mask-poly.avi')
 
@@ -371,6 +373,7 @@ def generateBackground (c, out_videofile, params={}):
   ''' Generate background video using mask and update imagefiles in db. '''
 
   logging.info ('==== polygonsToMasks ====')
+  import cv2
   setParamUnlessThere (params, 'relpath',       os.getenv('CITY_DATA_PATH'))
   setParamUnlessThere (params, 'show_debug',    False)
   setParamUnlessThere (params, 'key_reader',    KeyReaderUser())

@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 import scipy.cluster.hierarchy
 import matplotlib.pyplot
 import matplotlib.pyplot as plt  # for colormaps
@@ -38,6 +37,7 @@ def bottomCenter (roi):
 
 def drawRoi (img, roi, label=None, color=None, thickness=1):
     ''' roi = [y1 x1 y2 x2] '''
+    import cv2
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
     if color is None:
@@ -52,6 +52,7 @@ def drawRoi (img, roi, label=None, color=None, thickness=1):
 
 
 def drawScoredRoi (img, roi, label = None, score = None, thickness=2):
+    import cv2
     assert score is None or score >= 0 and score <= 1
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
@@ -70,6 +71,7 @@ def drawScoredPolygon (img, polygon, label=None, score=None, thickness=2):
   assert len(polygon) > 2, polygon
   assert type(polygon[0]) is tuple, polygon
   
+  import cv2
   font = cv2.FONT_HERSHEY_SIMPLEX
   if label is None: label = ''
   if score is None:
@@ -339,6 +341,7 @@ def polygon2roi (polygon):
 
 # polygon == [pts], pt = (x, y)
 def overlapRatioPoly (polygon1, polygon2, params):
+    import cv2
     mask1 = np.zeros(params['imgshape'], dtype = np.uint8)
     cv2.fillPoly (mask1, [np.array(polygon1, dtype = np.int32)], (127))
     mask2 = np.zeros(params['imgshape'], dtype = np.uint8)

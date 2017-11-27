@@ -2,7 +2,6 @@ import os, sys, os.path as op
 import argparse
 import numpy as np
 import logging
-import matplotlib.pyplot as plt
 from pprint import pprint
 from helperDb import carField
 
@@ -24,6 +23,8 @@ def scatterParser(subparsers):
 
 def scatter(c, args):
   logging.info ('==== scatter ====')
+  import matplotlib.pyplot as plt
+
   c.execute('SELECT %s,%s FROM cars WHERE %s' % (args.x, args.y, args.constraint))
   car_entries = c.fetchall()
 
