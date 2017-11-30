@@ -11,13 +11,13 @@ import numpy as np
 from pprint import pprint
 
 
-def warp(in_image, camera, pose_id,
+def warp(in_image, camera_id, pose_id, map_id,
     dilation_radius=None, reverse_direction=False):  
 
-  pose = Pose(camera, pose_id=pose_id)
-  H = np.asarray(pose['pose']['H_frame_to_map']).reshape((3,3))
-  dims_in = (pose['camera_dims']['height'], pose['camera_dims']['width'])
-  dims_out = (pose['map']['map_dims']['height'], pose['map']['map_dims']['width'])
+  pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
+  H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
+  dims_in = (pose['cam_dims']['height'], pose['cam_dims']['width'])
+  dims_out = (pose.map['map_dims']['height'], pose.map['map_dims']['width'])
   np.set_printoptions(precision=1,
       formatter = dict( float = lambda x: "%10.4f" % x ))
   logging.debug (str(H))

@@ -5,6 +5,9 @@ import simplejson as json
 from imageio import imread
 #from scipy.misc import imread
 from glob import glob
+import re
+import numpy as np
+
 
 def _atcity(path):
   return op.join(os.getenv('CITY_PATH'), path)
@@ -49,6 +52,9 @@ class Camera(Info):
     self.camera_id = camera_id
     self.path = _atcity(op.join('data/scenes', camera_id, 'camera.json'))
     self.load()
+
+  def get_camera_dir(self):
+    return op.dirname(self.path)
 
 
 class Map(Info):
@@ -120,9 +126,92 @@ class Pose(Info):
     return frame
 
 
+def createPoseFromImagefile(imagefile):
+  ''' Parse camera and video from the imagefile, and create a pose. '''
+
+  dirs = imagefile.split('/')
+
+  # Find camera.
+  matches_cam = [re.compile('^(cam(\d{3})|\d{3})$').match(x) for x in dirs]
+  try:
+    cam_ind = next(i for i, j in enumerate(matches_cam) if j)  # Find first not None
+    camera_name = matches_cam[cam_ind].groups()[0]
+  except StopIteration:
+    logging.info('Failed to deduce camera from %s' % imagefile)
+    return None
+  logging.debug('Video: deduce camera_name to be %s' % camera_name)
+
+  # Gradually moving to remove 'cam' prefix, not only in scenes.
+  camera_id = re.search('\d+', camera_name).group(0)
+  logging.debug('Video: deduce camera_id to be %s' % camera_id)
+
+  # Find video.
+  assert cam_ind + 1 < len(dirs), 'Camera should not be the last in %s' % imagefile
+  video_id = dirs[cam_ind+1]  # The next dir after camera.
+
+  # Find video json in scenes if any.
+  # TODO: maybe inherit from Info. Maybe have Videos rather than Video.
+  camera = Camera(camera_id)
+  video_path = op.join(camera.get_camera_dir(), 'videos.json')
+  if not op.exists(video_path):
+    logging.info('Video: videos.json is not found for camera %s' % camera_id)
+    pose_id = 0
+  else:
+    logging.info ('Video: loading videos info from: %s' % video_path)
+    videos = json.load(open(video_path))
+    assert 'videos' in videos, json.dumps(videos, sort_keys=True, indent=2)
+    videos = videos['videos']
+    if video_id not in videos:
+      logging.error('Camera %s has videos.json, but video %s is not there:\n%s' %
+          (camera_id, video_id, json.dumps(videos, sort_keys=True, indent=2)))
+      return None
+    else:
+      logging.debug('')
+      assert 'pose_id' in videos[video_id]
+      pose_id = videos[video_id]['pose_id']
+  
+  # load and return Pose.
+  pose = Pose(camera_id=camera_id, pose_id=pose_id)
+  return pose
+
+ 
+class VideoHomography:
+
+  def __init__(self):
+    self.cached_pose = {}
+
+  def getHfromImagefile(self, imagefile):
+
+    # Get Pose for imagefile
+    if imagefile in self.cached_pose:
+      pose = self.cached_pose[imagefile]
+      logging.info('Took pose from cache for %s' % imagefile)
+    else:
+      # Only pose for an imagefile is cached now.
+      # New imagefile means reading camera json.
+      pose = createPoseFromImagefile(imagefile)
+      self.cached_pose = {imagefile: pose}  # Only one item in cache.
+      logging.info('Created pose for %s' % imagefile)
+
+    # Get homography for imagefile.
+    if pose is None:
+      H = None
+    elif 'H_frame_to_map' not in pose['maps'][pose.map_id]:
+      logging.warning('H is not in the pose %s for camera %s' %
+          (pose.pose_id, pose.camera_id))
+      H = None
+    else:
+      H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
+      logging.debug('H_frame_to_map:\n%s' % str(H))
+
+    return H
+
+
 if __name__ == "__main__":
   logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
   camera = Camera(camera_id='170')
   map = Map(camera_id='170', map_id=0)
   pose = Pose(camera_id='170', pose_id=1)
 
+  createPoseFromImagefile('data/camdata/170/170-20160508-18/000002')

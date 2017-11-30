@@ -60,7 +60,7 @@ def getCalibration ():
     return { 'del': keydel, 'right': keyright, 'left': keyleft, 'esc': keyesc }
 
 
-class KeyReaderUser (KeyReader):
+class KeyReaderUser:
     ''' Read keys from user '''
     def __init__(self):
         import cv2

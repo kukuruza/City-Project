@@ -12,7 +12,6 @@ from scipy.misc import imresize
 def add_parsers(subparsers):
   displayParser(subparsers)
   examineParser(subparsers)
-  labelAzimuthParser(subparsers)
   displayMatchesParser(subparsers)
 
 

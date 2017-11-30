@@ -51,8 +51,9 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description=
       '''The pipeline for computing azimuth maps.
       All azimuth are ''')
-  parser.add_argument('--camera', required=True, default="cam572")
+  parser.add_argument('--camera_id', required=True, default="cam572")
   parser.add_argument('--pose_id', type=int, default=0)
+  parser.add_argument('--map_id', type=int, help='If not set, will use pose["best_map_id"]')
   parser.add_argument('--steps', nargs='+',
       choices=['2topdown', 'compute_azimuth', 'delta', '2frame'])
   parser.add_argument('--logging', type=int, default=20, choices=[10,20,30,40])
@@ -60,13 +61,15 @@ if __name__ == "__main__":
   
   logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 
-  pose = Pose(args.camera, args.pose_id)
+  pose = Pose(camera_id=args.camera_id, pose_id=args.pose_id, map_id=args.map_id)
+
   pose_dir = pose.get_pose_dir()
-  if not op.exists(op.join(pose_dir, '4azimuth')):
-    os.makedirs(op.join(pose_dir, '4azimuth'))
+  for_azimuth_dir = op.join(pose_dir, '4azimuth-map%d' % pose.map_id)
+  if not op.exists(for_azimuth_dir):
+    os.makedirs(for_azimuth_dir)
 
   if args.steps is None or '2topdown' in args.steps:
-    lane_paths = glob(op.join(pose_dir, 'lanes*16b.png'))
+    lane_paths = glob(op.join(for_azimuth_dir, 'lanes*16b.png'))
     print ('Found %d lane images' % len(lane_paths))
 
     for lane_path in lane_paths:
@@ -87,7 +90,7 @@ if __name__ == "__main__":
       # Do again with the optimal radius, and write to disk.
       dilation_radius = range(5)[first_index_of_min_count]
       print ('Will use dilation radius %d' % dilation_radius)
-      warped_lane = warp(in_lane, args.camera, args.pose_id,
+      warped_lane = warp(in_lane, args.camera_id, args.pose_id,
           dilation_radius=dilation_radius)
       warped_lane_path = op.splitext(lane_path)[0] + '-warped.png'
       cv2.imwrite(warped_lane_path, warped_lane)
@@ -106,7 +109,7 @@ if __name__ == "__main__":
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
    
     # Camera can see ech point at a certain angle.
-    origin = pose['map']['origin_image']
+    origin = pose.map['map_origin']
     X, Y = azimuth_top_down.shape[1], azimuth_top_down.shape[0]
     delta_x_1D = np.arange(X) - origin['x']
     delta_y_1D = np.arange(Y) - origin['y']
@@ -116,20 +119,20 @@ if __name__ == "__main__":
     # From [-pi, pi] to [0 360]
     delta_azimuth = np.mod( (delta_azimuth * 180. / np.pi), 360. )
     # Write for debugging.
-    delta_azimuth_path = op.join(pose_dir, '4azimuth/azimuth-top-down-delta.png')
+    delta_azimuth_path = op.join(for_azimuth_dir, 'azimuth-top-down-delta.png')
     write_azimuth_image(delta_azimuth_path, delta_azimuth)
     # Top-down azimuth in camera point of view, 0 is north, 90 is east.
     azimuth_top_down = np.mod(azimuth_top_down - delta_azimuth, 360.)
-    azimuth_top_down_path = op.join(pose_dir, '4azimuth/azimuth-top-down-from-camera.png')
+    azimuth_top_down_path = op.join(for_azimuth_dir, 'azimuth-top-down-from-camera.png')
     write_azimuth_image(azimuth_top_down_path, azimuth_top_down, mask_top_down)
 
   if args.steps is None or '2frame' in args.steps:
     print ('Warping from top-down view to frame view.')
     azimuth_top_down_path = op.join(pose_dir, '4azimuth/azimuth-top-down-from-camera.png')
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
-    azimuth_frame = warp(azimuth_top_down, args.camera, args.pose_id,
+    azimuth_frame = warp(azimuth_top_down, args.camera_id, args.pose_id,
           dilation_radius=0, reverse_direction=True)
-    mask_frame = warp(mask_top_down.astype(float), args.camera, args.pose_id,
+    mask_frame = warp(mask_top_down.astype(float), args.camera_id, args.pose_id,
           dilation_radius=0, reverse_direction=True) > 0.5
     azimuth_frame_path = op.join(pose_dir, 'azimuth-frame.png')
     write_azimuth_image(azimuth_frame_path, azimuth_frame, mask_frame)

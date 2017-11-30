@@ -6,7 +6,6 @@ from progressbar import ProgressBar
 from pprint import pprint
 from db.lib.helperDb import deleteCars, deleteCar, carField, imageField, doesTableExist
 from db.lib.helperSetup import atcity
-from augmentation.Cad import Cad
 
 
 def add_parsers(subparsers):
@@ -24,6 +23,8 @@ def filterByCadCollectionsParser(subparsers):
 
 def filterByCadCollections (c, args):
   logging.info ('==== filterByCadCollections ====')
+  from augmentation.Cad import Cad
+
   has_polygons = doesTableExist(c, 'polygons')
   has_matches = doesTableExist(c, 'matches')
 
@@ -59,6 +60,8 @@ def filterByCadTypesParser(subparsers):
 
 def filterByCadTypes (c, args):
   logging.info ('==== filterByCadTypes ====')
+  from augmentation.Cad import Cad
+
   has_polygons = doesTableExist(c, 'polygons')
   has_matches = doesTableExist(c, 'matches')
 

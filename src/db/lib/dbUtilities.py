@@ -1,7 +1,4 @@
 import numpy as np
-import scipy.cluster.hierarchy
-import matplotlib.pyplot
-import matplotlib.pyplot as plt  # for colormaps
 import sys, os, os.path as op
 import logging
 from scipy.stats import gamma
@@ -289,6 +286,9 @@ def overlapRatio (roi1, roi2):
 
 
 def hierarchicalClusterRoi (rois, params = {}):
+    import scipy.cluster.hierarchy
+    import matplotlib.pyplot
+    import matplotlib.pyplot as plt  # for colormaps
     if not rois:         return [], [], []
     elif len(rois) == 1: return rois, [0], [1]
 
@@ -358,6 +358,9 @@ def overlapRatioPoly (polygon1, polygon2, params):
 
 
 def hierarchicalClusterPolygons (polygons, params):
+    import scipy.cluster.hierarchy
+    import matplotlib.pyplot
+    import matplotlib.pyplot as plt  # for colormaps
     if not polygons:         return [], []
     elif len(polygons) == 1: return [polygon2roi(polygons[0])], [0]
 
