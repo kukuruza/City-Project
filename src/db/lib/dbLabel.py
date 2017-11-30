@@ -136,13 +136,14 @@ def labelAzimuth (c, args):
       axis_y = axis_x * flattening
       logging.info('Ellipse: x y axis_x axis_y:  %.1f %.1f %.1f %.1f' % (x, y, axis_x, axis_y))
 
-      display = image_reader.imread(imagefile).copy()[:,:,::-1]
+      display = image_reader.imread(imagefile)[:,:,::-1].copy()
 #      display = imresize(display, args.display_scale)
       font = cv2.FONT_HERSHEY_SIMPLEX
       if yaw is None:
         logging.info('Yaw is None.')
       if yaw is not None:
         logging.info('Yaw is: %.0f' % yaw)
+        print display.shape, 'yaw: %.0f' % yaw
         cv2.putText(display, 'yaw: %.0f' % yaw, (10, 20), font, 0.5, (255,255,255), 2)
       window = AzimuthWindow(display, x, y, axis_x, axis_y, yaw)
 
@@ -161,6 +162,12 @@ def labelAzimuth (c, args):
         index_car += 1
       else:
         logging.warning('Already at the last car. Press Esc to save and exit.')
+
+    elif button == keys['del']:
+      c.execute('UPDATE cars SET yaw=NULL WHERE id=?', (carid,))
+      logging.info('Yaw is deleted.')
+      index_car += 1
+      char_list = []
 
     # Entry in GUI.
     if window.selected == True:
