@@ -80,7 +80,7 @@ if __name__ == "__main__":
       # Find the min radius that does not ruin lanes.
       counts = []
       for dilation_radius in range(5):
-        warped_lane = warp(in_lane, args.camera, args.pose_id,
+        warped_lane = warp(in_lane, args.camera_id, args.pose_id, pose.map_id,
             dilation_radius=dilation_radius)
         _, count = label((warped_lane > 0).astype(int), connectivity=2, return_num=True)
         counts.append(count)
@@ -90,22 +90,24 @@ if __name__ == "__main__":
       # Do again with the optimal radius, and write to disk.
       dilation_radius = range(5)[first_index_of_min_count]
       print ('Will use dilation radius %d' % dilation_radius)
-      warped_lane = warp(in_lane, args.camera_id, args.pose_id,
+      warped_lane = warp(in_lane, args.camera_id, args.pose_id, pose.map_id,
           dilation_radius=dilation_radius)
       warped_lane_path = op.splitext(lane_path)[0] + '-warped.png'
       cv2.imwrite(warped_lane_path, warped_lane)
  
   # Calculate azimuth on the top-down view.
   if args.steps is None or 'compute_azimuth' in args.steps:
-    s = '''"cd(fullfile(getenv('CITY_PATH'), 'src/scenes/lib')); 
-            ComputeAzimuthMap('%s/4azimuth/lanes*warped.png', '%s/4azimuth/azimuth-top-down.png');
-            exit;" ''' % (pose_dir, pose_dir)
-    command = ['matlab', '-nodisplay', '-r', s]
-    returncode = subprocess.call (command, shell=False)#, stdout=FNULL, stderr=FNULL)
+    rel_for_azimuth_dir = op.relpath(for_azimuth_dir, os.getenv('CITY_PATH'))
+    s = ('''"cd(fullfile(getenv('CITY_PATH'), 'src/scenes/lib')); ''' +
+         '''ComputeAzimuthMap('%s/lanes*warped.png', '%s/azimuth-top-down.png'); '''
+         % (rel_for_azimuth_dir, rel_for_azimuth_dir) + '''exit;" ''' )
+    command = '%s/bin/matlab' % os.getenv('MATLAB_HOME') + ' -nodisplay -r ' + s
+    logging.info (command)
+    returncode = subprocess.call (command, shell=True, executable="/bin/bash")
 
   if args.steps is None or 'delta' in args.steps:
     print ('Creating delta azimuth for top-down view.')
-    azimuth_top_down_path = op.join(pose_dir, '4azimuth/azimuth-top-down.png')
+    azimuth_top_down_path = op.join(pose_dir, 'azimuth-top-down.png')
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
    
     # Camera can see ech point at a certain angle.
@@ -128,12 +130,14 @@ if __name__ == "__main__":
 
   if args.steps is None or '2frame' in args.steps:
     print ('Warping from top-down view to frame view.')
-    azimuth_top_down_path = op.join(pose_dir, '4azimuth/azimuth-top-down-from-camera.png')
+    azimuth_top_down_path = op.join(for_azimuth_dir, 'azimuth-top-down-from-camera.png')
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
-    azimuth_frame = warp(azimuth_top_down, args.camera_id, args.pose_id,
-          dilation_radius=0, reverse_direction=True)
-    mask_frame = warp(mask_top_down.astype(float), args.camera_id, args.pose_id,
-          dilation_radius=0, reverse_direction=True) > 0.5
+    azimuth_frame = warp(azimuth_top_down, 
+        args.camera_id, args.pose_id, pose.map_id,
+        dilation_radius=0, reverse_direction=True)
+    mask_frame = warp(mask_top_down.astype(float),
+        args.camera_id, args.pose_id, pose.map_id,
+        dilation_radius=0, reverse_direction=True) > 0.5
     azimuth_frame_path = op.join(pose_dir, 'azimuth-frame.png')
     write_azimuth_image(azimuth_frame_path, azimuth_frame, mask_frame)
 

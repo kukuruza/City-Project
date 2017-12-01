@@ -19,6 +19,7 @@ class Info:
     self.path = None
 
   def __getitem__(self, key):
+    assert key in self.info, self.dump()
     return self.info[key]
 
   def __setitem__(self, key, item):
@@ -175,38 +176,6 @@ def createPoseFromImagefile(imagefile):
   return pose
 
  
-class VideoHomography:
-
-  def __init__(self):
-    self.cached_pose = {}
-
-  def getHfromImagefile(self, imagefile):
-
-    # Get Pose for imagefile
-    if imagefile in self.cached_pose:
-      pose = self.cached_pose[imagefile]
-      logging.info('Took pose from cache for %s' % imagefile)
-    else:
-      # Only pose for an imagefile is cached now.
-      # New imagefile means reading camera json.
-      pose = createPoseFromImagefile(imagefile)
-      self.cached_pose = {imagefile: pose}  # Only one item in cache.
-      logging.info('Created pose for %s' % imagefile)
-
-    # Get homography for imagefile.
-    if pose is None:
-      H = None
-    elif 'H_frame_to_map' not in pose['maps'][pose.map_id]:
-      logging.warning('H is not in the pose %s for camera %s' %
-          (pose.pose_id, pose.camera_id))
-      H = None
-    else:
-      H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
-      logging.debug('H_frame_to_map:\n%s' % str(H))
-
-    return H
-
-
 if __name__ == "__main__":
   logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 

@@ -72,10 +72,10 @@ def labelMatches (img1, img2, matches_path,
       color = get_random_color()
       window1.points.append(((matches['frame']['x'][i], matches['frame']['y'][i]), color))
       window2.points.append(((matches['map']['x'][i], matches['map']['y'][i]), color))
-    window1.update_cached_zoomed_img()
-    window2.update_cached_zoomed_img()
-    window1.redraw()
-    window2.redraw()
+  window1.update_cached_zoomed_img()
+  window2.update_cached_zoomed_img()
+  window1.redraw()
+  window2.redraw()
 
   BUTTON_ESCAPE = 27
   BUTTON_ENTER = 13

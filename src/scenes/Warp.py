@@ -16,7 +16,7 @@ def warp(in_image, camera_id, pose_id, map_id,
 
   pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
   H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
-  dims_in = (pose['cam_dims']['height'], pose['cam_dims']['width'])
+  dims_in = (pose.camera['cam_dims']['height'], pose.camera['cam_dims']['width'])
   dims_out = (pose.map['map_dims']['height'], pose.map['map_dims']['width'])
   np.set_printoptions(precision=1,
       formatter = dict( float = lambda x: "%10.4f" % x ))

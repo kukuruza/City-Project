@@ -106,7 +106,7 @@ def examine (c, args):
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
-    logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
+    logging.debug ('%d cars found for %s' % (len(car_entries), imagefile))
 
     if index_car == -1:
       index_car = len(car_entries) - 1  # did 'prev image'

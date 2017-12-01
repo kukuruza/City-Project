@@ -27,11 +27,11 @@ class Window:
     self.img = pad_to_square(img.copy()[:,:,::-1])  # cv2 expects image as BGR.
     #
     self.imgsize = self.img.shape[0]
-    self.winsize = min(winsize, self.imgsize)
+    self.winsize = winsize # min(winsize, self.imgsize)
     logging.debug('%s: imgsize: %d, winsize: %d' %
         (self.name, self.imgsize, self.winsize))
-    self.Const_zoom = self.imgsize / float(self.winsize)
-    logging.info('%s: max_zoom: %f' % (self.name, self.Const_zoom))
+    self.Max_Zoom = self.imgsize / float(self.winsize)
+    logging.info('%s: max_zoom: %f' % (self.name, self.Max_Zoom))
     assert num_zoom_levels > 1, num_zoom_levels
     self.Num_Zoom_Levels = num_zoom_levels
     self.Zoom_levels = range(self.Num_Zoom_Levels)
@@ -53,8 +53,6 @@ class Window:
     cv2.setMouseCallback(self.name, self.mouseHandler)
     #
     self.make_cached_zoomed_images()
-    self.update_cached_zoomed_img()
-    self.redraw()
 
 
   def mouseHandler(self, event, x, y, flags, params):
@@ -89,7 +87,7 @@ class Window:
 
 
   def get_zoom(self, zoom_level):
-    return ((float(self.Const_zoom) - 1.) / (self.Num_Zoom_Levels - 1.) * zoom_level + 1.) / self.Const_zoom
+    return ((float(self.Max_Zoom) - 1.) / (self.Num_Zoom_Levels - 1.) * zoom_level + 1.) / self.Max_Zoom
 
 
   def make_cached_zoomed_images(self):
@@ -132,7 +130,6 @@ class Window:
     cv2.imshow(self.name, crop)
 
   def image_to_zoomedimage_coords(self, x, y):
-    offsetx, offsety = self.get_offsets()
     zoom = self.get_zoom(self.zoom_level)
     xwin = x * zoom
     ywin = y * zoom
@@ -164,6 +161,7 @@ if __name__ == "__main__":
 
   window = Window(imread(args.image_path), winsize=args.winsize, 
       num_zoom_levels=args.num_zoom_levels)
+  window.update_cached_zoomed_img()
   window.redraw()
   while cv2.waitKey(50) != 27:
     pass
