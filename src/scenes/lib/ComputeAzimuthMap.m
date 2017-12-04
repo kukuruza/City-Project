@@ -1,4 +1,4 @@
-function GetAzimuthMap (in_lane_template, out_azimuth_file)
+function ComputeAzimuthMap (in_lane_template, out_azimuth_file)
 % Given several files with maps of lanes, generate a map of azimuths
 % Each file with lane maps must have one or more lines in the lane middles
 % Output is just one png file with the map of azimuth angles, and alpha ch.

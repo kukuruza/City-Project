@@ -50,6 +50,7 @@ def drawRoi (img, roi, label=None, color=None, thickness=1):
 
 def drawScoredRoi (img, roi, label = None, score = None, thickness=2):
     import cv2
+    import matplotlib.pyplot as plt  # for colormaps
     assert score is None or score >= 0 and score <= 1
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
@@ -288,7 +289,6 @@ def overlapRatio (roi1, roi2):
 def hierarchicalClusterRoi (rois, params = {}):
     import scipy.cluster.hierarchy
     import matplotlib.pyplot
-    import matplotlib.pyplot as plt  # for colormaps
     if not rois:         return [], [], []
     elif len(rois) == 1: return rois, [0], [1]
 
@@ -360,7 +360,6 @@ def overlapRatioPoly (polygon1, polygon2, params):
 def hierarchicalClusterPolygons (polygons, params):
     import scipy.cluster.hierarchy
     import matplotlib.pyplot
-    import matplotlib.pyplot as plt  # for colormaps
     if not polygons:         return [], []
     elif len(polygons) == 1: return [polygon2roi(polygons[0])], [0]
 

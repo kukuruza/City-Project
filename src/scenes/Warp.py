@@ -12,7 +12,7 @@ from pprint import pprint
 
 
 def warp(in_image, camera_id, pose_id, map_id,
-    dilation_radius=None, reverse_direction=False):  
+    dilation_radius=None, reverse_direction=False, no_alpha=False):  
 
   pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
   H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
@@ -44,11 +44,17 @@ def warp(in_image, camera_id, pose_id, map_id,
   H_scale[1,1] = in_scale_w
   H_scale[2,2] = 1.
   H = np.matmul(H, H_scale)
-  logging.info('Scaling input image with (%f %f)' % (in_scale_h, in_scale_w))
+  logging.info('Scaling H with (%f %f)' % (in_scale_h, in_scale_w))
   logging.debug (str(H))
 
   out_image = cv2.warpPerspective(in_image, H, (dims_out[1], dims_out[0]), flags=cv2.INTER_NEAREST)
   logging.debug('Type of output image: %s' % str(out_image.dtype))
+  if len(out_image.shape) == 3 and out_image.shape[2] == 4 and no_alpha:
+    # Assign to zero.
+    out_image[:,:,0][np.bitwise_not(out_image[:,:,3])] = 0
+    out_image[:,:,1][np.bitwise_not(out_image[:,:,3])] = 0
+    out_image[:,:,2][np.bitwise_not(out_image[:,:,3])] = 0
+    out_image = out_image[:,:,0:3]
 
   return out_image
 

@@ -46,7 +46,7 @@ if __name__ == "__main__":
       counts = []
       for dilation_radius in range(5):
         warped_lane = warp(in_lane, args.camera_id, args.pose_id, pose.map_id,
-            dilation_radius=dilation_radius)
+            dilation_radius=dilation_radius, no_alpha=True)
         _, count = label((warped_lane > 0).astype(int), connectivity=2, return_num=True)
         counts.append(count)
       print ('Lanes segments counts for different dilation', counts)
@@ -55,7 +55,7 @@ if __name__ == "__main__":
       # Do again with the optimal radius, and write to disk.
       dilation_radius = range(5)[first_index_of_min_count]
       warped_lane = warp(in_lane, args.camera_id, args.pose_id, pose.map_id,
-          dilation_radius=dilation_radius)
+          dilation_radius=dilation_radius, no_alpha=True)
       _, count = label((warped_lane > 0).astype(int), connectivity=2, return_num=True)
       print ('Used dilation radius %d, got %d segments.' %
           (dilation_radius, count))
@@ -107,6 +107,3 @@ if __name__ == "__main__":
         dilation_radius=2, reverse_direction=True) > 0.5
     azimuth_frame_path = op.join(pose_dir, 'azimuth-frame.png')
     write_azimuth_image(azimuth_frame_path, azimuth_frame, mask_frame)
-
-  
-

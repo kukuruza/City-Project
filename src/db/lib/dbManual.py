@@ -20,7 +20,7 @@ def displayParser(subparsers):
     description='''Browse through database and see car bboxes on top of images.
                    Any key will scroll to the next image.''')
   parser.set_defaults(func=display)
-  parser.add_argument('--display_scale', type=float, default=1.)
+  parser.add_argument('--winsize', type=int, default=500)
   parser.add_argument('--show_empty_frames', action='store_true')
   parser.add_argument('--shuffle', action='store_true')
 
@@ -65,7 +65,8 @@ def display (c, args):
         logging.info ('roi: %s, name: %s, score: %f' % (str(roi), name, score))
         drawScoredRoi (display, roi, '', score)
 
-    cv2.imshow('display', imresize(display, args.display_scale))
+    scale = float(args.winsize) / max(display.shape[0:2])
+    cv2.imshow('display', imresize(display, scale))
     if key_reader.readKey() == 27: break
 
 
@@ -75,7 +76,7 @@ def examineParser(subparsers):
     description='''Browse through database and see car bboxes on top of images.
                    Preset keys for left/right will loop through cars.''')
   parser.set_defaults(func=examine)
-  parser.add_argument('--display_scale', type=float, default=1.)
+  parser.add_argument('--winsize', type=int, default=500)
   parser.add_argument('--shuffle', action='store_true')
 
 def examine (c, args):
@@ -106,7 +107,8 @@ def examine (c, args):
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
-    logging.debug ('%d cars found for %s' % (len(car_entries), imagefile))
+    if len(car_entries) > 0:
+      logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
     if index_car == -1:
       index_car = len(car_entries) - 1  # did 'prev image'
@@ -127,7 +129,8 @@ def examine (c, args):
 
       display = image.copy()  # each car roi is drawn on a copy
       drawRoi (display, roi)
-      display = imresize(display, args.display_scale)
+      scale = float(args.winsize) / max(display.shape[0:2])
+      display = imresize(display, scale)
       font = cv2.FONT_HERSHEY_SIMPLEX
       cv2.putText (display, 'name: %s' % name, (10, 20), font, 0.5, (255,255,255), 2)
       if color is not None:
@@ -167,7 +170,7 @@ def displayMatchesParser(subparsers):
     description='''Browse through database and see car bboxes on top of images.
                    Any key will scroll to the next image.''')
   parser.set_defaults(func=displayMatches)
-  parser.add_argument('--scale', type=float, default=1.)
+  parser.add_argument('--winsize', type=int, default=500)
   parser.add_argument('--shuffle', action='store_true')
 
 def displayMatches (c, args):
@@ -205,93 +208,9 @@ def displayMatches (c, args):
     # Assume all images have the same size for now.
     display = np.hstack(images)
 
-    cv2.imshow('display', imresize(display, args.scale))
+    scale = float(args.winsize) / max(display.shape[0:2])
+    cv2.imshow('display', imresize(display, scale))
     if key_reader.readKey() == 27: break
-
-
-def labelAzimuthParser(subparsers):
-  parser = subparsers.add_parser('labelAzimuth',
-    description='''Go through cars and label yaw (azimuth)
-    by either accepting one of the close yaw values from a map,
-    or by assigning a value manually.''')
-  parser.set_defaults(func=labelAzimuth)
-  parser.add_argument('--display_scale', type=float, default=1.)
-  parser.add_argument('--shuffle', action='store_true')
-  parser.add_argument('--load_labelled', action='store_true')
-
-def labelAzimuth (c, args):
-  logging.info ('==== labelAzimuth ====')
-  import cv2
-
-  image_reader = ReaderVideo()
-  key_reader = KeyReaderUser()
-  keys = getCalibration()
-
-  if args.load_labelled:
-    c.execute('SELECT * FROM cars WHERE yaw = NULL')
-  else:
-    c.execute('SELECT * FROM cars')
-  car_entries = c.fetchall()
-  logging.info('Found %d objects in db.' % len(car_entries))
-
-  if args.shuffle:
-    np.random.shuffle(car_entries)
-
-  button = 0
-  index_car = 0
-  prev_imagefile = None
-  char_list = []
-  while button != 27:
-
-    car_entry = car_entries[index_car]
-    carid     = carField(car_entry, 'id')
-    roi       = carField(car_entry, 'roi')
-    imagefile = carField(car_entry, 'imagefile')
-    yaw       = carField(car_entry, 'yaw')
-
-    # Read only if different from the previous image.
-    if prev_imagefile is None or imagefile != prev_imagefile:
-      image = image_reader.imread(imagefile)
-
-    display = image.copy()  # each car roi is drawn on a copy
-    drawRoi (display, roi)
-    display = imresize(display, args.display_scale)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    if yaw is not None:
-      cv2.putText (display, 'yaw: %.1f' % yaw, (10, 80), font, 0.5, (255,255,255), 2)
-    cv2.imshow('labelYaw', display)
-    button = key_reader.readKey()
-
-    # Navigation.
-    if button == keys['left']:
-      logging.debug ('prev car')
-      if index_car > 0:
-        index_car -= 1
-      else:
-        logging.warning('Already at the first car.')
-    elif button == keys['right']:
-      logging.debug ('next car')
-      if index_car < len(car_entries):
-        index_car += 1
-      else:
-        logging.warning('Already at the last car. Press Esc to save and exit.')
-
-    # Manual entry.
-    elif button >= ord('0') and button <= ord('9') or button == ord('.'):
-      char_list += chr(button)
-      logging.debug('Added %s character to number and got %s' %
-          (chr(button), ''.join(char_list)))
-    elif button == 13:  # enter.
-      number_str = ''.join(char_list)
-      char_list = []
-      try:
-        yaw = float(number_str)
-      except ValueError:
-        logging.warning('Could not convert entered %s to number.' % number_str)
-        continue
-      c.execute('UPDATE cars SET yaw=? WHERE id=?', (yaw, carid))
-      logging.info('Yaw is assigned to %.f' % yaw)
-      index_car += 1
 
 
 def classifyName (c, params = {}):
