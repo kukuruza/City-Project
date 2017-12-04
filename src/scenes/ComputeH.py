@@ -73,19 +73,6 @@ if __name__ == "__main__":
   warped_path = op.join(for_azimuth_dir, 'satellite-warped.jpg')
   imwrite(warped_path, warped_satellite)
 
-  # Horizon line.
-  horizon = H[2,:].copy().transpose()
-  logging.debug('Horizon line: %s' % str(horizon))
-  assert horizon[1] != 0
-  x1 = 0
-  x2 = frameW-1
-  y1 = int(- (horizon[0] * x1 + horizon[2]) / horizon[1])
-  y2 = int(- (horizon[0] * x2 + horizon[2]) / horizon[1])
-  frame = pose.load_frame()
-  cv2.line(frame, (x1,y1), (x2,y2), (255,255,255), 2)
-  horizon_path = op.join(for_azimuth_dir, 'horizon.jpg')
-  imwrite(horizon_path, frame)
-
   # Compute the origin on the map.
   X1 = H[:,1].copy().reshape(-1)
   X1 /= X1[2]

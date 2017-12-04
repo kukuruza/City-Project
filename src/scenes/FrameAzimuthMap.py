@@ -8,50 +8,15 @@ import subprocess
 from skimage.measure import label
 from Warp import warp
 from scenes.lib.camera import Pose
+from scenes.lib.azimuth import read_azimuth_image, write_azimuth_image
 
-
-def read_azimuth_image(azimuth_path):
-  ''' Take care of reading the image and respect the conventions. '''
-
-  assert op.exists(azimuth_path), azimuth_path
-  azimuth = cv2.imread(azimuth_path, -1)
-  assert azimuth is not None
-  # Mask is in the alpha channel, the other 3 channels are the same value.
-  mask = azimuth[:,:,3] > 0
-  azimuth = azimuth[:,:,0].astype(float)
-  # By convention, azimuth angles are divided by 2 before written to image.
-  azimuth *= 2
-  return azimuth, mask
-
-
-def write_azimuth_image(azimuth_path, azimuth, mask=None):
-  ''' Take care of wrting the image and respect the conventions. '''
-
-  # By convention, azimuth angles are divided by 2 before written to image.
-  azimuth = azimuth.copy() / 2.
-
-  # By convention to be human-friendly, write as 8bit.
-  azimuth = azimuth.astype(np.uint8)
-
-  assert len(azimuth.shape) == 2, 'Need grayscale azimuth.'
-  if mask is None:
-    mask = np.ones(azimuth.shape, dtype=np.uint8) * 255
-  else:
-    assert mask.shape == azimuth.shape
-    mask = mask.astype(np.uint8)
-    mask[mask > 0] = 255
-
-  # Mask is in the alpha channel, the other 3 channels are the same value.
-  azimuth = np.stack((azimuth, azimuth, azimuth, mask), axis=-1)
-  cv2.imwrite(azimuth_path, azimuth)
-  
 
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser(description=
       '''The pipeline for computing azimuth maps.
       All azimuth are ''')
-  parser.add_argument('--camera_id', required=True, default="cam572")
+  parser.add_argument('--camera_id', required=True, help="E.g. 572")
   parser.add_argument('--pose_id', type=int, default=0)
   parser.add_argument('--map_id', type=int, help='If not set, will use pose["best_map_id"]')
   parser.add_argument('--steps', nargs='+',
@@ -89,18 +54,20 @@ if __name__ == "__main__":
   
       # Do again with the optimal radius, and write to disk.
       dilation_radius = range(5)[first_index_of_min_count]
-      print ('Will use dilation radius %d' % dilation_radius)
       warped_lane = warp(in_lane, args.camera_id, args.pose_id, pose.map_id,
           dilation_radius=dilation_radius)
+      _, count = label((warped_lane > 0).astype(int), connectivity=2, return_num=True)
+      print ('Used dilation radius %d, got %d segments.' %
+          (dilation_radius, count))
       warped_lane_path = op.splitext(lane_path)[0] + '-warped.png'
       cv2.imwrite(warped_lane_path, warped_lane)
  
   # Calculate azimuth on the top-down view.
   if args.steps is None or 'compute_azimuth' in args.steps:
-    rel_for_azimuth_dir = op.relpath(for_azimuth_dir, os.getenv('CITY_PATH'))
+    rel_pose_dir = op.relpath(pose_dir, os.getenv('CITY_PATH'))
     s = ('''"cd(fullfile(getenv('CITY_PATH'), 'src/scenes/lib')); ''' +
          '''ComputeAzimuthMap('%s/lanes*warped.png', '%s/azimuth-top-down.png'); '''
-         % (rel_for_azimuth_dir, rel_for_azimuth_dir) + '''exit;" ''' )
+         % (rel_pose_dir, rel_pose_dir) + '''exit;" ''' )
     command = '%s/bin/matlab' % os.getenv('MATLAB_HOME') + ' -nodisplay -r ' + s
     logging.info (command)
     returncode = subprocess.call (command, shell=True, executable="/bin/bash")
@@ -134,10 +101,10 @@ if __name__ == "__main__":
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
     azimuth_frame = warp(azimuth_top_down, 
         args.camera_id, args.pose_id, pose.map_id,
-        dilation_radius=0, reverse_direction=True)
+        dilation_radius=2, reverse_direction=True)
     mask_frame = warp(mask_top_down.astype(float),
         args.camera_id, args.pose_id, pose.map_id,
-        dilation_radius=0, reverse_direction=True) > 0.5
+        dilation_radius=2, reverse_direction=True) > 0.5
     azimuth_frame_path = op.join(pose_dir, 'azimuth-frame.png')
     write_azimuth_image(azimuth_frame_path, azimuth_frame, mask_frame)
 

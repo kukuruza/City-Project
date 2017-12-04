@@ -10,6 +10,7 @@ from helperImg import ReaderVideo
 from scipy.misc import imresize, imread
 from scenes.lib.cvScrollZoomWindow import Window
 from scenes.lib.camera import createPoseFromImagefile
+from scenes.lib.azimuth import read_azimuth_image
 import cv2
 
 
@@ -22,7 +23,7 @@ class _VideoHomography:
 
   def __init__(self):
     self.cached_pose = {}
-    self.cached_azimuth_frame = {}
+    self.cached_azimuth_map = {}
 
   def _getPose(self, imagefile):    
     # Get Pose for imagefile
@@ -50,29 +51,27 @@ class _VideoHomography:
       logging.debug('H_frame_to_map:\n%s' % str(H))
       return H
 
-  def getAzimuthFrameFromImagefile(self, imagefile):
+  def getAzimuthMapFromImagefile(self, imagefile):
     pose = self._getPose(imagefile)
     if pose is None:
       return None
-    azimuth_frame_path = op.join(pose.get_pose_dir(), 'azimuth-frame.png')
-    if azimuth_frame_path in self.cached_azimuth_frame:
-      logging.info('Found azimuth_frame_path %s in cache' % azimuth_frame_path)
-      return self.cached_azimuth_frame[azimuth_frame_path].copy()
-    if not op.exists(azimuth_frame_path):
-      logging.info('azimuth_frame_path %s does not exist' % azimuth_frame_path)
+    azimuth_map_path = op.join(pose.get_pose_dir(),
+        '4azimuth-map%d/azimuth-top-down-from-camera.png' % pose.map_id)
+    if azimuth_map_path in self.cached_azimuth_map:
+      logging.info('Found azimuth_map_path %s in cache' % azimuth_map_path)
+      return self.cached_azimuth_map[azimuth_map_path]
+    if not op.exists(azimuth_map_path):
+      logging.info('azimuth_map_path %s does not exist' % azimuth_map_path)
       return None
     else:
-      azimuth_frame = cv2.imread(azimuth_frame_path, -1)
-      azimuth_frame *= 2  # Convention to fit 360 degrees into [0 255].
-      self.cached_azimuth_frame[azimuth_frame_path] = azimuth_frame
-      logging.info('Loaded azimuth_frame_path %s.' % azimuth_frame_path)
-      return azimuth_frame.copy()
+      azimuth_map, azimuth_mask = read_azimuth_image(azimuth_map_path)
+      self.cached_azimuth_map[azimuth_map_path] = (azimuth_map, azimuth_mask)
+      logging.info('Loaded azimuth_map_path %s.' % azimuth_map_path)
+      return azimuth_map, azimuth_mask
 
 
 class AzimuthWindow(Window):
-  ''' Use mouse left button and wheel to navigate,
-  shift + left button to choose azimuth.
-  '''
+  ''' Use Shift + left button to choose azimuth. '''
 
   def __init__(self, img, x, y, axis_x, axis_y, yaw=None, winsize=500, name='azimuth'):
     Window.__init__(self, img, winsize, name, num_zoom_levels=2)
@@ -117,7 +116,7 @@ class AzimuthWindow(Window):
 
 
 def _getMapEllipse(H, y_frame, x_frame):
-  assert H is not None  
+  assert H is not None
   p_frame = np.asarray([[x_frame],[y_frame],[1.]])
   p_frame_dx = np.asarray([[x_frame + 1.],[y_frame],[1.]])
   p_frame_dy = np.asarray([[x_frame],[y_frame + 1.],[1.]])
@@ -142,25 +141,38 @@ def _getFlatteningFromImagefile(videoH, imagefile, y_frame, x_frame):
 
 
 def _getAzimuthSuggestionFromMap(videoH, imagefile, y_frame, x_frame):
-  azimuth_frame = videoH.getAzimuthFrameFromImagefile(imagefile)
-  if azimuth_frame is None:
+  azimuth_map, azimuth_mask = videoH.getAzimuthMapFromImagefile(imagefile)
+  if azimuth_map is None:
     return None
-  # TODO: for multiple suggestions, need to know how many points to get.
-  #H = videoH.getHfromImagefile(imagefile)
-  #if H is None:
-  #  return None
-  #dx, dy = _getMapEllipse(H, y_frame, x_frame)
-  def _closest_nonzero_point(arr, x, y):
+  H = videoH.getHfromImagefile(imagefile)
+  if H is None:
+    return None
+  # Find the point on top-down view.
+  p_frame = np.asarray([[x_frame],[y_frame],[1.]])
+  p_map = np.matmul(H, p_frame)
+  p_map /= p_map[2]
+  x_map, y_map = p_map[0], p_map[1]
+  print x_map, y_map
+  # Find points in a radius
+  def _closest_nonzero_point(arr, mask, x, y):
+    arr[np.bitwise_not(mask)] = -1
     X, Y = arr.shape[1], arr.shape[0]
     delta_x_1D = np.arange(X) - x
     delta_y_1D = np.arange(Y) - y
     delta_x = np.dot( np.ones((Y,1)), delta_x_1D[np.newaxis,:] ).astype(float)
     delta_y = np.dot( delta_y_1D[:,np.newaxis], np.ones((1,X)) ).astype(float)
-    dist = np.square(delta_x) + np.square(delta_y)
+    dist = np.sqrt(np.square(delta_x) + np.square(delta_y))
+    #for ix in range(X):
+    #  for iy in range(Y):
+    #    if dist[iy,ix] < 10 and azimuth_mask[iy,ix] == True:
+    #      print iy, ix, arr[iy,ix]
+    #print ('Done')
     dist_ind = dist.flatten().argsort()
     sorted_arr = arr.flatten()[dist_ind]
-    return sorted_arr[np.nonzero(sorted_arr)][0]
-  azimuth = _closest_nonzero_point(azimuth_frame, y_frame, x_frame)
+    return sorted_arr[np.nonzero(sorted_arr > -1)][0]
+  azimuth = _closest_nonzero_point(azimuth_map, azimuth_mask, x_map, y_map)
+  # Instead of nonzero, use azimuth_mask
+  print ('azimuth', azimuth)
   return azimuth
 
 
@@ -173,7 +185,7 @@ def labelAzimuthParser(subparsers):
   parser.add_argument('--display_scale', type=float, default=1.)
   parser.add_argument('--winsize', type=int, default=500)
   parser.add_argument('--shuffle', action='store_true')
-  parser.add_argument('--load_labelled_too', action='store_true')
+  parser.add_argument('--car_constraint', default='1')
 
 def labelAzimuth (c, args):
   logging.info ('==== labelAzimuth ====')
@@ -181,10 +193,7 @@ def labelAzimuth (c, args):
   image_reader = ReaderVideo()
   keys = getCalibration()
 
-  if args.load_labelled_too:
-    c.execute('SELECT * FROM cars')
-  else:
-    c.execute('SELECT * FROM cars WHERE yaw IS NULL')
+  c.execute('SELECT * FROM cars WHERE (%s)' % args.car_constraint)
   car_entries = c.fetchall()
   logging.info('Found %d objects in db.' % len(car_entries))
   if len(car_entries) == 0:
@@ -197,14 +206,14 @@ def labelAzimuth (c, args):
 
   button = 0
   index_car = 0
-  prev_index_car = None
+  do_draw = True
   char_list = []
   while button != 27:
     go_next_car = False
     update_yaw_in_db = False
 
-    if prev_index_car is None or index_car != prev_index_car:
-      prev_index_car = index_car
+    if do_draw:
+      do_draw = False
 
       logging.info('Car %d out of %d' % (index_car, len(car_entries)))
       car_entry = car_entries[index_car]
@@ -218,20 +227,19 @@ def labelAzimuth (c, args):
 
       y, x = roi[0] * 0.3 + roi[2] * 0.7, roi[1] * 0.5 + roi[3] * 0.5
 
-      #if yaw is None:
-      #  yaw = _getAzimuthSuggestionFromMap(videoH, imagefile, y, x)
+      if yaw is None:
+        yaw = _getAzimuthSuggestionFromMap(videoH, imagefile, y, x)
 
       flattening = _getFlatteningFromImagefile(videoH, imagefile, y, x)
       axis_x = np.linalg.norm(np.asarray(bbox[2:4]), ord=2)
       axis_y = axis_x * flattening
 
       display = image_reader.imread(imagefile)[:,:,::-1].copy()
-#      drawRoi (display, roi)
-      font = cv2.FONT_HERSHEY_SIMPLEX
       if yaw is None:
         logging.info('Yaw is None.')
       if yaw is not None:
         logging.info('Yaw is: %.0f' % yaw)
+        font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(display, 'yaw: %.0f' % yaw, (10, 20), font, 0.5, (255,255,255), 2)
       window = AzimuthWindow(display, x, y, axis_x, axis_y, yaw, winsize=args.winsize)
       window.update_cached_zoomed_img()
@@ -278,12 +286,14 @@ def labelAzimuth (c, args):
       logging.debug ('prev car')
       if index_car > 0:
         index_car -= 1
+        do_draw = True
       else:
         logging.warning('Already at the first car.')
     elif button == keys['right'] or go_next_car == True:
       logging.debug ('next car')
       if index_car < len(car_entries) - 1:
         index_car += 1
+        do_draw = True
       else:
         logging.warning('Already at the last car. Press Esc to save and exit.')
 
