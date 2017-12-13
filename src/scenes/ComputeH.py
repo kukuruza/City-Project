@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os, os.path as op
-from lib.camera import Camera, Pose
+from lib.scene import Camera, Pose
 import simplejson as json
 import logging
 import shutil

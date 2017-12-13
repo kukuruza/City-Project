@@ -2,7 +2,7 @@ import os.path as op
 import numpy as np
 from time import time
 import logging
-from camera import createPoseFromImagefile
+from scene import Pose
 from azimuth import read_azimuth_image
 
 
@@ -22,7 +22,7 @@ class Homography:
     else:
       # Only pose for an imagefile is cached now.
       # New imagefile means reading camera json.
-      pose = createPoseFromImagefile(imagefile)
+      pose = Pose.from_imagefile(imagefile)
       self.cached_pose = {imagefile: pose}  # Only one item in cache.
       logging.info('Created pose for %s' % imagefile)
     return pose

@@ -3,7 +3,7 @@ import os, os.path as op
 import logging
 import argparse
 from lib.labelMatches import labelMatches
-from lib.camera import Pose
+from lib.scene import Pose
 
 
 if __name__ == "__main__":
@@ -28,4 +28,5 @@ if __name__ == "__main__":
 
   labelMatches (frame, satellite, matches_path,
       winsize1=args.winsize1, winsize2=args.winsize2,
+      name1='frame', name2='satellite',
       backup_matches=not args.no_backup)

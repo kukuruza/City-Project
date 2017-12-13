@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import sys, os, os.path as op
 sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
-from scenes.lib.camera import Pose
-from scenes.lib.maskedDilation import maskedDilation
+from scenes.lib.scene import Pose
 import simplejson as json
 import logging
 import argparse
@@ -11,15 +10,27 @@ import numpy as np
 from pprint import pprint
 
 
-def warp(in_image, camera_id, pose_id, map_id,
-    dilation_radius=None, reverse_direction=False, no_alpha=False):  
+def intMaskedDilation(img, kernel):
+  ''' Zero neighbours of a pixel do not count in the result for that pixel. '''
 
-  pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
-  H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
-  dims_in = (pose.camera['cam_dims']['height'], pose.camera['cam_dims']['width'])
-  dims_out = (pose.map['map_dims']['height'], pose.map['map_dims']['width'])
-  np.set_printoptions(precision=1,
-      formatter = dict( float = lambda x: "%10.4f" % x ))
+  dtype = img.dtype  # Remember the input type for output.
+  mask = (img > 0).astype(int)
+  img = img.astype(int)
+
+  assert len(kernel.shape) == 2, kernel.shape
+  img = cv2.filter2D(img, -1, kernel)
+  mask = cv2.filter2D(mask, -1, kernel)
+  with np.errstate(divide='ignore', invalid='ignore'):
+    dilated = np.true_divide( img.astype(float), mask.astype(float) )
+    dilated[ ~ np.isfinite( dilated )] = 0  # -inf inf NaN
+  return dilated.astype(dtype)
+
+
+def warp(in_image, H, dims_in, dims_out,
+    dilation_radius=None, reverse_direction=False, no_alpha=False):
+  ''' Warp image-to-image using provided homograhpy. '''
+
+  np.set_printoptions(precision=1, formatter = dict( float = lambda x: "%10.4f" % x ))
   logging.debug (str(H))
   logging.debug ('dims_in: %s' % str(dims_in))
   logging.debug ('dims_out: %s' % str(dims_out))
@@ -32,8 +43,8 @@ def warp(in_image, camera_id, pose_id, map_id,
 
   if dilation_radius is not None and dilation_radius > 0:
     kernelsize = dilation_radius * 2 + 1
-    kernel = np.ones((kernelsize, kernelsize), dtype=float)
-    in_image = maskedDilation(in_image, kernel)
+    kernel = np.ones((kernelsize, kernelsize), dtype=int)
+    in_image = intMaskedDilation(in_image, kernel)
 
   # If input is on the wrong scale, need to use another homography first.
   in_scale_h = float(dims_in[0]) / in_image.shape[0]
@@ -49,8 +60,9 @@ def warp(in_image, camera_id, pose_id, map_id,
 
   out_image = cv2.warpPerspective(in_image, H, (dims_out[1], dims_out[0]), flags=cv2.INTER_NEAREST)
   logging.debug('Type of output image: %s' % str(out_image.dtype))
+
+  # Remove alpha, if necessary.
   if len(out_image.shape) == 3 and out_image.shape[2] == 4 and no_alpha:
-    # Assign to zero.
     out_image[:,:,0][np.bitwise_not(out_image[:,:,3])] = 0
     out_image[:,:,1][np.bitwise_not(out_image[:,:,3])] = 0
     out_image[:,:,2][np.bitwise_not(out_image[:,:,3])] = 0
@@ -59,9 +71,19 @@ def warp(in_image, camera_id, pose_id, map_id,
   return out_image
 
 
+def warpFrameToMap(in_image, camera_id, pose_id, map_id, *args):
+  ''' Warp from Frame to Map or vice-versa. '''
+
+  pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
+  H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
+  dims_in = (pose.camera['cam_dims']['height'], pose.camera['cam_dims']['width'])
+  dims_out = (pose.map['map_dims']['height'], pose.map['map_dims']['width'])
+  return warp(in_image, H, dims_in, dims_out, *args)
+
+
 if __name__ == "__main__":
 
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(description='Demonstration of warpFrameToMap.')
   parser.add_argument('--camera', required=True, help="E.g., '572'.")
   parser.add_argument('--in_image_path', required=True)
   parser.add_argument('--out_image_path')
@@ -77,7 +99,7 @@ if __name__ == "__main__":
   assert op.exists(args.in_image_path), args.in_image_path
   in_image = cv2.imread(args.in_image_path, -1)
 
-  out_image = warp(in_image, args.camera, args.pose_id,
+  out_image = warpFrameToMap(in_image, args.camera, args.pose_id,
       dilation_radius=args.dilation_radius,
       reverse_direction=args.reverse_direction)
 

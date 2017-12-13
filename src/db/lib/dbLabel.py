@@ -8,7 +8,7 @@ from helperDb import deleteCar, carField
 from helperKeys import getCalibration
 from helperImg import ReaderVideo
 from scipy.misc import imresize, imread
-from scenes.lib.cvScrollZoomWindow import Window
+from scenes.lib.cvWindow import Window
 from scenes.lib.homography import Homography, transformPoint
 import cv2
 
