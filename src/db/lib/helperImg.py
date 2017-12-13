@@ -14,13 +14,6 @@ def capPropId(prop):
   return getattr(cv2 if OPCV3 else cv2.cv, ("" if OPCV3 else "CV_") + "CAP_PROP_" + prop)
 
 
-def getVideoLength (videofile):
-  assert op.exists(atcity(videofile)), atcity(videofile)
-  handle = cv2.VideoCapture(atcity(videofile))
-  video_length = int(handle.get(capPropId('FRAME_COUNT')))
-  return video_length
-
-
 # These are thin wrappers around scipy.misc
 # The goal is to move gradually from cv2 to scipy.misc,
 #   and these function keep compatibility in channel order
@@ -161,7 +154,6 @@ class ProcessorVideo (ReaderVideo):
         frame_size = (width, height)
 
         self.frame_size[videofile] = frame_size
-        self.out_current_frame[videofile] = -1  # first write will turn in to 0
 
         logging.info ('opening video: %s' % videofile)
         videopath = atcity (videofile)
@@ -169,7 +161,7 @@ class ProcessorVideo (ReaderVideo):
             'Video already exists at %s. Is it a mistake?' % videopath
         assert op.exists(op.dirname(videopath)), \
             'Video directory does not exist at %s. Is it a mistake?' % op.dirname(videopath)
-        handler = cv2.VideoWriter (videopath, fourcc, fps, frame_size, not ismask)
+        handler = cv2.VideoWriter (videopath, fourcc, fps, frame_size, isColor=True)#not ismask)
         if not handler.isOpened():
             raise Exception('video failed to open: %s' % videopath)
         if ismask:
@@ -201,17 +193,6 @@ class ProcessorVideo (ReaderVideo):
         # choose the dictionary again, depending on whether it's image or mask
         out_video_dict = self.out_mask_video if ismask else self.out_image_video
         assert out_videopath in out_video_dict
-
-        # Disabled because want to write from Nth from in augmentation/processScene.py
-        # write the frame only if it is the next frame
-        # frame_expected = self.out_current_frame[out_videopath] + 1
-        # frame_actual  = int(filter(lambda x: x.isdigit(), op.basename(image_id)))  # number
-        # if frame_actual != frame_expected:
-        #     raise Exception('''Random access for writing is not supported now.
-        #                        New frame is #%d, but the expected frame is #%d''' % 
-        #                        (frame_actual, frame_expected))
-        self.out_current_frame[out_videopath] += 1  # update
-
         # check frame size and write
         assert (image.shape[1], image.shape[0]) == self.frame_size[out_videopath]
         out_video_dict[out_videopath].write(image)
@@ -229,6 +210,7 @@ class ProcessorVideo (ReaderVideo):
         assert len(mask.shape) == 2
         assert mask.dtype == bool
         mask = mask.copy().astype(np.uint8) * 255
+
         return self.writeImpl (mask, mask_id, ismask=True)
 
     def close (self):
@@ -283,7 +265,7 @@ class SimpleWriter:
       else:
         raise Exception('Video dir does not exist: %s. A mistake?' % op.dirname(vpath))
 
-    handler = cv2.VideoWriter (vpath, fourcc, fps, self.frame_size, not ismask)
+    handler = cv2.VideoWriter (vpath, fourcc, fps, self.frame_size, isColor=True)#not ismask)
     if not handler.isOpened():
         raise Exception('video failed to open: %s' % videopath)
     if ismask:
@@ -312,7 +294,9 @@ class SimpleWriter:
     if self.mask_writer is None:
       self._openVideoWriter_ (mask, ismask=True)
     mask = mask.copy().astype(np.uint8) * 255
+    mask = np.stack((mask, mask, mask), axis=-1)  # Otherwise mask is not written well.
     # write
+    assert len(mask.shape) == 3 and mask.shape[2] == 3, mask.shape
     assert (mask.shape[1], mask.shape[0]) == self.frame_size
     self.mask_writer.write(mask)
     # return recorded imagefile

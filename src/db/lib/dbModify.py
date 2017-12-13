@@ -18,10 +18,26 @@ from helperImg         import ReaderVideo, ProcessorVideo, SimpleWriter
 
 def add_parsers(subparsers):
   expandBoxesParser(subparsers)
-  assignOrientationsParser(subparsers)
   moveVideoParser(subparsers)
   mergeParser(subparsers)
   splitParser(subparsers)
+  moduleAnglesParser(subparsers)
+
+
+def moduleAnglesParser(subparsers):
+  parser = subparsers.add_parser('moduleAngles')
+  parser.set_defaults(func=moduleAngles)
+
+def moduleAngles(c, args):
+  c.execute('SELECT * FROM cars')
+  car_entries = c.fetchall()
+  logging.debug('%d cars found' % len(car_entries))
+
+  for car_entry in car_entries:
+    carid = carField(car_entry, 'id')
+    yaw = carField(car_entry, 'yaw')
+    c.execute('UPDATE cars SET yaw=? WHERE id=?', (yaw % 360, carid))
+
 
 
 def _expandCarBbox_ (car_entry, args):
@@ -79,44 +95,6 @@ def expandBoxes (c, args):
       key = key_reader.readKey()
       if key == 27:
         cv2.destroyWindow('display_expand')
-
-
-def assignOrientationsParser(subparsers):
-  parser = subparsers.add_parser('assignOrientations',
-    description='Assign "yaw" and "pitch" to each car based on provided maps.')
-  parser.set_defaults(func=assignOrientations)
-  parser.add_argument('--size_map_file', required=True)
-  parser.add_argument('--pitch_map_path')
-  parser.add_argument('--yaw_map_path')
-
-def assignOrientations (c, params):
-  logging.info ('==== assignOrientations ====')
-  import cv2
-
-  assert op.exists(atcity(args.size_map_file)), atcity(args.size_map_file)
-  size_map = cv2.imread(atcity(args.size_map_file), 0).astype(np.float32)
-  if args.pitch_map_file:
-    assert op.exists(atcity(args.pitch_map_file)), atcity(args.pitch_map_file)
-    pitch_map = cv2.imread(atcity(args.pitch_map_file), 0).astype(np.float32)
-  if args.yaw_map_file:
-    assert op.exists(atcity(args.yaw_map_file)), atcity(args.yaw_map_file)
-    yaw_map = cv2.imread(atcity(args.yaw_map_file), 0).astype(np.float32)
-    # in the tiff angles belong to [0, 360). Change that to [-180, 180)
-    yaw_map = np.mod((yaw_map + 180), 360) - 180.0
-
-  c.execute('SELECT * FROM cars')
-  car_entries = c.fetchall()
-
-  for car_entry in car_entries:
-    carid = carField (car_entry, 'id')
-    roi = bbox2roi (carField (car_entry, 'bbox'))
-    bc = bottomCenter(roi)
-    if size_map[bc[0], bc[1]] > 0:
-      if args.yaw_map_file:
-        yaw = float(yaw_map[bc[0], bc[1]])
-      if args.pitch_map_file:
-        pitch = float(pitch_map[bc[0], bc[1]])
-      c.execute('UPDATE cars SET yaw=?, pitch=? WHERE id=?', (yaw, pitch, carid))
 
 
 def moveVideoParser(subparsers):

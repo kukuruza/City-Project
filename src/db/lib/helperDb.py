@@ -27,6 +27,7 @@ def createTableImages (cursor):
                       maskfile TEXT,
                       time TIMESTAMP
                       );''')
+    cursor.execute('CREATE INDEX images_on_imagefile ON images(imagefile);')
 
 
 def createTableCars (cursor):
@@ -43,6 +44,8 @@ def createTableCars (cursor):
                       pitch REAL,
                       color TEXT
                       );''')
+    cursor.execute('CREATE INDEX cars_on_imagefile ON cars(imagefile);')
+    cursor.execute('CREATE INDEX cars_on_carid ON cars(id);')
 
 
 def createTablePolygons (cursor):
@@ -52,6 +55,8 @@ def createTablePolygons (cursor):
                       x INTEGER,
                       y INTEGER
                       );''')
+    cursor.execute('CREATE INDEX polygons_on_id ON polygons(id);')
+    cursor.execute('CREATE INDEX polygons_on_carid ON polygons(carid);')
 
 
 def createTableMatches (cursor):
@@ -60,6 +65,7 @@ def createTableMatches (cursor):
                       match INTEGER,
                       carid INTEGER
                      );''')
+    cursor.execute('CREATE INDEX matches_on_match ON matches(match);')
 
 
 # TODO: change conn to cursor
