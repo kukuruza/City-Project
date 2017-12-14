@@ -40,7 +40,8 @@ class Info:
   def save(self, backup=True):
     if backup:
       backup_path = op.splitext(self.path)[0] + '.backup.json'
-      shutil.copyfile(self.path, backup_path)
+      if op.exists(self.path):
+        shutil.copyfile(self.path, backup_path)
     with open(self.path, 'w') as outfile:
       outfile.write(self.dump())
 
@@ -116,7 +117,7 @@ class Pose(Info):
     self.camera.save(backup=backup)
     self.map.save(backup=backup)
 
-  def load_frame(self):
+  def load_example(self):
     frame_pattern1 = op.join(self.get_pose_dir(), 'example*.*')
     frame_pattern2 = op.join(self.get_pose_dir(), 'frame*.*')
     frame_paths = glob(frame_pattern1) + glob(frame_pattern2)
@@ -127,34 +128,47 @@ class Pose(Info):
       self.camera['cam_dims']['height'], self.camera['cam_dims']['width'])
     return frame
 
-  @classmethod
-  def from_videofile (cls, camera_id, video_id):
-    ''' Creates an instance of Pose for a given camera and video.
-    Args:
-      camera_id:  int or string, e.g. 253.
-      video_id:   video name as string, e.g. '253-20160508-18'.
-    Returns:
-      pose:       an object of class Pose.
-    '''
-    camera = Camera(camera_id)
-    video_path = op.join(camera.get_camera_dir(), 'videos.json')
-    if not op.exists(video_path):
-      logging.info('Video: videos.json is not found for camera %s' % camera_id)
-      pose_id = 0
-    else:
-      logging.info ('Video: loading videos info from: %s' % video_path)
-      videos = json.load(open(video_path))
+
+class Video(Info):
+  def __init__ (self, camera_id, video_id):
+    Info.__init__(self)
+    self.camera_id = camera_id
+    self.video_id = video_id
+    self.path = op.join(self.get_video_dir(), '%s.json' % video_id)
+    self.load()
+    self.pose = Pose(camera_id=self.camera_id, pose_id=self['pose_id'])
+
+  def get_video_dir(self):
+    return _atcity(op.join('data/scenes', '%s' % self.camera_id, 'videos'))
+
+  def load (self):
+    multiple_videos_path = op.join(self.get_video_dir(), 'videos.json')
+    # Video-specific json.
+    if op.exists(_atcity(self.path)):
+      logging.info ('Video: loading videos info from: %s' % self.path)
+      Info.load(self)
+      assert 'pose_id' in self, '%s does not have pose_id.' % self.path
+    # Multiple-videos json file.
+    elif op.exists(_atcity(multiple_videos_path)):
+      logging.debug('Video: %s does not exist.' % _atcity(self.path))
+      logging.info ('Video: loading videos info from: %s' % multiple_videos_path)
+      videos = json.load(open(multiple_videos_path))
       assert 'videos' in videos, json.dumps(videos, sort_keys=True, indent=2)
       videos = videos['videos']
-      if video_id not in videos:
-        logging.error('Camera %s has videos.json, but video %s is not there:\n%s' %
-            (camera_id, video_id, json.dumps(videos, sort_keys=True, indent=2)))
-        return None
-      else:
-        logging.debug('')
-        assert 'pose_id' in videos[video_id]
-        pose_id = videos[video_id]['pose_id']
-    return cls(camera_id=camera_id, pose_id=pose_id)
+      if self.video_id not in videos:
+        raise Exception('Camera has videos.json, but video %s is not there:\n%s' %
+            (self.video_id, json.dumps(videos, sort_keys=True, indent=2)))
+      # Nothing besides pose_id is expected in videos.json file.
+      assert 'pose_id' in videos[self.video_id]
+      self.info = {'pose_id': videos[self.video_id]['pose_id']}
+    # No video info.
+    else:
+      logging.info('Video: %s or %s not found.' % (multiple_videos_path, self.path))
+      self.info = {'pose_id': 0}
+
+  def save(self, backup=True):
+    Info.save(self, backup=backup)
+    self.pose.save(backup=backup)
 
   @classmethod
   def from_imagefile(cls, imagefile):
@@ -176,8 +190,13 @@ class Pose(Info):
     # Find video_id.
     assert cam_ind + 1 < len(dirs), 'Camera should not be the last in %s' % imagefile
     video_id = dirs[cam_ind+1]  # The next dir after camera.
+    video_id = op.splitext(video_id)[0]  # In case .avi file is given.
     # Construct an object.
-    return Pose.from_videofile(camera_id, video_id)
+    return Video(camera_id, video_id)
+
+
+
+
 
 
 if __name__ == "__main__":
@@ -187,9 +206,8 @@ if __name__ == "__main__":
   camera = Camera(camera_id=170)
   map = Map(camera_id=170, map_id=0)
   pose = Pose(camera_id='170', pose_id=1)
-
-  # Example of construction Pose by passing camera and video name.
-  pose = Pose.from_videofile(camera_id=170, video_id='170-20160502-18')
+  video = Video(camera_id=181, video_id='181-20151224-15')
+  video = Video(camera_id=170, video_id='170-20160502-18')
 
   # Example of construction Pose by passing imagefile as in databases.
-  pose = Pose.from_imagefile('data/camdata/170/170-20160508-18/000002')
+  video = Video.from_imagefile('data/camdata/170/170-20160508-18/000002')

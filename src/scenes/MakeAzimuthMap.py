@@ -6,7 +6,7 @@ import argparse
 import cv2
 import subprocess
 from skimage.measure import label
-from Warp import warp
+from Warp import warpPoseToMap
 from scenes.lib.scene import Pose
 from scenes.lib.azimuth import read_azimuth_image, write_azimuth_image
 
@@ -101,10 +101,10 @@ if __name__ == "__main__":
     print ('Warping from top-down view to frame view.')
     azimuth_top_down_path = op.join(for_azimuth_dir, 'azimuth-top-down-from-camera.png')
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
-    azimuth_frame = warpFrameToMap(azimuth_top_down, 
+    azimuth_frame = warpPoseToMap(azimuth_top_down, 
         args.camera_id, args.pose_id, pose.map_id,
         dilation_radius=2, reverse_direction=True)
-    mask_frame = warpFrameToMap(mask_top_down.astype(float),
+    mask_frame = warpPoseToMap(mask_top_down.astype(float),
         args.camera_id, args.pose_id, pose.map_id,
         dilation_radius=2, reverse_direction=True) > 0.5
     azimuth_frame_path = op.join(pose_dir, 'azimuth-frame.png')

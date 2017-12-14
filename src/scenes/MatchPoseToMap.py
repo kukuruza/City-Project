@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
   pose = Pose(camera_id=args.camera_id, pose_id=args.pose_id, map_id=args.map_id)
 
-  frame = pose.load_frame()
+  frame = pose.load_example()
   satellite = pose.map.load_satellite()
   matches_path = op.join(pose.get_pose_dir(), 'matches-map%d.json' % pose.map_id)
 

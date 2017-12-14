@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 import cv2
 import simplejson as json
+from pprint import pprint, pformat
 from scipy.misc import imread
 from lib.cvWindow import Window
 import colorsys
@@ -108,6 +109,27 @@ def labelMatches (img1, img2, matches_path,
       f.write(json.dumps(matches, sort_keys=True, indent=2))
   elif button == BUTTON_ESCAPE:
     logging.info('Exiting without saving.')
+
+
+def loadMatches(matches_path, name1, name2):
+
+  # Load matches.
+  assert op.exists(matches_path), matches_path
+  matches = json.load(open(matches_path))
+  logging.debug (pformat(matches, indent=2))
+  src_pts = matches[name1]
+  dst_pts = matches[name2]
+  assert range(len(src_pts['x'])) == range(len(dst_pts['x']))
+  assert range(len(src_pts['x'])) == range(len(src_pts['y']))
+  assert range(len(dst_pts['x'])) == range(len(dst_pts['y']))
+
+  # Matches as numpy array.
+  N = range(len(src_pts['x']))
+  src_pts = np.float32([ [src_pts['x'][i], src_pts['y'][i]] for i in N ])
+  dst_pts = np.float32([ [dst_pts['x'][i], dst_pts['y'][i]] for i in N ])
+  logging.debug(src_pts)
+  logging.debug(dst_pts)
+  return src_pts, dst_pts
 
 
 if __name__ == "__main__":

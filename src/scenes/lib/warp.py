@@ -8,6 +8,7 @@ import argparse
 import cv2
 import numpy as np
 from pprint import pprint
+from scene import Pose, Video
 
 
 def intMaskedDilation(img, kernel):
@@ -27,16 +28,18 @@ def intMaskedDilation(img, kernel):
 
 
 def warp(in_image, H, dims_in, dims_out,
-    dilation_radius=None, reverse_direction=False, no_alpha=False):
-  ''' Warp image-to-image using provided homograhpy. '''
+    dilation_radius=None, no_alpha=False):
+  ''' Warp image-to-image using provided homograhpy.
+  Args:
+    dims_in:   (H, W)
+    dims_out:  (H, W)
+    H:         3x3 numpy array; to invert the direction, use np.linalg.inv(H)
+  '''
 
   np.set_printoptions(precision=1, formatter = dict( float = lambda x: "%10.4f" % x ))
   logging.debug (str(H))
   logging.debug ('dims_in: %s' % str(dims_in))
   logging.debug ('dims_out: %s' % str(dims_out))
-  if reverse_direction:
-    H = np.linalg.inv(H)
-    dims_in, dims_out = dims_out, dims_in
 
   assert in_image is not None
   logging.debug('Type of input image: %s' % str(in_image.dtype))
@@ -71,14 +74,40 @@ def warp(in_image, H, dims_in, dims_out,
   return out_image
 
 
-def warpFrameToMap(in_image, camera_id, pose_id, map_id, *args):
-  ''' Warp from Frame to Map or vice-versa. '''
+def warpPoseToMap(in_image, camera_id, pose_id, map_id,
+                  reverse_direction=False, dilation_radius=None, no_alpha=False):
+  ''' Warp from Pose to Map or vice-versa. '''
 
   pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
   H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
   dims_in = (pose.camera['cam_dims']['height'], pose.camera['cam_dims']['width'])
   dims_out = (pose.map['map_dims']['height'], pose.map['map_dims']['width'])
-  return warp(in_image, H, dims_in, dims_out, *args)
+  if reverse_direction:
+    H = np.linalg.inv(H)
+    dims_in, dims_out = dims_out, dims_in
+  return warp(in_image, H, dims_in, dims_out,
+              dilation_radius=dilation_radius, no_alpha=no_alpha)
+
+
+def warpVideoToMap(in_image, camera_id, video_id,
+                  reverse_direction=False, dilation_radius=None, no_alpha=False):
+  ''' Warp from Video to Map and vice-versa. '''
+
+  video = Video(camera_id=camera_id, video_id=video_id)
+  if 'H_video_to_pose' in video:
+    H_video_to_pose = np.eye(3, dtype=float)
+  else:
+    H_video_to_pose = video['H_video_to_pose']
+  H_pose_to_map = np.asarray(video.pose['maps'][video.pose.map_id]['H_frame_to_map']).reshape((3,3))
+  H = np.matmul(H_pose_to_map, H_video_to_pose)
+  # TODO: for dims_in sometimes video and camera dims differ.
+  dims_in = (video.pose.camera['cam_dims']['height'], video.pose.camera['cam_dims']['width'])
+  dims_out = (video.pose.map['map_dims']['height'], video.pose.map['map_dims']['width'])
+  if reverse_direction:
+    H = np.linalg.inv(H)
+    dims_in, dims_out = dims_out, dims_in
+  return warp(in_image, H, dims_in, dims_out,
+              dilation_radius=dilation_radius, no_alpha=no_alpha)
 
 
 if __name__ == "__main__":
