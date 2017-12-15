@@ -28,16 +28,17 @@ class Homography:
     return pose
 
   def getHfromImagefile(self, imagefile):
+    assert 0, 'TODO: implement videos'
     pose = self._getPose(imagefile)
     if pose is None:
       return None
-    elif 'H_frame_to_map' not in pose['maps'][pose.map_id]:
+    elif 'H_pose_to_map' not in pose['maps'][pose.map_id]:
       logging.warning('H is not in the pose %s for camera %s' %
           (pose.pose_id, pose.camera_id))
       return None
     else:
-      H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
-      logging.debug('H_frame_to_map:\n%s' % str(H))
+      H = np.asarray(pose['maps'][pose.map_id]['H_pose_to_map']).reshape((3,3))
+      logging.debug('H_pose_to_map:\n%s' % str(H))
       return H
 
   def getAzimuthMapFromImagefile(self, imagefile):

@@ -11,7 +11,7 @@ from pprint import pprint
 from scene import Pose, Video
 
 
-def intMaskedDilation(img, kernel):
+def _intMaskedDilation(img, kernel):
   ''' Zero neighbours of a pixel do not count in the result for that pixel. '''
 
   dtype = img.dtype  # Remember the input type for output.
@@ -31,9 +31,11 @@ def warp(in_image, H, dims_in, dims_out,
     dilation_radius=None, no_alpha=False):
   ''' Warp image-to-image using provided homograhpy.
   Args:
-    dims_in:   (H, W)
-    dims_out:  (H, W)
+    dims_in:   (H, W) homography input dimensions. Image will be resized to it.
+    dims_out:  (H, W) homography output dimensions.
     H:         3x3 numpy array; to invert the direction, use np.linalg.inv(H)
+  Returns:
+    wrapped image of dimensions 'dims_out'.
   '''
 
   np.set_printoptions(precision=1, formatter = dict( float = lambda x: "%10.4f" % x ))
@@ -47,19 +49,19 @@ def warp(in_image, H, dims_in, dims_out,
   if dilation_radius is not None and dilation_radius > 0:
     kernelsize = dilation_radius * 2 + 1
     kernel = np.ones((kernelsize, kernelsize), dtype=int)
-    in_image = intMaskedDilation(in_image, kernel)
+    in_image = _intMaskedDilation(in_image, kernel)
 
   # If input is on the wrong scale, need to use another homography first.
   in_scale_h = float(dims_in[0]) / in_image.shape[0]
   in_scale_w = float(dims_in[1]) / in_image.shape[1]
-  assert (in_scale_w - in_scale_h) / (in_scale_w + in_scale_h) < 0.01
+  assert (in_scale_w - in_scale_h) / (in_scale_w + in_scale_h) < 0.01, (dims_in, in_image.shape)
   H_scale = np.identity(3, dtype=float)
   H_scale[0,0] = in_scale_h
   H_scale[1,1] = in_scale_w
   H_scale[2,2] = 1.
   H = np.matmul(H, H_scale)
-  logging.info('Scaling H with (%f %f)' % (in_scale_h, in_scale_w))
-  logging.debug (str(H))
+  logging.debug('Scaling H with (%f %f)' % (in_scale_h, in_scale_w))
+  logging.debug('Using H to warp: %s' % str(H))
 
   out_image = cv2.warpPerspective(in_image, H, (dims_out[1], dims_out[0]), flags=cv2.INTER_NEAREST)
   logging.debug('Type of output image: %s' % str(out_image.dtype))
@@ -74,12 +76,12 @@ def warp(in_image, H, dims_in, dims_out,
   return out_image
 
 
-def warpPoseToMap(in_image, camera_id, pose_id, map_id,
+def warpPoseToMap(in_image, camera_id, pose_id,
                   reverse_direction=False, dilation_radius=None, no_alpha=False):
   ''' Warp from Pose to Map or vice-versa. '''
 
-  pose = Pose(camera_id, pose_id=pose_id, map_id=map_id)
-  H = np.asarray(pose['maps'][pose.map_id]['H_frame_to_map']).reshape((3,3))
+  pose = Pose(camera_id, pose_id=pose_id)
+  H = np.asarray(pose['H_pose_to_map']).reshape((3,3))
   dims_in = (pose.camera['cam_dims']['height'], pose.camera['cam_dims']['width'])
   dims_out = (pose.map['map_dims']['height'], pose.map['map_dims']['width'])
   if reverse_direction:
@@ -95,14 +97,32 @@ def warpVideoToMap(in_image, camera_id, video_id,
 
   video = Video(camera_id=camera_id, video_id=video_id)
   if 'H_video_to_pose' in video:
-    H_video_to_pose = np.eye(3, dtype=float)
+    H_video_to_pose = np.asarray(video['H_video_to_pose']).reshape((3,3))
   else:
-    H_video_to_pose = video['H_video_to_pose']
-  H_pose_to_map = np.asarray(video.pose['maps'][video.pose.map_id]['H_frame_to_map']).reshape((3,3))
+    H_video_to_pose = np.eye(3, dtype=float)
+  H_pose_to_map = np.asarray(video.pose['H_pose_to_map']).reshape((3,3))
   H = np.matmul(H_pose_to_map, H_video_to_pose)
   # TODO: for dims_in sometimes video and camera dims differ.
   dims_in = (video.pose.camera['cam_dims']['height'], video.pose.camera['cam_dims']['width'])
   dims_out = (video.pose.map['map_dims']['height'], video.pose.map['map_dims']['width'])
+  if reverse_direction:
+    H = np.linalg.inv(H)
+    dims_in, dims_out = dims_out, dims_in
+  return warp(in_image, H, dims_in, dims_out,
+              dilation_radius=dilation_radius, no_alpha=no_alpha)
+
+
+def warpVideoToPose(in_image, camera_id, video_id,
+                    reverse_direction=False, dilation_radius=None, no_alpha=False):
+  ''' Warp from Video to Map and vice-versa. '''
+
+  video = Video(camera_id=camera_id, video_id=video_id)
+  if 'H_video_to_pose' in video:
+    H = np.asarray(video['H_video_to_pose']).reshape((3,3))
+  else:
+    H = np.eye(3, dtype=float)
+  dims_out = (video.pose.camera['cam_dims']['height'], video.pose.camera['cam_dims']['width'])
+  dims_in = dims_out  # TODO: for dims_in sometimes video and camera dims differ.
   if reverse_direction:
     H = np.linalg.inv(H)
     dims_in, dims_out = dims_out, dims_in

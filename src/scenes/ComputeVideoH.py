@@ -4,10 +4,11 @@ import logging
 import argparse
 import cv2
 import numpy as np
-from imageio import get_writer
+from imageio import get_writer, imwrite
 from lib.scene import Video
 from lib.labelMatches import loadMatches
-from lib.warp import warpVideoToMap
+from lib.warp import warpVideoToPose
+
 
 if __name__ == "__main__":
 
@@ -25,8 +26,7 @@ if __name__ == "__main__":
 
   # Load matches.
   video_name = op.splitext(args.video_id)[0]
-  matches_path = op.join(video.get_video_dir(), '%s-matches-pose%d.json' %
-      (video_name, video.pose.pose_id))
+  matches_path = op.join(video.get_video_dir(), 'matches-pose%d.json' % video.pose.pose_id)
   src_pts, dst_pts = loadMatches(matches_path, 'video', 'pose')
 
   # Compute video->pose homography.
@@ -40,13 +40,12 @@ if __name__ == "__main__":
   # Save both video->pose and video->map homographies.
   video.save(backup=not args.no_backup)
 
-  # Warp satellite for nice visualization.
-  satellite = video.pose.map.load_satellite()
+  # Warp poseframe for nice visualization.
+  videoframe = video.load_example()
   poseframe = video.pose.load_example()
-  warped_satellite = warpVideoToMap(satellite, args.camera_id, args.video_id, reverse_direction=True)
-  warped_path = op.join(video.get_video_dir(), '%s-satellite-warped-map%d.gif' %
-      (video_name, video.pose.map_id))
+  warped_poseframe = warpVideoToPose(poseframe, args.camera_id, args.video_id, reverse_direction=True)
+  warped_path = op.join(video.get_video_dir(), 'poseframe-warped.gif')
   with get_writer(warped_path, mode='I') as writer:
     for i in range(10):
-      writer.append_data((poseframe / 10. * i +
-                          warped_satellite / 10. * (10. - i)).astype(np.uint8))
+      writer.append_data((warped_poseframe / 10. * i +
+                          videoframe / 10. * (10. - i)).astype(np.uint8))

@@ -77,25 +77,16 @@ class Map(Info):
 
 
 class Pose(Info):
-  def __init__(self, camera_id, pose_id=0, map_id=None):
-    '''
-    Args: 
-      map_id:  if set, use it instead of pose['best_map_id']
-    '''
+  def __init__(self, camera_id, pose_id):
     Info.__init__(self)
     self.camera_id = camera_id
     self.pose_id = pose_id
+    self.camera = Camera(self.camera_id)
+    # First camera, then can do self.get_pose_dir() and then self.load().
     self.path = op.join(self.get_pose_dir(), 'pose.json')
     self.load()
-    self.camera = Camera(self.camera_id)
-    if map_id is not None:
-      self.map_id = map_id
-    elif 'best_map_id' in self:
-      self.map_id = self['best_map_id']
-    else:
-      self.map_id = 0
-    assert 'maps' in self, self.dump()
-    assert self.map_id < len(self['maps']), self.map_id
+    # First load, then can get self['map_id']
+    self.map_id = self['map_id'] if 'map_id' in self else 0
     self.map = Map(self.camera_id, self.map_id)
     logging.info('Pose: loaded cam %s, map %d, pose %d.' %
         (self.camera_id, self.map_id, self.pose_id))
@@ -104,24 +95,15 @@ class Pose(Info):
     return _atcity(op.join(
         'data/scenes', '%s' % self.camera_id, 'pose%d' % self.pose_id))
 
-  def load(self):
-    ''' Redefine load: if json is abscent, make default values. '''
-    if not op.exists(self.path):
-      self.info = {'best_map_id': 0, 'maps': [{ 'map_id': 0 }]}
-      logging.debug(self.dump())
-    else:
-      Info.load(self)
-
   def save(self, backup=True):
     Info.save(self, backup=backup)
     self.camera.save(backup=backup)
     self.map.save(backup=backup)
 
   def load_example(self):
-    frame_pattern1 = op.join(self.get_pose_dir(), 'example*.*')
-    frame_pattern2 = op.join(self.get_pose_dir(), 'frame*.*')
-    frame_paths = glob(frame_pattern1) + glob(frame_pattern2)
-    assert len(frame_paths) > 0, (frame_pattern1, frame_pattern2)
+    frame_pattern = op.join(self.get_pose_dir(), 'example*.*')
+    frame_paths = glob(frame_pattern)
+    assert len(frame_paths) > 0, frame_pattern
     frame_path = frame_paths[0]  # Take a single frame.
     frame = imread(frame_path)
     assert frame.shape[:2] == (
@@ -134,15 +116,16 @@ class Video(Info):
     Info.__init__(self)
     self.camera_id = camera_id
     self.video_id = video_id
-    self.path = op.join(self.get_video_dir(), '%s.json' % video_id)
+    self.path = op.join(self.get_video_dir(), 'video.json')
     self.load()
     self.pose = Pose(camera_id=self.camera_id, pose_id=self['pose_id'])
 
   def get_video_dir(self):
-    return _atcity(op.join('data/scenes', '%s' % self.camera_id, 'videos'))
+    return _atcity(op.join('data/scenes', '%s' % self.camera_id,
+                   'videos', self.video_id))
 
   def load (self):
-    multiple_videos_path = op.join(self.get_video_dir(), 'videos.json')
+    multiple_videos_path = op.abspath(op.join(self.get_video_dir(), '../videos.json'))
     # Video-specific json.
     if op.exists(_atcity(self.path)):
       logging.info ('Video: loading videos info from: %s' % self.path)
@@ -169,6 +152,14 @@ class Video(Info):
   def save(self, backup=True):
     Info.save(self, backup=backup)
     self.pose.save(backup=backup)
+
+  def load_example(self):
+    frame_pattern = op.join(self.get_video_dir(), 'example*.*')
+    frame_paths = glob(frame_pattern)
+    assert len(frame_paths) > 0, frame_pattern
+    frame_path = frame_paths[0]  # Take a single frame.
+    frame = imread(frame_path)
+    return frame
 
   @classmethod
   def from_imagefile(cls, imagefile):

@@ -105,6 +105,8 @@ def labelMatches (img1, img2, matches_path,
     for p in window2.points:
       matches[name2]['x'].append(p[0][0])
       matches[name2]['y'].append(p[0][1])
+    if not op.exists(op.dirname(matches_path)):
+      os.makedirs(op.dirname(matches_path))
     with open(matches_path, 'w') as f:
       f.write(json.dumps(matches, sort_keys=True, indent=2))
   elif button == BUTTON_ESCAPE:
