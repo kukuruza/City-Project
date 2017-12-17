@@ -8,7 +8,7 @@ import argparse
 import cv2
 import numpy as np
 from pprint import pprint
-from scene import Pose, Video
+from .scene import Pose, Video
 
 
 def _intMaskedDilation(img, kernel):

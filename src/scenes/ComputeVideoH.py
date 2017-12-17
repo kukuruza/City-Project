@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from imageio import get_writer, imwrite
 from lib.scene import Video
-from lib.labelMatches import loadMatches
+from lib.labelMatches import loadMatches, getGifFrame
 from lib.warp import warpVideoToPose
 
 

@@ -36,7 +36,7 @@ class MatchWindow(Window):
   def __init__(self, img, winsize=500, name='display'):
     self.pointselected = None
     self.pointdeleted = None
-    self.points = []  # (x, y), (b,g,r)
+    self.points = []  # (x, y), (b,g,r) in input image coordinate system.
     Window.__init__(self, img, winsize, name)
 
   def mouseHandler(self, event, x, y, flags, params):
@@ -54,7 +54,7 @@ class MatchWindow(Window):
 
     # Delete a point.
     if event == cv2.EVENT_LBUTTONDOWN and (flags & cv2.EVENT_FLAG_ALTKEY):
-      logging.info('%s: registered mouse delete press.' % self.name)
+      logging.info('%s: registered mouse delete press at %d %d.' % (self.name, x, y))
       x, y = self.window_to_image_coords(x, y)
       self.pointdeleted = self._any_point_selected(x, y)  # None if not found.
 
@@ -73,7 +73,6 @@ class MatchWindow(Window):
     SELECT_DIST = 5
     iselected = None
     for ip, ((x, y), _) in enumerate(self.points):
-      x, y = self.image_to_zoomedimage_coords(x, y)
       if  abs(xsel - x) < SELECT_DIST and abs(ysel - y) < SELECT_DIST:
         logging.info('Deleted point %d.' % ip)
         return ip
