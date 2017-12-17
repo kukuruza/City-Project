@@ -27,16 +27,33 @@ def _intMaskedDilation(img, kernel):
   return dilated.astype(dtype)
 
 
+def transformPoint(H, x, y):
+  ''' Apply homography to a point. '''
+
+  p = np.asarray([[x],[y],[1.]])
+  p = np.matmul(H, p)
+  if p[2] == 0:
+    return float('Inf'), float('Inf')
+  else:
+    p /= p[2]
+    x, y = p[0,0], p[1,0]
+    return x, y
+
+
 def warp(in_image, H, dims_in, dims_out,
     dilation_radius=None, no_alpha=False):
   ''' Warp image-to-image using provided homograhpy.
   Args:
-    dims_in:   (H, W) homography input dimensions. Image will be resized to it.
+    dims_in:   None or (H, W) homography input dimensions.
+               If given, image will be resized to it.
     dims_out:  (H, W) homography output dimensions.
     H:         3x3 numpy array; to invert the direction, use np.linalg.inv(H)
   Returns:
     wrapped image of dimensions 'dims_out'.
   '''
+
+  if dims_in is None:
+    dims_in = in_image.shape[0:2]
 
   np.set_printoptions(precision=1, formatter = dict( float = lambda x: "%10.4f" % x ))
   logging.debug (str(H))

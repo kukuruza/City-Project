@@ -46,6 +46,6 @@ if __name__ == "__main__":
   warped_poseframe = warpVideoToPose(poseframe, args.camera_id, args.video_id, reverse_direction=True)
   warped_path = op.join(video.get_video_dir(), 'poseframe-warped.gif')
   with get_writer(warped_path, mode='I') as writer:
-    for i in range(10):
-      writer.append_data((warped_poseframe / 10. * i +
-                          videoframe / 10. * (10. - i)).astype(np.uint8))
+    N = 15
+    for i in range(N):
+      writer.append_data(getGifFrame(warped_poseframe, videoframe, float(i) / N))

@@ -22,18 +22,18 @@ def clip(x, xmin, xmax):
 
 class Window:
 
-  def __init__(self, img, winsize=500, name='display', num_zoom_levels=20):
+  def __init__(self, img, winsize=500, name='display', num_zoom_levels=10):
     self.name = name
     self.img = pad_to_square(img.copy()[:,:,::-1])  # cv2 expects image as BGR.
     #
     self.imgsize = self.img.shape[0]
-    self.winsize = winsize # min(winsize, self.imgsize)
+    self.winsize = winsize
     logging.debug('%s: imgsize: %d, winsize: %d' %
         (self.name, self.imgsize, self.winsize))
     self.Max_Zoom = self.imgsize / float(self.winsize)
     logging.info('%s: max_zoom: %f' % (self.name, self.Max_Zoom))
-    assert num_zoom_levels > 1, num_zoom_levels
-    self.Num_Zoom_Levels = num_zoom_levels
+    assert num_zoom_levels > 1, num_zoom_levels  
+    self.Num_Zoom_Levels = num_zoom_levels if self.Max_Zoom > 1 else 1
     self.Zoom_levels = range(self.Num_Zoom_Levels)
     logging.info('%s: zooms_levels: %d' % (self.name, self.Num_Zoom_Levels))
     self.zoom_level = 0.
@@ -53,7 +53,6 @@ class Window:
     cv2.setMouseCallback(self.name, self.mouseHandler)
     #
     self.make_cached_zoomed_images()
-
 
   def mouseHandler(self, event, x, y, flags, params):
 
@@ -85,10 +84,11 @@ class Window:
           self.rpressx, self.rpressy = x, y
           self.redraw()
 
-
   def get_zoom(self, zoom_level):
-    return ((float(self.Max_Zoom) - 1.) / (self.Num_Zoom_Levels - 1.) * zoom_level + 1.) / self.Max_Zoom
-
+    if self.Num_Zoom_Levels == 1:
+      return 1. / self.Max_Zoom
+    else:
+      return ((float(self.Max_Zoom) - 1.) / (self.Num_Zoom_Levels - 1.) * zoom_level + 1.) / self.Max_Zoom
 
   def make_cached_zoomed_images(self):
     ''' Cache images at different zoom levels to make scrolling faster. '''
@@ -100,13 +100,11 @@ class Window:
           (self.name, zoom_level, zoom, zoomed_img.shape))
       self.cached_zoomed_images[zoom_level] = zoomed_img
 
-
   def update_cached_zoomed_img(self):
     ''' Pick one from the one the image pyramid. '''
     self.cached_zoomed_img = self.cached_zoomed_images[int(self.zoom_level)].copy()
     self.cropsize = self.cached_zoomed_img.shape[0]
     logging.debug('%s: got cached image of shape %s' % (self.name, self.cropsize))
-
 
   def get_offsets(self):
     ''' Get win offsets based on zoom and scrolls '''

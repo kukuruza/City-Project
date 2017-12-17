@@ -8,7 +8,7 @@ import numpy as np
 import math
 from imageio import imwrite, get_writer
 from lib.scene import Pose
-from lib.labelMatches import loadMatches
+from lib.labelMatches import loadMatches, getGifFrame
 from lib.warp import warp
 
 
@@ -18,6 +18,7 @@ if __name__ == "__main__":
   parser.add_argument('--camera_id', required=True, type=int)
   parser.add_argument('--map_id', type=int, help='If not set, will use pose["best_map_id"]')
   parser.add_argument('--pose_id', type=int, default=0)
+  parser.add_argument('--height', type=float, default=8.5)
   parser.add_argument('--no_backup', action='store_true')
   parser.add_argument('--update_map_json', action='store_true')
   parser.add_argument('--ransac', action='store_true')
@@ -59,8 +60,8 @@ if __name__ == "__main__":
     # TODO: find out how to infer height, focal length, and FOV from homography.
     h = pose.camera['cam_origin']['z']
   else:
-    logging.warning('No camera height, will use 8.5 m')
-    h = 8.5
+    logging.warning('No camera height, will use given in args')
+    h = args.height
   h *= pose.map['pxls_in_meter']
   l = math.sqrt((X1[0]-X2[0])*(X1[0]-X2[0])+(X1[1]-X2[1])*(X1[1]-X2[1]))
   d = math.sqrt(1 - 4*h*h/l/l)
@@ -83,9 +84,9 @@ if __name__ == "__main__":
   warped_path = op.join(pose.get_pose_dir(), 'satellite-warped-map%d.gif' % pose.map_id)
   poseframe = pose.load_example()
   with get_writer(warped_path, mode='I') as writer:
-    for i in range(10):
-      writer.append_data((warped_satellite / 10. * i +
-                          poseframe / 10. * (10. - i)).astype(np.uint8))
+    N = 15
+    for i in range(N):
+      writer.append_data(getGifFrame(warped_satellite, poseframe, float(i) / N))
 
   # Make visibility map.
   # Horizon line.

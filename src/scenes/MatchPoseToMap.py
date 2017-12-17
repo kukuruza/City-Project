@@ -25,7 +25,7 @@ if __name__ == "__main__":
   satellite = pose.map.load_satellite()
   matches_path = op.join(pose.get_pose_dir(), 'matches-map%d.json' % pose.map_id)
 
-  labelMatches (frame, satellite, matches_path,
+  labelMatches (satellite, frame, matches_path,
       winsize1=args.winsize1, winsize2=args.winsize2,
-      name1='pose', name2='map',
+      name1='map', name2='pose',
       backup_matches=not args.no_backup)

@@ -4,12 +4,14 @@ import logging
 import shutil
 import argparse
 import numpy as np
+from time import time
 import cv2
 import simplejson as json
+import colorsys
 from pprint import pprint, pformat
 from scipy.misc import imread
 from lib.cvWindow import Window
-import colorsys
+from lib.warp import warp, transformPoint
 
 
 def get_random_color():
@@ -19,13 +21,21 @@ def get_random_color():
   return r,g,b
 
 
+def getGifFrame(img1, img2, frac):
+  k = np.sin(frac * np.pi * 2.) / 2.
+  return (img1.astype(float) * (0.5 + k) +
+          img2.astype(float) * (0.5 - k)).astype(np.uint8)
+
+
 class MatchWindow(Window):
   ''' Use mouse left button and wheel to navigate, shift + left button
   to select points. Select a point in each image, and the match will be added.
+  Alt + left button on a point in either image to delete a match.
   '''
 
   def __init__(self, img, winsize=500, name='display'):
     self.pointselected = None
+    self.pointdeleted = None
     self.points = []  # (x, y), (b,g,r)
     Window.__init__(self, img, winsize, name)
 
@@ -42,6 +52,12 @@ class MatchWindow(Window):
       self.update_cached_zoomed_img()
       self.redraw()
 
+    # Delete a point.
+    if event == cv2.EVENT_LBUTTONDOWN and (flags & cv2.EVENT_FLAG_ALTKEY):
+      logging.info('%s: registered mouse delete press.' % self.name)
+      x, y = self.window_to_image_coords(x, y)
+      self.pointdeleted = self._any_point_selected(x, y)  # None if not found.
+
   def update_cached_zoomed_img(self):
     Window.update_cached_zoomed_img(self)
     for (x, y), color in self.points:
@@ -53,6 +69,55 @@ class MatchWindow(Window):
     x, y = self.image_to_zoomedimage_coords(x, y)
     cv2.circle (self.cached_zoomed_img, (int(x), int(y)), 10, color, thickness=3)
 
+  def _any_point_selected(self, xsel, ysel):
+    SELECT_DIST = 5
+    iselected = None
+    for ip, ((x, y), _) in enumerate(self.points):
+      x, y = self.image_to_zoomedimage_coords(x, y)
+      if  abs(xsel - x) < SELECT_DIST and abs(ysel - y) < SELECT_DIST:
+        logging.info('Deleted point %d.' % ip)
+        return ip
+    return None
+
+
+class GifWindow:
+  def __init__(self):
+    self.img1 = self.img2 = None
+    self.start = time()
+    self.CYCLE_S = 2.0
+
+  def update_images(self, img1, img2):
+    assert img1.shape == img2.shape, (img1.shape, img2.shape)
+    self.img1 = img1.astype(float)
+    self.img2 = img2.astype(float)
+
+  def redraw(self):
+    if self.img1 is not None:
+      k = (time() - self.start) / self.CYCLE_S
+      img = getGifFrame(self.img1, self.img2, k)
+      cv2.imshow('warped', img)
+
+
+def _redraw(window1, window2, gif_window):
+  window1.update_cached_zoomed_img()
+  window2.update_cached_zoomed_img()
+  window1.redraw()
+  window2.redraw()
+  # If at least 4 points are present, we can compute H from window1 to window2.
+  if len(window1.points) >= 4:
+    # Points have (x, y) order.
+    src_pts = np.asarray([p[0] for p in window1.points])
+    dst_pts = np.asarray([p[0] for p in window2.points])
+    H, matches_mask = cv2.findHomography(src_pts, dst_pts, method=cv2.RANSAC)
+    #matches_mask = matches_mask.ravel().tolist()
+    warped = warp(window1.img, H, None, window2.img.shape[0:2])
+    dst = window2.img.copy()
+    warped_pts = np.asarray([transformPoint(H, pt[0], pt[1]) for pt in src_pts])
+    for (x1, y1), (x2, y2) in zip(warped_pts.astype(int), dst_pts.astype(int)):
+      cv2.arrowedLine(warped, (x1, y1), (x2, y2), color=(255,0,0), thickness=2)
+      cv2.arrowedLine(dst, (x1, y1), (x2, y2), color=(255,0,0), thickness=2)
+    gif_window.update_images(dst, warped)
+    #cv2.imshow('warped', warped)
 
 
 def labelMatches (img1, img2, matches_path, 
@@ -61,6 +126,7 @@ def labelMatches (img1, img2, matches_path,
 
   window1 = MatchWindow(img1, winsize1, name=name1)
   window2 = MatchWindow(img2, winsize2, name=name2)
+  gif_window = GifWindow()
 
   # If already exists, we'll load existing matches.
   # pts_pairs is a list of tuples (x1, y1, x2, y2)
@@ -74,15 +140,14 @@ def labelMatches (img1, img2, matches_path,
       color = get_random_color()
       window1.points.append(((matches[name1]['x'][i], matches[name1]['y'][i]), color))
       window2.points.append(((matches[name2]['x'][i], matches[name2]['y'][i]), color))
-  window1.update_cached_zoomed_img()
-  window2.update_cached_zoomed_img()
-  window1.redraw()
-  window2.redraw()
+  _redraw(window1, window2, gif_window)
 
   BUTTON_ESCAPE = 27
   BUTTON_ENTER = 13
   button = -1
+  redraw = False
   while button != BUTTON_ESCAPE and button != BUTTON_ENTER:
+
     if window1.pointselected is not None and window2.pointselected is not None:
       logging.info('Adding a match')
       color = get_random_color()
@@ -90,10 +155,22 @@ def labelMatches (img1, img2, matches_path,
       window2.points.append((window2.pointselected, color))
       window1.pointselected = None
       window2.pointselected = None
-      window1.update_cached_zoomed_img()
-      window2.update_cached_zoomed_img()
-      window1.redraw()
-      window2.redraw()
+      _redraw(window1, window2, gif_window)
+    elif window1.pointdeleted is not None or window2.pointdeleted is not None:
+      logging.info('Deleting a match')
+      if window1.pointdeleted is not None:
+        ideleted = window1.pointdeleted
+      elif window2.pointdeleted is not None:
+        ideleted = window2.pointdeleted
+      else:
+        assert 0
+      del window1.points[ideleted]
+      del window2.points[ideleted]
+      window1.pointdeleted = None
+      window2.pointdeleted = None
+      _redraw(window1, window2, gif_window)
+
+    gif_window.redraw()
     button = cv2.waitKey(50)
 
   # Save and exit.

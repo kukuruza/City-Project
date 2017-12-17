@@ -59,14 +59,6 @@ class Homography:
       logging.info('Loaded azimuth_map_path %s.' % azimuth_map_path)
       return azimuth_map, azimuth_mask
 
-def transformPoint(H, x, y):
-  ''' Apply homography to a point. '''
 
-  p = np.asarray([[x],[y],[1.]])
-  p = np.matmul(H, p)
-  if p[2] == 0:
-    return float('Inf'), float('Inf')
-  else:
-    p /= p[2]
-    x, y = p[0,0], p[1,0]
-    return x, y
+def transformPoint():
+  assert 0, 'The function moved to warp.py.'
