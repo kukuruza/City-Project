@@ -119,7 +119,7 @@ for i_segm = 1 : max(segments_map(:))
     [~,I] = sort(V);
 
     % crop front and back (usually noise)
-    assert (length(I) > 20);
+    assert (length(I) >= 20);
     I = I(11 : end-10);
     
     X = X(I);

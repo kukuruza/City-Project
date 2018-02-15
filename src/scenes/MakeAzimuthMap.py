@@ -6,9 +6,9 @@ import argparse
 import cv2
 import subprocess
 from skimage.measure import label
-from Warp import warpPoseToMap
-from scenes.lib.scene import Pose
-from scenes.lib.azimuth import read_azimuth_image, write_azimuth_image
+from lib.warp import warpPoseToMap
+from lib.scene import Pose
+from lib.azimuth import read_azimuth_image, write_azimuth_image
 
 
 if __name__ == "__main__":
@@ -18,7 +18,6 @@ if __name__ == "__main__":
       All azimuth are ''')
   parser.add_argument('--camera_id', required=True, help="E.g. 572")
   parser.add_argument('--pose_id', type=int, default=0)
-  parser.add_argument('--map_id', type=int, help='If not set, will use pose["best_map_id"]')
   parser.add_argument('--steps', nargs='+',
       choices=['2topdown', 'compute_azimuth', 'delta', '2frame'])
   parser.add_argument('--logging', type=int, default=20, choices=[10,20,30,40])
@@ -26,10 +25,11 @@ if __name__ == "__main__":
   
   logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 
-  pose = Pose(camera_id=args.camera_id, pose_id=args.pose_id, map_id=args.map_id)
+  pose = Pose(camera_id=args.camera_id, pose_id=args.pose_id)
 
   pose_dir = pose.get_pose_dir()
   for_azimuth_dir = op.join(pose_dir, '4azimuth-map%d' % pose.map_id)
+  logging.info ('Looking at directory: %s' % for_azimuth_dir)
   if not op.exists(for_azimuth_dir):
     os.makedirs(for_azimuth_dir)
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     print ('Found %d lane images' % len(lane_paths))
 
     for lane_path in lane_paths:
-      print lane_path
+      print (lane_path)
       assert op.exists(lane_path), lane_path
       in_lane = cv2.imread(lane_path, -1)[:,:,0]
 #      assert in_lane.dtype == np.uint16, 'Need 16 bits input image.'
@@ -46,7 +46,7 @@ if __name__ == "__main__":
       # # Find the min radius that does not ruin lanes.
       # counts = []
       # for dilation_radius in range(5):
-      #   warped_lane = warpFrameToMap(in_lane, args.camera_id, args.pose_id, pose.map_id,
+      #   warped_lane = warpPoseToMap(in_lane, args.camera_id, args.pose_id,
       #       dilation_radius=dilation_radius, no_alpha=True)
       #   _, count = label((warped_lane > 0).astype(int), connectivity=2, return_num=True)
       #   counts.append(count)
@@ -54,8 +54,8 @@ if __name__ == "__main__":
       # first_index_of_min_count = counts.index(min(counts))
   
       # Do again with the optimal radius, and write to disk.
-      dilation_radius = 10 # range(5)[first_index_of_min_count]
-      warped_lane = warpFrameToMap(in_lane, args.camera_id, args.pose_id, pose.map_id,
+      dilation_radius = 2 # range(5)[first_index_of_min_count]
+      warped_lane = warpPoseToMap(in_lane, args.camera_id, args.pose_id,
           dilation_radius=dilation_radius, no_alpha=True)
       _, count = label((warped_lane > 0).astype(int), connectivity=1, return_num=True)
       print ('Used dilation radius %d, got %d segments.' %
@@ -101,11 +101,12 @@ if __name__ == "__main__":
     print ('Warping from top-down view to frame view.')
     azimuth_top_down_path = op.join(for_azimuth_dir, 'azimuth-top-down-from-camera.png')
     azimuth_top_down, mask_top_down = read_azimuth_image(azimuth_top_down_path)
+    azimuth_top_down[mask_top_down == 0] = 0
     azimuth_frame = warpPoseToMap(azimuth_top_down, 
-        args.camera_id, args.pose_id, pose.map_id,
+        args.camera_id, args.pose_id,
         dilation_radius=2, reverse_direction=True)
     mask_frame = warpPoseToMap(mask_top_down.astype(float),
-        args.camera_id, args.pose_id, pose.map_id,
+        args.camera_id, args.pose_id,
         dilation_radius=2, reverse_direction=True) > 0.5
     azimuth_frame_path = op.join(pose_dir, 'azimuth-frame.png')
     write_azimuth_image(azimuth_frame_path, azimuth_frame, mask_frame)

@@ -15,8 +15,8 @@ def _intMaskedDilation(img, kernel):
   ''' Zero neighbours of a pixel do not count in the result for that pixel. '''
 
   dtype = img.dtype  # Remember the input type for output.
-  mask = (img > 0).astype(int)
-  img = img.astype(int)
+  mask = (img > 0).astype(np.uint16)
+  img = img.astype(np.uint16)
 
   assert len(kernel.shape) == 2, kernel.shape
   img = cv2.filter2D(img, -1, kernel)
