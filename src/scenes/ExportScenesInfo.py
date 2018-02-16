@@ -5,7 +5,6 @@ import argparse
 import simplejson as json
 from glob import glob
 from pprint import pprint, pformat
-#from lib.labelMatches import labelMatches
 from lib.scene import Pose, Video
 
 if __name__ == "__main__":
@@ -17,6 +16,8 @@ if __name__ == "__main__":
   logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 
   scenes = {}
+
+  # TODO: rewrite with lib.iterateScenes.py
 
   cam_dirs = glob('data/scenes/???')
   for cam_dir in cam_dirs:

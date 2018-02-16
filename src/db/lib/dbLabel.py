@@ -9,8 +9,8 @@ from helperKeys import getCalibration
 from helperImg import ReaderVideo
 from scipy.misc import imresize, imread
 from scenes.lib.cvScrollZoomWindow import Window
-from scenes.lib.homography import Homography, getFramePointFlattening
-from warp import transformPoint
+from scenes.lib.homography import Homography, getFrameFlattening
+from scenes.lib.warp import transformPoint
 import cv2
 
 
@@ -71,7 +71,10 @@ class AzimuthWindow(Window):
 
 def _getFlatteningFromImagefile(homography, imagefile, y_frame, x_frame):
   H = homography.getHfromImagefile(imagefile)
-  flattening = getFrameFlattening(H, y_frame, x_frame)
+  if H is not None:
+    return getFrameFlattening(H, y_frame, x_frame)
+  else:
+    return 1
 
 
 def _getAzimuthSuggestionFromMap(homography, imagefile, y_frame, x_frame):

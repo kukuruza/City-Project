@@ -8,7 +8,7 @@ import subprocess
 from skimage.measure import label
 from lib.warp import warpPoseToMap
 from lib.scene import Pose
-from lib.azimuth import read_azimuth_image, write_azimuth_image
+from lib.conventions import read_azimuth_image, write_azimuth_image
 
 
 if __name__ == "__main__":
