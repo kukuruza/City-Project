@@ -8,8 +8,9 @@ from helperDb import deleteCar, carField
 from helperKeys import getCalibration
 from helperImg import ReaderVideo
 from scipy.misc import imresize, imread
-from scenes.lib.cvWindow import Window
-from scenes.lib.homography import Homography, transformPoint
+from scenes.lib.cvScrollZoomWindow import Window
+from scenes.lib.homography import Homography, getFramePointFlattening
+from warp import transformPoint
 import cv2
 
 
@@ -68,29 +69,9 @@ class AzimuthWindow(Window):
           cv2.FONT_HERSHEY_SIMPLEX, 1., color, 2)
 
 
-def _getMapEllipse(H, y_frame, x_frame):
-  assert H is not None
-  p_frame = np.asarray([[x_frame],[y_frame],[1.]])
-  p_frame_dx = np.asarray([[x_frame + 1.],[y_frame],[1.]])
-  p_frame_dy = np.asarray([[x_frame],[y_frame + 1.],[1.]])
-  p_map = np.matmul(H, p_frame)
-  p_map /= p_map[2]
-  p_map_dx = np.matmul(H, p_frame_dx)
-  p_map_dx /= p_map_dx[2]
-  p_map_dy = np.matmul(H, p_frame_dy)
-  p_map_dy /= p_map_dy[2]
-  return p_map_dx - p_map, p_map_dy - p_map
-
-
 def _getFlatteningFromImagefile(homography, imagefile, y_frame, x_frame):
   H = homography.getHfromImagefile(imagefile)
-  if H is not None:
-    dx, dy = _getMapEllipse(H, y_frame, x_frame)
-    flattening = np.linalg.norm(dx, ord=2) / np.linalg.norm(dy, ord=2)
-    logging.info('Flattening: %.2f' % flattening)
-  else:
-    flattening = 1.
-  return flattening
+  flattening = getFrameFlattening(H, y_frame, x_frame)
 
 
 def _getAzimuthSuggestionFromMap(homography, imagefile, y_frame, x_frame):

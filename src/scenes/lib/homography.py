@@ -2,13 +2,15 @@ import os.path as op
 import numpy as np
 from time import time
 import logging
-from scene import Pose
+from scene import Video
 from azimuth import read_azimuth_image
 
 
 
 class Homography:
-  ''' Support homography operations. '''
+  ''' Takes care of homography-related caching.
+  Loads poses, homography, azimuth maps (piling up).
+  '''
 
   def __init__(self):
     self.cached_pose = {}
@@ -22,7 +24,7 @@ class Homography:
     else:
       # Only pose for an imagefile is cached now.
       # New imagefile means reading camera json.
-      pose = Pose.from_imagefile(imagefile)
+      pose = Video.from_imagefile(imagefile).pose
       self.cached_pose = {imagefile: pose}  # Only one item in cache.
       logging.info('Created pose for %s' % imagefile)
     return pose
@@ -62,3 +64,28 @@ class Homography:
 
 def transformPoint():
   assert 0, 'The function moved to warp.py.'
+
+def getFrameFlattening(H, y_frame, x_frame):
+  ''' Compute flattening (roughly pitch) for a point in a frame. '''
+
+  def _getMapEllipse(H, y_frame, x_frame):
+    assert H is not None
+    p_frame = np.asarray([[x_frame],[y_frame],[1.]])
+    p_frame_dx = np.asarray([[x_frame + 1.],[y_frame],[1.]])
+    p_frame_dy = np.asarray([[x_frame],[y_frame + 1.],[1.]])
+    p_map = np.matmul(H, p_frame)
+    p_map /= p_map[2]
+    p_map_dx = np.matmul(H, p_frame_dx)
+    p_map_dx /= p_map_dx[2]
+    p_map_dy = np.matmul(H, p_frame_dy)
+    p_map_dy /= p_map_dy[2]
+    return p_map_dx - p_map, p_map_dy - p_map
+
+  if H is not None:
+    dx, dy = _getMapEllipse(H, y_frame, x_frame)
+    flattening = np.linalg.norm(dx, ord=2) / np.linalg.norm(dy, ord=2)
+    logging.debug('Flattening: %.2f' % flattening)
+  else:
+    flattening = 1.
+  return flattening
+
