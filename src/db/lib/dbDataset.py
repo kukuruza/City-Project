@@ -1,3 +1,5 @@
+''' Pytorch dataset binding to our .db data. '''
+
 import sys, os, os.path as op
 from helperSetup import atcity, dbInit, setupLogging
 from helperDb import imageField, carField
@@ -6,151 +8,135 @@ import numpy as np
 from scipy.misc import imresize
 import argparse
 import logging
+from torch.utils.data import Dataset
 
 
-class CityimagesDataset:
-  def __init__(self, db_file, fraction=1., image_constraint='1', randomly=True):
+class CityimagesDataset(Dataset):
+  def __init__(self, db_file, image_constraint='1', car_constraint='1', use_maps=False):
+    from torch.utils.data import Dataset
 
-    (conn, c) = dbInit(db_file)
-    c.execute('SELECT * FROM images WHERE %s ORDER BY imagefile' % image_constraint)
-    self.image_entries = c.fetchall()
-    conn.close()
+    (self.conn, self.c) = dbInit(db_file)
+    self.c.execute('SELECT * FROM images WHERE %s ORDER BY imagefile' % image_constraint)
+    self.image_entries = self.c.fetchall()
 
-    self.fraction = fraction
     self.image_reader = ReaderVideo()
-    self.randomly = randomly
-    self.pos = 0  # Position for __getitem__.
+    self.car_constraint = car_constraint
 
+    self.use_maps = use_maps
+    if use_maps:
+        from scenes.lib.cache import MapsCache
+        self.sizemap_cache = MapsCache('pose_size')
+        self.pitchmap_cache = MapsCache('pose_pitch')
+        #self.azimuth_cache = MapsCache('pose_azimuth')
+
+  def close(self):
+    self.conn.close()
 
   def _load_image(self, image_entry):
     logging.debug ('CityImagesDataset: reading %s' % 
             imageField(image_entry, 'imagefile'))
     im = self.image_reader.imread (imageField(image_entry, 'imagefile'))
+    if imageField(image_entry, 'maskfile') is None:
+      mask = None
+    else:
+      mask = self.image_reader.maskread (imageField(image_entry, 'maskfile'))
     assert im is not None, image_entry
-    return im
-
+    assert len(im.shape) == 3 and im.shape[2] == 3, 'Change code for non 3-channel.'
+    im = im[:,:,::-1]   # BGR to RGB.
+    return im, mask
 
   def __len__(self):
-    if self.fraction == 1:
-      return len(self.image_entries)  # No rounding errors.
-    else:
-      return int(len(self.image_entries) * self.fraction)
+    return len(self.image_entries)
 
-
-  def __getitem__(self):
-    '''Yields pairs (im,gt) taken randomly from the whole dataset. 
-    Used to train segmentation.
+  def __getitem__(self, index):
+    '''Used to train detection/segmentation.
     Returns:
-      im: np.uint8 array of shape [imheight, imwidth, 3]
-      gt: np.uint8 array of shape [imheight, imwidth, 1]
-              and values in range [0,255]
-            [imheight, imwidth] are image and mask ogirinal dimensions.
+      im:     np.uint8 array of shape [imheight, imwidth, 3]
+      gt:     np.uint8 array of shape [imheight, imwidth, 1]
+              and values in range [0,255], where
+              [imheight, imwidth] are image and mask ogirinal dimensions.
+      boxes:  np.int32 array of shape [4]
     '''
-    num_to_use = int(len(self.image_entries) * self.fraction)
-    logging.debug('CitycamDataset: will use %d frames' % num_to_use)
-
-    image_entries = list(self.image_entries)  # make a copy
-    assert len(image_entries) > 0
-    if self.randomly: np.random.shuffle(image_entries)
-
-    for image_entry in image_entries[:num_to_use]:
-      yield self._load_image(image_entry)
-
-
-  def getitem_by_index(self, index):
     image_entry = self.image_entries[index]
-    return self._load_image(image_entry)
+    im, mask = self._load_image(image_entry)
 
+    imagefile = imageField(image_entry, 'imagefile')
 
-  def get_batch(self, imsize, batchsize):
-    assert type(imsize) is list or type(imsize) is tuple, imsize
-    assert len(imsize) == 2, imsize
-    batch = None
-    for i, image in enumerate(self.dataset.__getitem__()):
-      image = imresize(image, imsize)
-      if batch is None:
-        batch = np.zeros([batchsize] + list(image.shape), float)
-      batch[i % batchsize] = image
-      if (i-1) % batchsize == 0:
-        logging.debug(batch.shape)
-        yield batch
+    s = 'SELECT x1,y1,width,height FROM cars WHERE imagefile="%s" AND (%s)' % (imagefile, self.car_constraint)
+    logging.debug('dbDataset request: %s' % s)
+    self.c.execute(s)
+    bboxes = self.c.fetchall()
+
+    item = {'image': im, 'mask': mask, 'bboxes': bboxes, 'imagefile': imagefile}
+
+    if self.use_maps:
+        item['sizemap'] = self.sizemap_cache[imagefile]
+        item['pitchmap'] = self.pitchmap_cache[imagefile]
+        #azimuthmap = self.azimuthmap_cache[imagefile]
+        # FIXME: What to do with azimuth - bin it?
+
+    return item
 
 
 class CitycarsDataset:
+  '''
+  One item is one car, rather than image with multiple cars.
+  Car can be cropped.
+  '''
   def __init__(self, db_file, fraction=1., car_constraint='1', crop_car=True,
-               randomly=True):
+               randomly=True, with_mask=False):
 
-    (conn, c) = dbInit(db_file)
-    c.execute('SELECT * FROM cars WHERE %s ORDER BY imagefile' % car_constraint)
-    self.car_entries = c.fetchall()
-    conn.close()
+    (self.conn, self.c) = dbInit(db_file)
+    self.c.execute('SELECT * FROM cars WHERE %s ORDER BY imagefile' % car_constraint)
+    self.car_entries = self.c.fetchall()
 
     self.fraction = fraction
     self.crop_car = crop_car
     self.image_reader = ReaderVideo()
     self.randomly = randomly
+    self.with_mask = with_mask
 
+
+  def close(self):
+    self.conn.close()
+    
 
   def _load_image(self, car_entry):
     logging.debug ('CitycarsDataset: reading car %d from %s imagefile' % 
             (carField(car_entry, 'id'), carField(car_entry, 'imagefile')))
     im = self.image_reader.imread (carField(car_entry, 'imagefile'))
+    if self.with_mask:
+      imagefile = carField(car_entry, 'imagefile')
+      self.c.execute('SELECT maskfile FROM images WHERE imagefile=?', (imagefile,))
+      maskfile = self.c.fetchone()[0]
+      if maskfile is None:
+        mask = None
+      else:
+        mask = self.image_reader.maskread(maskfile)
+    else:
+      mask = None
+    assert len(im.shape) == 3 and im.shape[2] == 3, 'Change code for non 3-channel.'
+    im = im[:,:,::-1]   # BGR to RGB.
     if self.crop_car:
       roi = carField(car_entry, 'roi')
-      car = im[roi[0]:roi[2], roi[1]:roi[3]]
-    else:
-      car = im
-    return car
+      im = im[roi[0]:roi[2], roi[1]:roi[3]]
+      mask = mask[roi[0]:roi[2], roi[1]:roi[3]] if mask is not None else None
+    return {'image': im, 'mask': mask, 'entry': car_entry}
 
 
   def __len__(self):
     return int(len(self.car_entries) * self.fraction)
 
 
-  def __getitem__(self):
-    '''Yields pairs (im,gt) taken randomly from the whole dataset. 
-    Yields:
+  def __getitem__(self, index):
+    '''
+    Returns:
       im: np.uint8 array of shape [imheight, imwidth, 3]
       gt: car_entry
     '''
-    num_to_use = self.__len__()
-    logging.debug('CitycarsDataset: will use %d frames.' % num_to_use)
-
-    car_entries = list(self.car_entries)  # make a copy
-    if self.randomly:
-      np.random.shuffle(car_entries)
-
-    for car_entry in car_entries[:num_to_use]:
-      yield self._load_image(car_entry), car_entry
-
-    logging.debug('CitycarsDataset: done with the dataset.')
-
-
-  def _getitem_by_index(self, index):
-    '''
-    Args:
-      index:   if given, returns the given index rather then
-               yielding all num_to_use images from dataset
-               That is used for torch.utils.data.Dataset
-    '''
     car_entry = self.car_entries[index]
-    return self._load_image(car_entry), car_entry
+    return self._load_image(car_entry)
 
-
-  def get_batch(self, imsize, batchsize):
-    assert type(imsize) is list or type(imsize) is tuple, imsize
-    assert len(imsize) == 2, imsize
-    batch_image = None
-    batch_car_entry = [None] * batchsize
-    for i, (image, car_entry) in enumerate(self.__getitem__()):
-      image = imresize(image, imsize)
-      if batch_image is None:
-        batch_image = np.zeros([batchsize] + list(image.shape), float)
-      batch_image[i % batchsize] = image
-      batch_car_entry[i % batchsize] = car_entry
-      if (i+1) % batchsize == 0:
-        logging.debug(batch_image.shape)
-        yield batch_image, batch_car_entry
 
 
 class CitymatchesDataset:
@@ -160,7 +146,8 @@ class CitymatchesDataset:
 
     (conn, c) = dbInit(db_file)
 
-    # TODO: do all of this in my SQL request
+    # TODO: Implement mask return.
+    # TODO: do all of this in my SQL request (because of mask, maybe move cycle to _load_image)
     c.execute('''SELECT DISTINCT(match) FROM matches
                  GROUP BY match HAVING COUNT(*) > 1''')
     matches = c.fetchall()
@@ -184,12 +171,12 @@ class CitymatchesDataset:
     logging.debug ('CitycarsDataset: reading car %d from %s imagefile' % 
             (carField(car_entry, 'id'), carField(car_entry, 'imagefile')))
     im = self.image_reader.imread (carField(car_entry, 'imagefile'))
+    assert len(im.shape) == 3 and im.shape[2] == 3, 'Change code for non 3-channel.'
+    im = im[:,:,::-1]   # BGR to RGB.
     if self.crop_car:
       roi = carField(car_entry, 'roi')
-      car = im[roi[0]:roi[2], roi[1]:roi[3]]
-    else:
-      car = im
-    return car
+      im = im[roi[0]:roi[2], roi[1]:roi[3]]
+    return {'image': im, 'entry': car_entry}
 
 
   def __len__(self):
@@ -210,12 +197,12 @@ class CitymatchesDataset:
       np.random.shuffle(self.matched_car_entries)
 
     for cars_tuple in self.matched_car_entries[:num_to_use]:
-      yield [(self._load_image(car_entry), car_entry) for car_entry in cars_tuple]
+      yield [self._load_image(car_entry) for car_entry in cars_tuple]
 
     logging.debug('CitycarsDataset: done with the dataset.')
 
 
-  def _getitem_by_index(self, index):
+  def __getitem__(self, index):
     '''
     Args:
       index:   if given, returns the given index rather then
@@ -223,7 +210,7 @@ class CitymatchesDataset:
                That is used for torch.utils.data.Dataset
     '''
     cars_tuple = self.matched_car_entries[index]
-    return [(self._load_image(car_entry), car_entry) for car_entry in cars_tuple]
+    return [self._load_image(car_entry) for car_entry in cars_tuple]
 
 
 if __name__ == "__main__":
@@ -236,21 +223,18 @@ if __name__ == "__main__":
 
   if args.dataset_type == 'images':
     dataset = CityimagesDataset(args.in_db_file, fraction=0.01)
-    im,  = dataset.getitem_by_index(1)
+    im, _ = dataset.__getitem__(1)
     print im.shape
-    for im in dataset.__getitem__():
-        print im.shape
 
   elif args.dataset_type == 'cars':
     dataset = CitycarsDataset(args.in_db_file, fraction=0.005, randomly=False)
-    for im, car_entry in dataset.__getitem__():
-      print im.shape
+    im, car_entry = dataset.__getitem__(1)
+    print im.shape
 
   elif args.dataset_type == 'matches':
     dataset = CitymatchesDataset(args.in_db_file, fraction=0.005, randomly=False)
     print ('length', len(dataset))
-    for matched_cars in dataset.__getitem__():
-      print (' ')
-      for im, car_entry in matched_cars:
-        print im.shape, car_entry
+    matched_cars = dataset.__getitem__(1)
+    for im, car_entry in matched_cars:
+      print im.shape, car_entry
 

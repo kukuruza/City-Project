@@ -52,7 +52,7 @@ class MapsCache:
         map_path = conventions.get_pose_azimuthmap_path(pose.get_pose_dir())
         result = conventions.read_azimuth_image(map_path)
       elif map_name == 'topdown_azimuth':
-        map_path = conventions.get_pose_azimuthmap_path(pose.get_pose_dir())
+        map_path = conventions.get_topdown_azimuthmap_path(pose.get_pose_dir())
         result = conventions.read_azimuth_image(map_path)
       elif map_name == 'pose_pitch':
         map_path = conventions.get_pose_pitchmap_path(pose.get_pose_dir())

@@ -71,12 +71,16 @@ def write_pitch_image(path, pitch):
   cv2.imwrite(path, pitch)
 
 
+def read_size_image(path):
+  ''' No normalization, the range should be [0, 255]. '''
+  assert op.exists(path), path
+  size = cv2.imread(path, -1)
+  assert size is not None
+  assert len(size.shape) == 2
+  size = size.astype(float)
+  return size
+
 def write_size_image(path, size):
   size = size.astype(np.uint8)
   cv2.imwrite(path, size)
 
-def read_size_image(size_path, size):
-  assert op.exists(path), path
-  cv2.read(path, size, -1)
-  size = size.astype(float)
-  return size
