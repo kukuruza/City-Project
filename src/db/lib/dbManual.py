@@ -6,7 +6,7 @@ from dbUtilities import getCenter
 from helperDb    import deleteCar, carField, createTableMatches, doesTableExist
 from helperKeys  import KeyReaderUser, getCalibration
 from helperImg   import ReaderVideo
-from scipy.misc import imresize
+import cv2
 
 
 def add_parsers(subparsers):
@@ -26,7 +26,6 @@ def displayParser(subparsers):
 
 def display (c, args):
   logging.info ('==== display ====')
-  import cv2
 
   image_reader = ReaderVideo()
   key_reader = KeyReaderUser()
@@ -66,7 +65,7 @@ def display (c, args):
         drawScoredRoi (display, roi, '', score)
 
     scale = float(args.winsize) / max(display.shape[0:2])
-    cv2.imshow('display', imresize(display, scale))
+    cv2.imshow('display', cv2.resize(display, dsize=(0,0), fx=scale, fy=scale))
     if key_reader.readKey() == 27: break
 
 
@@ -81,7 +80,6 @@ def examineParser(subparsers):
 
 def examine (c, args):
   logging.info ('==== examine ====')
-  import cv2
 
   image_reader = ReaderVideo()
   key_reader = KeyReaderUser()
@@ -130,7 +128,7 @@ def examine (c, args):
       display = image.copy()  # each car roi is drawn on a copy
       drawRoi (display, roi)
       scale = float(args.winsize) / max(display.shape[0:2])
-      display = imresize(display, scale)
+      display = cv2.resize(display, dsize=(0,0), fx=scale, fy=scale)
       font = cv2.FONT_HERSHEY_SIMPLEX
       cv2.putText (display, 'name: %s' % name, (10, 20), font, 0.5, (255,255,255), 2)
       if color is not None:
@@ -209,7 +207,7 @@ def displayMatches (c, args):
     display = np.hstack(images)
 
     scale = float(args.winsize) / max(display.shape[0:2])
-    cv2.imshow('display', imresize(display, scale))
+    cv2.imshow('display', cv2.resize(display, dsize=(0,0), fx=scale, fy=scale))
     if key_reader.readKey() == 27: break
 
 
@@ -287,7 +285,7 @@ def classifyName (c, params = {}):
             drawRoi (display, roi, label)
 
             disp_scale = params['disp_scale']
-            display = cv2.resize(display, (0,0), fx=disp_scale, fy=disp_scale)
+            display = cv2.resize(display, dsize=(0,0), fx=disp_scale, fy=disp_scale)
             cv2.imshow('show', display)
             button = params['key_reader'].readKey()
 
@@ -403,7 +401,7 @@ def classifyColor (c, params = {}):
 
             # draw image
             disp_scale = params['disp_scale']
-            display = cv2.resize(img_show, (0,0), fx=disp_scale, fy=disp_scale)
+            display = cv2.resize(img_show, dsize=(0,0), fx=disp_scale, fy=disp_scale)
             cv2.imshow('show', display)
             button = params['key_reader'].readKey()
 
@@ -593,7 +591,7 @@ def labelMatches (c, params = {}):
 
                 # draw image
                 disp_scale = params['disp_scale'] / 2
-                img_show = cv2.resize(img_stack, (0,0), fx=disp_scale, fy=disp_scale)
+                img_show = cv2.resize(img_stack, dsize=(0,0), fx=disp_scale, fy=disp_scale)
                 cv2.imshow('show', img_show)
                 logging.info ('%d matches found between the pair' % len(matchesOf1))
                 needRedraw = False

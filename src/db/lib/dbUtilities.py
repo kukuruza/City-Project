@@ -70,6 +70,7 @@ def drawScoredPolygon (img, polygon, label=None, score=None, thickness=2):
   assert type(polygon[0]) is tuple, polygon
   
   import cv2
+  import matplotlib.pyplot as plt  # for colormaps
   font = cv2.FONT_HERSHEY_SIMPLEX
   if label is None: label = ''
   if score is None:

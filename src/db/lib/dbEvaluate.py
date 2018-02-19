@@ -3,9 +3,14 @@ import sys
 import logging
 import sqlite3
 import numpy as np
-from helperSetup import setParamUnlessThere, assertParamIsThere
+from progressbar import ProgressBar
+from helperSetup import dbInit
 from helperDb    import carField
 
+
+
+def add_parsers(subparsers):
+  evaluateIoUParser(subparsers)
 
 
 def _voc_ap(rec, prec):
@@ -29,26 +34,24 @@ def _voc_ap(rec, prec):
   return ap
 
 
-def dbEvalClass (c_gt, c_det, params={}):
-  """ PASCAL VOC evaluation of a specific class or all detections.
-  Args:
-    c_gt:      cursor to the sqlite3 db with ground truth
-    c_det:     cursor to the sqlite3 db with detections
-    classname: was cut out on Feb 7 2017
-    ovthresh:  overlap threshold (default = 0.5)
-    car_constraint:  only these cars count towards TP and FN.
-  """
-  logging.info ('=== dbEvalClass ===')
-  setParamUnlessThere (params, 'ovthresh', 0.5)
-  setParamUnlessThere (params, 'car_constraint', '1')
-  setParamUnlessThere (params, 'image_constraint', '1')
-  cars_of_interest_constr = params['car_constraint']
-  images_of_interest_constr = params['image_constraint']
-  logging.info('cars_of_interest_constr: %s' % cars_of_interest_constr)
+def evaluateIoUParser(subparsers):
+  parser = subparsers.add_parser('evaluateIoU',
+    description='Evaluate detections in the open db w.r.t. a ground truth db.')
+  parser.set_defaults(func=evaluateIoU)
+  parser.add_argument('--gt_db_file', required=True)
+  parser.add_argument('--overlap_thresh', type=float, default=0.5)
+  parser.add_argument('--gt_car_constraint', default='1')
+  parser.add_argument('--image_constraint', default='1')
 
-  c_det.execute('SELECT imagefile,x1,y1,width,height,score FROM cars '
-                'WHERE %s ORDER BY score DESC' % images_of_interest_constr)
-  cars_det = c_det.fetchall()
+
+def evaluateIoU (c, args):
+  logging.info ('==== evaluateIoU ====')
+
+  (conn_gt, c_gt) = dbInit(args.gt_db_file)
+
+  c.execute('SELECT imagefile,x1,y1,width,height,score FROM cars '
+            'WHERE %s ORDER BY score DESC' % args.image_constraint)
+  cars_det = c.fetchall()
   logging.info ('Total %d cars_det' % len(cars_det))
 
   # go down dets and mark TPs and FPs
@@ -60,7 +63,7 @@ def dbEvalClass (c_gt, c_det, params={}):
   already_detected = set()
 
   # go through each detection
-  for idet,(imagefile,x1,y1,width,height,score) in enumerate(cars_det):
+  for idet,(imagefile,x1,y1,width,height,score) in ProgressBar()(enumerate(cars_det)):
 
     bbox_det = np.array([x1,y1,width,height], dtype=float)
 
@@ -94,12 +97,12 @@ def dbEvalClass (c_gt, c_det, params={}):
 
     # find which cars count towards TP and FN
     c_gt.execute('SELECT * FROM cars '
-                 'WHERE imagefile=? AND %s' % cars_of_interest_constr, (imagefile,))
+                 'WHERE imagefile=? AND %s' % args.gt_car_constraint, (imagefile,))
     entries = c_gt.fetchall()
     carids_gt_of_interest = [carField(entry, 'id') for entry in entries]
 
     # if 1) large enough overlap and 2) this GT box was not detected before
-    if max_overlap > params['ovthresh'] and not carid_gt in already_detected:
+    if max_overlap > args.overlap_thresh and not carid_gt in already_detected:
       if carid_gt in carids_gt_of_interest:
         tp[idet] = 1.
       else:
@@ -110,9 +113,9 @@ def dbEvalClass (c_gt, c_det, params={}):
 
   # find the number of GT of interest
   c_gt.execute('SELECT COUNT(*) FROM cars WHERE (%s) AND (%s)' % 
-               (cars_of_interest_constr, images_of_interest_constr))
+               (args.gt_car_constraint, args.image_constraint))
   n_gt = c_gt.fetchone()[0]
-  assert n_gt > 0, cars_of_interest_constr
+  assert n_gt > 0, args.gt_car_constraint
   logging.info ('Total %d cars of interest' % n_gt)
 
   # remove dets, neither TP or FP
@@ -135,36 +138,6 @@ def dbEvalClass (c_gt, c_det, params={}):
   prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
   ap = _voc_ap(rec, prec)
 
-  return rec, prec, ap
+  conn_gt.close()
 
-
-def evalCounting (c_gt, c_det, params={}):
-  """ Counting on every time step.
-  TODO: right now just all scores, FN < FT anyway
-  Args:
-    c_gt:      cursor to the sqlite3 db with ground truth
-    c_det:     cursor to the sqlite3 db with detections
-    classname: was cut out on Feb 7 2017
-  """
-
-  c_det.execute('SELECT imagefile FROM images')
-  imagefiles = c_det.fetchall()
-  numimages = len(imagefiles)
-  logging.info ('have %d imagefiles' % numimages)
-
-  det_counts = np.zeros(shape=(numimages,), dtype=int)
-  gt_counts  = np.zeros(shape=(numimages,), dtype=int)
-
-  for i,(imagefile,) in enumerate(imagefiles): # no GROUP BY because of empty images
-
-    c_det.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?', (imagefile,))
-    det_counts[i] = int(c_det.fetchone()[0])
-
-    c_gt.execute('SELECT COUNT(*) FROM cars WHERE imagefile=?', (imagefile,))
-    gt_counts[i] = int(c_gt.fetchone()[0])
-
-  #det_counts = np.cumsum(det_counts)
-  #gt_counts = np.cumsum(gt_counts)
-
-  return det_counts, gt_counts
-
+  print 'average precision', ap
