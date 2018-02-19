@@ -165,6 +165,14 @@ class Video(Info):
   def from_imagefile(cls, imagefile):
     ''' Parse camera_id and video_id from the imagefile, and create a pose. '''
 
+    camera_id, video_id = Video.get_camera_video_ids_from_imagefile(imagefile)
+    return Video(camera_id, video_id)
+
+  @classmethod
+  def get_camera_video_ids_from_imagefile(cls, imagefile):
+    ''' Parse camera_id and video_id from the imagefile,
+    to be used by Video constructor and caches, which do not need Video object. '''
+
     dirs = imagefile.split('/')
     # Find camera_id.
     matches_cam = [re.compile('^(cam(\d{3})|\d{3})$').match(x) for x in dirs]
@@ -182,10 +190,7 @@ class Video(Info):
     assert cam_ind + 1 < len(dirs), 'Camera should not be the last in %s' % imagefile
     video_id = dirs[cam_ind+1]  # The next dir after camera.
     video_id = op.splitext(video_id)[0]  # In case .avi file is given.
-    # Construct an object.
-    return Video(camera_id, video_id)
-
-
+    return camera_id, video_id
 
 
 

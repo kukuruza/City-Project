@@ -3,6 +3,7 @@
 import argparse
 import logging
 import numpy as np
+from cv2 import resize
 from lib.scene import Pose
 from lib.homography import getFrameFlattening, getFramePxlsInMeter
 import lib.conventions
@@ -13,6 +14,7 @@ def makePitchAndSizeMaps(camera_id, pose_id, dry_run=False):
   ''' Generates maps of pitch and pxls_in_meter for each point in every map. '''
 
   DEFAULT_HEIGHT = 8.5
+  DOWNSCALE = 4  # For speed up and smoothness, compute on downscaled image.
 
   pose = Pose(camera_id=camera_id, pose_id=pose_id)
   if 'H_pose_to_map' not in pose:
@@ -23,13 +25,15 @@ def makePitchAndSizeMaps(camera_id, pose_id, dry_run=False):
   # For each point get a flattening.
   Y = pose.camera['cam_dims']['height']
   X = pose.camera['cam_dims']['width']
-  flattening_map = np.zeros((Y, X), dtype=float)
-  size_map = np.zeros((Y, X), dtype=float)
+  flattening_map = np.zeros((Y // DOWNSCALE, X // DOWNSCALE), dtype=float)
+  size_map = np.zeros((Y // DOWNSCALE, X // DOWNSCALE), dtype=float)
 
-  for y in (range(Y)[::10] if dry_run else range(Y)):
-    for x in (range(X)[::10] if dry_run else range(X)):
-      flattening_map[y,x] = getFrameFlattening(H, y, x)
-      size_map[y,x] = getFramePxlsInMeter(H, pose.map['pxls_in_meter'], y, x)
+  for y in range(Y // DOWNSCALE):
+    for x in range(X // DOWNSCALE):
+      y_sc = y * DOWNSCALE
+      x_sc = x * DOWNSCALE
+      flattening_map[y, x] = getFrameFlattening(H, y_sc, x_sc)
+      size_map[y, x] = getFramePxlsInMeter(H, pose.map['pxls_in_meter'], y_sc, x_sc)
 
   logging.info('flattening_map min %.2f, max %.2f' % 
       (np.min(flattening_map), np.max(flattening_map)))
@@ -38,6 +42,9 @@ def makePitchAndSizeMaps(camera_id, pose_id, dry_run=False):
 
   # Top-down is 90 degrees, at the horizon is 0 degrees (consistent with CAD).
   pitch_map = np.arcsin(flattening_map)
+
+  pitch_map = resize((pitch_map * 255.).astype(np.uint8), (X, Y)).astype(float) / 255.
+  size_map = resize(size_map.astype(np.uint8), (X, Y)).astype(float)
 
   pitch_path = lib.conventions.get_pose_pitchmap_path(pose.get_pose_dir())
   size_path = lib.conventions.get_pose_sizemap_path(pose.get_pose_dir())

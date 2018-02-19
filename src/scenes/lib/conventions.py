@@ -11,12 +11,23 @@ def get_pose_sizemap_path(pose_dir):
 def get_pose_pitchmap_path(pose_dir):
   return op.join(pose_dir, 'pitch-pose.png')
 
+def get_pose_azimuthmap_path(pose_dir):
+  # TODO: rename azimuth-frame to azimuth-pose in data folder.
+  return op.join(pose_dir, 'azimuth-frame.png')
+
+def get_topdown_azimuthmap_path(pose_dir):
+  return op.join(pose_dir, 'azimuth-top-down.png')
+
+
 
 ''' Read and write the image w.r.t. the conventions. '''
 
 
 def read_azimuth_image(path):
-  assert op.exists(path), path
+  ''' Note: returns (None, None) if azimuth map does not exist. '''
+  
+  if not op.exists(path):
+    return None, None
   azimuth = cv2.imread(path, -1)
   assert azimuth is not None
   # Mask is in the alpha channel, the other 3 channels are the same value.

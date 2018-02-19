@@ -9,7 +9,8 @@ from helperKeys import getCalibration
 from helperImg import ReaderVideo
 from scipy.misc import imresize, imread
 from scenes.lib.cvScrollZoomWindow import Window
-from scenes.lib.homography import Homography, getFrameFlattening
+from scenes.lib.homography import getFrameFlattening, getHfromPose
+from scenes.lib.cache import PoseCache, MapsCache
 from scenes.lib.warp import transformPoint
 import cv2
 
@@ -69,15 +70,15 @@ class AzimuthWindow(Window):
           cv2.FONT_HERSHEY_SIMPLEX, 1., color, 2)
 
 
-def _getFlatteningFromImagefile(homography, imagefile, y_frame, x_frame):
-  H = homography.getHfromImagefile(imagefile)
+def _getFlatteningFromImagefile(poses, imagefile, y_frame, x_frame):
+  H = getHfromPose(poses[imagefile])
   if H is not None:
     return getFrameFlattening(H, y_frame, x_frame)
   else:
     return 1
 
 
-def _getAzimuthSuggestionFromMap(homography, imagefile, y_frame, x_frame):
+def _getAzimuthSuggestionFromMap(topdown_azimuths, poses, imagefile, y_frame, x_frame):
 
   def _crop(img, x, y, radius):
     ''' Crop with attention to the borders. '''
@@ -137,14 +138,14 @@ def _getAzimuthSuggestionFromMap(homography, imagefile, y_frame, x_frame):
     # cv2.waitKey(-1)
     return suggestions
 
-  azimuth_map, azimuth_mask = homography.getAzimuthMapFromImagefile(imagefile)
+  azimuth_map, azimuth_mask = topdown_azimuths[imagefile]
   if azimuth_map is None:
     return None
-  H = homography.getHfromImagefile(imagefile)
+  H = getHfromPose(poses[imagefile])
   if H is None:
     return None
   x_map, y_map = transformPoint(H, x_frame, y_frame)
-  pose = homography._getPose(imagefile)
+  pose = poses[imagefile]
   pxls_in_meter = pose.map['pxls_in_meter'] if pose is not None else None
   suggestions = _suggestionFromImage(azimuth_map, azimuth_mask, x_map, y_map, pxls_in_meter)
   return suggestions
@@ -176,7 +177,9 @@ def labelAzimuth (c, args):
   if args.shuffle:
     np.random.shuffle(car_entries)
 
-  homography = Homography()
+  # Cached poses and azimuth maps.
+  topdown_azimuths = MapsCache('topdown_azimuth')
+  poses = PoseCache()
 
   button = 0
   index_car = 0
@@ -204,7 +207,7 @@ def labelAzimuth (c, args):
 
       y, x = roi[0] * 0.3 + roi[2] * 0.7, roi[1] * 0.5 + roi[3] * 0.5
 
-      flattening = _getFlatteningFromImagefile(homography, imagefile, y, x)
+      flattening = _getFlatteningFromImagefile(poses, imagefile, y, x)
       axis_x = np.linalg.norm(np.asarray(bbox[2:4]), ord=2)
       axis_y = axis_x * flattening
 
@@ -214,7 +217,7 @@ def labelAzimuth (c, args):
         logging.info('Yaw is: %.0f' % yaw)
         window.yaw = yaw
       else:
-        suggestions = _getAzimuthSuggestionFromMap(homography, imagefile, y, x)
+        suggestions = _getAzimuthSuggestionFromMap(topdown_azimuths, poses, imagefile, y, x)
         if suggestions is not None:
           i_suggestion = 0
           window.is_just_a_suggestion = True
