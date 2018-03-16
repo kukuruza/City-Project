@@ -55,7 +55,7 @@ def drawScoredRoi (img, roi, label = None, score = None, thickness=2):
     font = cv2.FONT_HERSHEY_SIMPLEX
     if label is None: label = ''
     if score is None:
-        score = 0
+        score = 1
     color = tuple([int(x * 255) for x in plt.cm.jet(float(score))][0:3])
     cv2.rectangle (img, (roi[1], roi[0]), (roi[3], roi[2]), color, thickness)
     cv2.putText (img, label, (roi[1], roi[0] - 5), font, 0.6, score, thickness)

@@ -85,6 +85,7 @@ def examineParser(subparsers):
   parser.set_defaults(func=examine)
   parser.add_argument('--winsize', type=int, default=500)
   parser.add_argument('--shuffle', action='store_true')
+  parser.add_argument('--image_constraint', default='1')
 
 def examine (c, args):
   logging.info ('==== examine ====')
@@ -93,16 +94,18 @@ def examine (c, args):
   key_reader = KeyReaderUser()
   keys = getCalibration()
 
-  c.execute('SELECT count(*) FROM cars')
+  c.execute('SELECT count(*) FROM cars WHERE imagefile IN '
+      '(SELECT imagefile FROM images WHERE (%s))' % args.image_constraint)
   (total_num,) = c.fetchone()
   logging.info('Found %d objects in db.' % total_num)
 
-  c.execute('SELECT imagefile FROM images')
+  c.execute('SELECT imagefile FROM images WHERE (%s)' % args.image_constraint)
   image_entries = c.fetchall()
 
   if args.shuffle:
     np.random.shuffle(image_entries)
 
+  # Iterate over images, because for each image we want to show all cars.
   button = 0
   index_im = 0
   index_car = 0
@@ -122,6 +125,7 @@ def examine (c, args):
       index_car = 0
     while button != 27 and index_car >= 0 and index_car < len(car_entries):
       car_entry = car_entries[index_car]
+      carid     = carField(car_entry, 'id')
       roi       = bbox2roi (carField(car_entry, 'bbox'))
       imagefile = carField(car_entry, 'imagefile')
       name      = carField(car_entry, 'name')
@@ -134,7 +138,7 @@ def examine (c, args):
         image = image_reader.imread(imagefile)
 
       display = image.copy()  # each car roi is drawn on a copy
-      drawRoi (display, roi)
+      drawScoredRoi (display, roi, score=score)
       scale = float(args.winsize) / max(display.shape[0:2])
       display = cv2.resize(display, dsize=(0,0), fx=scale, fy=scale)
       font = cv2.FONT_HERSHEY_SIMPLEX
@@ -157,6 +161,14 @@ def examine (c, args):
       elif button == keys['right']:
         logging.debug ('next car')
         index_car += 1
+      elif button == keys['del']:
+        logging.info ('delete %d' % carid)
+        # Negate the score, making it very bad orthe same as before.
+        # TODO: at refactoring remove this hack. It wll be problem for score=0.
+        score = -score if score is not None else 0
+        c.execute('UPDATE cars SET score=? WHERE id=?', (-score, carid))
+        c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+        car_entries = c.fetchall()
 
     if button == keys['left']:
       logging.debug ('prev image')
