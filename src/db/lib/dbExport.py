@@ -3,6 +3,7 @@ import argparse
 import logging
 import sqlite3
 import numpy as np
+import traceback
 from progressbar import ProgressBar
 from inspect import stack
 from datetime import datetime
@@ -115,31 +116,35 @@ def exportCarsToDataset(c, args):
     maskfile = imageField(image_entry, 'maskfile')
     timestamp = imageField(image_entry, 'timestamp')
 
-    image = reader.imread(imagefile)
-    patch = cropPatch(image, roi, args.target_height, args.target_width, args.edges)
-    if maskfile is not None:
-      mask = reader.maskread(maskfile).astype(np.uint8) * 255
-      maskpatch = cropPatch(mask, roi, args.target_height, args.target_width, args.edges)
-      maskpatch = maskpatch > 127
-    else:
-      maskpatch = None
+    try:
+      image = reader.imread(imagefile)
+      patch = cropPatch(image, roi, args.target_height, args.target_width, args.edges)
+      if maskfile is not None:
+        mask = reader.maskread(maskfile).astype(np.uint8) * 255
+        maskpatch = cropPatch(mask, roi, args.target_height, args.target_width, args.edges)
+        maskpatch = maskpatch > 127
+      else:
+        maskpatch = None
 
-    # Add the image.
-    out_imagefile = dataset_writer.add_image(
-        image=patch, mask=maskpatch, timestamp=timestamp)
+      # Add the image.
+      out_imagefile = dataset_writer.add_image(
+          image=patch, mask=maskpatch, timestamp=timestamp)
 
-    # Add the car entry.
-    car_entry = (out_imagefile, carField(car,'name'), 
-                 0, 0, args.target_width, args.target_height,
-                 carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'))
-    out_carid = dataset_writer.add_car(car_entry)
+      # Add the car entry.
+      car_entry = (out_imagefile, carField(car,'name'), 
+                  0, 0, args.target_width, args.target_height,
+                  carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'))
+      out_carid = dataset_writer.add_car(car_entry)
 
-    # Add the match entry, if any.
-    # Assume there is the matches table.
-    c.execute('SELECT match FROM matches WHERE carid = ?', (carid,))
-    match = c.fetchone()
-    if match is not None:
-      dataset_writer.add_match(out_carid, match[0])
+      # Add the match entry, if any.
+      # Assume there is the matches table.
+      c.execute('SELECT match FROM matches WHERE carid = ?', (carid,))
+      match = c.fetchone()
+      if match is not None:
+        dataset_writer.add_match(out_carid, match[0])
+
+    except Exception, e:
+      traceback.print_exc()
 
   dataset_writer.close()
 

@@ -180,7 +180,7 @@ def filterUnknownNamesParser(subparsers):
 
 def filterUnknownNames (c, args):
   # load terms tree
-  dictionary_path = atcity('src/learning/annotations/dictionary.json')
+  dictionary_path = atcity('src/db/lib/annotations/dictionary.json')
   assert op.exists(dictionary_path), dictionary_path
   json_file = open(dictionary_path);
   terms = TermTree.from_dict(json.load(json_file))

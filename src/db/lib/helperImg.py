@@ -117,6 +117,8 @@ class ReaderVideo (ProcessorBase):
         return image
 
     def maskread (self, mask_id):
+        if mask_id is None:
+            return None
         if mask_id in self.mask_cache: 
             logging.debug ('maskread: found mask in cache')
             return self.mask_cache[mask_id]  # get cached mask if possible
@@ -288,7 +290,7 @@ class SimpleWriter:
 
 
   def maskwrite (self, mask):
-    assert self.vimagefile is not None
+    assert self.vmaskfile is not None
     assert len(mask.shape) == 2
     assert mask.dtype == bool
     if self.mask_writer is None:
