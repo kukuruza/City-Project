@@ -25,24 +25,35 @@ class DatasetWriter:
 
   def __init__(self, out_db_file, overwrite=False):
 
-    out_dir = op.dirname(out_db_file)
-    if not op.exists(atcity(out_dir)):
-      os.makedirs(atcity(out_dir))
+    # If out_db_file is not absolute, it will be relative to CITY_PATH.
+    db_name = op.splitext(op.basename(out_db_file))[0]
+    if op.isabs(out_db_file):
+      logging.info('DatasetWriter: considering "%s" as absolute path.' % out_db_file)
+      out_dir = op.dirname(out_db_file)
+      self.imagedir = db_name
+      logging.info('DatasetWriter: imagedir is relative to db path: "%s"' % self.imagedir)
+    else:
+      logging.info('DatasetWriter: considering "%s" as relative to CITY_PATH.' % out_db_file)
+      out_db_file = atcity(out_db_file)
+      out_dir = op.dirname(out_db_file)
+      self.imagedir = op.join(op.relpath(out_dir, os.getenv('CITY_PATH')), db_name)
+      logging.info('DatasetWriter: imagedir is relative to CITY_PATH: "%s"' % self.imagedir)
 
-    self.imagedir = op.join(op.relpath(out_dir, os.getenv('CITY_PATH')),
-                            op.splitext(op.basename(out_db_file))[0])
+    if not op.exists(out_dir):
+      os.makedirs(out_dir)
+
     self.maskdir = self.imagedir + 'mask'
     vimagefile = self.imagedir + '.avi'
     vmaskfile = self.maskdir + '.avi'
     self.video_writer = SimpleWriter(vimagefile=vimagefile, vmaskfile=vmaskfile,
                                      unsafe=overwrite)
 
-    if op.exists(atcity(out_db_file)):
+    if op.exists(out_db_file):
       if overwrite:
-        os.remove(atcity(out_db_file))
+        os.remove(out_db_file)
       else:
         raise Exception('%s already exists. A mistake?' % out_db_file)
-    self.conn = sqlite3.connect(atcity(out_db_file))
+    self.conn = sqlite3.connect(out_db_file)
     self.c = self.conn.cursor()
     createDb(self.conn)
 
