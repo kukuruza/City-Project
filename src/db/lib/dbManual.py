@@ -22,30 +22,39 @@ def displayParser(subparsers):
   parser.set_defaults(func=display)
   parser.add_argument('--winsize', type=int, default=500)
   parser.add_argument('--show_empty_frames', action='store_true')
+  parser.add_argument('--masked', action='store_true',
+      help='if mask exists, show only the foreground area.')
   parser.add_argument('--shuffle', action='store_true')
+  parser.add_argument('--relpath', required=False,
+      help='If specified, imagefile and maskfile are relative to this dir.')
 
 def display (c, args):
   logging.info ('==== display ====')
 
-  image_reader = ReaderVideo()
+  image_reader = ReaderVideo(relpath=args.relpath)
   key_reader = KeyReaderUser()
 
   has_polygons = doesTableExist(c, 'polygons')
 
-  c.execute('SELECT imagefile FROM images')
-  imagefiles = c.fetchall()
+  c.execute('SELECT imagefile,maskfile FROM images')
+  image_entries = c.fetchall()
+  logging.info('%d images found.' % len(image_entries))
 
   if args.shuffle:
-    np.random.shuffle(imagefiles)
+    np.random.shuffle(image_entries)
 
-  for (imagefile,) in imagefiles:
+  for (imagefile, maskfile) in image_entries:
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     car_entries = c.fetchall()
     if len(car_entries) == 0 and not args.show_empty_frames:
       continue
     logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
-    display = image_reader.imread(imagefile)
+    display = image_reader.imread(imagefile)[:,:,::-1]
+    if args.masked and maskfile is not None:
+      mask = image_reader.maskread(maskfile)
+      assert mask.dtype == bool, mask.dtype
+      display[np.stack([mask, mask, mask], axis=2) == 0] = 0
 
     for car_entry in car_entries:
       carid = carField(car_entry, 'id')

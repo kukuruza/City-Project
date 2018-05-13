@@ -60,7 +60,8 @@ class ReaderVideo (ProcessorBase):
       Also, let's have a cache of a few previously read frames
     '''
 
-    def __init__ (self):
+    def __init__ (self, relpath=None):
+        self.relpath = relpath
         self.image_cache = {}    # cache of previously read image(s)
         self.mask_cache = {}     # cache of previously read mask(s)
         self.image_video = {}    # map from image video name to VideoCapture object
@@ -69,7 +70,10 @@ class ReaderVideo (ProcessorBase):
     def _openVideoCapture_ (self, videofile):
         ''' Open video and set up bookkeeping '''
         logging.debug ('opening video: %s' % videofile)
-        if op.exists(atcity(videofile)):
+        if self.relpath is not None:
+          videopath = op.join(self.relpath, videofile)
+          logging.debug('Videopath is relative to the provided relpath: %s' % videopath)
+        elif op.exists(atcity(videofile)):
           videopath = atcity(videofile)
           logging.debug('Videopath is relative to CITY_PATH: %s' % videopath)
         elif op.exists(atcitydata(videofile)):
