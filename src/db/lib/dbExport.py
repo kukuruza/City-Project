@@ -32,20 +32,23 @@ class DatasetWriter:
       logging.info('DatasetWriter: considering "%s" as absolute path.' % out_db_file)
       out_dir = op.dirname(out_db_file)
       self.imagedir = db_name
+      self.maskdir = self.imagedir + 'mask'
+      vimagefile = op.join(out_dir, self.imagedir + '.avi')
+      vmaskfile = op.join(out_dir, self.maskdir + '.avi')
       logging.info('DatasetWriter: imagedir is relative to db path: "%s"' % self.imagedir)
     else:
       logging.info('DatasetWriter: considering "%s" as relative to CITY_PATH.' % out_db_file)
       out_db_file = atcity(out_db_file)
       out_dir = op.dirname(out_db_file)
       self.imagedir = op.join(op.relpath(out_dir, os.getenv('CITY_PATH')), db_name)
+      self.maskdir = self.imagedir + 'mask'
+      vimagefile = op.abspath(op.join(os.getenv('CITY_PATH'), self.imagedir + '.avi'))
+      vmaskfile = op.abspath(op.join(os.getenv('CITY_PATH'), self.maskdir + '.avi'))
       logging.info('DatasetWriter: imagedir is relative to CITY_PATH: "%s"' % self.imagedir)
 
     if not op.exists(out_dir):
       os.makedirs(out_dir)
 
-    self.maskdir = self.imagedir + 'mask'
-    vimagefile = self.imagedir + '.avi'
-    vmaskfile = self.maskdir + '.avi'
     self.video_writer = SimpleWriter(vimagefile=vimagefile, vmaskfile=vmaskfile,
                                      unsafe=overwrite)
 
