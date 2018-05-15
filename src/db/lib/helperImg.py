@@ -13,6 +13,8 @@ def capPropId(prop):
   OPCV3 = parse_version(cv2.__version__) >= parse_version('3')
   return getattr(cv2 if OPCV3 else cv2.cv, ("" if OPCV3 else "CV_") + "CAP_PROP_" + prop)
 
+def getVideoLength(video_cv2):
+  return video_cv2.get(capPropId('FRAME_COUNT'))
 
 # These are thin wrappers around scipy.misc
 # The goal is to move gradually from cv2 to scipy.misc,

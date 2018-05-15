@@ -16,7 +16,8 @@ parser = argparse.ArgumentParser(description=
   Each tool has its own options, run a tool with -h flag
   to show its options. You can use tool one after the other in a pipe.
   ''')
-parser.add_argument('-i', '--in_db_file', required=True)
+parser.add_argument('-i', '--in_db_file', required=False,
+    help='If specified, open this file. If unspecified create out_db_file.')
 parser.add_argument('-o', '--out_db_file', required=False,
     help='Unspecified output file assumes a dry run.')
 parser.add_argument('--logging', default=20, type=int, choices={10, 20, 30, 40},
@@ -46,7 +47,7 @@ logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 # Iterate tools.
 args.func(cursor, args)
 while rest:
-  args, rest = parser.parse_known_args(['-i', 'dummy'] + rest)
+  args, rest = parser.parse_known_args(rest)
   args.func(cursor, args)
 
 if out_db_file is not None:

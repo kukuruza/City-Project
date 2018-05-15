@@ -1,26 +1,23 @@
 import os, sys, os.path as op
 import numpy as np
-import cv2
-#import xml.etree.ElementTree as ET
-from lxml import etree as ET
 from StringIO import StringIO
 import collections
 import logging
 from glob import glob
 import shutil
 import re
-import sqlite3
 from progressbar import ProgressBar
-from learning.helperDb import createTablePolygons, createDb
-from learning.helperDb import parseIdatafaTimeString, makeTimeString
-from learning.dbUtilities import *
-from learning.helperSetup import setParamUnlessThere, atcity
-from learning.labelme.parser import FrameParser
-from learning.helperImg   import ReaderVideo, getVideoLength
-from learning.dataset2imagery import exportVideoWBoxes
+from helperDb import createTablePolygons, parseIdatafaTimeString, makeTimeString
+from dbUtilities import *
+from helperSetup import atcity
+from helperImg   import ReaderVideo, getVideoLength
+#from dataset2imagery import exportVideoWBoxes
 
 
     
+def add_parsers(subparsers):
+  parseIdatafaParser(subparsers)
+
 def _getRoi (annotation, was_scaled):
   pt = annotation.find('bndbox')
   xmin = int(pt.find('xmin').text) / was_scaled
@@ -48,7 +45,7 @@ def _vehicleType (text):
   return 'object'
 
 
-def _processFrame (c, imagefile, annotation_path, params):
+def _processFrame (c, imagefile, annotation_path, args):
 
   # get paths and names
   logging.debug ('annotation_path: %s' % annotation_path)
@@ -75,15 +72,15 @@ def _processFrame (c, imagefile, annotation_path, params):
   c.execute('INSERT INTO %s VALUES (?,?,?,?);' % s, image_entry)
 
   # read only once per image
-  if params['debug_show']: 
-    img = params['image_reader'].imread(imagefile)
+  if args.display:
+    img = args.image_reader.imread(imagefile)
 
   objects = tree.getroot().findall('vehicle')
   for object_ in objects:
 
     # find the name of object. Filter all generic objects
     name = _vehicleType(object_.find('type').text)
-    name = params['parser'].parse(name)
+    name = args.parser.parse(name)
 
     # get all the points
     roi = _getRoi (object_, was_scaled=1.)
@@ -111,70 +108,64 @@ def _processFrame (c, imagefile, annotation_path, params):
       polygon = (carid, xs[i], ys[i])
       c.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
 
-    if params['debug_show']: 
+    if args.display:
       drawRoi (img, roi, name, (0,0,255))
 
   logging.debug('found %d objects' % len(objects))
-  if params['debug_show']: 
-    cv2.imshow('debug_show', img)
+  if args.display:
+    cv2.imshow('display', img)
     key = cv2.waitKey(-1)
     if key == 27:
-      params['debug_show'] = False
+      args.display = False
       cv2.destroyAllWindows()
 
 
 
-def folder2frames (c, annotations_dir, params):
-  ''' Process xml annotations of idatafa into db '''
+# def folder2frames (c, annotations_dir, params):
+#   ''' Process xml annotations of idatafa into db '''
 
-  logging.info ('==== folder2frames ====')
-  setParamUnlessThere (params, 'debug_show', False)
-  setParamUnlessThere (params, 'image_reader',   ReaderVideo())
-  params['parser'] = FrameParser()
+#   logging.info ('==== folder2frames ====')
+#   setParamUnlessThere (params, 'display', False)
+#   setParamUnlessThere (params, 'image_reader',   ReaderVideo())
+#   params['parser'] = FrameParser()
 
-  # list input annotations names
-  assert op.exists(atcity(annotations_dir)), annotations_dir
-  annotation_paths = sorted(glob(atcity('%s/*.xml' % annotations_dir)))
+#   # list input annotations names
+#   assert op.exists(atcity(annotations_dir)), annotations_dir
+#   annotation_paths = sorted(glob(atcity('%s/*.xml' % annotations_dir)))
 
-  createTablePolygons(c)
-  c.execute('UPDATE images SET maskfile=NULL')
+#   createTablePolygons(c)
+#   c.execute('UPDATE images SET maskfile=NULL')
 
-  c.execute('SELECT imagefile FROM images')
-  imagefiles = c.fetchall()
+#   c.execute('SELECT imagefile FROM images')
+#   imagefiles = c.fetchall()
 
-  for i,(imagefile,) in enumerate(imagefiles):
+#   for i,(imagefile,) in enumerate(imagefiles):
 
-    annotation_path = annotation_paths[i]
-    logging.debug ('processing imagefile: %s' % imagefile)
-    _processFrame (c, imagefile, annotation_path, params)
+#     annotation_path = annotation_paths[i]
+#     logging.debug ('processing imagefile: %s' % imagefile)
+#     _processFrame (c, imagefile, annotation_path, params)
 
 
 
-def parseIdatafaFolder (in_video_file, out_db_file, params={}):
-  ''' Make a db from a standard Shanghang directory organization '''
+def parseIdatafaParser(subparsers):
+  parser = subparsers.add_parser('parseIdatafa',
+    description='Make a db from a standard Shanghang directory organization.')
+  parser.set_defaults(func=parseIdatafa)
+  parser.add_argument('--in_video_file', required=True)
+  parser.add_argument('--frame_interval', type=int, default=1,
+      help='Specify if frames are not sequential.')
+  parser.add_argument('--display', action='store_true')
 
-  logging.info ('==== parseIdatafaFolder ====')
-  setParamUnlessThere (params, 'debug_show', False)
-  setParamUnlessThere (params, 'image_reader',   ReaderVideo())
-  setParamUnlessThere (params, 'bboxes_video', False)
-  params['parser'] = FrameParser()
+def parseIdatafa (c, args):
+  import cv2
+  from lxml import etree as ET
+  from annotations.parser import FrameParser
 
-  # create a dir for db, if necessary
-  out_db_dir = op.dirname(atcity(out_db_file))
-  logging.info ('out_db_dir: %s' % out_db_dir)
-  if not op.exists(out_db_dir): 
-    os.makedirs (out_db_dir)
-
-  # create db
-  if op.exists(out_db_file): 
-    os.remove(out_db_file)
-  conn = sqlite3.connect(atcity(out_db_file))
-  createDb(conn)
-  c = conn.cursor()
-  createTablePolygons(c)
+  args.image_reader = ReaderVideo()
+  args.parser = FrameParser()
 
   # get all the annotations
-  xmldir = op.splitext(in_video_file)[0]
+  xmldir = op.splitext(args.in_video_file)[0]
   xmlpaths = sorted(glob(atcity(op.join(xmldir, '*.xml'))))
   # filename should be exactly 6 digits: XXXXXX.xml
   xmlpaths = filter(lambda x: re.compile('.*\/\d{6}.xml$').match(x), xmlpaths)
@@ -182,9 +173,9 @@ def parseIdatafaFolder (in_video_file, out_db_file, params={}):
   logging.info ('found %d annotation files' % len(xmlpaths))
 
   # verify that the video covers the number of xml
-  video_length = getVideoLength(in_video_file)
-  if video_length < len(xmlpaths):
-    logging.error('too many xml: %d < %d' % (video_length, len(xmlpaths)))
+  video_length = getVideoLength(args.in_video_file)
+  if video_length < len(xmlpaths) * args.frame_interval:
+    logging.error('too many xml: %d < %d * %d' % (video_length, len(xmlpaths), frame_interval))
     xmlpaths = xmlpaths[:video_length]
     logging.error('dropped xmls after %s' % xmlpaths[-1])
 
@@ -192,15 +183,8 @@ def parseIdatafaFolder (in_video_file, out_db_file, params={}):
     xmlname = op.basename(op.splitext(xmlpath)[0])
     assert xmlname == '%06d' % (i+1), xmlname
     imagename = '%06d' % i
-    imagefile = op.join(op.splitext(in_video_file)[0], imagename)
+    imagefile = op.join(xmldir, imagename)
     imagefile = op.relpath(imagefile, os.getenv('CITY_PATH'))
     logging.debug('parsing xml_path: %s (imagename %s)' % (xmlpath, imagename))
     _processFrame (c, imagefile, xmlpath, params)
 
-  # export video with bboxes
-  if params['bboxes_video']:
-    out_videofile = '%s-bboxes-parsed.avi' % op.splitext(in_video_file)[0]
-    exportVideoWBoxes (c, out_videofile, params={'unsafe': True})
-
-  conn.commit()
-  conn.close()

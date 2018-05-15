@@ -3,7 +3,7 @@ import argparse
 import logging, logging.handlers
 import shutil
 import sqlite3
-
+from helperDb import createDb
 
 def atcity (path):
   if op.isabs(path):
@@ -63,24 +63,33 @@ def _setupCopyDb_ (in_path, out_path):
         shutil.copyfile(in_path, out_path)
 
 
-def dbInit(db_in_path, db_out_path=None):
-  '''
-  The function knows about CITY_PATH.
-  It also backs up the database if necessary.
-  '''
+def dbInit(db_in_path=None, db_out_path=None, overwrite=False):
+  '''Open (with backup) or create a database.'''
+
   logging.info ('db_in_file:  %s' % db_in_path)
   logging.info ('db_out_file: %s' % db_out_path)
 
-  db_in_path  = atcity(db_in_path)
+  db_in_path  = atcity(db_in_path) if db_in_path else None
   db_out_path = atcity(db_out_path) if db_out_path else None
 
-  if db_out_path is not None:
+  if db_in_path is not None and db_out_path is not None:
     _setupCopyDb_ (db_in_path, db_out_path)
-  else:
-    # the assumption is that we are not going to commit.
+  elif db_in_path is not None and db_out_path is None:
+    # The assumption is that we are not going to commit.
     db_out_path = db_in_path
+  elif db_in_path is None and db_out_path is not None:
+    if not op.exists(op.dirname(db_out_path)):
+      os.makedirs(op.dirname(db_out_path))
+    if op.exists(db_out_path):
+      _setupCopyDb_(db_out_path, db_out_path)
+      os.remove(db_out_path)
+  else:
+    raise Exception('dbInit: either db_in_path or db_out_path should be not None.')
 
-  assert op.exists(db_out_path), db_out_path
   conn = sqlite3.connect (db_out_path)
   cursor = conn.cursor()
+
+  if db_in_path is None and db_out_path is not None:
+    createDb(conn)
+
   return (conn, cursor)

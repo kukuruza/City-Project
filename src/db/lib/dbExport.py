@@ -17,6 +17,7 @@ def add_parsers(subparsers):
   exportCarsToDatasetParser(subparsers)
   exportImagesWBoxesParser(subparsers)
   exportCarsToFolderParser(subparsers)
+  exportImagesToFolderParser(subparsers)
 
 
 
@@ -224,5 +225,35 @@ def exportCarsToFolder(c, args):
 
     out_name = '%s.jpg' % op.basename(imagefile)
     out_imagefile = op.join(atcity(args.patch_dir), out_name)
+    imsave(out_imagefile, patch)
+
+
+def exportImagesToFolderParser(subparsers):
+  parser = subparsers.add_parser('exportImagesToFolder',
+    description='Export cars to a folder with only patches.')
+  parser.set_defaults(func=exportImagesToFolder)
+  parser.add_argument('--image_dir', required=True, type=str)
+  parser.add_argument('--target_width', type=int)
+
+def exportImagesToFolder(c, args):
+  logging.info('=== exportImagesToFolder ===')
+  import cv2
+
+  reader = ReaderVideo()
+
+  if not op.exists(atcity(args.image_dir)):
+    os.makedirs(atcity(args.image_dir))
+
+  c.execute('SELECT imagefile, width FROM images')
+  for imagefile, width in ProgressBar()(c.fetchall()):
+    logging.debug ('processing imagefile %s' % imagefile)
+
+    image = reader.imread(imagefile)
+    if args.target_width is not None:
+      f = float(args.target_width) / width
+      image = cv2.resize(image, dsize=None, fx=f, fy=f)
+
+    out_name = '%s.jpg' % op.basename(imagefile)
+    out_imagefile = op.join(atcity(args.image_dir), out_name)
     imsave(out_imagefile, patch)
 
