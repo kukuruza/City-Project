@@ -22,6 +22,7 @@ def add_parsers(subparsers):
   mergeParser(subparsers)
   splitParser(subparsers)
   moduleAnglesParser(subparsers)
+  polygonsToMasksParser(subparsers)
 
 
 def moduleAnglesParser(subparsers):
@@ -238,6 +239,49 @@ def split (c, args):
     logging.warning('matches table is not empty, they will not be copied.')
 
 
+def polygonsToMasksParser(subparsers):
+  parser = subparsers.add_parser('polygonsToMasks',
+    description='Convert polygons in db to mask video.' +
+    'If there is not polygons for any car in an image, an empty mask is written.')
+  parser.set_defaults(func=polygonsToMasks)
+  parser.add_argument('--mask_name', default='mask-poly.avi')
+  parser.add_argument('--overwrite_mask_entries', action='store_true',
+    help='Remove all the previous maskfiles from the db.')
+    
+def polygonsToMasks (c, args):
+  logging.info ('==== polygonsToMasks ====')
+  import cv2
+
+  # Assume mask field is null. Deduce the out mask name from imagefile.
+  c.execute('SELECT imagefile,width,height FROM images')
+  image_entries = c.fetchall()
+  in_image_video_file = '%s.avi' % op.dirname(image_entries[0][0])
+  out_mask_video_file = '%s/%s' % (op.dirname(in_image_video_file), args.mask_name)
+  logging.info ('polygonsToMasks: in_image_video_file: %s' % in_image_video_file)
+  logging.info ('polygonsToMasks: out_mask_video_file: %s' % out_mask_video_file)
+
+  video_writer = SimpleWriter(vmaskfile=out_mask_video_file)
+
+  for i, (imagefile,width,height) in enumerate(image_entries):
+    
+    logging.debug('imagefile: "%s"' % imagefile)
+    mask = np.zeros((height, width), dtype=np.uint8)
+    c.execute('SELECT id FROM cars WHERE imagefile=? INTERSECT SELECT carid FROM polygons', (imagefile,))
+    carids = c.fetchall()
+    logging.debug('found %d cars with polygons for this imagefile' % len(carids))
+    for carid, in carids:
+      c.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+      polygon_entries = c.fetchall()
+      pts = [[pt[0], pt[1]] for pt in polygon_entries]
+      cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+    mask = mask > 0
+    maskfile = video_writer.maskwrite (mask)
+    if len(carids) > 0:
+      logging.info('imagefile has a non-empty mask: "%s"' % imagefile)
+    elif args.overwrite_mask_entries:
+      c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (None, imagefile))
+
+
 def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):
   '''Remove 1-keep_fraction Or all-keep_num images and their cars. 
   '''
@@ -288,62 +332,6 @@ def diffImagefiles (c, c_ref, params = {}):
     logging.debug('deleting %s' % imagefile)
     c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))
-
-
-# TODO: need a unit test
-def polygonsToMasks (c, c_labelled=None, c_all=None, params = {}):
-  '''
-  Create masks and maskfile db entries from polygons table.
-  Currently only supports ProcessorVideo (writes masks to video)
-  '''
-  logging.info ('==== polygonsToMasks ====')
-  import cv2
-  setParamUnlessThere (params, 'relpath',    os.getenv('CITY_DATA_PATH'))
-  setParamUnlessThere (params, 'mask_name',  'mask-poly.avi')
-
-  # Assume mask field is null. Deduce the out mask name from imagefile.
-  #   Also send the image video to processor, so that it deduces video params.
-  c_all.execute('SELECT imagefile,width,height FROM images')
-  image_entries = c_all.fetchall()
-  in_image_video_file = '%s.avi' % op.dirname(image_entries[0][0])
-  out_mask_video_file = '%s/%s' % (op.dirname(in_image_video_file), params['mask_name'])
-  logging.info ('polygonsToMasks: in_image_video_file: %s' % in_image_video_file)
-  logging.info ('polygonsToMasks: out_mask_video_file: %s' % out_mask_video_file)
-  processor = ProcessorVideo \
-       ({'out_dataset': {in_image_video_file: out_mask_video_file} })
-
-  # copy images and possibly masks
-  for i,(imagefile,width,height) in enumerate(image_entries):
-    processor.maskread (imagefile)  # processor needs to read first
-    
-    c_labelled.execute('SELECT COUNT(*) FROM images WHERE imagefile=?', (imagefile,))
-    is_unlabelled = (c_labelled.fetchone()[0] == 0)
-
-    if is_unlabelled:
-      logging.info ('imagefile NOT labelled: %s: ' % imagefile)
-      mask = np.zeros((height, width), dtype=bool)
-      maskfile = processor.maskwrite (mask, imagefile)
-      c.execute('UPDATE images SET maskfile=NULL WHERE imagefile=?', (imagefile,))
-
-    else:
-      logging.info ('imagefile labelled:     %s: ' % imagefile)
-      mask = np.zeros((height, width), dtype=np.uint8)
-      c_labelled.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
-      for car_entry in c_labelled.fetchall():
-        carid = carField(car_entry, 'id')
-        c_labelled.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
-        polygon_entries = c_labelled.fetchall()
-        pts = [[pt[0], pt[1]] for pt in polygon_entries]
-        cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
-        # maybe copy car entry
-        if c != c_labelled:  # c == c_all
-          c.execute('INSERT INTO cars VALUES (?,?,?,?,?,?,?,?,?,?,?)', car_entry)
-      mask = mask > 0
-
-      maskfile = processor.maskwrite (mask, imagefile)
-      c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', 
-        (maskfile, imagefile))
-
 
 
 # TODO: need a unit test

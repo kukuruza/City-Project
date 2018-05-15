@@ -7,14 +7,16 @@ import logging
 import glob
 import shutil
 import sqlite3
-from learning.helperDb import createTablePolygons
-from learning.dbUtilities import *
-from learning.helperSetup import setParamUnlessThere, atcity
-from learning.labelme.parser import FrameParser, PairParser
-from learning.helperImg import ProcessorImagefile
+from dbUtilities import *
+from helperSetup import atcity
+from annotations.parser import FrameParser, PairParser
+from helperImg import ReaderVideo
 
 
-    
+def add_parsers(subparsers):
+  importLabelmeParser(subparsers)
+
+
 def _pointsOfPolygon (annotation):
     pts = annotation.find('polygon').findall('pt')
     xs = []
@@ -25,7 +27,7 @@ def _pointsOfPolygon (annotation):
     return xs, ys
 
 
-def _processFrame (c, imagefile, annotations_dir, params):
+def _processFrame (c, imagefile, annotations_dir, args):
 
     # get paths and names
     imagename = op.basename(imagefile)
@@ -41,11 +43,11 @@ def _processFrame (c, imagefile, annotations_dir, params):
     tree = ET.parse(atcity(annotation_file))
 
     # get dimensions
-    c.execute('SELECT height,width FROM images WHERE imagefile=?', imagefile,)
+    c.execute('SELECT height,width FROM images WHERE imagefile=?', (imagefile,))
     sz = (height,width) = c.fetchone()
 
-    if params['debug_show']:
-        img = params['reader'].imread(imagefile)
+    if args.display:
+        img = args.reader.imread(imagefile)
 
     for object_ in tree.getroot().findall('object'):
 
@@ -53,7 +55,7 @@ def _processFrame (c, imagefile, annotations_dir, params):
         if object_.find('deleted').text == '1': continue
 
         # find the name of object. Filter all generic objects
-        name = params['parser'].parse(object_.find('name').text)
+        name = args.parser.parse(object_.find('name').text)
         if name == 'object':
             logging.info('skipped an "object"')
             continue
@@ -99,31 +101,34 @@ def _processFrame (c, imagefile, annotations_dir, params):
             polygon = (carid, xs[i], ys[i])
             c.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
 
-        if params['debug_show']: 
+        if args.display: 
             #drawRoi (img, roi, (0,0), name, (255,255,255))
             pts = np.array([xs, ys], dtype=np.int32).transpose()
             cv2.polylines(img, [pts], True, (255,255,255))
 
-    if params['debug_show']: 
-        cv2.imshow('debug_show', img)
+    if args.display: 
+        cv2.imshow('display', img)
         cv2.waitKey(-1)
 
 
+def importLabelmeParser(subparsers):
+  parser = subparsers.add_parser('importLabelme',
+    description='Import labelme annotations for a db.')
+  parser.set_defaults(func=importLabelme)
+  parser.add_argument('--in_annotations_dir', required=True,
+      help='Directory with xml files.')
+  parser.add_argument('--display', action='store_true')
 
+def importLabelme (c, args):
 
-def folder2frames (c, annotations_dir, params):
-
-    logging.info ('==== folder2frames ====')
-    setParamUnlessThere (params, 'debug_show', False)
-    params['parser'] = FrameParser()
-    params['reader'] = ProcessorImagefile()
-
-    createTablePolygons(c)
+    logging.info ('==== importLabelme ====')
+    args.parser = FrameParser()
+    args.reader = ReaderVideo()
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
 
-    for (imagefile,) in imagefiles:
-        logging.debug ('processing imagefile: ' + imagefile)
-        _processFrame (c, imagefile, annotations_dir, params)
+    for imagefile, in imagefiles:
+        logging.debug ('Processing imagefile: "%s"' % imagefile)
+        _processFrame (c, imagefile, args.in_annotations_dir, args)
 

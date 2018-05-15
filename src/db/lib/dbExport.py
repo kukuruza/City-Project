@@ -255,5 +255,5 @@ def exportImagesToFolder(c, args):
 
     out_name = '%s.jpg' % op.basename(imagefile)
     out_imagefile = op.join(atcity(args.image_dir), out_name)
-    imsave(out_imagefile, patch)
+    imsave(out_imagefile, image)
 

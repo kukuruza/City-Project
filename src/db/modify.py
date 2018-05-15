@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 import argparse
 from db.lib.helperSetup import dbInit
-from db.lib import dbFilter, dbModify, dbManual, dbInfo, dbExport, dbLabel, dbEvaluate
+from db.lib import dbFilter, dbModify, dbManual, dbInfo, dbExport, dbLabel, dbEvaluate, dbLabelme
 from augmentation import dbCadFilter
 import progressbar
 
@@ -31,6 +31,7 @@ dbExport.add_parsers(subparsers)
 dbCadFilter.add_parsers(subparsers)
 dbLabel.add_parsers(subparsers)
 dbEvaluate.add_parsers(subparsers)
+dbLabelme.add_parsers(subparsers)
 # Add a dummy option to allow passing '--' in order to end lists.
 dummy = subparsers.add_parser('--')
 dummy.set_defaults(func=lambda *args: None)
