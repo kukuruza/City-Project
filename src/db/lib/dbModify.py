@@ -247,6 +247,8 @@ def polygonsToMasksParser(subparsers):
   parser.add_argument('--mask_name', default='mask-poly.avi')
   parser.add_argument('--overwrite_mask_entries', action='store_true',
     help='Remove all the previous maskfiles from the db.')
+  parser.add_argument('--overwrite_video', action='store_true',
+    help='Overwrte mask video istead of throwing an exception.')
     
 def polygonsToMasks (c, args):
   logging.info ('==== polygonsToMasks ====')
@@ -260,9 +262,9 @@ def polygonsToMasks (c, args):
   logging.info ('polygonsToMasks: in_image_video_file: %s' % in_image_video_file)
   logging.info ('polygonsToMasks: out_mask_video_file: %s' % out_mask_video_file)
 
-  video_writer = SimpleWriter(vmaskfile=out_mask_video_file)
+  video_writer = SimpleWriter(vmaskfile=out_mask_video_file, unsafe=args.overwrite_video)
 
-  for i, (imagefile,width,height) in enumerate(image_entries):
+  for imagefile, width, height in image_entries:
     
     logging.debug('imagefile: "%s"' % imagefile)
     mask = np.zeros((height, width), dtype=np.uint8)

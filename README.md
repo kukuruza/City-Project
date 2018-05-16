@@ -17,3 +17,13 @@ elasticsearch
 scikit-image
 imageio
 
+
+## Import labelme annotations
+```
+modify \
+   -i data/patches/Oct10-real/w55-goodtypes-e04-filt.db \
+   -o data/patches/Oct10-real/w55-goodtypes-e04-filt-poly.db \
+   importLabelme --in_annotations_dir data/patches/Oct10-real/w55-goodtypes-e04/Annotations \
+   polygonsToMasks --mask_name w55-goodtypes-e04mask.avi --overwrite_video --overwrite_mask_entries
+```
+

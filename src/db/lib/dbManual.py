@@ -50,11 +50,12 @@ def display (c, args):
       continue
     logging.info ('%d cars found for %s' % (len(car_entries), imagefile))
 
-    display = image_reader.imread(imagefile)[:,:,::-1]
+    display = image_reader.imread(imagefile)
     if args.masked and maskfile is not None:
       mask = image_reader.maskread(maskfile)
       assert mask.dtype == bool, mask.dtype
       display[np.stack([mask, mask, mask], axis=2) == 0] = 0
+    display = display.copy()
 
     for car_entry in car_entries:
       carid = carField(car_entry, 'id')

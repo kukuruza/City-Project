@@ -108,7 +108,10 @@ def _processFrame (c, imagefile, annotations_dir, args):
 
     if args.display: 
         cv2.imshow('display', img)
-        cv2.waitKey(-1)
+        key = cv2.waitKey(-1)
+        if key == 27:
+            args.display = False
+            cv2.destroyWindow('display')
 
 
 def importLabelmeParser(subparsers):
