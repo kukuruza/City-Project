@@ -10,7 +10,7 @@ from datetime import datetime
 from helperDb import carField, imageField, createDb, makeTimeString
 from helperSetup import atcity
 from helperImg import imsave, ReaderVideo, SimpleWriter
-from dbUtilities import cropPatch
+from dbUtilities import cropPatch, drawScoredRoi
 
 
 def add_parsers(subparsers):
@@ -170,12 +170,15 @@ def exportImagesWBoxesParser(subparsers):
     description='Write video with bounding boxes.')
   parser.set_defaults(func=exportImagesWBoxes)
   parser.add_argument('--out_videofile', required=True)
+  parser.add_argument('--with_car_info', action='store_true',
+          help='If specified, print name, yaw, pitch, score on the image.')
 
-def exportImagesWBoxes (c, out_videofile):
+def exportImagesWBoxes (c, args):
   logging.info ('==== exportImagesWBoxes ====')
+  import cv2
 
   reader = ReaderVideo()
-  video_writer = SimpleWriter(vimagefile=out_videofile)
+  video_writer = SimpleWriter(vimagefile=args.out_videofile)
 
   c.execute('SELECT imagefile FROM images')
   for (imagefile,) in ProgressBar()(c.fetchall()):
@@ -184,11 +187,30 @@ def exportImagesWBoxes (c, out_videofile):
 
     c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
     for car_entry in c.fetchall():
-      roi   = bbox2roi (carField(car_entry, 'bbox'))
+      roi   = carField (car_entry, 'roi')
       name  = carField (car_entry, 'name')
       score = carField (car_entry, 'score')
       logging.debug ('roi: %s, score: %s' % (str(roi), str(score)))
       drawScoredRoi (frame, roi, label=name, score=score)
+
+      if args.with_car_info:
+        name  = carField(car_entry, 'name')
+        color = carField(car_entry, 'color')
+        score = carField(car_entry, 'score')
+        yaw   = carField(car_entry, 'yaw')
+        pitch = carField(car_entry, 'pitch')
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        #cv2.putText (frame, '%.0f' % yaw, (05, 50), font, 0.5, (255,255,255), 2)
+        cv2.putText (frame, 'name: %s' % name, (10 + roi[1], 20 + roi[0]), font, 0.5, (255,255,255), 2)
+        if color is not None:
+            cv2.putText (frame, 'color: %s' % color, (10 + roi[1], 40 + roi[0]), font, 0.5, (255,255,255), 2)
+        if score is not None:
+            cv2.putText (frame, 'score: %.3f' % score, (10 + roi[1], 60 + roi[0]), font, 0.5, (255,255,255), 2)
+        if yaw is not None:
+            cv2.putText (frame, 'yaw: %.1f' % yaw, (10 + roi[1], 80 + roi[0]), font, 0.5, (255,255,255), 2)
+        if pitch is not None:
+            cv2.putText (frame, 'pitch: %.1f' % pitch, (10 + roi[1], 100 + roi[0]), font, 0.5, (255,255,255), 2)
 
     video_writer.imwrite(frame)
 

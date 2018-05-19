@@ -27,3 +27,12 @@ modify \
    polygonsToMasks --mask_name w55-goodtypes-e04mask.avi --overwrite_video --overwrite_mask_entries
 ```
 
+# Export video with boxes with car info where yaw is not null.
+```
+modify \
+    -i data/patches/Oct10-real/w55-goodtypes-e04.db \
+    filterCustom --car_constraint "yaw IS NOT NULL" \
+    deleteEmptyImages \
+    exportImagesWBoxes --out_videofile data/patches/Oct10-real/w55-goodtypes-e04-boxes-with-yaw.avi --with_car_info
+```
+
