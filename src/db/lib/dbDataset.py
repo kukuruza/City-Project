@@ -83,11 +83,15 @@ class CitycarsDataset:
   One item is one car, rather than image with multiple cars.
   Car can be cropped.
   '''
-  def __init__(self, db_file, fraction=1., car_constraint='1', crop_car=True,
-               randomly=True, with_mask=False):
+  def __init__(self, db_file, fraction=1., image_constraint='1', car_constraint='1',
+               crop_car=True, randomly=True, with_mask=False):
 
     (self.conn, self.c) = dbInit(db_file)
-    self.c.execute('SELECT * FROM cars WHERE %s ORDER BY imagefile' % car_constraint)
+    s = ('SELECT * FROM cars WHERE %s AND ' % car_constraint +
+         'imagefile IN (SELECT imagefile FROM images WHERE %s) ' % image_constraint +
+         'ORDER BY imagefile')
+    print (s)
+    self.c.execute(s)
     self.car_entries = self.c.fetchall()
 
     self.fraction = fraction
