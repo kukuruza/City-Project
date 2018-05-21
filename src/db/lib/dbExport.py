@@ -257,28 +257,43 @@ def exportImagesToFolderParser(subparsers):
   parser = subparsers.add_parser('exportImagesToFolder',
     description='Export cars to a folder with only patches.')
   parser.set_defaults(func=exportImagesToFolder)
-  parser.add_argument('--image_dir', required=True, type=str)
+  parser.add_argument('--image_dir', required=False, type=str)
+  parser.add_argument('--mask_dir', required=False, type=str)
   parser.add_argument('--target_width', type=int)
 
 def exportImagesToFolder(c, args):
   logging.info('=== exportImagesToFolder ===')
   import cv2
+  assert args.image_dir is not None or args.mask_dir is not None
 
-  reader = ReaderVideo()
+  reader = ReaderVideo(relpath=args.relpath)
 
-  if not op.exists(atcity(args.image_dir)):
+  if args.image_dir and not op.exists(atcity(args.image_dir)):
     os.makedirs(atcity(args.image_dir))
+  if args.mask_dir and not op.exists(atcity(args.mask_dir)):
+    os.makedirs(atcity(args.mask_dir))
 
   c.execute('SELECT imagefile, width FROM images')
   for imagefile, width in ProgressBar()(c.fetchall()):
     logging.debug ('processing imagefile %s' % imagefile)
 
-    image = reader.imread(imagefile)
-    if args.target_width is not None:
-      f = float(args.target_width) / width
-      image = cv2.resize(image, dsize=None, fx=f, fy=f)
+    if args.image_dir:
+      image = reader.imread(imagefile)
+      if args.target_width is not None:
+        f = float(args.target_width) / width
+        image = cv2.resize(image, dsize=None, fx=f, fy=f)
 
-    out_name = '%s.jpg' % op.basename(imagefile)
-    out_imagefile = op.join(atcity(args.image_dir), out_name)
-    imsave(out_imagefile, image)
+      out_name = '%s.jpg' % op.basename(imagefile)
+      out_imagefile = op.join(atcity(args.image_dir), out_name)
+      imsave(out_imagefile, image)
+
+    if args.mask_dir:
+      mask = reader.maskread(imagefile).astype(np.uint8) * 255
+      if args.target_width is not None:
+        f = float(args.target_width) / width
+        mask = cv2.resize(mask, dsize=None, fx=f, fy=f, interpolation=cv2.INTER_NEAREST)
+
+      out_name = '%s.jpg' % op.basename(imagefile)
+      out_maskfile = op.join(atcity(args.mask_dir), out_name)
+      imsave(out_maskfile, mask)
 

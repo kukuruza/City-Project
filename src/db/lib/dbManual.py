@@ -25,8 +25,6 @@ def displayParser(subparsers):
   parser.add_argument('--masked', action='store_true',
       help='if mask exists, show only the foreground area.')
   parser.add_argument('--shuffle', action='store_true')
-  parser.add_argument('--relpath', required=False,
-      help='If specified, imagefile and maskfile are relative to this dir.')
 
 def display (c, args):
   logging.info ('==== display ====')
@@ -91,7 +89,7 @@ def examineParser(subparsers):
 def examine (c, args):
   logging.info ('==== examine ====')
 
-  image_reader = ReaderVideo()
+  image_reader = ReaderVideo(relpath=args.relpath)
   key_reader = KeyReaderUser()
   keys = getCalibration()
 
@@ -185,7 +183,7 @@ def displayMatches (c, args):
   logging.info ('==== displayMatches ====')
   import cv2
 
-  image_reader = ReaderVideo()
+  image_reader = ReaderVideo(relpath=args.relpath)
   key_reader = KeyReaderUser()
 
   c.execute('SELECT DISTINCT(match) FROM matches')
@@ -229,7 +227,7 @@ def classifyName (c, params = {}):
     import cv2
     setParamUnlessThere (params, 'disp_scale',       1.5)
     setParamUnlessThere (params, 'car_constraint',   '1')
-    setParamUnlessThere (params, 'image_processor',  ReaderVideo())
+    setParamUnlessThere (params, 'image_processor',  ReaderVideo(relpath=args.relpath))
     setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
     keys = getCalibration()
 
@@ -341,7 +339,7 @@ def classifyColor (c, params = {}):
     import cv2
     setParamUnlessThere (params, 'disp_scale', 1.5)
     setParamUnlessThere (params, 'car_constraint',   '1')
-    setParamUnlessThere (params, 'image_processor',     ReaderVideo())
+    setParamUnlessThere (params, 'image_processor',     ReaderVideo(relpath=args.relpath))
     setParamUnlessThere (params, 'key_reader',       KeyReaderUser())
     keys = getCalibration()
 

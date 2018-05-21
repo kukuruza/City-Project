@@ -20,6 +20,8 @@ parser.add_argument('-i', '--in_db_file', required=False,
     help='If specified, open this file. If unspecified create out_db_file.')
 parser.add_argument('-o', '--out_db_file', required=False,
     help='Unspecified output file assumes a dry run.')
+parser.add_argument('--relpath', required=False,
+    help='if specified, consider "imagefile" entries relative to this dir.')
 parser.add_argument('--logging', default=20, type=int, choices={10, 20, 30, 40},
     help='Log debug (10), info (20), warning (30), error (40).')
 subparsers = parser.add_subparsers()

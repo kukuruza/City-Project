@@ -161,7 +161,7 @@ def parseIdatafa (c, args):
   from lxml import etree as ET
   from annotations.parser import FrameParser
 
-  args.image_reader = ReaderVideo()
+  args.image_reader = ReaderVideo(args.relpath)
   args.parser = FrameParser()
 
   # get all the annotations

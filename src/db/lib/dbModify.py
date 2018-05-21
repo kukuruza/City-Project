@@ -67,7 +67,7 @@ def expandBoxes (c, args):
   if args.display_expand:
     key = 0
     key_reader = KeyReaderUser()
-    image_reader = ReaderVideo()
+    image_reader = ReaderVideo(relpath=args.relpath)
 
   c.execute('SELECT imagefile FROM images')
   image_entries = c.fetchall()
@@ -345,7 +345,7 @@ def generateBackground (c, out_videofile, params={}):
   setParamUnlessThere (params, 'relpath',       os.getenv('CITY_DATA_PATH'))
   setParamUnlessThere (params, 'show_debug',    False)
   setParamUnlessThere (params, 'key_reader',    KeyReaderUser())
-  setParamUnlessThere (params, 'image_reader',  ReaderVideo())
+  setParamUnlessThere (params, 'image_reader',  ReaderVideo(relpath=args.relpath))
   setParamUnlessThere (params, 'dilate_radius', 2);
   setParamUnlessThere (params, 'lr',            0.2);
 

@@ -126,7 +126,7 @@ def importLabelme (c, args):
 
     logging.info ('==== importLabelme ====')
     args.parser = FrameParser()
-    args.reader = ReaderVideo()
+    args.reader = ReaderVideo(args.relpath)
 
     c.execute('SELECT imagefile FROM images')
     imagefiles = c.fetchall()
