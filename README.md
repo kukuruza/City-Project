@@ -23,8 +23,8 @@ imageio
 modify \
    -i data/patches/Oct10-real/w55-goodtypes-e04-filt.db \
    -o data/patches/Oct10-real/w55-goodtypes-e04-filt-poly.db \
-   importLabelme --in_annotations_dir data/patches/Oct10-real/w55-goodtypes-e04/Annotations \
-   polygonsToMasks --mask_name w55-goodtypes-e04mask.avi --overwrite_video --overwrite_mask_entries
+   importLabelme --in_annotations_dir ~/src/labelme/LabelMeAnnotationTool/Annotations/w55-goodtypes-e04 --merge_cars \
+   polygonsToMasks --mask_name w55-goodtypes-e04mask.avi --overwrite_video --write_null_mask_entries
 ```
 
 # Export video with boxes with car info where yaw is not null.
@@ -34,5 +34,13 @@ modify \
     filterCustom --car_constraint "yaw IS NOT NULL" \
     deleteEmptyImages \
     exportImagesWBoxes --out_videofile data/patches/Oct10-real/w55-goodtypes-e04-boxes-with-yaw.avi --with_car_info
+```
+
+# Display car patches which have a valid mask.
+```
+modify \
+    -i data/patches/Oct10-real/w55-goodtypes-e04-filt-poly.db \
+    filterCustom --image_constraint "maskfile IS NOT NULL" \
+    display --masked
 ```
 

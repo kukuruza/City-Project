@@ -7,8 +7,9 @@ import logging
 import glob
 import shutil
 import sqlite3
-from dbUtilities import *
+from dbUtilities import overlapRatio, roi2bbox
 from helperSetup import atcity
+from helperDb import carField
 from annotations.parser import FrameParser, PairParser
 from helperImg import ReaderVideo
 
@@ -87,16 +88,43 @@ def _processFrame (c, imagefile, annotations_dir, args):
         roi[1] = max(roi[1], 0)
         roi[2] = min(roi[2], sz[0]-1)
         roi[3] = min(roi[3], sz[1]-1)
-
-        # make an entry for database
         bbox = roi2bbox (roi)
-        car_entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3])
 
-        # write to db
-        s = 'cars(imagefile,name,x1,y1,width,height)'
-        c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?);' % s, car_entry)
+        # That car may already exist there and a polygon should be simply added to that car.
+        have_merged = False
+        if args.merge_cars:
+            ThresholdIoU = 0.5
+            c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+            existing_car_entries = c.fetchall()
+            for existing_car_entry in existing_car_entries:
+                existing_carid = carField(existing_car_entry, 'id')
+                existing_roi = carField(existing_car_entry, 'roi')
+                IoU = overlapRatio(roi, existing_roi)
+                if IoU > ThresholdIoU and have_merged:
+                    logging.error('Another car %d qualifies for merging.' % existing_carid)
+                elif IoU > ThresholdIoU:
+                    logging.info('Merging a polygon to car %d' % existing_carid)
+                    have_merged = True
+                    carid = existing_carid
 
-        carid = c.lastrowid
+                    c.execute('SELECT COUNT(id) FROM polygons WHERE carid=?', (existing_carid,))
+                    already_has_polygons = c.fetchone()[0] > 0
+                    if already_has_polygons:
+                        logging.error('Merged car %d already has polygons' % existing_carid)
+
+                    # Update name and bbox.
+                    c.execute('UPDATE cars SET name=?, x1=?, y1=?, width=?, height=? WHERE id=?',
+                        (name, bbox[0], bbox[1], bbox[2], bbox[3], existing_carid))
+
+            if not have_merged:
+                logging.warning('An object has no candidate to merge: %s' % car_entry)
+
+        if not have_merged:
+            car_entry = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3])
+            s = 'cars(imagefile,name,x1,y1,width,height)'
+            c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?);' % s, car_entry)
+            carid = c.lastrowid
+
         for i in range(len(xs)):
             polygon = (carid, xs[i], ys[i])
             c.execute('INSERT INTO polygons(carid,x,y) VALUES (?,?,?);', polygon)
@@ -121,6 +149,8 @@ def importLabelmeParser(subparsers):
   parser.add_argument('--in_annotations_dir', required=True,
       help='Directory with xml files.')
   parser.add_argument('--display', action='store_true')
+  parser.add_argument('--merge_cars', action='store_true',
+      help='Find existing cars in the database and add polygons to them.')
 
 def importLabelme (c, args):
 

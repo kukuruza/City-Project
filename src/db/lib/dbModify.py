@@ -245,8 +245,8 @@ def polygonsToMasksParser(subparsers):
     'If there is not polygons for any car in an image, an empty mask is written.')
   parser.set_defaults(func=polygonsToMasks)
   parser.add_argument('--mask_name', default='mask-poly.avi')
-  parser.add_argument('--overwrite_mask_entries', action='store_true',
-    help='Remove all the previous maskfiles from the db.')
+  parser.add_argument('--write_null_mask_entries', action='store_true',
+    help='Write null when there is no new mask.')
   parser.add_argument('--overwrite_video', action='store_true',
     help='Overwrte mask video istead of throwing an exception.')
     
@@ -264,7 +264,8 @@ def polygonsToMasks (c, args):
 
   video_writer = SimpleWriter(vmaskfile=out_mask_video_file, unsafe=args.overwrite_video)
 
-  for imagefile, width, height in image_entries:
+  count = 0
+  for imagefile, width, height in ProgressBar()(image_entries):
     
     logging.debug('imagefile: "%s"' % imagefile)
     mask = np.zeros((height, width), dtype=np.uint8)
@@ -279,9 +280,13 @@ def polygonsToMasks (c, args):
     mask = mask > 0
     maskfile = video_writer.maskwrite (mask)
     if len(carids) > 0:
-      logging.info('imagefile has a non-empty mask: "%s"' % imagefile)
-    elif args.overwrite_mask_entries:
+      logging.debug('imagefile has polygons: "%s"' % imagefile)
+      count += 1
+      c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+    elif args.write_null_mask_entries:
       c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (None, imagefile))
+  
+  logging.info('Found %d images with polygons.' % count)
 
 
 def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):

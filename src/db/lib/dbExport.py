@@ -273,8 +273,8 @@ def exportImagesToFolder(c, args):
   if args.mask_dir and not op.exists(atcity(args.mask_dir)):
     os.makedirs(atcity(args.mask_dir))
 
-  c.execute('SELECT imagefile, width FROM images')
-  for imagefile, width in ProgressBar()(c.fetchall()):
+  c.execute('SELECT imagefile, maskfile, width FROM images')
+  for imagefile, maskfile, width in ProgressBar()(c.fetchall()):
     logging.debug ('processing imagefile %s' % imagefile)
 
     if args.image_dir:
@@ -288,7 +288,7 @@ def exportImagesToFolder(c, args):
       imsave(out_imagefile, image)
 
     if args.mask_dir:
-      mask = reader.maskread(imagefile).astype(np.uint8) * 255
+      mask = reader.maskread(maskfile).astype(np.uint8) * 255
       if args.target_width is not None:
         f = float(args.target_width) / width
         mask = cv2.resize(mask, dsize=None, fx=f, fy=f, interpolation=cv2.INTER_NEAREST)
