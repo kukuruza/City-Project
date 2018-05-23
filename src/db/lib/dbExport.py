@@ -293,7 +293,7 @@ def exportImagesToFolder(c, args):
         f = float(args.target_width) / width
         mask = cv2.resize(mask, dsize=None, fx=f, fy=f, interpolation=cv2.INTER_NEAREST)
 
-      out_name = '%s.jpg' % op.basename(imagefile)
+      out_name = '%s.png' % op.basename(imagefile)
       out_maskfile = op.join(atcity(args.mask_dir), out_name)
       imsave(out_maskfile, mask)
 

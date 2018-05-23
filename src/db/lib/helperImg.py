@@ -64,6 +64,10 @@ class ReaderVideo (ProcessorBase):
 
     def __init__ (self, relpath=None):
         self.relpath = relpath
+        if self.relpath is not None:
+            logging.info('ReaderVideo: relpath is set to %s' % self.relpath)
+        else:
+            logging.debug('ReaderVideo: relpath is NOT set.')
         self.image_cache = {}    # cache of previously read image(s)
         self.mask_cache = {}     # cache of previously read mask(s)
         self.image_video = {}    # map from image video name to VideoCapture object
