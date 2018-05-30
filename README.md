@@ -44,3 +44,10 @@ modify \
     display --masked
 ```
 
+# Plotting functions.
+```
+modify -i data/databases/wpitch.db plotHistogram -x name --out_path data/databases/hist_name.eps --bins 50 --ylog --constraint 'name != "object"' --categorical
+modify -i data/databases/wpitch.db plotHistogram -x width --out_path data/databases/hist_width.eps --bins 50 --ylog
+modify -i data/databases/wpitch.db plotStrip -x "substr(imagefile, 14, 3)" -y pitch --out_path data/databases/strip_cam_pitch2.png
+```
+
