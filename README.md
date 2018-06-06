@@ -27,6 +27,19 @@ modify \
    polygonsToMasks --mask_name w55-goodtypes-e04mask.avi --overwrite_video --write_null_mask_entries
 ```
 
+# Export dataset of car patches.
+```
+modify \
+    -i data/databases/wpitch.db \
+    filterUnknownNames \
+    filterCustom --car_constraint "width > 55 AND height > 55 AND name IN ('van', 'taxi', 'sedan')" \
+    filterByIntersection --intersection_thresh_perc 0.2 \
+    expandBoxes --expand_perc 0.2 \
+    filterByBorder \
+    exportCarsToDataset --edges distort --target_width 64 --target_height 64 --patch_db_file data/patches/Oct10-real/w55-goodtypes-e04.db \
+    deleteEmptyImages info
+```
+
 # Export video with boxes with car info where yaw is not null.
 ```
 modify \

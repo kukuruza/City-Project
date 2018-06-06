@@ -80,10 +80,18 @@ class DatasetWriter:
     return imagefile
 
   def add_car(self, car_entry):
-    s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch)'
-    logging.debug('Adding a new car %s' % str(car_entry))
-    self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?);' % s, car_entry)
-    return self.c.lastrowid
+    if len(car_entry) == 9:
+      s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch)'
+      logging.debug('Adding a new car %s' % str(car_entry))
+      self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?);' % s, car_entry)
+      return self.c.lastrowid
+    elif len(car_entry) == 10:
+      s = 'cars(id,imagefile,name,x1,y1,width,height,score,yaw,pitch)'
+      logging.debug('Adding a new car %s' % str(car_entry))
+      self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?);' % s, car_entry)
+      return
+    else:
+      raise Exception('Wrong format of car_entry.')
 
   def add_match(self, car_id, match=None):
     if match is None:
@@ -146,17 +154,17 @@ def exportCarsToDataset(c, args):
           image=patch, mask=maskpatch, timestamp=timestamp)
 
       # Add the car entry.
-      car_entry = (out_imagefile, carField(car,'name'), 
+      car_entry = (carid, out_imagefile, carField(car,'name'), 
                   0, 0, args.target_width, args.target_height,
                   carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'))
-      out_carid = dataset_writer.add_car(car_entry)
+      dataset_writer.add_car(car_entry)
 
       # Add the match entry, if any.
       # Assume there is the matches table.
       c.execute('SELECT match FROM matches WHERE carid = ?', (carid,))
       match = c.fetchone()
       if match is not None:
-        dataset_writer.add_match(out_carid, match[0])
+        dataset_writer.add_match(carid, match[0])
 
     except Exception, e:
       traceback.print_exc()
