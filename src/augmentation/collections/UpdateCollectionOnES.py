@@ -5,7 +5,7 @@ import argparse
 import logging
 import shutil
 from augmentation.Cad import Cad
-from learning.helperSetup import setupLogging, atcity
+from db.lib.helperSetup import setupLogging, atcity
 
 
 def update_collection (collection):
@@ -20,7 +20,7 @@ parser.add_argument('--collection_id')
 parser.add_argument('--logging_level', type=int, default=20)
 args = parser.parse_args()
 
-setupLogging('log/augmentation/UpdateCollection.log', args.logging_level, 'w')
+setupLogging('log/augmentation/UpdateCollectionOnES.log', args.logging_level, 'w')
 
 collection_file = 'data/augmentation/CAD/%s/collection.json' % args.collection_id
 collection = json.load(open(atcity(collection_file)))

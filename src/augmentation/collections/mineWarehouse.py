@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from contextlib import closing
-from selenium.webdriver import Firefox # pip install selenium
+from selenium.webdriver import Firefox, FirefoxProfile
 from selenium.webdriver.support.ui import WebDriverWait
 
 import sys, os, os.path as op
@@ -14,7 +14,7 @@ import shutil
 import time
 import traceback
 
-from learning.helperSetup import atcity, setupLogging
+from db.lib.helperSetup import atcity, setupLogging
 from augmentation.Cad import Cad
 
 
@@ -46,19 +46,18 @@ def download_model (browser, url, model_dir, args):
     # open the page with model
     browser.get(url)
     WebDriverWait(browser, timeout=args.timeout).until(
-        lambda x: x.find_element_by_id('title'))
+        lambda x: x.find_element_by_id('model-title-banner'))
 
     # get the model name
-    element = browser.find_element_by_id('title')
+    element = browser.find_element_by_id('model-title-banner')
     model_name = validateString(element.text.encode('ascii','ignore'))
 
     # get model description
-    element = browser.find_element_by_id('description')
+    element = browser.find_element_by_class_name('description-text')
     description = validateString(element.text.encode('ascii','ignore'))
 
     model_info = {'model_id':     model_id,
                   'model_name':   model_name,
-                  'vehicle_type': args.vehicle_type,
                   'description':  description,
                   'valid':        True,
                   'ready':        False}
@@ -71,7 +70,7 @@ def download_model (browser, url, model_dir, args):
         return model_info
 
     # click on download button
-    button = browser.find_element_by_id('button-download')
+    button = browser.find_element_by_class_name('button.button-download.nonSkpClient')
     button.click()
 
     # wait for the page to load the download buttons
@@ -89,26 +88,42 @@ def download_model (browser, url, model_dir, args):
             logging.info('model has not skp version %s. Try next.' % skp_version)
 
 
-    # get the model link
-    element = browser.find_element_by_id('download-option-%s' % skp_version)
-    skp_href = element.get_attribute('href')
+    # press model download button.
+    button = browser.find_element_by_id('download-option-%s' % skp_version)
+    button.click()
 
-    # download the model
-    logging.info ('downloading model_id: %s' % model_id)
-    logging.debug('downloading skp from url: %s' % skp_href)
-    f = urllib2.urlopen(skp_href)
-    with open(skp_path, 'wb') as local_file:
-        local_file.write(f.read())
+    # press ok button
+    if args.confirm:
+      try:
+        WebDriverWait(browser, timeout=args.timeout).until(
+            lambda x: x.find_element_by_class_name('modal-dialog-button-ok'))
+        button = browser.find_element_by_class_name('modal-dialog-button-ok')
+        button.click()
+      except:
+        logging.info('was not ask to agree to conditions.')
 
-    logging.info ('finished with model_id: %s' % model_id)
+    # Changing the name of the file.
+    filename = max([op.join(model_dir, f) for f in os.listdir(model_dir) if f.endswith('skp')], 
+                   key=op.getctime)
+    shutil.move(filename, skp_path)
+
+    # # download the model
+    # logging.info ('downloading model_id: %s' % model_id)
+    # logging.debug('downloading skp from url: %s' % skp_href)
+    # f = urllib2.urlopen(skp_href)
+    # with open(skp_path, 'wb') as local_file:
+    #     local_file.write(f.read())
+
+    # logging.info ('finished with model_id: %s' % model_id)
     return model_info
 
 
 
-def download_all_models (model_urls, models_info, collection_id, collection_dir):
+def download_all_models (browser, model_urls, models_info, collection_id, collection_dir):
 
     new_models_info = []
     counts = {'skipped': 0, 'downloaded': 0, 'failed': 0}
+    args.confirm = True
 
     # got to each model and download it
     for model_url in model_urls:
@@ -151,6 +166,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
             logging.debug('model url: %s' % model_url)
             model_dir = op.join(collection_dir, 'skp')
             model_info = download_model (browser, model_url, model_dir, args)
+            args.confirm = False
             counts['downloaded'] += 1
         except:
             logging.error('model_id %s was not downloaded because of error: %s'
@@ -160,6 +176,7 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
                           'ready': False,
                           'error': 'download failed: timeout error'}
             counts['failed'] += 1
+            return
 
         new_models_info.append(model_info)
 
@@ -177,32 +194,43 @@ def download_all_models (model_urls, models_info, collection_id, collection_dir)
 
 
 
-def download_collection (browser, collection_id, cad, args):
+def download_collection (collection_id, cad, args):
 
-    # collection_id is the last part of the url
-    url = 'https://3dwarehouse.sketchup.com/collection.html?id=%s' % collection_id
-    collection_dir = op.join(CAD_DIR, collection_id)
-    logging.info ('will download coleection_id: %s' % collection_id)
+  # collection_id is the last part of the url
+  url = 'https://3dwarehouse.sketchup.com/collection.html?id=%s' % collection_id
+  collection_dir = op.join(CAD_DIR, collection_id)
+  logging.info ('will download coleection_id: %s' % collection_id)
 
-    # if collection exists
-    collection_path = op.join(collection_dir, README_NAME)
-    if op.exists(collection_path):
-        # if 'overwrite' enabled, remove everything and write from scratch
-        if args.overwrite_collection:
-            shutil.rmtree(collection_dir)
-        else:
-            # if 'overwrite' disabled, try to read what was downloaded
-            try:
-                collection_info = json.load(open(collection_path))
-                models_info = collection_info['vehicles']
-            # if 'overwrite' disabled and can't read/parse the readme
-            except:
-                raise Exception('Failed to parse the collection due to: %s'
-                    % sys.exc_info()[0])
-    else:
-        models_info = []
-        if not op.exists(op.join(collection_dir, 'skp')):
-            os.makedirs(op.join(collection_dir, 'skp'))
+  # if collection exists
+  collection_path = op.join(collection_dir, README_NAME)
+  if op.exists(collection_path):
+      # if 'overwrite' enabled, remove everything and write from scratch
+      if args.overwrite_collection:
+          shutil.rmtree(collection_dir)
+          models_info = []
+      else:
+          # if 'overwrite' disabled, try to read what was downloaded
+          try:
+              collection_info = json.load(open(collection_path))
+              models_info = collection_info['vehicles']
+              if models_info is None:
+                models_info = []
+          # if 'overwrite' disabled and can't read/parse the readme
+          except:
+              raise Exception('Failed to parse the collection due to: %s'
+                  % sys.exc_info()[0])
+  else:
+      models_info = []
+      if not op.exists(op.join(collection_dir, 'skp')):
+          os.makedirs(op.join(collection_dir, 'skp'))
+
+  profile = FirefoxProfile()
+  profile.set_preference("browser.download.folderList", 2)
+  profile.set_preference("browser.download.manager.showWhenStarting", False)
+  profile.set_preference("browser.download.dir", op.join(collection_dir, 'skp'))
+  profile.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/vnd.koan")
+
+  with closing(Firefox(profile)) as browser:
 
     # open the page with collection
     browser.get(url)
@@ -247,7 +275,7 @@ def download_collection (browser, collection_id, cad, args):
         model_urls.append(model_url)
 
     # download all models
-    new_models_info = download_all_models (model_urls, models_info, 
+    new_models_info = download_all_models (browser, model_urls, models_info, 
                                            collection_id, collection_dir)
 
     collection_info = {'collection_id': collection_id,
@@ -262,9 +290,11 @@ def download_collection (browser, collection_id, cad, args):
 
 
 
-def download_author_models (browser, author_id, cad, args):
-    '''Write models of an author, which are not in any collection
-    '''
+def download_author_models (author_id, cad, args):
+  ''' Write models of an author, which are not in any collection '''
+  
+  with closing(Firefox()) as browser:
+
     # collection_id is made up as 'author-%s' % author_id
     url = 'https://3dwarehouse.sketchup.com/user.html?id=%s' % author_id
     collection_id = 'author-%s' % author_id
@@ -342,15 +372,13 @@ if __name__ == "__main__":
     group.add_argument('--collection_id')
     group.add_argument('--author_id')
     parser.add_argument('--overwrite_collection', action='store_true')
-    parser.add_argument('--vehicle_type', nargs='?', default='object')
-    parser.add_argument('--timeout', nargs='?', default=10, type=int)
+    parser.add_argument('--timeout', default=10, type=int)
     args = parser.parse_args()
 
     cad = Cad()
 
     # use firefox to get page with javascript generated content
-    with closing(Firefox()) as browser:
-        if args.collection_id is not None:
-            download_collection (browser, args.collection_id, cad, args)
-        elif args.author_id is not None:
-            download_author_models (browser, args.author_id, cad, args)
+    if args.collection_id is not None:
+        download_collection (args.collection_id, cad, args)
+    elif args.author_id is not None:
+        download_author_models (args.author_id, cad, args)

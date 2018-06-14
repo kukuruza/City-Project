@@ -8,7 +8,7 @@ import numpy as np
 import subprocess
 import traceback
 from pprint import pprint, pformat
-from learning.helperSetup import setupLogging, atcity, _setupCopyDb_
+from db.lib.helperSetup import setupLogging, atcity, _setupCopyDb_
 
 WORK_DIR = atcity('data/augmentation/blender/current-collection')
 

@@ -1,13 +1,11 @@
 import sys, os, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 import simplejson as json
 from pprint import pprint, pformat
 import ConfigParser
 import traceback
 from datetime import datetime
-from elasticsearch import Elasticsearch, RequestsHttpConnection
-from db.lib.helperSetup import atcity
+from elasticsearch import Elasticsearch, RequestsHttpConnection, TransportError
 
 README_NAME = 'readme-blended.json'
 
@@ -39,21 +37,52 @@ class Cad:
   type_name  = 'model'
   config_section = '3dmodel'
 
+  def __init__ (self, config_file='etc/monitor.ini', cam_timezone='-05:00'):
+
+    es_logger = logging.getLogger('elasticsearch')
+    es_logger.setLevel(logging.WARNING)
+
+    self.cam_timezone = cam_timezone
+    #self.verbose = args.verbose
+    (self.max_time, self.server_address, self.server_credentials, self.machine_name) = \
+        _read_config_file_ (config_file, self.config_section, os.getenv('CITY_PATH'))
+
+    creds = self.server_credentials.split(':')
+    self.es = Elasticsearch(
+        [self.server_address],
+        connection_class=RequestsHttpConnection,
+        http_auth=(creds[0], creds[1]),
+        timeout=30,
+        max_retries=10, 
+        retry_on_timeout=True
+    )
+
+
   def check_connection (self):
     ''' prints some info about the ES server '''
     return self.es.info()
 
 
-  def _is_vehicle_type (self, vehicle_type=None):
-    if vehicle_type is None:
-      return {}
-    else:
-      return \
-        {
-          "term": {
-            "vehicle_type": vehicle_type
-          }
+  def create(self):
+    if self.es.indices.exists(index=self.index_name):
+      raise Exception('Cad.create(): index already exists.')
+    try:
+      self.es.indices.create(
+          index=self.index_name,
+          body = {}
+        )
+    except TransportError as e:
+      print(e.info)
+
+
+  def _is_vehicle_type (self, vehicle_type):
+    assert vehicle_type is not None
+    return \
+      {
+        "term": {
+          "vehicle_type": vehicle_type
         }
+      }
 
   def _is_in_collection(self, collection_id=None):
     if collection_id is None:
@@ -89,51 +118,28 @@ class Cad:
           'valid': True
         }
       }
-
-
-  def __init__ (self, 
-                config_file='etc/monitor.ini', 
-                cam_timezone='-05:00'):
-
-      es_logger = logging.getLogger('elasticsearch')
-      es_logger.setLevel(logging.WARNING)
-
-      self.cam_timezone = cam_timezone
-      #self.verbose = args.verbose
-      (self.max_time, self.server_address, self.server_credentials, self.machine_name) = \
-          _read_config_file_ (config_file, self.config_section, os.getenv('CITY_PATH'))
-
-      creds = self.server_credentials.split(':')
-      self.es = Elasticsearch(
-          [self.server_address],
-          connection_class=RequestsHttpConnection,
-          http_auth=(creds[0], creds[1]),
-          timeout=30,
-          max_retries=10, 
-          retry_on_timeout=True
-      )
-
+      
 
   def _get_hits_by_id_ (self, model_id):
-      result = self.es.search(
-          index=self.index_name,
-          doc_type=self.type_name,
-          body = {
-                   "query": {
-                     "term": {
-                       "model_id": model_id 
-                     }
+    result = self.es.search(
+        index=self.index_name,
+        doc_type=self.type_name,
+        body = {
+                 "query": {
+                   "term": {
+                     "model_id": model_id 
                    }
                  }
-          )
-      hits = result['hits']['hits']
-      return hits
+               }
+        )
+    hits = result['hits']['hits']
+    return hits
 
 
   def _get_models_by_id_ (self, model_id):
-      ''' get _source field from hits '''
-      hits = self._get_hits_by_id_ (model_id)
-      return [hit['_source'] for hit in hits]
+    ''' get _source field from hits '''
+    hits = self._get_hits_by_id_ (model_id)
+    return [hit['_source'] for hit in hits]
 
 
   def get_hit_by_id_and_collection (self, model_id, collection_id):
@@ -173,16 +179,18 @@ class Cad:
 
   def get_ready_models (self, vehicle_type=None, collection_id=None):
     ''' get _source fields from all hits '''
+
+    clauses = [self._is_ready(), self._is_valid()]
+    if vehicle_type is not None:
+      clauses.append(self._is_vehicle_type(vehicle_type))
+    if collection_id is not None:
+      clauses.append(self._is_in_collection(collection_id))
+
     body = {
       "size": 10000,
       "query": {
         "bool": {
-          "must": [
-            self._is_ready(),
-            self._is_valid(),
-            self._is_vehicle_type(vehicle_type),
-            self._is_in_collection(collection_id)
-          ]
+          "must": clauses
         }
       }
     }
@@ -197,8 +205,14 @@ class Cad:
     return [hit['_source'] for hit in hits]
 
 
-
   def get_random_ready_models (self, vehicle_type=None, collection_id=None, number=1):
+
+    clauses = [self._is_ready(), self._is_valid()]
+    if vehicle_type is not None:
+      clauses.append(self._is_vehicle_type(vehicle_type))
+    if collection_id is not None:
+      clauses.append(self._is_in_collection(collection_id))
+
     body = {
       "size": number,
       "query": {
@@ -211,12 +225,7 @@ class Cad:
           "score_mode": "sum",
           "query": {
             "bool": {
-              "must": [
-                  self._is_ready(),
-                  self._is_valid(),
-                  self._is_vehicle_type(vehicle_type),
-                  self._is_in_collection(collection_id)
-              ]
+              "must": clauses
             }
           }
         }
@@ -229,7 +238,6 @@ class Cad:
         body=body)
     hits = result['hits']['hits']
     return [hit['_source'] for hit in hits]
-
 
 
   def is_model_in_other_collections (self, model_id, collection_id):
@@ -245,7 +253,6 @@ class Cad:
       seen_collection_ids = list(seen_collection_ids)
 
       return seen_collection_ids
-
 
 
   def update_model (self, model, collection):
@@ -291,13 +298,21 @@ class Cad:
 if __name__ == "__main__":
   logging.basicConfig (level=logging.DEBUG)
 
+  def atcity(path):
+    return op.join(os.getenv('CITY_PATH'), path)
+
   cad = Cad()
   print cad.check_connection()
-  #result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
-  #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
 
-  #result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
-  #result = cad.update_model ({'model_id': 'test'}, collection_id='test')
+  result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
+  result = cad.update_model ({'model_id': 'test', 'ready': False, 'valid': True},
+    collection={'collection_id': 'test', 'collection_name': 'test',
+                'author_name': 'test', 'author_id': 'test'})
+
+  result = cad.get_model_by_id_and_collection (model_id='test', collection_id='test')
+  result = cad.update_model ({'model_id': 'test', 'ready': False, 'valid': True},
+    collection={'collection_id': 'test', 'collection_name': 'test',
+                'author_name': 'test', 'author_id': 'test'})
 
   # from glob import glob
   # for collection_dir in glob(atcity('data/augmentation/CAD/*')):
@@ -317,9 +332,11 @@ if __name__ == "__main__":
   #collection = json.load(open(collection_path))
   #cad.update_collection(collection)
 
-  collection_id = '5f08583b1f45a9a7c7193c87bbfa9088'
-  models = cad.get_ready_models (collection_id=collection_id)
+#  pprint (cad.get_ready_models(), indent=2)
+
+#  collection_id = '5f08583b1f45a9a7c7193c87bbfa9088'
+#  models = cad.get_ready_models (collection_id=collection_id)
   # for model in models:
   #     assert 'ready' in model
   # print (json.dumps(models, indent=4))
-  print len(models)
+#  print len(models)
