@@ -220,8 +220,8 @@ class ProcessorVideo (ReaderVideo):
 
     def maskwrite (self, mask, mask_id):
         assert len(mask.shape) == 2
-        assert mask.dtype == bool
-        mask = mask.copy().astype(np.uint8) * 255
+        if mask.dtype == bool:
+          mask = mask.copy().astype(np.uint8) * 255
 
         return self.writeImpl (mask, mask_id, ismask=True)
 
@@ -302,10 +302,10 @@ class SimpleWriter:
   def maskwrite (self, mask):
     assert self.vmaskfile is not None
     assert len(mask.shape) == 2
-    assert mask.dtype == bool
     if self.mask_writer is None:
       self._openVideoWriter_ (mask, ismask=True)
-    mask = mask.copy().astype(np.uint8) * 255
+    if mask.dtype == bool:
+      mask = mask.copy().astype(np.uint8) * 255
     mask = np.stack((mask, mask, mask), axis=-1)  # Otherwise mask is not written well.
     # write
     assert len(mask.shape) == 3 and mask.shape[2] == 3, mask.shape

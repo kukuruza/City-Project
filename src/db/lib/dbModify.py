@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import sqlite3
 import json
+import cv2
 import random
 from progressbar import ProgressBar
 import dbUtilities
@@ -19,7 +20,8 @@ from helperImg         import ReaderVideo, ProcessorVideo, SimpleWriter
 def add_parsers(subparsers):
   expandBoxesParser(subparsers)
   moveVideoParser(subparsers)
-  mergeParser(subparsers)
+  addParser(subparsers)
+  mergePolygonsIntoMaskParser(subparsers)
   splitParser(subparsers)
   moduleAnglesParser(subparsers)
   polygonsToMasksParser(subparsers)
@@ -62,7 +64,6 @@ def expandBoxesParser(subparsers):
 
 def expandBoxes (c, args):
   logging.info ('==== expandBoxes ====')
-  import cv2
 
   if args.display_expand:
     key = 0
@@ -130,14 +131,14 @@ def moveVideo (c, params):
       c.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
 
 
-def mergeParser(subparsers):
-  parser = subparsers.add_parser('merge',
+def addParser(subparsers):
+  parser = subparsers.add_parser('add',
     description='Merge images and cars from add_db_file to current database.')
-  parser.set_defaults(func=merge)
+  parser.set_defaults(func=add)
   parser.add_argument('--add_db_file', required=True)
     
-def merge (c, args):
-  logging.info ('==== merge ====')
+def add (c, args):
+  logging.info ('==== add ====')
   (conn_add, c_add) = dbInit(args.add_db_file)
 
   # copy images
@@ -252,7 +253,6 @@ def polygonsToMasksParser(subparsers):
     
 def polygonsToMasks (c, args):
   logging.info ('==== polygonsToMasks ====')
-  import cv2
 
   # Assume mask field is null. Deduce the out mask name from imagefile.
   c.execute('SELECT imagefile,width,height FROM images')
@@ -289,6 +289,96 @@ def polygonsToMasks (c, args):
   logging.info('Found %d images with polygons.' % count)
 
 
+def mergePolygonsIntoMaskParser(subparsers):
+  parser = subparsers.add_parser('mergePolygonsIntoMask',
+    description='Merge multiple polygons of the same car into one '
+    'and in parallel convert them into a *gray* mask for that car. '
+    'Each polygon is taken from one db, so multiple dbs are taken as input. '
+    'Cars are merged based on car_id. '
+    'The number of shades of gray in the mask is the number of car entries in dbs. '
+    'This function looks composite, but it cant be disassembled.')
+  parser.set_defaults(func=mergePolygonsIntoMask)
+  parser.add_argument('--add_db_files', nargs='+', required=True)
+  parser.add_argument('--out_mask_video_file', required=True)
+  parser.add_argument('--write_null_mask_entries', action='store_true',
+    help='Write null when there is no new mask.')
+  parser.add_argument('--overwrite_video', action='store_true',
+    help='Overwrite mask video istead of throwing an exception.')
+
+
+def mergePolygonsIntoMask (c, args):
+  logging.info ('==== mergePolygonsIntoMask ====')
+
+  c.execute('SELECT imagefile,width,height FROM images')
+  image_entries = c.fetchall()
+
+  video_writer = SimpleWriter(vmaskfile=args.out_mask_video_file, unsafe=args.overwrite_video)
+
+  conn_add_list = []
+  c_list = [c]  # Put our cursor as the only element.
+  for add_db_file in args.add_db_files:
+    (conn_add, c_add) = dbInit(add_db_file)
+    conn_add_list.append(conn_add)
+    c_list.append(c_add)
+
+  for imagefile, width, height in ProgressBar()(image_entries):
+    
+    logging.debug('Imagefile: %s' % imagefile)
+    mask_sum = np.zeros((height, width), dtype=np.int32)  # int32 to accumulate uint8 masks.
+
+    # Get all the cars.
+    c.execute('SELECT id FROM cars WHERE imagefile=?', (imagefile,))
+    carids_main = c.fetchall()
+    logging.debug('Main db has %d cars: %s' % (len(carids_main), carids_main))
+
+    # Get all the cars with polygons.
+    c.execute('SELECT id FROM cars WHERE imagefile=? INTERSECT SELECT carid FROM polygons', (imagefile,))
+    carids_main_with_poly = c.fetchall()
+
+    # Each car for this imagefile is in at least one of the dbs, maybe not in 'c'.
+    count_masks = 0
+    for idb,c_add in enumerate(c_list):
+      c_add.execute('SELECT id FROM cars WHERE imagefile=? INTERSECT SELECT carid FROM polygons', (imagefile,))
+      carids = c_add.fetchall()
+      assert len(carids) <= 1, 'Cant have %d cars in an image with current logic, only 1.' % len(carids)
+      if len(carids) == 0:
+        continue
+      carid = carids[0][0]
+      count_masks += 1
+      logging.debug('Db %d: found car %s with polygons for this imagefile' % (idb, carids))
+      # Add to mask.
+      c_add.execute('SELECT x,y FROM polygons WHERE carid = ?', (carid,))
+      polygon_entries = c_add.fetchall()
+      pts = [[pt[0], pt[1]] for pt in polygon_entries]
+      mask = np.zeros((height, width), dtype=np.int32)
+      cv2.fillConvexPoly(mask, np.asarray(pts, dtype=np.int32), 255)
+      mask_sum += mask
+      # Insert into 'cars' table of main db, if not there.
+      if carid not in [carid for carid, in carids_main]:
+        logging.debug('Inserting carid %d into "cars" table of the main db')
+        # Pull all the info about carid from c_add.
+        c_add.execute('SELECT * FROM cars WHERE id=?', (carid,))
+        car_entry = c_add.fetchone()
+        # Insert.
+        s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
+        c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?)' % s, car_entry[1:])
+        carid = c.lastrowid[0]
+      # Insert into 'polygons' table of main db, if not there.
+      if carid not in [carid for carid, in carids_main_with_poly]:
+        logging.debug('Inserting carid %d into "polygons" table of the main db' % carid)
+        for x,y in polygon_entries:
+          s = 'polygons(carid,x,y)'
+          c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (carid,x,y))
+
+    mask_sum = (mask_sum / count_masks).astype(np.uint8)
+    logging.debug('Number of polygons for this image: %d' % count_masks)
+    maskfile = video_writer.maskwrite(mask_sum)
+    c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
+
+  for conn_add in conn_add_list:
+    conn_add.close()
+
+
 def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):
   '''Remove 1-keep_fraction Or all-keep_num images and their cars. 
   '''
@@ -308,7 +398,6 @@ def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):
     c.execute('DELETE FROM cars   WHERE imagefile=?', (imagefile,))
 
 
-
 def filterOneWithAnother (c, c_ref):
   '''Keep only those image _names_ in c, that exist in c_ref.
   '''
@@ -323,7 +412,6 @@ def filterOneWithAnother (c, c_ref):
   for del_imagefile in del_imagefiles:
     c.execute('DELETE FROM images WHERE imagefile=?', (del_imagefile,))
     c.execute('DELETE FROM cars   WHERE imagefile=?', (del_imagefile,))
-
 
 
 def diffImagefiles (c, c_ref, params = {}):
@@ -346,7 +434,6 @@ def generateBackground (c, out_videofile, params={}):
   ''' Generate background video using mask and update imagefiles in db. '''
 
   logging.info ('==== polygonsToMasks ====')
-  import cv2
   setParamUnlessThere (params, 'relpath',       os.getenv('CITY_DATA_PATH'))
   setParamUnlessThere (params, 'show_debug',    False)
   setParamUnlessThere (params, 'key_reader',    KeyReaderUser())
