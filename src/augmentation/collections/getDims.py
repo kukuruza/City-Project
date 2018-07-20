@@ -3,9 +3,11 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 import logging
 import bpy
-from learning.helperSetup import atcity, setupLogging
 from augmentation.common import *
 from augmentation.collections.utils import bounds
+
+def atcity (path):
+  return op.join(os.getenv('CITY_PATH'), path)
 
 WORK_DIR = atcity('data/augmentation/blender/current-collection')
 
@@ -32,7 +34,7 @@ def get_dims (model_id):
 
 if __name__ == '__main__':
 
-    setupLogging('log/augmentation/renderExample.log', logging.DEBUG, 'a')
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
     model_path = op.join(WORK_DIR, 'model.json')
     model = json.load(open(model_path))

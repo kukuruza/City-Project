@@ -151,21 +151,44 @@ def add (c, args):
     c.execute('SELECT count(*) FROM images WHERE imagefile=?', (imagefile,))
     (num,) = c.fetchone()
     if num > 0:
-      logging.warning ('duplicate image found %s' % imagefile) 
+      logging.info ('Merge: duplicate image found %s' % imagefile) 
       continue
     # insert image
-    logging.info ('merge: insert imagefile: %s' % (imagefile,))
+    logging.info ('Merge: insert imagefile: %s' % (imagefile,))
     c.execute('INSERT INTO images VALUES (?,?,?,?,?,?)', image_entry)
   
   # copy cars and polygons
   c_add.execute('SELECT * FROM cars')
-  car_entries = c_add.fetchall()
+  for car_entry_add in c_add.fetchall():
 
-  for car_entry in car_entries:
+    # check if there is a car with the same ROI. Consider that a duplicate.
+    imagefile = carField(car_entry_add, 'imagefile')
+    c.execute('SELECT * FROM cars WHERE imagefile=?', (imagefile,))
+    car_entries_old = c.fetchall()
+    for car_entry_old in car_entries_old:
+      if carField(car_entry_add, 'bbox') == carField(car_entry_old, 'bbox'):
+        logging.info ('Merge: duplicate car found. Adding %s to %s' % (car_entry_add, car_entry_old))
+        for field in ['name', 'score', 'yaw', 'pitch', 'color']:
+          carid_old = carField(car_entry_old, 'id')
+          field_val_old = carField(car_entry_old, field)
+          field_val_add = carField(car_entry_add, field)
+          if field_val_old is None and field_val_add is not None:
+            # Updating a None old value with a new value - good job, you added db.
+            c.execute('UPDATE cars SET %s=? WHERE id=?' % field, (field_val_add, carid_old))
+          elif field_val_old is not None and field_val_add is not None and field_val_old != field_val_add:
+            logging.warning('Merge: field "%s" is conficting, skip it' % field)
+        # TODO: merge masks too.
+        duplicate_found = True
+        break
+      else:
+        duplicate_found = False
+    if duplicate_found:
+      continue
+
     # insert car
-    carid = carField (car_entry, 'id')
+    carid = carField (car_entry_add, 'id')
     s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
-    c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?)' % s, car_entry[1:])
+    c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?)' % s, car_entry_add[1:])
     new_carid = c.lastrowid
 
     # insert all its polygons

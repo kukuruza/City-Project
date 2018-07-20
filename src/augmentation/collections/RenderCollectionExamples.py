@@ -7,10 +7,8 @@ import logging
 import subprocess
 import shutil
 import traceback
-from learning.helperSetup import setupLogging, atcity
-from learning.helperSetup import setParamUnlessThere, assertParamIsThere
-from learning.helperKeys import KeyReaderUser, getCalibration
-from augmentation.Cad import Cad
+from db.lib.helperSetup import setupLogging, atcity
+from db.lib.helperKeys import KeyReaderUser, getCalibration
 
 
 WORK_DIR = atcity('data/augmentation/blender/current-collection')

@@ -44,9 +44,9 @@ class AzimuthWindow(Window):
         event == cv2.EVENT_LBUTTONDOWN and flags == 17):
       logging.debug('%s: registered shift + mouse move and maybe press.' % self.name)
       self.is_just_a_suggestion = False
-      # 0 is north, 90 is east.
-      self.yaw = (np.arctan2((x - self.x) / self.axis_x, 
-                            -(y - self.y) / self.axis_y) * 180. / np.pi) % 360
+      # 0 is north, 90 is west.
+      self.yaw = (- np.arctan2((x - self.x) / self.axis_x, 
+                              -(y - self.y) / self.axis_y) * 180. / np.pi) % 360
       logging.debug('%s, yaw is at %0.f' % (self.name, self.yaw))
       self.update_cached_zoomed_img()
       self.redraw()

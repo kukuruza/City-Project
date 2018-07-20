@@ -1,6 +1,5 @@
 import bpy
 import sys, os, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 from math import cos, sin, pi, sqrt
 import numpy as np

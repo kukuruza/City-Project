@@ -86,13 +86,13 @@ if __name__ == "__main__":
     delta_y_1D = np.arange(Y) - origin['y']
     delta_x = np.dot( np.ones((Y,1)), delta_x_1D[np.newaxis,:] ).astype(float)
     delta_y = np.dot( delta_y_1D[:,np.newaxis], np.ones((1,X)) ).astype(float)
-    delta_azimuth = np.arctan2 (delta_x, -delta_y)  # 0 is north, 90 is east.
+    delta_azimuth = - np.arctan2 (delta_x, -delta_y)  # 0 is north, 90 is west.
     # From [-pi, pi] to [0 360]
     delta_azimuth = np.mod( (delta_azimuth * 180. / np.pi), 360. )
     # Write for debugging.
     delta_azimuth_path = op.join(for_azimuth_dir, 'azimuth-top-down-delta.png')
     write_azimuth_image(delta_azimuth_path, delta_azimuth)
-    # Top-down azimuth in camera point of view, 0 is north, 90 is east.
+    # Top-down azimuth in camera point of view, 0 is north, 90 is west.
     azimuth_top_down = np.mod(azimuth_top_down - delta_azimuth, 360.)
     azimuth_top_down_path = op.join(for_azimuth_dir, 'azimuth-top-down-from-camera.png')
     write_azimuth_image(azimuth_top_down_path, azimuth_top_down, mask_top_down)

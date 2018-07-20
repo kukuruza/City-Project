@@ -205,15 +205,13 @@ def filterCustom (c, args):
   s = 'DELETE FROM images WHERE NOT (%s)' % args.image_constraint
   logging.info('command to delete images: %s' % s)
   c.execute(s)
-  s = '''SELECT id FROM cars WHERE NOT (%s) OR imagefile NOT IN 
-         (SELECT imagefile FROM images WHERE (%s));''' % (
-          args.car_constraint, args.image_constraint)
+  s = 'SELECT id FROM cars WHERE NOT (%s) OR NOT (%s)' % (
+      args.car_constraint, args.image_constraint)
   logging.info('command to delete cars: %s' % s)
   c.execute(s)
   car_ids = c.fetchall()
   logging.info ('Will delete %d cars.' % len(car_ids))
-  if args.car_constraint is not '1':  # Skip expensive operation.
-    deleteCars(c, car_ids)
+  deleteCars(c, car_ids)
 
 
 
