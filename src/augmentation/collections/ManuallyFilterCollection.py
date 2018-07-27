@@ -98,6 +98,8 @@ def problem (collection):
   keys[ord('g')] = 'glass'
   keys[ord('t')] = 'triangulation'
   keys[ord('s')] = 'size'
+  keys[ord('o')] = 'other'
+  keys[ord('c')] = 'no color'
 
   collection_id = collection['collection_id']
   models = collection['vehicles']

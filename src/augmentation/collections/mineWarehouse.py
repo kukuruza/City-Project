@@ -13,6 +13,7 @@ import argparse
 import shutil
 import time
 import traceback
+from glob import glob
 
 from db.lib.helperSetup import atcity, setupLogging
 from augmentation.Cad import Cad
@@ -92,20 +93,43 @@ def download_model (browser, url, model_dir, args):
     button = browser.find_element_by_id('download-option-%s' % skp_version)
     button.click()
 
-    # press ok button
-    if args.confirm:
-      try:
-        WebDriverWait(browser, timeout=args.timeout).until(
-            lambda x: x.find_element_by_class_name('modal-dialog-button-ok'))
-        button = browser.find_element_by_class_name('modal-dialog-button-ok')
-        button.click()
-      except:
-        logging.info('was not ask to agree to conditions.')
-
     # Changing the name of the file.
-    filename = max([op.join(model_dir, f) for f in os.listdir(model_dir) if f.endswith('skp')], 
-                   key=op.getctime)
-    shutil.move(filename, skp_path)
+    have_moved = False
+    confirmed = False
+    logging.info('waiting for download to finish.')
+    for itry in range(120):  # 2 minute.
+      logging.debug('see if completed, try %d.' % itry)
+
+      # look for Confirm button.
+      if not confirmed:
+        try:
+          WebDriverWait(browser, timeout=1).until(
+              lambda x: x.find_element_by_class_name('modal-dialog-button-ok'))
+          button = browser.find_element_by_class_name('modal-dialog-button-ok')
+          button.click()
+          confirmed = True
+        except:
+          logging.info('was not ask to agree to conditions.')
+
+      else:
+        time.sleep(1)
+
+      tmp_skp_paths = glob(op.join(model_dir, 'tmp', '*.skp'))
+      assert len(tmp_skp_paths) <= 1, tmp_skp_paths
+      if len(tmp_skp_paths) == 1:
+        tmp_skp_path = tmp_skp_paths[0]
+        if os.stat(tmp_skp_path).st_size == 0:
+          logging.warning('file is still zero bytes.')
+        else:
+          shutil.move(tmp_skp_path, skp_path)
+          try:
+            logging.info('have renamed %s to %s' % 
+                (op.basename(tmp_skp_path), op.basename(skp_path)))
+          except:
+            logging.warning('cant print what was renamed because of non ascii.')
+          have_moved = True
+          break
+    assert have_moved
 
     # # download the model
     # logging.info ('downloading model_id: %s' % model_id)
@@ -123,7 +147,6 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
 
     new_models_info = []
     counts = {'skipped': 0, 'downloaded': 0, 'failed': 0}
-    args.confirm = True
 
     # got to each model and download it
     for model_url in model_urls:
@@ -166,7 +189,6 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
             logging.debug('model url: %s' % model_url)
             model_dir = op.join(collection_dir, 'skp')
             model_info = download_model (browser, model_url, model_dir, args)
-            args.confirm = False
             counts['downloaded'] += 1
         except:
             logging.error('model_id %s was not downloaded because of error: %s'
@@ -176,7 +198,7 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
                           'ready': False,
                           'error': 'download failed: timeout error'}
             counts['failed'] += 1
-            return
+            continue
 
         new_models_info.append(model_info)
 
@@ -227,7 +249,9 @@ def download_collection (collection_id, cad, args):
   profile = FirefoxProfile()
   profile.set_preference("browser.download.folderList", 2)
   profile.set_preference("browser.download.manager.showWhenStarting", False)
-  profile.set_preference("browser.download.dir", op.join(collection_dir, 'skp'))
+  profile.set_preference("browser.download.dir", op.join(collection_dir, 'skp', 'tmp'))
+  if not op.exists(op.join(collection_dir, 'skp', 'tmp')):
+    os.makedirs(op.join(collection_dir, 'skp', 'tmp'))
   profile.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/vnd.koan")
 
   with closing(Firefox(profile)) as browser:
