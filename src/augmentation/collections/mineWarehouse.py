@@ -3,9 +3,8 @@ from contextlib import closing
 from selenium.webdriver import Firefox, FirefoxProfile
 from selenium.webdriver.support.ui import WebDriverWait
 
-import sys, os, os.path as op
-sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
-import urllib2
+import os, os.path as op
+#import urllib2
 import logging
 import json
 import string
@@ -15,8 +14,7 @@ import time
 import traceback
 from glob import glob
 
-from db.lib.helperSetup import atcity, setupLogging
-from augmentation.Cad import Cad
+from collection_utilities import atcity
 
 
 
@@ -25,8 +23,10 @@ README_NAME = 'collection.json'
 
 
 # delete special characters
-def validateString (str):
-    return str.translate(string.maketrans('', ''), '\n\t"\\')
+def validateString (line):
+    for char in '\n\t"\\':
+      line = line.replace(char, '')
+    return line
 
 
 def _find_carmodel_in_vehicles_ (models_info, model_id):
@@ -51,11 +51,11 @@ def download_model (browser, url, model_dir, args):
 
     # get the model name
     element = browser.find_element_by_id('model-title-banner')
-    model_name = validateString(element.text.encode('ascii','ignore'))
+    model_name = validateString(element.text.encode('ascii','ignore').decode("utf-8"))
 
     # get model description
     element = browser.find_element_by_class_name('description-text')
-    description = validateString(element.text.encode('ascii','ignore'))
+    description = validateString(element.text.encode('ascii','ignore').decode("utf-8"))
 
     model_info = {'model_id':     model_id,
                   'model_name':   model_name,
@@ -65,80 +65,82 @@ def download_model (browser, url, model_dir, args):
     logging.debug ('vehicle info: %s' % str(model_info))
     print (json.dumps(model_info, indent=4))
 
-    skp_path = op.join(model_dir, '%s.skp' % model_id)
-    if op.exists(skp_path): 
-        logging.info ('skp file already exists for model_id: %s' % model_id)
-        return model_info
+    if not args.only_info:
 
-    # click on download button
-    button = browser.find_element_by_class_name('button.button-download.nonSkpClient')
-    button.click()
+      skp_path = op.join(model_dir, '%s.skp' % model_id)
+      if op.exists(skp_path): 
+          logging.info ('skp file already exists for model_id: %s' % model_id)
+          return model_info
 
-    # wait for the page to load the download buttons
-    #   we check the latest skp versin first, then next, and next. Then raise.
-    for skp_version in ['s15', 's14', 's13', None]:
-        # skp_version None is the marker to give up
-        if skp_version is None:
-            raise Exception('Cannot find skp versions 15, 14, or 13')
-        try:
-            logging.info('trying to download skp version %s' % skp_version)
-            WebDriverWait(browser, timeout=args.timeout).until(
-                lambda x: x.find_element_by_id('download-option-%s' % skp_version))
-            break
-        except:
-            logging.info('model has not skp version %s. Try next.' % skp_version)
+      # click on download button
+      button = browser.find_element_by_class_name('button.button-download.nonSkpClient')
+      button.click()
 
-
-    # press model download button.
-    button = browser.find_element_by_id('download-option-%s' % skp_version)
-    button.click()
-
-    # Changing the name of the file.
-    have_moved = False
-    confirmed = False
-    logging.info('waiting for download to finish.')
-    for itry in range(120):  # 2 minute.
-      logging.debug('see if completed, try %d.' % itry)
-
-      # look for Confirm button.
-      if not confirmed:
-        try:
-          WebDriverWait(browser, timeout=1).until(
-              lambda x: x.find_element_by_class_name('modal-dialog-button-ok'))
-          button = browser.find_element_by_class_name('modal-dialog-button-ok')
-          button.click()
-          confirmed = True
-        except:
-          logging.info('was not ask to agree to conditions.')
-
-      else:
-        time.sleep(1)
-
-      tmp_skp_paths = glob(op.join(model_dir, 'tmp', '*.skp'))
-      assert len(tmp_skp_paths) <= 1, tmp_skp_paths
-      if len(tmp_skp_paths) == 1:
-        tmp_skp_path = tmp_skp_paths[0]
-        if os.stat(tmp_skp_path).st_size == 0:
-          logging.warning('file is still zero bytes.')
-        else:
-          shutil.move(tmp_skp_path, skp_path)
+      # wait for the page to load the download buttons
+      #   we check the latest skp versin first, then next, and next. Then raise.
+      for skp_version in ['s15', 's14', 's13', None]:
+          # skp_version None is the marker to give up
+          if skp_version is None:
+              raise Exception('Cannot find skp versions 15, 14, or 13')
           try:
-            logging.info('have renamed %s to %s' % 
-                (op.basename(tmp_skp_path), op.basename(skp_path)))
+              logging.info('trying to download skp version %s' % skp_version)
+              WebDriverWait(browser, timeout=args.timeout).until(
+                  lambda x: x.find_element_by_id('download-option-%s' % skp_version))
+              break
           except:
-            logging.warning('cant print what was renamed because of non ascii.')
-          have_moved = True
-          break
-    assert have_moved
+              logging.info('model has not skp version %s. Try next.' % skp_version)
 
-    # # download the model
-    # logging.info ('downloading model_id: %s' % model_id)
-    # logging.debug('downloading skp from url: %s' % skp_href)
-    # f = urllib2.urlopen(skp_href)
-    # with open(skp_path, 'wb') as local_file:
-    #     local_file.write(f.read())
 
-    # logging.info ('finished with model_id: %s' % model_id)
+      # press model download button.
+      button = browser.find_element_by_id('download-option-%s' % skp_version)
+      button.click()
+
+      # Changing the name of the file.
+      have_moved = False
+      confirmed = False
+      logging.info('waiting for download to finish.')
+      for itry in range(120):  # 2 minute.
+        logging.debug('see if completed, try %d.' % itry)
+
+        # look for Confirm button.
+        if not confirmed:
+          try:
+            WebDriverWait(browser, timeout=1).until(
+                lambda x: x.find_element_by_class_name('modal-dialog-button-ok'))
+            button = browser.find_element_by_class_name('modal-dialog-button-ok')
+            button.click()
+            confirmed = True
+          except:
+            logging.info('was not ask to agree to conditions.')
+
+        else:
+          time.sleep(1)
+
+        tmp_skp_paths = glob(op.join(model_dir, 'tmp', '*.skp'))
+        assert len(tmp_skp_paths) <= 1, tmp_skp_paths
+        if len(tmp_skp_paths) == 1:
+          tmp_skp_path = tmp_skp_paths[0]
+          if os.stat(tmp_skp_path).st_size == 0:
+            logging.warning('file is still zero bytes.')
+          else:
+            shutil.move(tmp_skp_path, skp_path)
+            try:
+              logging.info('have renamed %s to %s' % 
+                  (op.basename(tmp_skp_path), op.basename(skp_path)))
+            except:
+              logging.warning('cant print what was renamed because of non ascii.')
+            have_moved = True
+            break
+      assert have_moved
+
+      # download the model
+      logging.info ('downloading model_id: %s' % model_id)
+      logging.debug('downloading skp from url: %s' % skp_href)
+      f = urllib2.urlopen(skp_href)
+      with open(skp_path, 'wb') as local_file:
+          local_file.write(f.read())
+
+    logging.info ('finished with model_id: %s' % model_id)
     return model_info
 
 
@@ -170,19 +172,19 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
                 new_models_info.append(model_info)
                 continue
 
-        # check if this model is known as a part of some other collection
-        seen_collection_ids = cad.is_model_in_other_collections (model_id, collection_id)
-        if seen_collection_ids:
-            error = 'is a part of %d collections. First is %s' % \
-                         (len(seen_collection_ids), seen_collection_ids[0])
-            model_info = {'model_id': model_id, 
-                          'valid': False, 
-                          'ready': False, 
-                          'error': error}
-            counts['skipped'] += 1
-            logging.warning ('model_id %s %s' % (model_id, error))
-            new_models_info.append(model_info)
-            continue
+        # # check if this model is known as a part of some other collection
+        # seen_collection_ids = cad.is_model_in_other_collections (model_id, collection_id)
+        # if seen_collection_ids:
+        #     error = 'is a part of %d collections. First is %s' % \
+        #                  (len(seen_collection_ids), seen_collection_ids[0])
+        #     model_info = {'model_id': model_id, 
+        #                   'valid': False, 
+        #                   'ready': False, 
+        #                   'error': error}
+        #     counts['skipped'] += 1
+        #     logging.warning ('model_id %s %s' % (model_id, error))
+        #     new_models_info.append(model_info)
+        #     continue
 
         # process the model
         try:
@@ -216,7 +218,7 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
 
 
 
-def download_collection (collection_id, cad, args):
+def download_collection (collection_id, args):
 
   # collection_id is the last part of the url
   url = 'https://3dwarehouse.sketchup.com/collection.html?id=%s' % collection_id
@@ -263,23 +265,24 @@ def download_collection (collection_id, cad, args):
 
     # get collection name
     element = browser.find_element_by_id('title')
-    collection_name = validateString(element.text.encode('ascii', 'ignore'))
+    print (element.text.encode('ascii', 'ignore').decode("utf-8"))
+    collection_name = validateString(element.text.encode('ascii', 'ignore').decode("utf-8"))
 
     # get collection description
     element = browser.find_element_by_id('description')
-    collection_description = validateString(element.text.encode('ascii','ignore'))
+    collection_description = validateString(element.text.encode('ascii','ignore').decode("utf-8"))
 
     # get collection tags
     #element = browser.find_element_by_id('tags')
     #element.find_element_by_xpath(".//p[@id='test']").text 
-    #collection_name = element.text.encode('ascii','ignore')
+    #collection_name = element.text.encode('ascii','ignore').decode("utf-8")
     #collection_name = validateString(collection_name)
 
     # get author
     element = browser.find_element_by_id('collection-author')
     author_href = element.get_attribute('href')
     author_id = author_href.split('=')[-1]
-    author_name = validateString(element.text.encode('ascii','ignore'))
+    author_name = validateString(element.text.encode('ascii','ignore').decode("utf-8"))
 
     # keep scrolling the page until models show up (for pages with many models)
     prev_number = 0
@@ -314,7 +317,7 @@ def download_collection (collection_id, cad, args):
 
 
 
-def download_author_models (author_id, cad, args):
+def download_author_models (author_id, args):
   ''' Write models of an author, which are not in any collection '''
   
   with closing(Firefox()) as browser:
@@ -352,7 +355,7 @@ def download_author_models (author_id, cad, args):
 
     # get author
     element = browser.find_element_by_id('display-name')
-    author_name = validateString(element.text.encode('ascii','ignore'))
+    author_name = validateString(element.text.encode('ascii','ignore').decode("utf-8"))
 
     # keep scrolling the page until models show up (for pages with many models)
     prev_number = 0
@@ -389,20 +392,21 @@ def download_author_models (author_id, cad, args):
 
 
 if __name__ == "__main__":
-    setupLogging('log/augmentation/MineWarehouse.log', logging.INFO, 'w')
 
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--collection_id')
     group.add_argument('--author_id')
     parser.add_argument('--overwrite_collection', action='store_true')
+    parser.add_argument('--only_info', action='store_true', help='Not download any skp.')
     parser.add_argument('--timeout', default=10, type=int)
+    parser.add_argument('--logging', type=int, default=20)
     args = parser.parse_args()
 
-    cad = Cad()
+    logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
 
     # use firefox to get page with javascript generated content
     if args.collection_id is not None:
-        download_collection (args.collection_id, cad, args)
+        download_collection (args.collection_id, args)
     elif args.author_id is not None:
-        download_author_models (args.author_id, cad, args)
+        download_author_models (args.author_id, args)
