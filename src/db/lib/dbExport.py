@@ -7,10 +7,10 @@ import traceback
 from progressbar import ProgressBar
 from inspect import stack
 from datetime import datetime
-from helperDb import carField, imageField, createDb, makeTimeString
-from helperSetup import atcity
-from helperImg import imsave, ReaderVideo, SimpleWriter
-from dbUtilities import cropPatch, drawScoredRoi
+from .helperDb import carField, imageField, createDb, makeTimeString
+from .helperSetup import atcity
+from .helperImg import imsave, ReaderVideo, SimpleWriter
+from .dbUtilities import cropPatch, drawScoredRoi
 
 
 def add_parsers(subparsers):
@@ -166,7 +166,7 @@ def exportCarsToDataset(c, args):
       if match is not None:
         dataset_writer.add_match(carid, match[0])
 
-    except Exception, e:
+    except Exception:
       traceback.print_exc()
 
   dataset_writer.close()

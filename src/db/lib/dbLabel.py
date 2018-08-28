@@ -3,11 +3,11 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import numpy as np
 import logging
 from scipy.cluster import hierarchy
-from dbUtilities import bbox2roi, roi2bbox
-from helperDb import deleteCar, carField
-from helperKeys import getCalibration
-from helperImg import ReaderVideo
 from scipy.misc import imresize, imread
+from .dbUtilities import bbox2roi, roi2bbox
+from .helperDb import deleteCar, carField
+from .helperKeys import getCalibration
+from .helperImg import ReaderVideo
 from scenes.lib.cvScrollZoomWindow import Window
 from scenes.lib.homography import getFrameFlattening, getHfromPose
 from scenes.lib.cache import PoseCache, MapsCache

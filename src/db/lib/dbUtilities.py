@@ -89,10 +89,12 @@ def drawScoredPolygon (img, polygon, label=None, score=None, thickness=2):
 
 
 
-def expandRoiFloatBorder (roi, (imheight, imwidth), (perc_y, perc_x), integer_result = True):
+def expandRoiFloatBorder (roi, imsize, perc, integer_result = True):
   '''Expands a ROI, and clips it within borders.
   Floats are rounded to the nearest integer.
   '''
+  imheight, imwidth = imsize
+  perc_y, perc_x = perc
   if (perc_y, perc_x) == (0, 0): return roi
 
   half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2
@@ -144,9 +146,10 @@ def expandRoiFloatBorder (roi, (imheight, imwidth), (perc_y, perc_x), integer_re
   return roi
 
 
-def expandRoiToRatioBorder (roi, (imheight, imwidth), expand_perc, ratio):
+def expandRoiToRatioBorder (roi, imsize, expand_perc, ratio):
   '''Expands a ROI to keep 'ratio', and maybe more, up to 'expand_perc'
   '''
+  imheight, imwidth = imsize
   bbox = roi2bbox(roi)
   # adjust width and height to ratio
   height = float(roi[2] + 1 - roi[0])
@@ -165,9 +168,10 @@ def expandRoiToRatioBorder (roi, (imheight, imwidth), expand_perc, ratio):
   return roi
 
 
-def expandRoiFloat (roi, (perc_y, perc_x), integer_result = True):
+def expandRoiFloat (roi, perc, integer_result = True):
   '''Expands a ROI. Floats are rounded to the nearest integer.
   '''
+  perc_y, perc_x = perc
   if (perc_y, perc_x) == (0, 0): return roi
 
   half_delta_y = float(roi[2] + 1 - roi[0]) * perc_y / 2

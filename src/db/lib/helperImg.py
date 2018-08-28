@@ -1,11 +1,12 @@
 import os, sys, os.path as op
 import abc
+import re
 import numpy as np
 import scipy.misc
 import cv2
 import logging
 from pkg_resources import parse_version
-from helperSetup import atcity, atcitydata
+from .helperSetup import atcity, atcitydata
 
 
 # returns OpenCV VideoCapture property id given, e.g., "FPS"
@@ -101,7 +102,8 @@ class ReaderVideo (ProcessorBase):
             video_dict[videopath] = self._openVideoCapture_ (videopath)
         # frame id
         frame_name = op.basename(image_id)
-        frame_id = int(filter(lambda x: x.isdigit(), frame_name))  # number
+        frame_id = int(frame_name)
+        #int(filter(lambda x: x.isdigit(), frame_name))  # Why did I do this?
         logging.debug ('from image_id %s, got frame_id %d' % (image_id, frame_id))
         # read the frame
         video_dict[videopath].set(capPropId('POS_FRAMES'), frame_id)

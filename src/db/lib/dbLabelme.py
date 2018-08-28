@@ -8,11 +8,11 @@ import glob
 import shutil
 import sqlite3
 import progressbar
-from dbUtilities import overlapRatio, roi2bbox
-from helperSetup import atcity
-from helperDb import carField
-from annotations.parser import FrameParser, PairParser
-from helperImg import ReaderVideo
+from .dbUtilities import overlapRatio, roi2bbox
+from .helperSetup import atcity
+from .helperDb import carField
+from .annotations.parser import FrameParser, PairParser
+from .helperImg import ReaderVideo
 
 
 def add_parsers(subparsers):
