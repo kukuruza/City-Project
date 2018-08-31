@@ -14,7 +14,7 @@ import time
 import traceback
 from glob import glob
 
-from collection_utilities import atcity
+from collectionUtilities import atcity
 
 
 
@@ -60,8 +60,7 @@ def download_model (browser, url, model_dir, args):
     model_info = {'model_id':     model_id,
                   'model_name':   model_name,
                   'description':  description,
-                  'valid':        True,
-                  'ready':        False}
+                 }
     logging.debug ('vehicle info: %s' % str(model_info))
     print (json.dumps(model_info, indent=4))
 
@@ -134,11 +133,11 @@ def download_model (browser, url, model_dir, args):
       assert have_moved
 
       # download the model
-      logging.info ('downloading model_id: %s' % model_id)
-      logging.debug('downloading skp from url: %s' % skp_href)
-      f = urllib2.urlopen(skp_href)
-      with open(skp_path, 'wb') as local_file:
-          local_file.write(f.read())
+#      logging.info ('downloading model_id: %s' % model_id)
+#      logging.debug('downloading skp from url: %s' % skp_href)
+#      f = urllib2.urlopen(skp_href)
+#      with open(skp_path, 'wb') as local_file:
+#          local_file.write(f.read())
 
     logging.info ('finished with model_id: %s' % model_id)
     return model_info
@@ -157,7 +156,7 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
 
         # if this model was previously failed to be recorded
         if model_info is not None:
-            if 'valid' in model_info and not model_info['valid']:
+            if model_info['error'] is not None:
                 assert 'error' in model_info
                 if model_info['error'] == 'download failed: timeout error':
                     logging.info ('re-doing previously failed download: %s' % model_id)
@@ -177,10 +176,7 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
         # if seen_collection_ids:
         #     error = 'is a part of %d collections. First is %s' % \
         #                  (len(seen_collection_ids), seen_collection_ids[0])
-        #     model_info = {'model_id': model_id, 
-        #                   'valid': False, 
-        #                   'ready': False, 
-        #                   'error': error}
+        #     model_info = {'model_id': model_id, 'error': error}
         #     counts['skipped'] += 1
         #     logging.warning ('model_id %s %s' % (model_id, error))
         #     new_models_info.append(model_info)
@@ -196,8 +192,6 @@ def download_all_models (browser, model_urls, models_info, collection_id, collec
             logging.error('model_id %s was not downloaded because of error: %s'
                % (model_id, traceback.format_exc()))
             model_info = {'model_id': model_id, 
-                          'valid': False,
-                          'ready': False,
                           'error': 'download failed: timeout error'}
             counts['failed'] += 1
             continue

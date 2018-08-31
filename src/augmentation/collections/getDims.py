@@ -39,21 +39,16 @@ if __name__ == '__main__':
     model_path = op.join(WORK_DIR, 'model.json')
     model = json.load(open(model_path))
 
-    valid = model['valid'] if 'valid' in model else True
-    if not valid: 
-        logging.info ('skip invalid model %s' % model['model_id'])
-        sys.exit()
-
-    model_id = model['model_id']
-    logging.info ('processing model: %s' % model_id)
+    model_id = op.basename(op.splitext(model['blend_file'])[0])
+    logging.info('Processing model: %s' % model_id)
 
     scene_path = atcity('data/augmentation/scenes/empty-import.blend')
     bpy.ops.wm.open_mainfile(filepath=scene_path)
 
     try:
-        import_blend_car (atcity(model['blend_file']), model_id)
+        import_blend_car(atcity(model['blend_file']), model_id)
     except:
-        logging.error('could not import .blend model: %s' % atcity(model['blend_file']))
+        logging.error('Could not import .blend model: %s' % atcity(model['blend_file']))
         model['error'] = 'blender cannot import .blend model'
         sys.exit()
 

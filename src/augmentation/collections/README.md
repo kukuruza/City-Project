@@ -1,22 +1,105 @@
+Scripts:
+
 ```
-collection=5f08583b1f45a9a7c7193c87bbfa9088
+collection_id=\'5f08583b1f45a9a7c7193c87bbfa9088\'  # Quotes are important in "clause" arg.
 
-python src/augmentation/collections/FinalizeCollection.py \
-  --collection_id ${collection}
+# Import collections.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  importCollections \
+  --collection_ids ${collection_id}
 
-python src/augmentation/collections/RenderCollectionExamples.py \
-  --collection_id ${collection}
+# Classify color.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  --out_db_file data/augmentation/CAD/collections.db \
+  --clause "collection_id=${collection_id}" \
+  --class_name=color --key_dict_json='{"w": "white", "k": "black", "e": "gray", "r": "red", "y": "yellow", "g": "green", "b": "blue", "o": "orange"}'
+```
 
-python src/augmentation/collections/ManuallyFilterCollection.py \
-  --collection_id ${collection} \
-  --task problem
+SQL queries:
 
-python src/augmentation/collections/ManuallyFilterCollection.py \
-  --collection_id ${collection} \
-  --task type
+```
+# Display the number of cars of each color.
+SELECT label, COUNT(1) FROM clas WHERE class='color' GROUP BY label ORDER BY COUNT(1) DESC
 
-python src/augmentation/collections/ManuallyFilterCollection.py \
-  --collection_id ${collection} \
-  --task color
+# Display the number in each collection.
+SELECT collection_id, COUNT(1) FROM cad GROUP BY collection_id ORDER BY COUNT(1) DESC
 
+# Display car_make with its count.
+SELECT car_make, COUNT(1) FROM cad GROUP BY car_ma ORDER BY COUNT(1) DESC
+
+# Copy issue to error field.
+UPDATE cad SET error = (SELECT clas.label FROM clas WHERE clas.model_id == cad.model_id AND clas.collection_id == cad.collection_id AND clas.class == 'issue') WHERE EXISTS (SELECT * FROM clas WHERE clas.model_id == cad.model_id AND clas.collection_id == cad.collection_id AND clas.class == 'issue')
+```
+
+
+Visualization:
+```
+# White Ford.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  --clause 'INNER JOIN clas c1 ON cad.model_id=c1.model_id WHERE c1.label = "white" AND cad.car_make == "ford" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_white_ford.png
+
+# Van.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE clas.label = "van" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_van.png
+
+# Toyota truck.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE cad.car_make == "toyota" AND clas.label = "truck" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_toyota_truck.png
+
+# Military.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE clas.label = "military" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_military.jpg
+
+# Fiction.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE clas.label = "fiction" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_fiction.jpg
+
+# Cars longer than X1 and shorter than X2 (on collecton_v1).
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  --clause 'WHERE dims_L >= 10 AND dims_L <= 20 AND error ISNULL' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_length_10_to_20.jpg
+
+# Histogram of lengths (on collection_v1).
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  plotHistogram \
+  --query 'SELECT dims_L FROM cad WHERE error ISNULL AND dims_L <= 25' \
+  --xlabel 'length, m' --ylog \
+  --out_path data/augmentation/CAD/-visualizations/v1_hist_length.eps
+
+# Histogram of car makes which have at least 5 models.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  plotHistogram \
+  --query 'SELECT car_make FROM cad WHERE car_make IN (SELECT car_make FROM cad GROUP BY car_make HAVING COUNT(car_make) >= 5) AND model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  --categorical \
+  --rotate_xticklabels \
+  --out_path data/augmentation/CAD/-visualizations/v1_hist_make_ge5.eps
+
+# Histogram of car types1.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections.db \
+  plotHistogram \
+  --query 'SELECT label FROM clas WHERE class="type1" AND model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  --categorical \
+  --out_path data/augmentation/CAD/-visualizations/v1_hist_type1.eps
 ```
