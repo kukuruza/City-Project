@@ -256,7 +256,7 @@ def exportCarsToFolder(c, args):
     image = reader.imread(imagefile)
     patch = cropPatch(image, roi, args.target_height, args.target_width, args.edges)
 
-    out_name = '%s.jpg' % op.basename(imagefile)
+    out_name = '%09d.jpg' % carid
     out_imagefile = op.join(atcity(args.patch_dir), out_name)
     imsave(out_imagefile, patch)
 
