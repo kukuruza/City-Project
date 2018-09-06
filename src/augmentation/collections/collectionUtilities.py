@@ -39,20 +39,24 @@ def safeConnect (in_path, out_path):
   In-memory databases are processed separately.
   '''
 
+  if in_path is None:
+    return sqlite3.connect(out_path)
+
   if out_path == ':memory:' and not op.exists (in_path):
+    logging.info('Creating a new db in :memory:')
     return sqlite3.connect(':memory:')
   
   elif out_path == ':memory:' and op.exists (in_path):
     in_conn  = sqlite3.connect(in_path)
     out_conn = sqlite3.connect(':memory:')
-    # Copy from disk to memory.
+    logging.info('Copying from disk to :memory:')
     query = ''.join(line for line in in_conn.iterdump())
     out_conn.executescript(query)
     in_conn.close()
     return out_conn
 
   if not op.exists (in_path):
-    raise Exception ('in db does not exist: %s' % in_path)
+    raise Exception ('in db does not exist, and out db is not memory: %s' % in_path)
 
   if op.exists (out_path):
     logging.warning ('will back up existing out_path')
@@ -69,6 +73,7 @@ def safeConnect (in_path, out_path):
     # copy input database into the output one
     copyfile(in_path, out_path)
 
+  logging.info('Copying from %s and connecting at %s' % (in_path, out_path))
   return sqlite3.connect(out_path)
 
 

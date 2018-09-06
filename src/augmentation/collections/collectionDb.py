@@ -1,7 +1,7 @@
 import sqlite3
 
 
-def maybeCreateTableCad(cursor):
+def maybeCreateTableCad(cursor):  # TODO: in v2 fix type of year.
   cursor.execute('''
       CREATE TABLE IF NOT EXISTS cad(
       model_id TEXT,

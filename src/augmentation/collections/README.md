@@ -15,6 +15,12 @@ python3 src/augmentation/collections/Modify.py \
   --out_db_file data/augmentation/CAD/collections.db \
   --clause "collection_id=${collection_id}" \
   --class_name=color --key_dict_json='{"w": "white", "k": "black", "e": "gray", "r": "red", "y": "yellow", "g": "green", "b": "blue", "o": "orange"}'
+
+# Correct model_name.
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  manuallyEditCarModel \
+  --car_query_db_path data/augmentation/resources/CQA_Advanced_v1.db
 ```
 
 SQL queries:
@@ -102,4 +108,20 @@ python3 src/augmentation/collections/Modify.py \
   --query 'SELECT label FROM clas WHERE class="type1" AND model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
   --categorical \
   --out_path data/augmentation/CAD/-visualizations/v1_hist_type1.eps
+```
+
+
+## Work with CarQueryDb
+
+```
+# Create a db.
+python3 src/augmentation/collections/MakeCarQueryDb.py \
+  --out_db_file /Users/evg/projects/City-Project/data/augmentation/resources/CQA_Advanced_v1.1.db
+
+# Look up how many models are in this CarQueryDb.
+python3 src/augmentation/collections/Modify.py \
+--dry_run \
+--in_db_file data/augmentation/CAD/collections_v1.db \
+fillDimsFromCarQueryDb \
+--car_query_db_path data/augmentation/resources/CQA_Advanced_v1.1.db
 ```

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os, os.path as op
 import simplejson as json
 import argparse
@@ -397,12 +397,6 @@ def makeGrid (cursor, args):
   grid = np.ones(shape=(rows * args.dheight, args.cols * args.dwidth, 3), dtype=np.uint8) * 64
   logging.info('Grid is of pixel shape %d x %d' % (rows * args.dheight, args.cols * args.dwidth))
 
-  def getExamplePath(collection_id, model_id):
-    example_path = atcity(op.join('data/augmentation/CAD/%s/examples/%s.png' %
-        (collection_id, model_id)))
-    assert op.exists(op.dirname(example_path)), 'Dir of %s must exist' % example_path
-    return example_path
-
   for idx, (collection_id, model_id) in enumerate(entries):
 
     example_path = getExamplePath(collection_id, model_id)
@@ -474,7 +468,6 @@ def plotHistogramParser(subparsers):
   parser = subparsers.add_parser('plotHistogram',
     description='Get a 1d histogram plot of fields.')
   parser.set_defaults(func=plotHistogram)
-  #parser.add_argument('-x', required=True)
   parser.add_argument('--query', required=True, help='e.g., SELECT car_make FROM cad.')
   parser.add_argument('--ylog', action='store_true')
   parser.add_argument('--bins', type=int)
@@ -493,7 +486,7 @@ def plotHistogram(cursor, args):
   cursor.execute(args.query)
   entries = cursor.fetchall()
 
-  xlist = [x if x is not None else 'unlabelled' for x, in entries]
+  xlist = [x for x, in entries if x is not None]
   if not xlist:
     logging.info('No cars, nothing to draw.')
     return
@@ -584,6 +577,170 @@ def manuallyEditInBlender(cursor, args):
         continue
 
 
+def manuallyEditCarModelParser(subparsers):
+  parser = subparsers.add_parser('manuallyEditCarModel',
+    description='Edit car_model field manually.')
+  parser.set_defaults(func=manuallyEditCarModel)
+  parser.add_argument('--car_query_db_path', required=True)  # TODO: an option without it.
+  parser.add_argument('--where', default='1', help='e.g., clause after WHERE.')
+  parser.add_argument('--fields', default=['car_year', 'car_make', 'car_model'], nargs='+')
+
+def manuallyEditCarModel(cursor, args):
+
+  # Open CarQuery database.
+  if not op.exists(args.car_query_db_path):
+    raise Exception('Does not exist, create db with MakeCarQueryDb.py.')
+  query_conn = sqlite3.connect(args.car_query_db_path)
+  query_cursor = query_conn.cursor()
+
+  if 'car_make' in args.fields:
+
+    s = 'SELECT model_id, collection_id, model_name, description, car_make FROM cad WHERE (%s);' % args.where
+    logging.debug('Will execute: %s' % s)
+    cursor.execute(s)
+    entries = cursor.fetchall()
+    logging.info('Found %d entries' % len(entries))
+
+    for model_id, collection_id, model_name, description, car_make in entries:
+
+      query_cursor.execute('SELECT COUNT(1) FROM gt WHERE car_make=?', (car_make,))
+      result = query_cursor.fetchone()[0]
+      if result:
+        logging.debug('Found the make "%s".\n' % car_make)
+        continue
+
+      query_cursor.execute('SELECT DISTINCT car_make FROM gt')
+      result = query_cursor.fetchall()
+      print('Available makes: \n%s' % pformat(sorted([x[0] for x in result]), indent=2))
+      print('Could not find make "%s".' % car_make)
+      print('Model_name:', model_name)
+      print('Description:', description)
+      print('Enter car_make. Empty input to skip, Space to exit:')
+      car_make = input().lower()
+      if car_make == '':
+        continue
+      if car_make == ' ':
+        break
+      s = 'UPDATE cad SET car_make=? WHERE model_id=? AND collection_id=?'
+      cursor.execute(s, (car_make, model_id, collection_id))
+
+  if 'car_model' in args.fields:
+
+    s = 'SELECT model_id, collection_id, model_name, description, car_make, car_model FROM cad ' \
+        'WHERE car_make IS NOT NULL AND (%s);' % args.where
+    logging.debug('Will execute: %s' % s)
+    cursor.execute(s)
+    entries = cursor.fetchall()
+    logging.info('Found %d entries' % len(entries))
+
+    for model_id, collection_id, model_name, description, car_make, car_model in entries:
+
+      s = 'SELECT COUNT(1) FROM gt WHERE car_make=? AND car_model=?'
+      query_cursor.execute(s, (car_make, car_model))
+      result = query_cursor.fetchone()[0]
+      if result:
+        logging.debug('Found the make "%s" and model "%s".\n' % (car_make, car_model))
+        continue
+
+      s = 'SELECT DISTINCT car_model FROM gt WHERE car_make=?'
+      query_cursor.execute(s, (car_make,))
+      result = query_cursor.fetchall()
+      print('Available models: \n%s' % pformat(sorted([x[0] for x in result])  , indent=2))
+      print('Could not find model "%s" for make "%s".' % (car_model, car_make))
+      print('Model_name:', model_name)
+      print('Description:', description)
+      print('Enter car_model. Empty input to skip, Space to exit:')
+      car_model = input().lower()
+      if car_model == '':
+        continue
+      if car_model == ' ':
+        break
+      if car_model == 'null':
+        s = 'UPDATE cad SET car_model=NULL WHERE model_id=? AND collection_id=?'
+        cursor.execute(s, (model_id, collection_id))
+        continue        
+      s = 'UPDATE cad SET car_model=? WHERE model_id=? AND collection_id=?'
+      cursor.execute(s, (car_model, model_id, collection_id))
+  
+  query_conn.close()
+
+
+def fillDimsFromCarQueryDbParser(subparsers):
+  parser = subparsers.add_parser('fillDimsFromCarQueryDb',
+    description='For each model search the CarQueryDb for the dims info.')
+  parser.set_defaults(func=fillDimsFromCarQueryDb)
+  parser.add_argument('--where', default='1', help='e.g., clause after WHERE.')
+  parser.add_argument('--car_query_db_path', required=True)
+
+def fillDimsFromCarQueryDb(cursor, args):
+
+  # Open CarQuery database.
+  if not op.exists(args.car_query_db_path):
+    raise Exception('Does not exist, create db with MakeCarQueryDb.py.')
+  query_conn = sqlite3.connect(args.car_query_db_path)
+  query_cursor = query_conn.cursor()
+
+  s = 'SELECT collection_id, model_id, car_make, car_year, car_model FROM cad ' \
+      'WHERE car_make IS NOT NULL AND car_model IS NOT NULL AND %s;' % args.where
+  logging.debug('Will execute: %s' % s)
+  cursor.execute(s)
+  entries = cursor.fetchall()
+  logging.info('Found %d entries' % len(entries))
+
+  count = 0
+  for collection_id, model_id, car_make, car_year, car_model in entries:
+    s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
+    query_cursor.execute(s, (car_make, car_year, car_model))
+    result = query_cursor.fetchone()
+    if result is not None:
+      count += 1
+      continue
+    logging.debug('Did not find info for: %s' % str((car_make, car_year, car_model)))
+
+    if car_year is None:
+      s = 'SELECT DISTINCT car_year FROM gt WHERE car_make=? AND car_model=? ORDER BY car_year ASC'
+      query_cursor.execute(s, (car_make, car_model))
+      result = query_cursor.fetchall()
+      if result:
+        logging.debug('The year is not known for %s, but there are models for years %s. Will take the max year.' % \
+            (str((car_make, car_model)), str(result)))
+        last_year = int(result[-1][0])
+        s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
+        query_cursor.execute(s, (car_make, str(last_year), car_model))  # TODO: in v2 fix type of year.
+        result = query_cursor.fetchone()
+        assert result is not None
+        count += 1
+        continue
+      logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
+
+    s = 'SELECT DISTINCT car_year FROM gt WHERE car_make=? AND car_model=?'
+    query_cursor.execute(s, (car_make, car_model))
+    result = query_cursor.fetchall()
+    if result:
+      logging.debug('Did not find a model for year: %s, but there are models for years %s' % \
+          (str((car_make, car_year, car_model)), str(result)))
+      closest_year = min([x[0] for x in result], key=lambda x:abs(x - int(car_year)))  # TODO: in v2 fix type of year.
+      s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
+      query_cursor.execute(s, (car_make, str(closest_year), car_model))  # TODO: in v2 fix type of year.
+      result = query_cursor.fetchone()
+      assert result is not None
+      count += 1
+      continue
+    logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
+
+    s = 'SELECT DISTINCT car_make FROM gt WHERE car_make=?'
+    query_cursor.execute(s, (car_make,))
+    result = query_cursor.fetchone()
+    if result is not None:
+      logging.warning('Found the make "%s", but not the model "%s", is model name incorrect?' % (car_make, car_model))
+      continue
+    logging.info('Did not find info for make: %s' % car_make)
+
+  logging.info('Found dimensions for %d models.' % count)
+
+  query_conn.close()
+
+
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser('Do one of the automatic operations on a db.')
@@ -604,6 +761,8 @@ if __name__ == "__main__":
   manuallyEditInBlenderParser(subparsers)
   renderExamplesParser(subparsers)
   classifyParser(subparsers)
+  fillDimsFromCarQueryDbParser(subparsers)
+  manuallyEditCarModelParser(subparsers)
 
   args = parser.parse_args()
 
