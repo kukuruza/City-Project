@@ -15,7 +15,7 @@ def atcity (path):
     return op.join(os.getenv('CITY_PATH'), path)
 
 
-WORK_DIR = atcity('data/augmentation/blender/current-collection')
+WORK_DIR = atcity('tmp/blender/current-collection')
 
 
 def getExamplePath(collection_id, model_id):

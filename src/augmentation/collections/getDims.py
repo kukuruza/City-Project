@@ -4,13 +4,8 @@ import json
 import logging
 import bpy
 from augmentation.common import *
-from augmentation.collections.utils import bounds
-
-def atcity (path):
-  return op.join(os.getenv('CITY_PATH'), path)
-
-WORK_DIR = atcity('data/augmentation/blender/current-collection')
-
+from augmentation.utils import bounds, get_x_wheels
+from augmentation.collections.collectionUtilities import WORK_DIR, atcity
 
 
 def get_dims (model_id):
@@ -20,16 +15,16 @@ def get_dims (model_id):
     obj.select = True
 
     # scale the DimsPlane to illustrate dimensions
-    plane = bpy.data.objects['DimsPlane']
-    plane.location = [0, 0, 0]
+    #plane = bpy.data.objects['DimsPlane']
+    #plane.location = [0, 0, 0]
 
     roi = bounds(obj)
     dims = [roi.x.max-roi.x.min, roi.y.max-roi.y.min, roi.z.max-roi.z.min]
     dims = dict(zip(['x', 'y', 'z'], dims))
 
-    return {'dims': dims}
+    x_wheels = get_x_wheels(obj)
 
-
+    return {'dims': dims, 'x_wheels': x_wheels}
 
 
 if __name__ == '__main__':

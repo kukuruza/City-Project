@@ -44,8 +44,8 @@ Visualization:
 ```
 # White Ford.
 python3 src/augmentation/collections/Modify.py \
-  --in_db_file data/augmentation/CAD/collections.db \
-  --clause 'INNER JOIN clas c1 ON cad.model_id=c1.model_id WHERE c1.label = "white" AND cad.car_make == "ford" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  --clause 'INNER JOIN clas c1 ON cad.model_id=c1.model_id WHERE c1.label = "white" AND cad.car_make == "ford" AND error IS NULL' \
   makeGrid \
   --out_path data/augmentation/CAD/-visualizations/v1_white_ford.png
 
@@ -58,8 +58,8 @@ python3 src/augmentation/collections/Modify.py \
 
 # Toyota truck.
 python3 src/augmentation/collections/Modify.py \
-  --in_db_file data/augmentation/CAD/collections.db \
-  --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE cad.car_make == "toyota" AND clas.label = "truck" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE cad.car_make == "toyota" AND clas.label = "truck" AND error IS NULL' \
   makeGrid \
   --out_path data/augmentation/CAD/-visualizations/v1_toyota_truck.png
 
@@ -68,21 +68,38 @@ python3 src/augmentation/collections/Modify.py \
   --in_db_file data/augmentation/CAD/collections.db \
   --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE clas.label = "military" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
   makeGrid \
-  --out_path data/augmentation/CAD/-visualizations/v1_military.jpg
+  --out_path data/augmentation/CAD/-visualizations/v1_military.png
 
 # Fiction.
 python3 src/augmentation/collections/Modify.py \
   --in_db_file data/augmentation/CAD/collections.db \
   --clause 'INNER JOIN clas ON cad.model_id=clas.model_id WHERE clas.label = "fiction" AND cad.model_id NOT IN (SELECT model_id FROM clas WHERE class == "issue")' \
   makeGrid \
-  --out_path data/augmentation/CAD/-visualizations/v1_fiction.jpg
+  --out_path data/augmentation/CAD/-visualizations/v1_fiction.png
 
 # Cars longer than X1 and shorter than X2 (on collecton_v1).
 python3 src/augmentation/collections/Modify.py \
   --in_db_file data/augmentation/CAD/collections_v1.db \
-  --clause 'WHERE dims_L >= 10 AND dims_L <= 20 AND error ISNULL' \
+  --clause 'WHERE dims_L >= 9 AND dims_L <= 10 AND error ISNULL' \
   makeGrid \
-  --out_path data/augmentation/CAD/-visualizations/v1_length_10_to_20.jpg
+  --out_path data/augmentation/CAD/-visualizations/v1_length_9_to_10.png \
+  --at_most 8
+
+% Error: matte glass
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  --clause 'WHERE error == "matte glass"' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_error_matte_glass.png \
+  --at_most 8
+
+% Error: triangles
+python3 src/augmentation/collections/Modify.py \
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  --clause 'WHERE error == "triangles"' \
+  makeGrid \
+  --out_path data/augmentation/CAD/-visualizations/v1_error_triangles.png \
+  --at_most 8
 
 # Histogram of lengths (on collection_v1).
 python3 src/augmentation/collections/Modify.py \

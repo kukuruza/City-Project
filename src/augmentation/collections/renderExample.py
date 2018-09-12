@@ -4,12 +4,8 @@ import json
 import logging
 import bpy
 from augmentation.common import *
-from augmentation.collections.utils import bounds
-
-def atcity (path):
-  return op.join(os.getenv('CITY_PATH'), path)
-
-WORK_DIR = atcity('data/augmentation/blender/current-collection')
+from augmentation.utils import bounds
+from augmentation.collections.collectionUtilities import WORK_DIR, atcity
 
 
 def render_example (model_id):

@@ -10,13 +10,21 @@ from pprint import pprint, pformat
 import matplotlib.pyplot as plt
 import subprocess
 import traceback
+from random import shuffle
+from scipy.cluster.hierarchy import fcluster, linkage
 
 from collectionUtilities import safeConnect, atcity, getExamplePath, getBlendPath, WORK_DIR
 from collectionDb import maybeCreateTableCad, maybeCreateTableClas, getAllCadColumns
+if not op.exists(WORK_DIR):
+    os.makedirs(WORK_DIR)
+
+
+def _debug_execute(s, args):
+  logging.debug('Going to execute "%s" with arguments %s' % (s, str(args)))
 
 
 def _queryCollectionsAndModels(cursor, clause):
-  s = 'SELECT collection_id, model_id FROM cad %s;' % clause
+  s = 'SELECT cad.collection_id, cad.model_id FROM cad %s;' % clause
   logging.debug('Will execute: %s' % s)
   cursor.execute(s)
   entries = cursor.fetchall()
@@ -119,6 +127,98 @@ def _importCollection(cursor, collection, overwrite):
       sys.exit()
 
 
+def _getDimsFromBlender(cursor, collection_id, model_id):
+  ''' For a single model. '''
+
+  if not op.exists(getBlendPath(collection_id, model_id)):
+    logging.error('Blend path does not exist.')
+    return None
+
+  model = {'blend_file': getBlendPath(collection_id, model_id)}
+  model_path = op.join(WORK_DIR, 'model.json')
+  with open(model_path, 'w') as f:
+    f.write(json.dumps(model, indent=4))
+
+  try:
+    command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
+               atcity('src/augmentation/collections/getDims.py')]
+    returncode = subprocess.call (command, shell=False)
+    logging.debug('Blender returned code %s' % str(returncode))
+
+    info = json.load(open(model_path))
+    dims, x_wheels = info['dims'], info['x_wheels']
+    dims_L, dims_W, dims_H = dims['x'], dims['y'], dims['z']
+
+    # Find wheelbase.
+    x_wheels = np.array(x_wheels)
+    Z = linkage(np.reshape(x_wheels, (len(x_wheels), 1)), 'ward')
+    indices = fcluster(Z, 2, criterion='maxclust')
+    x_wheel1 = x_wheels[indices == 1].mean()
+    x_wheel2 = x_wheels[indices == 2].mean()
+    logging.info('Wheel1: %.2f, wheel2: %.2f' % (x_wheel1, x_wheel2))
+    wheelbase = np.abs(x_wheel2 - x_wheel1)
+
+    logging.info('collection_id: %s, model_id: %s, L: %.2f, W: %.2f, H: %.2f, wheelbase: %.2f' % 
+        (collection_id, model_id, dims_L, dims_W, dims_H, wheelbase))
+    return dims_L, dims_W, dims_H, wheelbase
+
+  except:
+    logging.error('Failed: %s' % traceback.format_exc())
+    return None
+
+
+def _findDimsCarQuery(cursor, car_make, car_year, car_model):
+  ''' Infers the best matching entry in CarQueryDb and gets L, W, H, and wheelbase. '''
+
+  # If the query car does not have a year.  
+  if car_year is None:
+    s = 'SELECT DISTINCT car_year FROM gt WHERE car_make=? AND car_model=? ORDER BY car_year ASC'
+    _debug_execute(s, (car_make, car_model))
+    cursor.execute(s, (car_make, car_model))
+    result = cursor.fetchall()
+    if result:
+      logging.debug('The year is not known for %s, but there are models for years %s. Will take the max year.' % \
+          (str((car_make, car_model)), str(result)))
+      last_year = int(result[-1][0])
+      s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
+      _debug_execute(s, (car_make, str(last_year), car_model))
+      cursor.execute(s, (car_make, str(last_year), car_model))  # TODO: in v2 fix type of year.
+      result = cursor.fetchone()
+      assert result is not None
+      return result
+    else:
+      logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
+      return None
+
+  # The query car has the year field, try to match exactly.
+  s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
+  _debug_execute(s, (car_make, car_year, car_model))
+  cursor.execute(s, (car_make, car_year, car_model))
+  result = cursor.fetchone()
+  if result is not None:
+    return result
+
+  # Try other years.
+  logging.debug('Did not find info for exactly: %s' % str((car_make, car_year, car_model)))
+  s = 'SELECT DISTINCT car_year FROM gt WHERE car_make=? AND car_model=?'
+  _debug_execute(s, (car_make, car_model))
+  cursor.execute(s, (car_make, car_model))
+  result = cursor.fetchall()
+  if result:
+    logging.debug('Did not find a model for year: %s, but there are models for years %s' % \
+        (str((car_make, car_year, car_model)), str(result)))
+    closest_year = min([x[0] for x in result], key=lambda x:abs(x - int(car_year)))  # TODO: in v2 fix type of year.
+    s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
+    _debug_execute(s, (car_make, str(closest_year), car_model))
+    cursor.execute(s, (car_make, str(closest_year), car_model))  # TODO: in v2 fix type of year.
+    result = cursor.fetchone()
+    assert result is not None
+    return result
+
+  logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
+  return None
+
+
 def importCollectionsParser(subparsers):
   parser = subparsers.add_parser('importCollections',
     description='Import json file with the collection.')
@@ -127,12 +227,10 @@ def importCollectionsParser(subparsers):
   parser.set_defaults(func=importCollections)
 
 def importCollections(cursor, args):
-
   for collection_id in args.collection_ids:
     json_path = atcity('data/augmentation/CAD/%s/collection.json' % collection_id)
     collection = json.load(open(json_path))
     logging.info('Found %d models in the collection' % len(collection['vehicles']))
-
     _importCollection(cursor, collection, args.overwrite)
 
 
@@ -144,7 +242,7 @@ def renderExamplesParser(subparsers):
 
 def renderExamples(cursor, args):
   for entry in _queryCollectionsAndModels(cursor, args.clause):
-    _renderExample(entry, args.overwrite)
+    _renderExample(entry[0], entry[1], args.overwrite)
 
 
 def classifyParser(subparsers):
@@ -252,7 +350,6 @@ def classify(cursor, args):
           break  # Key iteration.
 
 
-
 def fillInDimsParser(subparsers):
   parser = subparsers.add_parser('fillInDims',
     description='Fill in the dimensions fields with actual dimensions.')
@@ -265,29 +362,39 @@ def fillInDims(cursor, args):
 
   for idx, (collection_id, model_id) in enumerate(_queryCollectionsAndModels(cursor, args.clause)):
     logging.info('Model idx: %d' % idx)
-
-    model = {'blend_file': getBlendPath(collection_id, model_id)}
-    model_path = op.join(WORK_DIR, 'model.json')
-    with open(model_path, 'w') as f:
-      f.write(json.dumps(model, indent=4))
-
-    try:
-      command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
-                 atcity('src/augmentation/collections/getDims.py')]
-      returncode = subprocess.call (command, shell=False)
-      logging.debug('Blender returned code %s' % str(returncode))
-
-      dims = json.load(open(model_path))['dims']
-      dims_L, dims_W, dims_H = dims['x'], dims['y'], dims['z']
-      logging.info('collection_id: %s, model_id: %s, L: %.2f, W: %.2f, H: %.2f' % 
-          (collection_id, model_id, dims_L, dims_W, dims_H))
-      s = 'UPDATE cad SET dims_L=?, dims_W=?, dims_H=? WHERE collection_id=? AND model_id=?;'
-      logging.debug('Will execute: %s' % s)
-      cursor.execute(s, (dims_L, dims_W, dims_H, collection_id, model_id))
-
-    except:
-      logging.error('Failed: %s' % traceback.format_exc())
+    dims = _getDimsFromBlender(cursor, collection_id, model_id)
+    if dims is None:
       continue
+    dims_L, dims_W, dims_H = dims
+    s = 'UPDATE cad SET dims_L=?, dims_W=?, dims_H=? WHERE collection_id=? AND model_id=?;'
+    logging.debug('Will execute: %s' % s)
+    cursor.execute(s, (dims_L, dims_W, dims_H, collection_id, model_id))
+
+
+def removeAllWithoutBlendParser(subparsers):
+  parser = subparsers.add_parser('removeAllWithoutBlend',
+    description='Remove all models without the blend file.')
+  parser.set_defaults(func=removeAllWithoutBlend)
+
+def removeAllWithoutBlend (cursor, args):
+
+  for collection_id, model_id in _queryCollectionsAndModels(cursor, args.clause):
+
+    blend_path = getBlendPath(collection_id, model_id)
+    if not op.exists(blend_path):
+      logging.debug('Blend file does not exist: %s' % blend_path)
+
+      s = 'DELETE FROM clas WHERE collection_id=? AND model_id=?'
+      logging.debug('Will execute: %s' % s)
+      cursor.execute(s, (collection_id, model_id))
+
+      s = 'DELETE FROM cad WHERE collection_id=? AND model_id=?'
+      logging.debug('Will execute: %s' % s)
+      cursor.execute(s, (collection_id, model_id))
+
+  cursor.execute('SELECT cad.collection_id, cad.model_id FROM cad %s;' % args.clause)
+  entries = cursor.fetchall()
+  logging.info('There are %d cad models with blend.' % len(entries))
 
 
 def removeAllWithoutRenderParser(subparsers):
@@ -365,6 +472,7 @@ def makeGridParser(subparsers):
     description='Combine renders of models that satisfy a "where" into a grid.')
   parser.add_argument('--swidth', type=int, help='Width to crop. If not specified, use model-dependent crop.')
   parser.add_argument('--display', action='store_true')
+  parser.add_argument('--at_most', type=int, help='if specified, return at most N models')
   parser.add_argument('--cols', type=int, default=4, help='number of columns.')
   parser.add_argument('--dwidth', type=int, default=512, help='output width of a cell')
   parser.add_argument('--dheight', type=int, default=384, help='output height of a cell')
@@ -378,7 +486,7 @@ def makeGrid (cursor, args):
     empty_path = atcity('data/augmentation/scenes/empty-import.png')
     if not op.exists(empty_path):
       raise Exception('Empty image does not exist.')
-    empty = cv2.imread(empty_path)
+    empty = cv2.imread(empty_path, -1)
     if empty is None:
       raise Exception('Failed to load empty image.')
 
@@ -387,6 +495,9 @@ def makeGrid (cursor, args):
   removeDuplicates(cursor, args)
 
   entries = _queryCollectionsAndModels(cursor, args.clause)
+  shuffle(entries)
+  if args.at_most is not None and len(entries) > args.at_most:
+    entries = entries[:args.at_most]
 
   if len(entries) == 0:
     logging.info('Nothing is found.')
@@ -394,7 +505,7 @@ def makeGrid (cursor, args):
 
   rows = len(entries) // args.cols + (0 if len(entries) % args.cols == 0 else 1)
   logging.info('Grid is of element shape %d x %d' % (rows, args.cols))
-  grid = np.ones(shape=(rows * args.dheight, args.cols * args.dwidth, 3), dtype=np.uint8) * 64
+  grid = np.zeros(shape=(rows * args.dheight, args.cols * args.dwidth, 4), dtype=np.uint8)
   logging.info('Grid is of pixel shape %d x %d' % (rows * args.dheight, args.cols * args.dwidth))
 
   for idx, (collection_id, model_id) in enumerate(entries):
@@ -403,7 +514,7 @@ def makeGrid (cursor, args):
     if not op.exists(example_path):
       logging.debug('Example image does not exist: %s' % example_path)
 
-    render = cv2.imread(example_path)
+    render = cv2.imread(example_path, -1)
     if render is None:
       logging.error('Image %s failed to be read' % example_path)
       continue
@@ -445,7 +556,7 @@ def makeGrid (cursor, args):
         cv2.waitKey(-1)
       # Add the padding in case the box went  and crop.
       H, W = render.shape[:2]
-      render = np.pad(render, pad_width=((H,H),(W,W),(0,0)), mode='constant', constant_values=64)
+      render = np.pad(render, pad_width=((H,H),(W,W),(0,0)), mode='constant', constant_values=0)
       crop = render[y1+H : y2+H, x1+W : x2+W]
 
     crop = cv2.resize(crop, dsize=(args.dwidth, args.dheight))
@@ -688,56 +799,121 @@ def fillDimsFromCarQueryDb(cursor, args):
   logging.info('Found %d entries' % len(entries))
 
   count = 0
-  for collection_id, model_id, car_make, car_year, car_model in entries:
+  button = 0
+  i = 0
+  while True:
+
+    # Going in a loop.
+    if i == -1:
+      logging.info('Looping to the last model.')
+    if i == len(entries):
+      logging.info('Looping to the first model.')
+    i = i % len(entries)
+
+    collection_id, model_id, car_make, car_year, car_model = entries[i]
+    logging.info('i: %d model_id: %s, collection_id %s' % (i, model_id, collection_id))
+
     s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
-    query_cursor.execute(s, (car_make, car_year, car_model))
-    result = query_cursor.fetchone()
-    if result is not None:
-      count += 1
+    result_carquery = _findDimsCarQuery(query_cursor, car_make, car_year, car_model)
+    if result_carquery is None:
+      i = i - 1 if button == ord('-') else i + 1
       continue
-    logging.debug('Did not find info for: %s' % str((car_make, car_year, car_model)))
+    count += 1
+    result_blender = _getDimsFromBlender(cursor, collection_id, model_id)
+    logging.info('For collection_id: %s, model_id: %s:\n\tBlender:  %s\n\tCarQuery: %s' %
+        (collection_id, model_id, str(result_blender), str(result_carquery)))
 
-    if car_year is None:
-      s = 'SELECT DISTINCT car_year FROM gt WHERE car_make=? AND car_model=? ORDER BY car_year ASC'
-      query_cursor.execute(s, (car_make, car_model))
-      result = query_cursor.fetchall()
-      if result:
-        logging.debug('The year is not known for %s, but there are models for years %s. Will take the max year.' % \
-            (str((car_make, car_model)), str(result)))
-        last_year = int(result[-1][0])
-        s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
-        query_cursor.execute(s, (car_make, str(last_year), car_model))  # TODO: in v2 fix type of year.
-        result = query_cursor.fetchone()
-        assert result is not None
-        count += 1
-        continue
-      logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
+    # Load the example image.
+    example_path = getExamplePath(collection_id, model_id)
+    assert op.exists(example_path), example_path
+    image = cv2.imread(example_path)
+    assert image is not None, example_path
 
-    s = 'SELECT DISTINCT car_year FROM gt WHERE car_make=? AND car_model=?'
-    query_cursor.execute(s, (car_make, car_model))
-    result = query_cursor.fetchall()
-    if result:
-      logging.debug('Did not find a model for year: %s, but there are models for years %s' % \
-          (str((car_make, car_year, car_model)), str(result)))
-      closest_year = min([x[0] for x in result], key=lambda x:abs(x - int(car_year)))  # TODO: in v2 fix type of year.
-      s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
-      query_cursor.execute(s, (car_make, str(closest_year), car_model))  # TODO: in v2 fix type of year.
-      result = query_cursor.fetchone()
-      assert result is not None
-      count += 1
+    # Show image and ask for a key
+    print ('Enter %s' % ','.join(['"%s"' % 'lwhb'[i] for i,x in enumerate(result_carquery) if x is not None]))
+    s = 'SELECT comment FROM cad WHERE collection_id=? AND model_id=?'
+    _debug_execute(s, (collection_id, model_id))
+    cursor.execute(s, (collection_id, model_id))
+    comment = cursor.fetchone()[0]
+    if comment is not None:
+      font = cv2.FONT_HERSHEY_SIMPLEX
+      color = (0,255,255)
+      thickness = 2
+      logging.info('Comment: %s' % comment)
+      cv2.putText (image, comment, (50,50), font, 2, color, thickness)
+    cv2.imshow('show', image)
+    button = cv2.waitKey(-1)
+    logging.debug('User pressed button: %d' % button)
+
+    if button == 27:
+      break
+    elif button == ord('-'):
+      logging.debug('Previous car.')
+      i -= 1
       continue
-    logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
-
-    s = 'SELECT DISTINCT car_make FROM gt WHERE car_make=?'
-    query_cursor.execute(s, (car_make,))
-    result = query_cursor.fetchone()
-    if result is not None:
-      logging.warning('Found the make "%s", but not the model "%s", is model name incorrect?' % (car_make, car_model))
+    elif button == ord('='):
+      logging.debug('Next car.')
+      i += 1
       continue
-    logging.info('Did not find info for make: %s' % car_make)
+    elif button == ord(' '):
+      logging.debug('User verified the model is correct.')
+      i += 1
+    elif button == ord('l') and result_carquery[0] is not None:
+      scale = result_carquery[0] / result_blender[0]
+      logging.debug('Button "l", will scale based on length, scale=%.3f.' % scale)
+    elif button == ord('w') and result_carquery[1] is not None:
+      scale = result_carquery[1] / result_blender[1]
+      logging.debug('Button "w", will scale based on width, scale=%.3f.' % scale)
+    elif button == ord('h') and result_carquery[2] is not None:
+      scale = result_carquery[2] / result_blender[2]
+      logging.debug('Button "h", will scale based on height, scale=%.3f.' % scale)
+    elif button == ord('b') and result_carquery[3] is not None:
+      scale = result_carquery[3] / result_blender[3]
+      logging.debug('Button "b", will scale based on wheelbase, scale=%.3f.' % scale)
+
+    # Scale
+    if button in [ord('l'), ord('w'), ord('h'), ord('b')]:
+      model = {
+          'blend_file': getBlendPath(collection_id, model_id),
+          'scale': scale,
+          'dry_run': 1 if args.dry_run else 0
+      }
+      model_path = op.join(WORK_DIR, 'model.json')
+      with open(model_path, 'w') as f:
+        f.write(json.dumps(model, indent=2))
+
+      try:
+        command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
+                   atcity('src/augmentation/collections/scale.py')]
+        returncode = subprocess.call (command, shell=False)
+        logging.info ('blender returned code %s' % str(returncode))
+        # Re-render.
+        _renderExample (collection_id, model_id, overwrite=True)
+      except:
+        logging.error('failed with exception: %s' % traceback.format_exc())
+        break
+      scale = None
+
+    if button == ord('e'):
+      try:
+        command = ['%s/blender' % os.getenv('BLENDER_ROOT'),
+                   getBlendPath(collection_id, model_id)]
+        returncode = subprocess.call (command, shell=False)
+        logging.debug('Blender returned code %s' % str(returncode))
+        # Re-render.
+        _renderExample (collection_id, model_id, overwrite=True)
+      except:
+        logging.error('failed with exception: %s' % traceback.format_exc())
+        break
+
+    # Update CAD.
+    if not args.dry_run:
+      scale_by = 'user' if button == ord(' ') else chr(button)
+      s = 'UPDATE cad SET comment="scale_by_%s" WHERE collection_id=? AND model_id=?' % scale_by
+      _debug_execute(s, (collection_id, model_id))
+      cursor.execute(s, (collection_id, model_id))
 
   logging.info('Found dimensions for %d models.' % count)
-
   query_conn.close()
 
 
@@ -754,6 +930,7 @@ if __name__ == "__main__":
   subparsers = parser.add_subparsers()
   importCollectionsParser(subparsers)
   removeAllWithoutRenderParser(subparsers)
+  removeAllWithoutBlendParser(subparsers)
   makeGridParser(subparsers)
   removeDuplicatesParser(subparsers)
   plotHistogramParser(subparsers)
