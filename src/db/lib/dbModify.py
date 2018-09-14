@@ -323,8 +323,8 @@ def mergePolygonsIntoMaskParser(subparsers):
   parser.set_defaults(func=mergePolygonsIntoMask)
   parser.add_argument('--add_db_files', nargs='+', required=True)
   parser.add_argument('--out_mask_video_file', required=True)
-  parser.add_argument('--write_null_mask_entries', action='store_true',
-    help='Write null when there is no new mask.')
+  parser.add_argument('--min_merges_per_image', default=0, type=int,
+    help='Require a minimum number of objects to be merged into one.')
   parser.add_argument('--overwrite_video', action='store_true',
     help='Overwrite mask video istead of throwing an exception.')
 
@@ -386,20 +386,19 @@ def mergePolygonsIntoMask (c, args):
         s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
         c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?)' % s, car_entry[1:])
         carid = c.lastrowid[0]
-      # Insert into 'polygons' table of main db, if not there.
-      if carid not in [carid for carid, in carids_main_with_poly]:
-        logging.debug('Inserting carid %d into "polygons" table of the main db' % carid)
-        for x,y in polygon_entries:
-          s = 'polygons(carid,x,y)'
-          c.execute('INSERT INTO %s VALUES (?,?,?)' % s, (carid,x,y))
 
+    if count_masks < args.min_merges_per_image:
+      c.execute('DELETE FROM cars WHERE imagefile=?', (imagefile,))
+      c.execute('DELETE FROM images WHERE imagefile=?', (imagefile,))
+      logging.debug('Only merged objects for this image %d. Remove image entry.' % count_masks)
     mask_sum = (mask_sum / count_masks).astype(np.uint8)
-    logging.debug('Number of polygons for this image: %d' % count_masks)
+    logging.debug('Number of merged objects for this image: %d' % count_masks)
     maskfile = video_writer.maskwrite(mask_sum)
     c.execute('UPDATE images SET maskfile=? WHERE imagefile=?', (maskfile, imagefile))
 
   for conn_add in conn_add_list:
     conn_add.close()
+  video_writer.close()
 
 
 def keepFraction (c, keep_fraction=None, keep_num=None, randomly=True):
