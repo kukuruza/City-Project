@@ -3,8 +3,8 @@ import numpy as np
 from time import time
 import logging
 from functools import partial
-from scene import Video
-import conventions
+from .scene import Video
+from . import conventions
 
 
 '''

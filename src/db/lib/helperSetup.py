@@ -3,7 +3,7 @@ import argparse
 import logging, logging.handlers
 import shutil
 import sqlite3
-from helperDb import createDb
+from .helperDb import createDb
 
 def atcity (path):
   if op.isabs(path):

@@ -2,8 +2,8 @@ import os.path as op
 import numpy as np
 from time import time
 import logging
-from scene import Video
-from conventions import read_azimuth_image
+from .scene import Video
+from .conventions import read_azimuth_image
 
 
 

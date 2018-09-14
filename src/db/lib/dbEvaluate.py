@@ -4,9 +4,9 @@ import logging
 import sqlite3
 import numpy as np
 from progressbar import ProgressBar
-from helperSetup import dbInit
-from helperDb    import carField
-from helperImg   import ReaderVideo
+from .helperSetup import dbInit
+from .helperDb    import carField
+from .helperImg   import ReaderVideo
 
 
 
@@ -142,7 +142,7 @@ def evaluateDetection (c, args):
 
   conn_gt.close()
 
-  print 'average precision', ap
+  print ('average precision', ap)
 
 
 

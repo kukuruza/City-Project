@@ -4,12 +4,8 @@ import json
 import logging
 import bpy
 from augmentation.common import *
-from augmentation.collections.utils import bounds
-
-def atcity (path):
-  return op.join(os.getenv('CITY_PATH'), path)
-
-WORK_DIR = atcity('data/augmentation/blender/current-collection')
+from augmentation.utils import bounds
+from augmentation.collections.collectionUtilities import WORK_DIR, atcity
 
 
 def render_example (model_id):
@@ -44,11 +40,6 @@ if __name__ == '__main__':
 
     model_path = op.join(WORK_DIR, 'model.json')
     model = json.load(open(model_path))
-
-    valid = model['valid'] if 'valid' in model else True
-    if not valid: 
-        logging.info ('skip invalid model %s' % model['model_id'])
-        sys.exit()
 
     model_id = model['model_id']
     logging.info ('processing model: %s' % model_id)

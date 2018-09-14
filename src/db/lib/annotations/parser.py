@@ -1,11 +1,7 @@
-# Classs to parse the labelme annotations
-#
-# 
-
 import os, sys, os.path as op
 import re
-from spelling import SpellingCorrector
-from terms import TermTree
+from .spelling import SpellingCorrector
+from .terms import TermTree
 import json
 import logging
 

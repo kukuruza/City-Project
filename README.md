@@ -20,11 +20,17 @@ imageio
 
 ## Import labelme image annotations
 ```
+# Export for labelling.
 modify \
-   -i data/patches/Oct10-real/w55-goodtypes-e04-filt.db \
-   -o data/patches/Oct10-real/w55-goodtypes-e04-filt-poly.db \
-   importLabelme --in_annotations_dir ~/src/labelme/LabelMeAnnotationTool/Annotations/w55-goodtypes-e04 --merge_cars \
-   polygonsToMasks --mask_name w55-goodtypes-e04mask.avi --overwrite_video --write_null_mask_entries
+    -i data/patches/Oct10-real/w55-e04.db 
+    exportImagesToFolder --image_dir ~/src/labelme/LabelMeAnnotationTool/Images/w55-e04
+
+# Import labelled.
+modify \
+   -i data/patches/Oct10-real/w55-e04.db \
+   -o data/patches/Oct10-real/w55-e04-mask.db \
+   importLabelme --in_annotations_dir ~/src/labelme/LabelMeAnnotationTool/Annotations/w55-e04 --merge_cars \
+   polygonsToMasks --mask_name w55-e04mask.avi --overwrite_video --write_null_mask_entries
 ```
 
 ## Import labelme car annotations

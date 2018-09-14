@@ -1,11 +1,11 @@
 import os, sys, os.path as op
 import numpy as np
 import logging
-from dbUtilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi, drawScoredPolygon
-from dbUtilities import getCenter
-from helperDb    import deleteCar, carField, createTableMatches, doesTableExist
-from helperKeys  import KeyReaderUser, getCalibration
-from helperImg   import ReaderVideo
+from .dbUtilities import bbox2roi, roi2bbox, drawRoi, drawScoredRoi, drawScoredPolygon
+from .dbUtilities import getCenter
+from .helperDb    import deleteCar, carField, createTableMatches, doesTableExist
+from .helperKeys  import KeyReaderUser, getCalibration
+from .helperImg   import ReaderVideo
 import cv2
 
 

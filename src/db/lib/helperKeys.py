@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import logging
 import abc
-import ConfigParser
+from configparser import ConfigParser
 
 
 
@@ -21,7 +21,7 @@ def getCalibration ():
     config_path = op.join(CITY_PATH, 'etc', 'config.ini')
 
     # try to read keys from the file
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser()
     if op.exists (config_path):
         config.read(config_path)
         try:
@@ -35,7 +35,7 @@ def getCalibration ():
            logging.info ('will calibrate the keys')
 
     # if keys can't be read, then calibrate
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser()
     cv2.imshow('dummy', np.zeros((10,10), dtype=np.uint8))
     config.add_section('opencv_keys')
 

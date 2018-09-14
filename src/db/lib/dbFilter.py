@@ -4,12 +4,12 @@ import cv2
 import logging
 import json
 from progressbar import ProgressBar
-from helperDb import deleteCars, deleteCar, carField, imageField, doesTableExist
-from annotations.terms import TermTree
-from dbUtilities import drawRoi, bbox2roi
-from helperSetup import atcity
-from helperKeys import KeyReaderUser
-from helperImg import ReaderVideo
+from .annotations.terms import TermTree
+from .helperDb import deleteCars, deleteCar, carField, imageField, doesTableExist
+from .dbUtilities import drawRoi, bbox2roi
+from .helperSetup import atcity
+from .helperKeys import KeyReaderUser
+from .helperImg import ReaderVideo
 
 
 def add_parsers(subparsers):

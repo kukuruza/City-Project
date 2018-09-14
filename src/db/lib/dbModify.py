@@ -7,14 +7,14 @@ import json
 import cv2
 import random
 from progressbar import ProgressBar
-import dbUtilities
-from helperDb          import createDb, deleteCar, carField, imageField, deleteCars
-from helperDb          import doesTableExist, createTablePolygons
-from dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
-from annotations.terms import TermTree
-from helperSetup       import atcity, dbInit
-from helperKeys        import KeyReaderUser
-from helperImg         import ReaderVideo, ProcessorVideo, SimpleWriter
+from .helperDb          import createDb, deleteCar, carField, imageField, deleteCars
+from .helperDb          import doesTableExist, createTablePolygons
+from .dbUtilities       import bbox2roi, roi2bbox, bottomCenter, drawRoi
+from .dbUtilities       import expandRoiToRatio, expandRoiFloat
+from .annotations.terms import TermTree
+from .helperSetup       import atcity, dbInit
+from .helperKeys        import KeyReaderUser
+from .helperImg         import ReaderVideo, ProcessorVideo, SimpleWriter
 
 
 def add_parsers(subparsers):
@@ -47,9 +47,9 @@ def _expandCarBbox_ (car_entry, args):
   carid = carField(car_entry, 'id')
   roi = bbox2roi (carField(car_entry, 'bbox'))
   if args.keep_ratio:
-    roi = dbUtilities.expandRoiToRatio(roi, args.expand_perc, args.target_ratio)
+    roi = expandRoiToRatio(roi, args.expand_perc, args.target_ratio)
   else:
-    roi = dbUtilities.expandRoiFloat(roi, (args.expand_perc, args.expand_perc))
+    roi = expandRoiFloat(roi, (args.expand_perc, args.expand_perc))
   return roi
 
 
