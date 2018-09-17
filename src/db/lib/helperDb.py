@@ -1,7 +1,6 @@
 import logging
 import json
 import sqlite3
-from progressbar import ProgressBar
 from datetime import datetime
 
 
@@ -102,7 +101,7 @@ def deleteCar (cursor, carid, has_polygons=False, has_matches=False):#, remove_m
 def deleteCars (cursor, carids):
   has_polygons = doesTableExist(cursor, 'polygons')
   has_matches = doesTableExist(cursor, 'matches')
-  for carid, in ProgressBar()(carids):
+  for carid, in carids:
     deleteCar (cursor, carid, has_polygons=has_polygons, has_matches=has_matches)
 
 

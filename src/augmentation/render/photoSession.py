@@ -9,14 +9,14 @@ from glob import glob
 from random import choice
 from numpy.random import normal, uniform
 from mathutils import Color, Euler
-from augmentation.common import *
-from db.lib.helperSetup import atcity, setupLogging
+from augmentation.render.common import *
+from augmentation.collections.collectionUtilities import atcity, getBlendPath
 
 
 COLLECTIONS_DIR  = atcity('data/augmentation/CAD')
 ROAD_TEXTURE_DIR = atcity('data/augmentation/resources/textures/road')
 BLDG_TEXTURE_DIR = atcity('data/augmentation/resources/textures/buildings')
-WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
+WORK_PATCHES_DIR = atcity('/tmp/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
 
@@ -168,8 +168,7 @@ def photo_session (job):
 
     car_names = []
     for i,vehicle in enumerate(vehicles):
-        blend_path = op.join(COLLECTIONS_DIR, vehicle['collection_id'], 
-                             'blend/%s.blend' % vehicle['model_id'])
+        blend_path = getBlendPath(vehicle['collection_id'], vehicle['model_id'])
 
         assert op.exists(blend_path), 'blend path does not exist' % blend_path
         # if 'dims' not in vehicle or not op.exists(blend_path):
@@ -183,7 +182,7 @@ def photo_session (job):
 
     # take snapshots from different angles
     dims = vehicles[0]['dims']  # dict with 'x', 'y', 'z' in meters
-    car_sz = sqrt(dims['x']*dims['x'] + dims['y']*dims['y'] + dims['z']*dims['z'])
+    car_sz = sqrt(dims['x']**2 + dims['y']**2 + dims['z']**2)
     for i in range(num_per_session):
         render_dir = op.join(WORK_DIR, '%06d' % i)
         use_90turn = job['use_90turn'] if 'use_90turn' in job else False
@@ -205,16 +204,12 @@ def photo_session (job):
         with open(out_path, 'w') as f:
             f.write(json.dumps({'azimuth':      (180 - params['azimuth']) % 360, # match KITTI
                                 'altitude':     params['altitude'],
-                                'vehicle_type': vehicles[0]['vehicle_type'],
-                                'model_id':     vehicles[0]['model_id']}, indent=4))
-
-
-
-logging.basicConfig(level=logging.WARNING, stream=sys.stderr, 
-    format='%(levelname)s:photosession: %(message)s')
-#setupLogging('log/augmentation/photoSession.log', logging.DEBUG, 'a')
+                                'model_id':     vehicles[0]['model_id']
+                                }, indent=4))
 
 job = json.load(open( op.join(WORK_DIR, JOB_INFO_NAME) ))
+logging.basicConfig(level=job['logging'], stream=sys.stderr, 
+    format='%(levelname)s:photosession: %(message)s')
 
 photo_session (job)
 

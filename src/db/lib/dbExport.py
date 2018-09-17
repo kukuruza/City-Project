@@ -2,6 +2,7 @@ import os, sys, os.path as op
 import argparse
 import logging
 import sqlite3
+import cv2
 import numpy as np
 import traceback
 from progressbar import ProgressBar
@@ -80,15 +81,15 @@ class DatasetWriter:
     return imagefile
 
   def add_car(self, car_entry):
-    if len(car_entry) == 9:
-      s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch)'
-      logging.debug('Adding a new car %s' % str(car_entry))
-      self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?);' % s, car_entry)
-      return self.c.lastrowid
-    elif len(car_entry) == 10:
-      s = 'cars(id,imagefile,name,x1,y1,width,height,score,yaw,pitch)'
+    if len(car_entry) == 10:
+      s = 'cars(imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
       logging.debug('Adding a new car %s' % str(car_entry))
       self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?);' % s, car_entry)
+      return self.c.lastrowid
+    elif len(car_entry) == 11:
+      s = 'cars(id,imagefile,name,x1,y1,width,height,score,yaw,pitch,color)'
+      logging.debug('Adding a new car %s' % str(car_entry))
+      self.c.execute('INSERT INTO %s VALUES (?,?,?,?,?,?,?,?,?,?,?);' % s, car_entry)
       return
     else:
       raise Exception('Wrong format of car_entry.')
@@ -156,7 +157,8 @@ def exportCarsToDataset(c, args):
       # Add the car entry.
       car_entry = (carid, out_imagefile, carField(car,'name'), 
                   0, 0, args.target_width, args.target_height,
-                  carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'))
+                  carField(car,'score'), carField(car,'yaw'), carField(car,'pitch'),
+                  carField(car,'color'))
       dataset_writer.add_car(car_entry)
 
       # Add the match entry, if any.
@@ -183,7 +185,6 @@ def exportImagesWBoxesParser(subparsers):
 
 def exportImagesWBoxes (c, args):
   logging.info ('==== exportImagesWBoxes ====')
-  import cv2
 
   reader = ReaderVideo()
   video_writer = SimpleWriter(vimagefile=args.out_videofile)
@@ -271,7 +272,6 @@ def exportImagesToFolderParser(subparsers):
 
 def exportImagesToFolder(c, args):
   logging.info('=== exportImagesToFolder ===')
-  import cv2
   assert args.image_dir is not None or args.mask_dir is not None
 
   reader = ReaderVideo(relpath=args.relpath)

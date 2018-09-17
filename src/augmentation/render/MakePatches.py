@@ -9,19 +9,19 @@ import traceback
 import shutil
 import argparse
 import progressbar
+import sqlite3
 import numpy as np
 from numpy.random import normal, uniform
-from random import choice
+from random import shuffle, sample, choice
 from glob import glob
 from math import ceil, pi
-from pprint import pprint
+from pprint import pprint, pformat
 from db.lib.helperSetup import atcity
 from db.lib.dbUtilities import mask2bbox
 from db.lib.dbExport import DatasetWriter
 from db.lib.helperImg import imread, imsave
-from augmentation.Cad import Cad
 
-WORK_PATCHES_DIR = atcity('data/augmentation/blender/current-patch')
+WORK_PATCHES_DIR = atcity('/tmp/blender/current-patch')
 JOB_INFO_NAME    = 'job_info.json'
 OUT_INFO_NAME    = 'out_info.json'
 
@@ -199,15 +199,20 @@ def run_patches_job (job):
   logging.info ('have total of %d occluding cars' % len(occl_vehicles))
   # Finally, send to job.
   job['vehicles'] = [main_vehicle] + occl_vehicles
+  job['logging'] = logging.getLogger().getEffectiveLevel()
 
   job_path = op.join(WORK_DIR, JOB_INFO_NAME)
   with open(job_path, 'w') as f:
     logging.debug('writing info to job_path %s' % job_path)
+    logging.debug('job:\n%s' % pformat(job))
     f.write(json.dumps(job, indent=4))
   try:
     command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
-                '%s/src/augmentation/photoSession.py' % os.getenv('CITY_PATH')]
-    returncode = subprocess.call (command, shell=False, stdout=FNULL, stderr=FNULL)
+                '%s/src/augmentation/render/photoSession.py' % os.getenv('CITY_PATH')]
+    # if job['logging'] == 10:
+    #   returncode = subprocess.call (command, shell=False) #, stdout=FNULL, stderr=FNULL)
+    # else:
+    returncode = subprocess.call (command, shell=False, stdout=FNULL)#, stderr=FNULL)
     logging.debug ('blender returned code %s' % str(returncode))
     patch_entries = [process_scene_dir(patch_dir) for
             patch_dir in sorted(glob(op.join(WORK_DIR, '??????')))]
@@ -225,25 +230,38 @@ def write_results(dataset_writer, patch_entries, use_90turn):
     logging.warning('Dropping the whole scene.')
     return
 
-  if any(x is None for x in patch_entries):
+  if any(x is None for x in patch_entries) and use_90turn:
     logging.error('One patch is bad for some reason, dropping the whole scene.')
     return
 
   for i,patch_entry in enumerate(patch_entries):
-    (patch, mask, name, bbox, visible_perc, yaw, pitch) = patch_entry
-    imagefile = dataset_writer.add_image(patch, mask=mask)
-    car = (imagefile, name, bbox[0], bbox[1], bbox[2], bbox[3], visible_perc, yaw, pitch)
-    carid = dataset_writer.add_car(car)
-    if use_90turn:
-      if i % 2 == 0:
-        match = dataset_writer.add_match(carid)
-      else:
-        dataset_writer.add_match(carid, match)
+    if patch_entry is not None:
+      (patch, mask, name, bbox, visible_perc, yaw, pitch) = patch_entry
+      imagefile = dataset_writer.add_image(patch, mask=mask)
+      car = (imagefile, name, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]), visible_perc, yaw, pitch)
+      carid = dataset_writer.add_car(car)
+      if use_90turn:
+        if i % 2 == 0:
+          match = dataset_writer.add_match(carid)
+        else:
+          dataset_writer.add_match(carid, match)
     
+
+def _fetch_cad_models(cursor, clause):
+  cursor.execute('SELECT collection_id,model_id,dims_L,dims_W,dims_H FROM cad %s' % clause)
+  models = cursor.fetchall()
+  shuffle(models)
+  models = [{'collection_id': x[0], 
+             'model_id': x[1], 
+             'dims': {'x': x[2], 'y': x[3], 'z': x[4]}
+            } for x in models]
+  return models
+
 
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser()
+  parser.add_argument('--cad_db_path', required=True)
   parser.add_argument('-o', '--out_db_file', default='data/patches/test/scenes.db')
   parser.add_argument('--logging', type=int, default=20, choices=[10,20,30,40])
   parser.add_argument('--num_sessions',    type=int, default=5)
@@ -252,10 +270,10 @@ if __name__ == "__main__":
   parser.add_argument('--mode', default='SEQUENTIAL', choices=['SEQUENTIAL', 'PARALLEL'])
   parser.add_argument('--save_blender', action='store_true',
                       help='save .blend render file')
-  parser.add_argument('--collection_id', required=False,
-                      help='if left empty, use all collections')
-  parser.add_argument('--vehicle_type', required=False,
-                      help='if left empty, use all types')
+  parser.add_argument('--clause_main', default='WHERE error IS NULL',
+                      help='clause to SQL query to define main (center) model')
+  parser.add_argument('--clause_occl', default='WHERE error IS NULL',
+                      help='clause to SQL query to define models around the main one')
   parser.add_argument('--azimuth_low', type=float, default=0.)
   parser.add_argument('--azimuth_high', type=float, default=360.)
   parser.add_argument('--pitch_low', type=float, default=20.)
@@ -266,12 +284,16 @@ if __name__ == "__main__":
   logging.basicConfig(level=args.logging, format='%(levelname)s: %(message)s')
   progressbar.streams.wrap_stderr()
 
-  cad = Cad()
-  logging.info(cad.check_connection())
-
-  main_models = cad.get_ready_models(
-      collection_id=args.collection_id, vehicle_type=args.vehicle_type)
+  # Get main_models and occl_models_pool from cad_db_path.
+  if not op.exists(args.cad_db_path):
+    raise Exception('Cad db does not exist at "%s"' % args.cad_db_path)
+  cad_conn = sqlite3.connect(args.cad_db_path)
+  cad_cursor = cad_conn.cursor()
+  main_models = _fetch_cad_models(cad_cursor, args.clause_main)
   logging.info('Using total %d models.' % len(main_models))
+  occl_models_pool = _fetch_cad_models(cad_cursor, args.clause_occl)
+  logging.info('Using total %d occluding models.' % len(occl_models_pool))
+  cad_conn.close()
 
   job = {'num_per_session': args.num_per_session,
           'azimuth_low':  args.azimuth_low,
@@ -286,12 +308,8 @@ if __name__ == "__main__":
   for i,job in enumerate(jobs):
     job['i'] = i
     job['main_model'] = main_models[i % len(main_models)]
-    job['occl_models'] = cad.get_random_ready_models(
-        number=args.num_occluding, vehicle_type=args.vehicle_type)
+    job['occl_models'] = sample(occl_models_pool, args.num_occluding)
     logging.debug(job['occl_models'])
-    for occl_model in job['occl_models']:
-      if 'description' in occl_model:
-        del occl_model['description']  # to make it more compact
 
   dataset_writer = DatasetWriter(args.out_db_file, overwrite=True)
 

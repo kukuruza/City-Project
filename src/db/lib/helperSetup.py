@@ -72,6 +72,9 @@ def dbInit(db_in_path=None, db_out_path=None, overwrite=False):
   db_in_path  = atcity(db_in_path) if db_in_path else None
   db_out_path = atcity(db_out_path) if db_out_path else None
 
+  if db_in_path is not None and not op.exists(db_in_path):
+    raise Exception('db_in_path specified, but does not exist: %s' % db_in_path)
+
   if db_in_path is not None and db_out_path is not None:
     _setupCopyDb_ (db_in_path, db_out_path)
   elif db_in_path is not None and db_out_path is None:
@@ -86,10 +89,14 @@ def dbInit(db_in_path=None, db_out_path=None, overwrite=False):
   else:
     raise Exception('dbInit: either db_in_path or db_out_path should be not None.')
 
+  logging.debug('Connecting to %s' % db_out_path)
   conn = sqlite3.connect (db_out_path)
   cursor = conn.cursor()
 
   if db_in_path is None and db_out_path is not None:
     createDb(conn)
+
+  cursor.execute('SELECT COUNT(1) FROM cars')
+  print (cursor.fetchone())
 
   return (conn, cursor)

@@ -137,8 +137,9 @@ python3 src/augmentation/collections/MakeCarQueryDb.py \
 
 # Look up how many models are in this CarQueryDb.
 python3 src/augmentation/collections/Modify.py \
---dry_run \
---in_db_file data/augmentation/CAD/collections_v1.db \
-fillDimsFromCarQueryDb \
---car_query_db_path data/augmentation/resources/CQA_Advanced_v1.1.db
+  --in_db_file data/augmentation/CAD/collections_v1.db \
+  --out_db_file data/augmentation/CAD/collections_v1.db \
+  --clause 'WHERE car_make IS NOT NULL AND car_model IS NOT NULL AND comment IS NULL' \
+  fillDimsFromCarQueryDb \
+  --car_query_db_path data/augmentation/resources/CQA_Advanced_v1.1.db
 ```

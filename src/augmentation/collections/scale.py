@@ -3,7 +3,7 @@ sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import json
 import logging
 import bpy
-from augmentation.common import *
+from augmentation.render.common import *
 from augmentation.collections.collectionUtilities import WORK_DIR, atcity
 
 

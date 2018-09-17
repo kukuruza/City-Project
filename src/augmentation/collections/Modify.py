@@ -188,7 +188,7 @@ def _findDimsCarQuery(cursor, car_make, car_year, car_model):
       return result
     else:
       logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
-      return None
+      return None, None, None
 
   # The query car has the year field, try to match exactly.
   s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
@@ -216,7 +216,32 @@ def _findDimsCarQuery(cursor, car_make, car_year, car_model):
     return result
 
   logging.debug('Did not find info for any year for: %s' % str((car_make, car_model)))
-  return None
+  return None, None, None
+
+
+def _findDimsInProperties(cursor, collection_id, model_id):
+    # Length.
+    s = 'SELECT label FROM clas WHERE collection_id=? AND model_id=? AND class="length"'
+    _debug_execute(s, (collection_id, model_id))
+    cursor.execute(s, (collection_id, model_id))
+    length = cursor.fetchall()
+    assert len(length) <= 1
+    length = length[0] if len(length) == 1 else None
+    # Width.
+    s = 'SELECT label FROM clas WHERE collection_id=? AND model_id=? AND class="width"'
+    _debug_execute(s, (collection_id, model_id))
+    cursor.execute(s, (collection_id, model_id))
+    width = cursor.fetchall()
+    assert len(width) <= 1
+    width = width[0] if len(width) == 1 else None
+    # Heihgt.
+    s = 'SELECT label FROM clas WHERE collection_id=? AND model_id=? AND class="height"'
+    _debug_execute(s, (collection_id, model_id))
+    cursor.execute(s, (collection_id, model_id))
+    height = cursor.fetchall()
+    assert len(height) <= 1
+    height = height[0] if len(height) == 1 else None
+    return length, width, height
 
 
 def importCollectionsParser(subparsers):
@@ -586,6 +611,7 @@ def plotHistogramParser(subparsers):
   parser.add_argument('--rotate_xticklabels', action='store_true')
   parser.add_argument('--categorical', action='store_true')
   parser.add_argument('--display', action='store_true', help='show on screen.')
+  parser.add_argument('--show_unlabelled', action='store_true', help='include models without labels.')
   parser.add_argument('--out_path', help='if specified, will save the plot to this file.')
 
 def plotHistogram(cursor, args):
@@ -597,7 +623,7 @@ def plotHistogram(cursor, args):
   cursor.execute(args.query)
   entries = cursor.fetchall()
 
-  xlist = [x for x, in entries if x is not None]
+  xlist = [x if x is not None else ('unlabelled' if args.show_unlabelled else None) for x, in entries]
   if not xlist:
     logging.info('No cars, nothing to draw.')
     return
@@ -780,7 +806,6 @@ def fillDimsFromCarQueryDbParser(subparsers):
   parser = subparsers.add_parser('fillDimsFromCarQueryDb',
     description='For each model search the CarQueryDb for the dims info.')
   parser.set_defaults(func=fillDimsFromCarQueryDb)
-  parser.add_argument('--where', default='1', help='e.g., clause after WHERE.')
   parser.add_argument('--car_query_db_path', required=True)
 
 def fillDimsFromCarQueryDb(cursor, args):
@@ -791,37 +816,29 @@ def fillDimsFromCarQueryDb(cursor, args):
   query_conn = sqlite3.connect(args.car_query_db_path)
   query_cursor = query_conn.cursor()
 
-  s = 'SELECT collection_id, model_id, car_make, car_year, car_model FROM cad ' \
-      'WHERE car_make IS NOT NULL AND car_model IS NOT NULL AND %s;' % args.where
+  s = 'SELECT collection_id, model_id, car_make, car_year, car_model FROM cad %s' % args.clause
   logging.debug('Will execute: %s' % s)
   cursor.execute(s)
   entries = cursor.fetchall()
   logging.info('Found %d entries' % len(entries))
 
-  count = 0
   button = 0
   i = 0
   while True:
 
-    # Going in a loop.
-    if i == -1:
-      logging.info('Looping to the last model.')
     if i == len(entries):
-      logging.info('Looping to the first model.')
-    i = i % len(entries)
+      logging.info('No more models.')
+      break
 
     collection_id, model_id, car_make, car_year, car_model = entries[i]
     logging.info('i: %d model_id: %s, collection_id %s' % (i, model_id, collection_id))
 
     s = 'SELECT DISTINCT dims_L, dims_W, dims_H, wheelbase FROM gt WHERE car_make=? AND car_year=? AND car_model=?'
     result_carquery = _findDimsCarQuery(query_cursor, car_make, car_year, car_model)
-    if result_carquery is None:
-      i = i - 1 if button == ord('-') else i + 1
-      continue
-    count += 1
     result_blender = _getDimsFromBlender(cursor, collection_id, model_id)
-    logging.info('For collection_id: %s, model_id: %s:\n\tBlender:  %s\n\tCarQuery: %s' %
-        (collection_id, model_id, str(result_blender), str(result_carquery)))
+    logging.info('For collection_id: %s, model_id: %s:\n\tCar: "%s %s %s"\n\tBlender:  %s\n\tCarQuery: %s' %
+        (collection_id, model_id, car_make, (car_year if car_year else ''), car_model,
+         str(result_blender), str(result_carquery)))
 
     # Load the example image.
     example_path = getExamplePath(collection_id, model_id)
@@ -871,14 +888,55 @@ def fillDimsFromCarQueryDb(cursor, args):
       scale = result_carquery[3] / result_blender[3]
       logging.debug('Button "b", will scale based on wheelbase, scale=%.3f.' % scale)
 
+    elif button == ord('L'):
+      logging.debug('Input the length in inches')
+      inches = float(input())
+      length = inches * 0.0254
+      scale = length / result_blender[0]
+    elif button == ord('W'):
+      logging.debug('Input the width in inches')
+      inches = float(input())
+      width = inches * 0.0254
+      scale = width / result_blender[1]
+    elif button == ord('H'):
+      logging.debug('Input the height in inches')
+      inches = float(input())
+      height = inches * 0.0254
+      scale = height / result_blender[2]
+
+    def _getS(axis):
+      prop_dims = _findDimsInProperties(cursor, collection_id, model_id)
+      if prop_dims[axis] is None:
+        s = 'INSERT INTO clas(label,class,collection_id,model_id) VALUES (?,?,?,?)'
+      else:
+        s = 'UPDATE clas SET label=? WHERE class=? AND collection_id=? AND model_id=?'
+      return s
+
+    if button == ord('L'):
+      s = _getS(0)
+      _debug_execute(s, (length, 'length', collection_id, model_id))
+      cursor.execute(s, (length, 'length', collection_id, model_id))
+      length = None
+    if button == ord('W'):
+      s = _getS(1)
+      _debug_execute(s, (width, 'width', collection_id, model_id))
+      cursor.execute(s, (width, 'width', collection_id, model_id))
+      width = None
+    if button == ord('H'):
+      s = _getS(2)
+      _debug_execute(s, (height, 'height', collection_id, model_id))
+      cursor.execute(s, (height, 'height', collection_id, model_id))
+      height = None
+
     # Scale
-    if button in [ord('l'), ord('w'), ord('h'), ord('b')]:
+    if button in [ord('l'), ord('w'), ord('h'), ord('b'), ord('L'), ord('W'), ord('H')]:
       model = {
           'blend_file': getBlendPath(collection_id, model_id),
           'scale': scale,
           'dry_run': 1 if args.dry_run else 0
       }
       model_path = op.join(WORK_DIR, 'model.json')
+      logging.info('Going to scale with scale == %.2f' % scale)
       with open(model_path, 'w') as f:
         f.write(json.dumps(model, indent=2))
 
@@ -907,13 +965,13 @@ def fillDimsFromCarQueryDb(cursor, args):
         break
 
     # Update CAD.
-    if not args.dry_run:
+    if not args.dry_run and button in [
+        ord('l'), ord('w'), ord('h'), ord('b'), ord('e'), ord('L'), ord('H'), ord(' ')]:
       scale_by = 'user' if button == ord(' ') else chr(button)
       s = 'UPDATE cad SET comment="scale_by_%s" WHERE collection_id=? AND model_id=?' % scale_by
       _debug_execute(s, (collection_id, model_id))
       cursor.execute(s, (collection_id, model_id))
 
-  logging.info('Found dimensions for %d models.' % count)
   query_conn.close()
 
 
