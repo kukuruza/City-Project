@@ -15,8 +15,9 @@ modify -i data/patches/test/scenes.db \
   exportCarsToDataset --edges distort --target_width 64 --target_height 64 --patch_db_file data/patches/test/patches-w55-e04.db
 
 python3 src/augmentation/render/SetPropertyAsName.py \
-  --db_path data/patches/test/patches-w55-e04.db \
   --cad_db_path data/augmentation/CAD/collections_v1.db \
+  --in_db_path data/patches/test/patches-w55-e04.db \
+  --out_db_path data/patches/test/patches-w55-e04-name.db \
   --classes type1
 ```
 

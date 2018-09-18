@@ -172,7 +172,8 @@ def process_scene_dir(patch_dir):
     name = out_info['model_id']  # Write model_id to name.
     yaw = out_info['azimuth']
     pitch = out_info['altitude']
-    return (patch, mask, name, bbox, visible_perc, yaw, pitch)
+    color = out_info['color']
+    return (patch, mask, name, bbox, visible_perc, yaw, pitch, color)
   except:
     logging.error('A patch failed for some reason in scene %s' % patch_dir)
     return None
@@ -236,9 +237,9 @@ def write_results(dataset_writer, patch_entries, use_90turn):
 
   for i,patch_entry in enumerate(patch_entries):
     if patch_entry is not None:
-      (patch, mask, name, bbox, visible_perc, yaw, pitch) = patch_entry
+      (patch, mask, name, bbox, visible_perc, yaw, pitch, color) = patch_entry
       imagefile = dataset_writer.add_image(patch, mask=mask)
-      car = (imagefile, name, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]), visible_perc, yaw, pitch)
+      car = (imagefile, name, int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]), visible_perc, yaw, pitch, color)
       carid = dataset_writer.add_car(car)
       if use_90turn:
         if i % 2 == 0:
@@ -248,12 +249,13 @@ def write_results(dataset_writer, patch_entries, use_90turn):
     
 
 def _fetch_cad_models(cursor, clause):
-  cursor.execute('SELECT collection_id,model_id,dims_L,dims_W,dims_H FROM cad %s' % clause)
+  cursor.execute('SELECT collection_id,model_id,dims_L,dims_W,dims_H,color FROM cad %s' % clause)
   models = cursor.fetchall()
   shuffle(models)
   models = [{'collection_id': x[0], 
              'model_id': x[1], 
-             'dims': {'x': x[2], 'y': x[3], 'z': x[4]}
+             'dims': {'x': x[2], 'y': x[3], 'z': x[4]},
+             'color': x[5]
             } for x in models]
   return models
 

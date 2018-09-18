@@ -204,7 +204,8 @@ def photo_session (job):
         with open(out_path, 'w') as f:
             f.write(json.dumps({'azimuth':      (180 - params['azimuth']) % 360, # match KITTI
                                 'altitude':     params['altitude'],
-                                'model_id':     vehicles[0]['model_id']
+                                'model_id':     vehicles[0]['model_id'],
+                                'color':        vehicles[0]['color']
                                 }, indent=4))
 
 job = json.load(open( op.join(WORK_DIR, JOB_INFO_NAME) ))

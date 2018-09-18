@@ -1,6 +1,9 @@
+import sys, os, os.path as op
+sys.path.insert(0, op.join(os.getenv('CITY_PATH'), 'src'))
 import sqlite3
 import logging
 import argparse
+from augmentation.collections.collectionUtilities import safeConnect
 
 if __name__ == "__main__":
 
@@ -8,7 +11,8 @@ if __name__ == "__main__":
      'combines them into a single string, and writes to 2D db. '
      'It is assumed that "name" field of 2D db is actually a "model_id" of 3D db.')
   parser.add_argument('--cad_db_path', required=True)
-  parser.add_argument('--db_path', required=True)
+  parser.add_argument('--in_db_path', required=True)
+  parser.add_argument('--out_db_path', required=True)
   parser.add_argument('--logging', type=int, default=20, choices=[10,20,30,40])
   parser.add_argument('--classes', nargs='+', required=True, 
       help='Names of classes to in clas table')
@@ -21,7 +25,7 @@ if __name__ == "__main__":
   cad_conn = sqlite3.connect(args.cad_db_path)
   cad_cursor = cad_conn.cursor()
 
-  conn = sqlite3.connect(args.db_path)
+  conn = safeConnect(args.in_db_path, args.out_db_path)
   cursor = conn.cursor()
 
   cursor.execute('SELECT DISTINCT(name) FROM cars')
