@@ -10,15 +10,18 @@ python3 src/augmentation/render/MakePatches.py \
   --clause_main 'WHERE error IS NULL AND dims_L < 10' \
   --cad_db_path data/augmentation/CAD/collections_v1.db
 
-modify -i data/patches/test/scenes.db \
-  expandBoxes --expand_perc 0.2 \
-  exportCarsToDataset --edges distort --target_width 64 --target_height 64 --patch_db_file data/patches/test/patches-w55-e04.db
-
 python3 src/augmentation/render/SetPropertyAsName.py \
+  --in_db_path  data/patches/Sept18-pitch5to35-1K/scenes.db \
+  --out_db_path data/patches/Sept18-pitch5to35-1K/scenes-name.db \
   --cad_db_path data/augmentation/CAD/collections_v1.db \
-  --in_db_path data/patches/test/patches-w55-e04.db \
-  --out_db_path data/patches/test/patches-w55-e04-name.db \
-  --classes type1
+  --classes type1 domain
+
+modify \
+  -i data/patches/Sept18-pitch5to35-1K/scenes-name.db \
+  filterByBorder \
+  expandBoxes --expand_perc 0.2 \
+  exportCarsToDataset --edges distort --target_width 64 --target_height 64 \
+    --patch_db_file data/patches/Sept18-pitch5to35-1K/patches-w55-e04.db 
 ```
 
 ```

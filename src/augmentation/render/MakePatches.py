@@ -184,8 +184,9 @@ def run_patches_job (job):
   if op.exists(WORK_DIR):
     shutil.rmtree(WORK_DIR)
   os.makedirs(WORK_DIR)
+  log_path = '%s.log' % WORK_PATCHES_DIR
 
-  logging.info ('run_patches_job started job %d' % job['i'])
+  logging.info ('run_patches_job started job %d' % job['job_id'])
 
   # After getting info delete to avoid pollution.
   main_model  = job['main_model']
@@ -206,7 +207,11 @@ def run_patches_job (job):
   with open(job_path, 'w') as f:
     logging.debug('writing info to job_path %s' % job_path)
     logging.debug('job:\n%s' % pformat(job))
-    f.write(json.dumps(job, indent=4))
+    f.write(json.dumps(job, indent=2))
+
+  with open(log_path, 'a') as f:
+    f.write(json.dumps(job, indent=2))
+
   try:
     command = ['%s/blender' % os.getenv('BLENDER_ROOT'), '--background', '--python',
                 '%s/src/augmentation/render/photoSession.py' % os.getenv('CITY_PATH')]
@@ -308,7 +313,7 @@ if __name__ == "__main__":
   # give parameters to each job
   jobs = [job.copy() for i in range(args.num_sessions)]
   for i,job in enumerate(jobs):
-    job['i'] = i
+    job['job_id'] = i
     job['main_model'] = main_models[i % len(main_models)]
     job['occl_models'] = sample(occl_models_pool, args.num_occluding)
     logging.debug(job['occl_models'])
