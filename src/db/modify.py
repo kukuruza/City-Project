@@ -1,11 +1,10 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 import os, sys
 sys.path.insert(0, os.path.join(os.getenv('CITY_PATH'), 'src'))
 import logging
 import argparse
 from db.lib.helperSetup import dbInit
 from db.lib import dbFilter, dbModify, dbManual, dbInfo, dbExport, dbLabel, dbEvaluate, dbLabelme
-from augmentation import dbCadFilter
 import progressbar
 
 
@@ -30,7 +29,6 @@ dbModify.add_parsers(subparsers)
 dbManual.add_parsers(subparsers)
 dbInfo.add_parsers(subparsers)
 dbExport.add_parsers(subparsers)
-dbCadFilter.add_parsers(subparsers)
 dbLabel.add_parsers(subparsers)
 dbEvaluate.add_parsers(subparsers)
 dbLabelme.add_parsers(subparsers)
