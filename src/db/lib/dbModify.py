@@ -106,7 +106,7 @@ def moveVideoParser(subparsers):
   parser.add_argument('--image_video')
   parser.add_argument('--mask_video')
 
-def moveVideo (c, params):
+def moveVideo (c, args):
   logging.info ('==== moveVideo ====')
 
   if args.image_video:
@@ -126,9 +126,10 @@ def moveVideo (c, params):
     c.execute('SELECT maskfile FROM images')
     maskfiles = c.fetchall()
 
-    for oldfile, in ProgressBar()(maskfiles, desc='mask_dir'):
-      newfile = op.join (image_video, op.basename(oldfile))
-      c.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
+    for oldfile, in ProgressBar()(maskfiles):
+      if oldfile is not None:
+        newfile = op.join (image_video, op.basename(oldfile))
+        c.execute('UPDATE images SET maskfile=? WHERE maskfile=?', (newfile, oldfile))
 
 
 def addParser(subparsers):

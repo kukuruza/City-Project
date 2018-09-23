@@ -2,7 +2,7 @@ import os, os.path as op
 import shutil
 import logging
 import simplejson as json
-from imageio import imread
+from cv2 import imread
 from glob import glob
 import re
 import numpy as np
