@@ -23,9 +23,9 @@ OUT_INFO_NAME    = 'out_info.json'
 WORK_DIR = '%s-%d' % (WORK_PATCHES_DIR, os.getppid())
 
 
-SCALE_FACTOR = 3   # how far a camera is from the origin
-RENDER_WIDTH  = 600
-RENDER_HEIGHT = 600
+SCALE_FACTOR = 4   # how far a camera is from the origin
+RENDER_WIDTH  = 800
+RENDER_HEIGHT = 800
 
 # sampling weather and camera position
 SUN_ALTITUDE_MIN  = 20
@@ -71,13 +71,16 @@ def choose_params(azimuth_low, azimuth_high, pitch_low, pitch_high):
 def make_snapshot (car_sz, render_dir, car_names, params):
     '''Set up the weather, and render vehicles into files
     Args:
-      render_dir:  path to directory where to put all rendered images
+      render_dir:  absolute path to directory where to put all rendered images
       car_names:   names of car objects in the scene
       params:      dictionary with frame information
     Returns:
       nothing
     '''
-    logging.info ('make_snapshot: started')
+    # create render dir
+    logging.info('make_snapshot will use render_dir: %s' % render_dir)
+    if not op.exists(render_dir):
+        os.makedirs(render_dir)
 
     # compute camera position
     azimuth_rad = params['azimuth'] * pi / 180
@@ -104,15 +107,10 @@ def make_snapshot (car_sz, render_dir, car_names, params):
     # put the building at the edge of the road, opposite to the camera
     bpy.data.objects['-Building'].location.y = params['road_width'] / 2 * (1 if y < 0 else -1)
     
-    # create render dir
-    print (atcity(render_dir))
-    if not op.exists(atcity(render_dir)):
-        os.makedirs(atcity(render_dir))
-
     # nodes to change output paths
-    bpy.context.scene.node_tree.nodes['render'].base_path = atcity(render_dir)
-    bpy.context.scene.node_tree.nodes['depth-all'].base_path = atcity(render_dir)
-    bpy.context.scene.node_tree.nodes['depth-car'].base_path = atcity(render_dir)
+    bpy.context.scene.node_tree.nodes['render'].base_path = render_dir
+    bpy.context.scene.node_tree.nodes['depth-all'].base_path = render_dir
+    bpy.context.scene.node_tree.nodes['depth-car'].base_path = render_dir
 
     # make all cars receive shadows
     logging.info ('materials: %s' % len(bpy.data.materials))
@@ -133,8 +131,8 @@ def make_snapshot (car_sz, render_dir, car_names, params):
 
     # change the names of output png files
     for layer_name in ['render', 'depth-all', 'depth-car']:
-        os.rename(atcity(op.join(render_dir, '%s0001' % layer_name)), 
-                  atcity(op.join(render_dir, '%s.png' % layer_name)))
+        os.rename(op.join(render_dir, '%s0001' % layer_name), 
+                  op.join(render_dir, '%s.png' % layer_name))
 
     ### aftermath
     
@@ -196,11 +194,11 @@ def photo_session (job):
           params = choose_params(azimuth_low, azimuth_high, pitch_low, pitch_high)
         make_snapshot (car_sz, render_dir, car_names, params)
 
-        if job['save_blender']:
-            bpy.ops.wm.save_as_mainfile (filepath=atcity(op.join(render_dir, 'out.blend')))
+        if job['save_blend']:
+            bpy.ops.wm.save_as_mainfile (filepath=op.join(render_dir, 'out.blend'))
 
         ### write down some labelling info
-        out_path = atcity(op.join(render_dir, OUT_INFO_NAME))
+        out_path = op.join(render_dir, OUT_INFO_NAME)
         with open(out_path, 'w') as f:
             f.write(json.dumps({'azimuth':      (180 - params['azimuth']) % 360, # match KITTI
                                 'altitude':     params['altitude'],

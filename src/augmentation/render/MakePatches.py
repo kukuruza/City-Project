@@ -275,16 +275,16 @@ if __name__ == "__main__":
   parser.add_argument('--num_per_session', type=int, default=2)
   parser.add_argument('--num_occluding',   type=int, default=5)
   parser.add_argument('--mode', default='SEQUENTIAL', choices=['SEQUENTIAL', 'PARALLEL'])
-  parser.add_argument('--save_blender', action='store_true',
-                      help='save .blend render file')
+  parser.add_argument('--save_blend', action='store_true',
+                      help='save .blend file with the scene set up')
   parser.add_argument('--clause_main', default='WHERE error IS NULL',
                       help='clause to SQL query to define main (center) model')
   parser.add_argument('--clause_occl', default='WHERE error IS NULL',
                       help='clause to SQL query to define models around the main one')
   parser.add_argument('--azimuth_low', type=float, default=0.)
   parser.add_argument('--azimuth_high', type=float, default=360.)
-  parser.add_argument('--pitch_low', type=float, default=20.)
-  parser.add_argument('--pitch_high', type=float, default=40.)
+  parser.add_argument('--pitch_low', type=float, default=5.)
+  parser.add_argument('--pitch_high', type=float, default=35.)
   parser.add_argument('--use_90turn', action='store_true')
   args = parser.parse_args()
 
@@ -307,7 +307,7 @@ if __name__ == "__main__":
           'azimuth_high': args.azimuth_high,
           'pitch_low':    args.pitch_low,
           'pitch_high':   args.pitch_high,
-          'save_blender': args.save_blender,
+          'save_blend': args.save_blend,
           'use_90turn':   args.use_90turn}
 
   # give parameters to each job
