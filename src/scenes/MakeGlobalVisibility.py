@@ -27,7 +27,11 @@ def getCameraCircleMask(shape, x, y, radius):
   # Make a image with a single white point.
   assert len(shape) == 2
   image = np.zeros(shape, dtype=float)
-  image[y,x] = 1.
+  try:
+    image[y,x] = 1.
+  except IndexError as e:
+    logging.error('Camera is out of the bigmap. Origin is at x=%d,y=%d.' % (x, y))
+    return None
   # Make a kernel for that shape.
   kernel = makeLinearCircularKernel(radius)
   # Convolve the single white point with kernel and scale back to 1 max.
@@ -43,10 +47,9 @@ def apply_H(H, x, y):
   return dst
 
 
-def H_from_points(pxls_to_coords, name):
+def H_from_points(pxls_to_coords):
   ''' Return H from pxl<->coords correspondences. '''
 
-  logging.info('Called for camera %s' % name)
   p1 = pxls_to_coords[0]
   p2 = pxls_to_coords[1]
   avg_lat_rad = ((p2['lat'] + p1['lat']) / 2) * (np.pi / 180)
@@ -131,7 +134,8 @@ def getVisibleMapForCamera(camera_id, bigpic_shape, H_bigpic_to_coord, default_h
 
   # H from map to coordinates.
   points = pose.map['pxls_to_coords']
-  H_map_to_coords = H_from_points(points, name=str(camera_id))
+  print ('Calling H_from_points for camera', camera_id)
+  H_map_to_coords = H_from_points(points)
   logging.debug('H_map_to_coords:\n%s' % str(H_map_to_coords))
 
   # H from frame to bigpic.
@@ -151,10 +155,12 @@ def getVisibleMapForCamera(camera_id, bigpic_shape, H_bigpic_to_coord, default_h
 
   # Each camera has a average radius. Compute it and filter the mask.
   radius_of_frame_center = computeCameraRange(H_frame_to_bigpic, frameH, frameW)
-  RADIUS_MULT = 20
+  RADIUS_MULT = 10
   radius_mask = getCameraCircleMask(
       shape=(bigpicH,bigpicW), x=int(origin_bigpic[0]), y=int(origin_bigpic[1]),
       radius=int(radius_of_frame_center * RADIUS_MULT))
+  if radius_mask is None:
+    return np.zeros((bigpicH,bigpicW), dtype=np.uint8)
   visible_bigpic = (visible_bigpic.astype(float) * radius_mask).astype(np.uint8)
 
   return visible_bigpic
@@ -177,7 +183,8 @@ if __name__ == "__main__":
   # Load bigpic and its information.
   bigpicmap = Map(camera_id='bigpic', map_id=args.bigpic_mapid)
   points = bigpicmap['pxls_to_coords']
-  H_bigpic_to_coord = H_from_points(points, name='bigpic')
+  print ('Calling H_from_points for bigpic')
+  H_bigpic_to_coord = H_from_points(points)
   bigpic = cv2.imread(_atcity('data/scenes/bigpic/map%d/map.png' % args.bigpic_mapid))
 
   if args.camera_ids is not None:

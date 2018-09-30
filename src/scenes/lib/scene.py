@@ -2,11 +2,8 @@ import os, os.path as op
 import shutil
 import logging
 import simplejson as json
-<<<<<<< HEAD
-from cv2 import imread
-=======
+from imageio import imread
 import cv2
->>>>>>> working MakeGlobalVisibility script to make map of NYC with cameras
 from glob import glob
 import re
 import numpy as np
@@ -75,7 +72,7 @@ class Map(Info):
   def load_satellite(self):
     satellite_path = op.join(self.get_map_dir(), 'satellite.jpg')
     assert op.exists(satellite_path), satellite_path
-    satellite = cv2.imread(satellite_path)[:,:,-1]
+    satellite = imread(satellite_path)
     assert satellite.shape[:2] == (self['map_dims']['height'], self['map_dims']['width'])
     return satellite
 
@@ -109,7 +106,7 @@ class Pose(Info):
     frame_paths = glob(frame_pattern)
     assert len(frame_paths) > 0, frame_pattern
     frame_path = frame_paths[0]  # Take a single frame.
-    frame = cv2.imread(frame_path)[:,:,-1]
+    frame = imread(frame_path)
     assert frame.shape[:2] == (
       self.camera['cam_dims']['height'], self.camera['cam_dims']['width'])
     return frame
@@ -162,7 +159,7 @@ class Video(Info):
     frame_paths = glob(frame_pattern)
     assert len(frame_paths) > 0, frame_pattern
     frame_path = frame_paths[0]  # Take a single frame.
-    frame = cv2.imread(frame_path)[:,:,-1]
+    frame = imread(frame_path)
     return frame
 
   @classmethod

@@ -40,7 +40,7 @@ if __name__ == "__main__":
   method = cv2.RANSAC if args.ransac else 0
   H, _ = cv2.findHomography(src_pts, dst_pts, method=method)
   pose['H_pose_to_map'] = H.copy().reshape((-1,)).tolist()
-  print H
+  print (H)
 
   mapH = pose.map['map_dims']['height']
   mapW = pose.map['map_dims']['width']

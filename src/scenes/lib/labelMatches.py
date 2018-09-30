@@ -10,7 +10,7 @@ import simplejson as json
 import colorsys
 from pprint import pprint, pformat
 from scipy.misc import imread
-from lib.cvWindow import Window
+from lib.cvScrollZoomWindow import Window
 from lib.warp import warp, transformPoint
 
 
