@@ -173,7 +173,7 @@ if __name__ == "__main__":
     help='just like for cameras, bigpic has maps.')
   parser.add_argument('--camera_ids', nargs='*', type=int, required=False,
     help='if given use only one camera, if not given use all cameras.')
-  parser.add_argument('--default_height', type=float, default=8.5)
+  parser.add_argument('--ext', choices=['png', 'jpg'], default='png')
   parser.add_argument('--logging', type=int, default=20, choices=[10,20,30,40])
   args = parser.parse_args()
   
@@ -200,8 +200,12 @@ if __name__ == "__main__":
         camera_id, bigpic.shape, H_bigpic_to_coord, args.default_height)
     visiblemap += visiblemap_cam
 
-  alpha_mult = np.tile(visiblemap.astype(float)[:,:,np.newaxis] / 512 + 0.5, 3)
-  visiblemap = (bigpic * alpha_mult).astype(np.uint8)
-  visibility_path = _atcity('data/scenes/bigpic/map%d/visibility.jpg' % args.bigpic_mapid)
+  if args.ext == 'jpg'
+    alpha_mult = np.tile(visiblemap.astype(float)[:,:,np.newaxis] / 512 + 0.5, 3)
+    visiblemap = (bigpic * alpha_mult).astype(np.uint8)
+    visibility_path = _atcity('data/scenes/bigpic/map%d/visibility.jpg' % args.bigpic_mapid)
+  elif args.ext == 'png':
+    visiblemap = np.concatenate((bigpic, (visiblemap // 2 + 128)[:,:,np.newaxis]), axis=2)
+    visibility_path = _atcity('data/scenes/bigpic/map%d/visibility.png' % args.bigpic_mapid)
   cv2.imwrite(visibility_path, visiblemap)
 
